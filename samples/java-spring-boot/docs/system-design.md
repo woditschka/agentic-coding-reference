@@ -56,6 +56,17 @@ Naming conventions for the types inside each module — pattern suffixes, prohib
 | Contract | Purpose | Source | Implements |
 |----------|---------|--------|------------|
 
+## Scale and Load
+
+<!-- PROJECT: The workload the code is sized for. The design owner writes each row at triage; the implementer selects against it and the code-quality reviewer judges against the same row. A figure nobody knows is written as "unrecorded, treated as bounded" and corrected here when the real figure arrives. "Bounded" is a complete row. -->
+
+| Data set or path | Realistic size | Growth | Access pattern | Form |
+|------------------|----------------|--------|----------------|------|
+<!-- One row per collection or path that scales with use: rows, requests per second, payload size. Access pattern: request-private, shared read-mostly, shared read-write. Form: the structure or algorithm chosen. On a hot path it carries its time and space bound with its kind (worst-case, average, amortized). A hand-written one, or a measured claim, links its ADR. -->
+
+- **Hot paths:** <!-- the request or batch paths where latency or throughput is a requirement, with the figure -->
+- **Limits:** <!-- memory, connection, query, or round-trip budgets the deployment imposes -->
+
 ## Dependency Policy
 
 Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
@@ -71,7 +82,7 @@ Minimize external dependencies. Every dependency is an attack surface and a main
 
 Before adding a dependency, verify:
 
-1. **Necessity** — Can the JDK or an existing starter solve the problem?
+1. **Necessity** — Can the JDK or an existing starter solve the problem? A dependency for one function is justified only when the function is more than a few lines of tested code and the library is established. The decision weighs writing and maintaining the code against the dependency and its transitive tree.
 2. **Source** — Is the artifact managed by the Spring Boot BOM? If not, create an ADR.
 3. **Audit** — Review transitive dependencies via `./gradlew dependencies`. Flag unknown artifacts.
 4. **Verification** — Pin versions through the BOM; never float versions in `build.gradle`.

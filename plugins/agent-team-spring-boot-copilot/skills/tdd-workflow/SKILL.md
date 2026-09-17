@@ -62,7 +62,7 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 | `correct` | Does the code handle every spec case and every listed failure mode? |
 | `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Is each rule tested once, at the unit that owns it, never again through a client's suite? Then run the Test-Conventions Walk below. |
 | `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? Does a matched neighbor break a security law? Then the match is the defect, not the deviation. |
-| `operationally-honest` | Do errors carry 3am-debuggable context? Is resource use reasonable? |
+| `operationally-honest` | Do errors carry 3am-debuggable context? Does each path that scales with data fit the § Scale and Load row the design record cites, or did I raise the gap? Is anything hand-written that the standard library or an approved source provides? Does a performance claim name its measurement? |
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
 | `secure-by-design` | Does any input, boundary, secret, or privilege appear in this diff? If so: does it validate at the boundary, keep secrets out of logs and errors, grant least privilege, and fail closed? Does a request bind into a persisted type whole? Then it binds a request-scoped object or an allow-list instead. |
 
@@ -83,7 +83,7 @@ Every class below is a write-time decision — the right form costs the same key
 - A pure-logic rule has a unit test at its seam; framework-booted coverage alone means the rule landed in the wrong layer (`tested-as-spec`).
 - A client's test exercises a collaborator through one representative path. A collaborator's case table appears only in its own suite, and a private helper has no suite of its own (`tested-as-spec`).
 - New domain-facing names use the terms `docs/ubiquitous-language.md` defines (`consistent-with-codebase`).
-- Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`).
+- Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`). A workload row the record cites is a walk note naming the chosen form, never a benchmark.
 
 The walk narrows what reviewers find, never what they check. Every class stays on the reviewer checklists, the roster floor is untouched, and reviewers keep reading the change set with fresh eyes. Single-shot on conventions is the goal; the independent review cycle stays load-bearing for everything that needs judgment.
 

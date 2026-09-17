@@ -48,6 +48,7 @@ AN_UNKNOWN_FILE = "notes.dat"
 A_PROBE = r"@\w+Mapping\("
 A_SECURITY_CLAUSE = "secure-by-design"
 A_QUALITY_CLAUSE = "legible-cold"
+A_WORKLOAD_CLAUSE = "operationally-honest"
 
 
 def a_layout():
@@ -718,6 +719,29 @@ class FixCycle(unittest.TestCase):
 
         self.assertEqual(plan.triggers, ("prior-critical",))
 
+    def test_a_critical_carrying_the_workload_clause_stays_on_its_surface(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC,),
+            dissenters=(CODE_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_critical(),
+                    reviewer=CODE_REVIEWER,
+                    location=located(A_DOC),
+                    bar_clause=A_WORKLOAD_CLAUSE,
+                ),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC]), context=context, delta=a_delta([A_DOC], ["docs"])
+        )
+
+        self.assertEqual(plan.scope, "fix-delta")
+        self.assertNotIn("prior-critical", plan.triggers)
+        self.assertNotIn(SECURITY_REVIEWER, plan.roster)
+
     def test_a_critical_keeps_its_raiser_even_off_the_dissent_list(self):
         context = replace(
             a_fix_context(),
@@ -1106,6 +1130,11 @@ class OpenFindings(unittest.TestCase):
         finding = replace(a_finding(), bar_clause=A_SECURITY_CLAUSE)
 
         self.assertEqual(finding.implicated_reviewer, SECURITY_REVIEWER)
+
+    def test_the_workload_clause_implicates_the_code_quality_reviewer(self):
+        finding = replace(a_finding(), bar_clause=A_WORKLOAD_CLAUSE)
+
+        self.assertEqual(finding.implicated_reviewer, CODE_REVIEWER)
 
     def test_an_unknown_clause_implicates_nobody(self):
         self.assertIsNone(replace(a_finding(), bar_clause="bogus").implicated_reviewer)

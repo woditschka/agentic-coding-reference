@@ -28,7 +28,7 @@ When dispatched on a `prd-entry`, your task is to decide one of six verdicts and
 
 Always read, in this order:
 
-1. `docs/system-design.md` — current architectural state, invariants, patterns.
+1. `docs/system-design.md` — current architectural state, invariants, patterns, and § Scale and Load, the sizes and access patterns a slice is designed against.
 2. `docs/adr/` — the decision log behind the design doc's lines, for humans first. Read an ADR by back-link when the slice touches a line that cites it, in `docs/system-design.md` or in the PRD's Non-Goals rows; the directory is never a routine read.
 3. `docs/ubiquitous-language.md` — project vocabulary, terms to avoid.
 4. The active `prd-entry` and any prior `design-block` records for the same `req_id` (the slice trail).
@@ -153,7 +153,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 
 **Binding per entry point.** For each new entry point that binds a request, an `integration_points` entry names the binding target: a request-scoped object, or a persisted type behind an allow-list. A persisted type bound whole is never a design. The implementer follows the entry; the security reviewer holds the handler to the same law in `security-checks`, which needs no record.
 
-**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty; `integration_points` still names a double for each boundary the tests cross and a binding target for each new entry point. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the refactor runs first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor completes).
+**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty; `integration_points` still names a double for each boundary the tests cross and a binding target for each new entry point. `risks` still cites the § Scale and Load row for each path that scales with data. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the refactor runs first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor completes).
 
 **Risks cite principles.** A recorded risk, mitigation, or integration point is the implementer's briefing, derived from durable memory for this slice: it cites the principle-brief section or the `docs/system-design.md` row it instantiates. A risk that cites nothing is the signal that a principle is missing — record the principle in the brief that owns it, never the slice's detail in `docs/system-design.md`. Reviewers judge against the briefs, not this record (`review-workflow` § Reviewer Read-Set (Fresh Eyes)), so the briefs must carry every rule a reviewer needs. A `new` or `foundational` triage that establishes a principle writes it to the owning brief in the same dispatch; the rule bars slice detail, not the principle.
 
@@ -244,10 +244,18 @@ See `docs/security-principles.md` — the project's trust-boundary map (§ Trust
 - [ ] The design grants least privilege and fails closed on error
 - [ ] The vulnerability classes the brief flags for this stack are addressed where the slice touches them
 
+### Fit for the Workload
+
+See `docs/system-design.md` § Scale and Load — the rows implementer and reviewer both select and judge against (`tdd-principles` § Fit for the Workload). Write the row, never a private estimate:
+
+- [ ] Each path the slice adds that scales with data has a row: dominant operations, realistic size, access pattern, and the chosen form. A hot-path row also states the form's time and space bound with its kind: worst-case, average, or amortized. A new row is a `minor` verdict at least; `covered` cites an existing row only. A figure nobody knows is written as "unrecorded, treated as bounded", so the simplest correct form is the recorded design until the owner corrects the row
+- [ ] A `risks` entry cites the row: `risk` names the path and its row, `mitigation` names the form; a bounded path's mitigation is "simplest readable form"
+- [ ] A structure or algorithm the design hand-writes where a library offers one is a recorded exception: an ADR, and the row's Form column linking it. Security-sensitive code is never hand-written
+
 ### Reliability by Design
 - [ ] Failure modes enumerated
 - [ ] Timeouts specified for all blocking operations
-- [ ] Resource limits defined (buffers, connections)
+- [ ] Resource limits defined (buffers, connections); the budgets themselves live in § Scale and Load
 - [ ] Graceful shutdown / cancellation of long-running work specified
 
 ### Understandability

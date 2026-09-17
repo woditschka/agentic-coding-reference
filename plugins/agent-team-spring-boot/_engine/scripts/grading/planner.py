@@ -29,7 +29,7 @@ RUNTIME_PREFIXES = (".claude/", ".github/", ".opencode/", "schemas/", "scripts/"
 # a fix cycle re-runs that reviewer even when its own verdict was approved.
 BAR_CLAUSE_REVIEWER = {
     "secure-by-design": SECURITY_REVIEWER,
-    "operationally-honest": SECURITY_REVIEWER,
+    "operationally-honest": "code-quality-reviewer",
     "correct": "test-reviewer",
     "tested-as-spec": "test-reviewer",
     "fit-for-purpose": "code-quality-reviewer",

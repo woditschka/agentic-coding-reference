@@ -2,7 +2,7 @@
 name: code-quality-review
 description: >-
   Java code quality checklist for Spring Boot applications, plus design
-  placement against the project's recorded briefs. Load when conducting
+  placement and workload fit against the project's recorded briefs. Load when conducting
   code quality reviews.
 compatibility:
   - claude-code
@@ -40,6 +40,31 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 
 - [ ] The change delivers the slice's acceptance bullets and nothing past them. Behavior outside the requirement, or work a recorded non-goal rules out, is a `blocked` finding carrying `bar_clause: "spec-grounded"`; speculative generality carries `"fit-for-purpose"`. The rule reaches fix rounds. A fix delta that changed behavior on a route or flow those bullets do not name is the same finding, whichever reviewer asked for it.
 - [ ] New domain-facing names — types, fields, operations, user-facing messages — use the terms `docs/ubiquitous-language.md` defines and none it lists as terms to avoid. A coined synonym for a defined term is a `blocked` finding, severity `fixable`, carrying `bar_clause: "consistent-with-codebase"` and citing the entry. An empty vocabulary doc clears the check; say so rather than guessing.
+
+## Workload Fit
+
+Resource use is judged against `docs/system-design.md` § Scale and Load, never against the reviewer's own estimate of the workload. The implementer selected against that section, and a review from a different basis is taste (`tdd-principles` § Fit for the Workload). For every new or changed code path that scales with data:
+
+- [ ] The structure's time and space complexity fits the row's operations, size, and access pattern. A mismatch is a `blocked` finding under `operationally-honest` citing the row, severity `fixable`. A form that fits the row but differs from its Form column is judged on fit; the column records, it does not bind. `critical` is for a hot-path or limit row only, because a misfit elsewhere ships without harm and a critical sustains dissent alone.
+- [ ] A hot-path row states its form's time and space bound with its kind. The code's structure delivers that bound, because on a hot path the bound is the requirement.
+- [ ] A row marked "unrecorded, treated as bounded" makes the simplest correct form the right one. The marker is not a finding, because the row is where the owner corrects the figure, never the code.
+- [ ] When no row covers a path that plainly scales with user data, the finding is `clarify` to the system-design-expert on `changes_requested`, with no `bar_clause`, never `blocked`. Locate it at `docs/system-design.md`, so the owner is dispatched directly. The reviewer invents no size, as the implementer may not.
+- [ ] A finding that asks for a more complex structure cites the row that demands it. Without one the simplest correct form stands, because clarity is paid on every read.
+- [ ] Nothing is hand-written that the JDK or an approved source provides (`java.util` collections, `Comparator`, `PriorityQueue`, `ArrayDeque`, `java.util.concurrent`). An exception is recorded in the row's Form column with its ADR, because hand-written structures are where subtle bugs live; its case-table tests are the test-reviewer's.
+- [ ] A performance claim names its measurement or says it is reasoned, in the row or an ADR; a code comment carries no bound. A benchmark harness is not a project dependency by default.
+- [ ] An inefficiency outside the change set is a `recommendations` entry, never a finding on the slice (`spec-grounded`).
+- [ ] An unbounded load is the security-reviewer's `secure-by-design` item; this section files nothing twice.
+
+The free tier is the default on every path: where the better form costs nothing in clarity, it is taken without a row. The test is clarity, not the shape; a scan over a bounded literal list is the simplest form and stays. A neighbor's misselection is a convention only while the path stays bounded, because it starts to cost once the path grows. A miss is `blocked`, severity `fixable`, under `operationally-honest` where the better form is equally clear; otherwise a `recommendations` entry. Common shapes:
+
+- `List.contains` or `indexOf` inside a loop over a collection that grows, where a `Set` or `Map` serves
+- string built by `+=` in a loop instead of `StringBuilder` or `String.join`
+- `LinkedList`, or `remove(0)` on an `ArrayList` in a loop, where `ArrayDeque` serves
+- nested loop over two collections where one map lookup serves
+- `HashMap` or `ArrayList` mutated from more than one thread; a `ConcurrentHashMap` where a request-private map serves
+- `parallelStream()` on a bounded collection; boxing in a stream where a primitive stream serves
+- N+1 query: a repository call inside a loop, or a lazy association walked per row, where a fetch join or `@EntityGraph` serves
+- a transaction held open around I/O that does not need it
 
 ## Code Quality Checklist
 

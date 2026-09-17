@@ -65,7 +65,7 @@ The PRD states *what*, never *how* or *why*. Litmus: if it changes when the impl
 | `## Dependency Policy` | Approved sources; what a new dependency must satisfy |
 | `## Threat Model` | What is trusted, what crosses a boundary |
 
-Current state only. Rationale prose belongs in ADRs; every imperative line carries an ADR back-link. `[review]` Every REQ-ID it references exists in `prd.md`. `[doctor]`
+Current state only. Rationale prose belongs in ADRs; every imperative line carries an ADR back-link. `[review]` Every REQ-ID it references exists in `prd.md`. `[doctor]` Two template sections the doctor does not require are read by reviewers. `## Security Context` is the security reviewer's. `## Scale and Load`, one row per scaling path with "bounded" a complete row, is the code-quality reviewer's.
 
 ### `adr/`
 

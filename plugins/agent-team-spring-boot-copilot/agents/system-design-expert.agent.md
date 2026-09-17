@@ -59,7 +59,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Reference Documents
 
-- **System Design:** `docs/system-design.md` — architectural truth (you own this)
+- **System Design:** `docs/system-design.md` — architectural truth (you own this, including its § Scale and Load rows, written at triage)
 - **Architecture Principles:** `docs/architecture-principles.md` — modulith architecture, module rules, DDD building blocks, validation checklist
 - **Security Principles:** `docs/security-principles.md` — the project's trust boundaries and the stack's high-bar defaults; the design places and validates trust boundaries against this brief
 - **PRD:** `docs/prd.md` — requirements truth (DO NOT MODIFY; owned by product-requirements-expert)

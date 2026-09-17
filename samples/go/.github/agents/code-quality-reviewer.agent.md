@@ -34,7 +34,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Reference Documents
 
-- **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
+- **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling, and § Scale and Load, the rows that justify a selection past the free tier
 - **Architecture Principles:** `docs/architecture-principles.md` — module boundaries, patterns, naming
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria, non-goals
@@ -50,13 +50,15 @@ Review against these sources. Verify against them when uncertain, via your runti
 - [Style Guide](https://google.github.io/styleguide/go/guide) — clarity, simplicity, concision, maintainability, consistency
 - [Style Decisions](https://google.github.io/styleguide/go/decisions) — naming, comments, imports, errors, language features
 - [Best Practices](https://google.github.io/styleguide/go/best-practices) — naming, errors, documentation, testing, function design
+- [`slices`](https://pkg.go.dev/slices), [`maps`](https://pkg.go.dev/maps), [`sort`](https://pkg.go.dev/sort), [`container/heap`](https://pkg.go.dev/container/heap) — the standard structures and their documented guarantees, the basis for a Workload Fit ruling
+- [`sync.Map`](https://pkg.go.dev/sync#Map) — its two documented use cases
 
 ## Review Process
 
 1. Run `make lint` and capture output.
 2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 3. Identify changed/new files.
-4. Check each file against the `code-quality-review` skill: its Design Placement and Scope and Vocabulary sections first, then the checklist.
+4. Check each file against the `code-quality-review` skill: its Design Placement, Scope and Vocabulary, and Workload Fit sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include lint issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

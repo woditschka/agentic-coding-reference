@@ -67,7 +67,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership | feature-implementer |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria | feature-implementer, reviewers |
 | `review-workflow` | Review process, feedback tags, output format, partial-artifact contract; reference tables in its `reference.md` | All reviewers, feature-implementer |
-| `code-quality-review` | Java code quality checklist, design placement, scope and vocabulary | code-quality-reviewer |
+| `code-quality-review` | Java code quality checklist, design placement, scope and vocabulary, workload fit | code-quality-reviewer |
 | `test-review` | Test placement and quality checklist, security testing, dynamic analysis | test-reviewer |
 | `security-checks` | Security checklists, threat model, severity, supply chain verification | security-reviewer |
 | `design-validation` | Architectural validation checklist for feature approval | system-design-expert |

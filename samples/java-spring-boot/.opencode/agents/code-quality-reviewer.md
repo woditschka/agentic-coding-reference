@@ -40,7 +40,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Reference Documents
 
-- **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
+- **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling, and § Scale and Load, the rows that justify a selection past the free tier
 - **Architecture Principles:** `docs/architecture-principles.md` — module boundaries, patterns, naming
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria, non-goals
@@ -55,6 +55,9 @@ Review against these sources. Verify against them when uncertain, via your runti
 
 - [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) — the formatting baseline google-java-format enforces, plus the naming rules this review checks by hand
 - the `code-quality-review` skill — the Java/Spring checklist this review enforces
+- [`java.util`](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/package-summary.html) — the JDK collections and their documented guarantees (`HashMap`, `TreeMap`, `ArrayDeque`, `PriorityQueue`), the basis for a Workload Fit ruling
+- [`java.util.concurrent`](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/concurrent/package-summary.html) — the shared-access structures, and when a request-private one serves instead
+- [Spring Data JPA query methods](https://docs.spring.io/spring-data/jpa/reference/jpa/query-methods.html) — derived queries, `@EntityGraph`, and fetch joins, the remedies an N+1 finding names
 - `docs/architecture-principles.md` — naming rules, module boundaries, DDD building blocks
 
 ## Review Process
@@ -62,7 +65,7 @@ Review against these sources. Verify against them when uncertain, via your runti
 1. Run `./gradlew checkJavaFormat` and capture output.
 2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 3. Identify changed/new files from the feature implementation.
-4. Check each file against the `code-quality-review` skill: its Design Placement and Scope and Vocabulary sections first, then the checklist.
+4. Check each file against the `code-quality-review` skill: its Design Placement, Scope and Vocabulary, and Workload Fit sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include format issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

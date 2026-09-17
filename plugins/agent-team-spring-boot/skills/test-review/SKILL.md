@@ -82,6 +82,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Integration test exercises all inputs without exceptions
 
 ### Test Coverage
+- [ ] A hand-written structure or algorithm the brief's § Scale and Load records has a test per case in its case table. The table covers empty, one, many, duplicates, boundary sizes, and the access pattern the row names. A hand-written structure's bugs sit at its edges (`tdd-principles` § Fit for the Workload)
 - [ ] Every decision path of a public seam has one test, at the unit that owns it; a second test through the same equivalence class is a finding
 - [ ] Boundaries are tested where the code compares, and the error handling scenarios from system-design.md once each
 

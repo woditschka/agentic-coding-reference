@@ -119,9 +119,13 @@ Install the runtime, then validate:
 5. Fill the Security Context in docs/system-design.md — the security profile
    (inputs, outputs, services, credentials, runtime). The security-reviewer
    reads it from the brief, not from the agent.
-6. Run /audit-docs once the briefs have content — it runs the doctor (structure)
+6. Seed Scale and Load in docs/system-design.md where a figure is already
+   known — the design owner adds a row per scaling path at triage, so an empty
+   section costs nothing; a figure nobody knows is written as "unrecorded,
+   treated as bounded".
+7. Run /audit-docs once the briefs have content — it runs the doctor (structure)
    then the judgment review, auditing each doc on its own and against the others.
-7. Start your first slice: open the project in your tool and describe the
+8. Start your first slice: open the project in your tool and describe the
    feature you want — or run /next for a recommendation from PRD coverage.
 ```
 

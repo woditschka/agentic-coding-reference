@@ -189,6 +189,20 @@ Exit codes are an interface:
 | `verify-harness.py` | 0 pass; 1 any failure or a refused `--quick`; 2 usage |
 | `materialize.py`, `init.py` | 0 success; 1 target, layout, or verification failure; 2 usage |
 
+## Scale and Load
+
+Every input the harness's Python reads is bounded, and no path is hot: the cost that matters is model tokens, never CPU. Each row below is the recorded basis for the structures the code chooses.
+
+| Data set or path | Realistic size | Growth | Access pattern | Form |
+|---|---|---|---|---|
+| One slice's handoff ledger (`.scratch/handoff.jsonl`) | Tens of records; the largest recorded eval ledger holds 62 lines | Per dispatch, bounded by the slice's retry and review caps | One appending process at a time; every reader loads the whole file | Read whole into a list of records; routing scans it once per call |
+| The recorded eval corpus (`evals/results/runs/`) | 307 committed ledgers, 7,338 lines in total | Per committed run | Read-only by the replay and summarize scripts | Loaded folder by folder; never indexed |
+| A fuzz run (`fuzz-handoff.py`, `fuzz-grading.py`) | 250 ledgers of up to 14 lines, and 25 projects of up to 10 records, by default | Per invocation, by flag | Generated and discarded in one process | Plain lists; the differential comparison is a per-ledger equality |
+| A change set (`scripts/changeset.py`) | The working tree's diff against `HEAD`: tens of files | Per slice | One reader | Read once through the git gateway; classified by a single pass over the paths |
+
+- **Hot paths:** none. Every script runs once per hook or dispatch over the bounded inputs above.
+- **Limits:** none imposed by the deployment beyond the sandbox's file allow-list. A hand-written structure appears nowhere in the tree; every collection is a standard-library type.
+
 ## Dependency Policy
 
 - The shipped runtime imports the standard library or a sibling module in its own scripts tree, ships no dependency manifest, and targets Python 3.11 ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-logic-in-python-orchestration-in-bash.md)). Battery step 1c enforces this across every tree that reaches a consumer. The invariant is stated once in [`harness/README.md`](../harness/README.md#the-stdlib-only-invariant).

@@ -155,7 +155,7 @@ Every document — and every section longer than 200 words — is organized into
 
 - **CLAUDE.md:** The one-paragraph project overview is Level 1. Agent usage and toolchain sections are Level 2. Build commands, lint troubleshooting, commit conventions are Level 3. No Level 4.
 - **docs/prd.md:** The Context narrative, goals/non-goals, and primary use case form Level 1. Capability-area headings with their opening prose are Level 2. The narrative requirement statements (tagged inline `[REQ-XX-NNN]`) and their "Done when" acceptance bullets are Level 3. See the `prd-authoring` skill § Requirement Format for the narrative-plus-tagged-bullet format.
-- **docs/system-design.md:** The Overview and package-structure map are Level 1. Section headings (Contracts, Constants, Dependency Policy, Threat Model) are Level 2. The contract-table rows and per-invariant notes are Level 3. Implementation-order and state-machine tables are Level 4.
+- **docs/system-design.md:** The Overview and package-structure map are Level 1. Section headings (Contracts, Constants, Scale and Load, Dependency Policy, Threat Model) are Level 2. The contract-table rows and per-invariant notes are Level 3. Implementation-order and state-machine tables are Level 4.
 - **docs/adr/*.md:** Context + Decision are Level 1. Rationale and Alternatives are Level 2. Consequences and References are Level 3. ADRs are short enough to skip Level 4.
 
 One failure pattern recurs: a new section opens with implementation detail and no Level 1 paragraph. When reviewing, look at the first 200 words of each top-level heading and ask: does a non-specialist understand the purpose, conclusion, and scope from this alone?
