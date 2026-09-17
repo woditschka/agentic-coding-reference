@@ -11,8 +11,10 @@ SOME_REQ_ID = "REQ-AB-001"
 ANOTHER_REQ_ID = "REQ-ZZ-009"
 FLOOR = tuple(config.REVIEWERS)
 CODE_REVIEWER = FLOOR[0]
+A_FLOOR_REVIEWER = FLOOR[-1]
 EXTRA_REVIEWER = "perf-reviewer"
 AN_ESCAPE_BYTE = "\x1b[31m"
+A_NON_STRING = 5
 
 
 def bind_log(case, data):
@@ -59,7 +61,9 @@ class DeclaredTestNames(unittest.TestCase):
             self,
             [
                 a_record("prd-entry", test_names=["old"]),
-                a_record("prd-entry", test_names=["shouldAddTwo", 5, "TestAdds"]),
+                a_record(
+                    "prd-entry", test_names=["shouldAddTwo", A_NON_STRING, "TestAdds"]
+                ),
             ],
         )
 
@@ -94,14 +98,12 @@ class BuildRetries(unittest.TestCase):
     """The build-failures since the latest design-block."""
 
     def test_failures_before_the_latest_design_block_are_not_counted(self):
-        records = [
-            a_record("build-failure"),
-            a_block(),
-            a_record("build-failure"),
-            a_record("build-failure"),
-        ]
+        failures_after_the_block = [a_record("build-failure")] * 2
+        records = [a_record("build-failure"), a_block(), *failures_after_the_block]
 
-        self.assertEqual(facts(self, records)["build_retries"], 2)
+        self.assertEqual(
+            facts(self, records)["build_retries"], len(failures_after_the_block)
+        )
 
     def test_without_a_design_block_every_failure_counts(self):
         records = [a_record("build-failure"), a_record("build-pass")]
@@ -109,9 +111,11 @@ class BuildRetries(unittest.TestCase):
         self.assertEqual(facts(self, records)["build_retries"], 1)
 
     def test_consultations_are_counted(self):
-        records = [a_record("consultation-request"), a_record("consultation-request")]
+        consultations = [a_record("consultation-request")] * 2
 
-        self.assertEqual(facts(self, records)["consultations"], 2)
+        self.assertEqual(
+            facts(self, consultations)["consultations"], len(consultations)
+        )
 
 
 class ReviewerVerdicts(unittest.TestCase):
@@ -145,10 +149,10 @@ class PlanRoster(unittest.TestCase):
     def test_the_latest_plan_s_roster_enters_the_row(self):
         records = [
             a_record("build-pass"),
-            a_record("review-plan", risk="low", roster=[FLOOR[3]]),
+            a_record("review-plan", risk="low", roster=[A_FLOOR_REVIEWER]),
         ]
 
-        self.assertEqual(facts(self, records)["review_roster"], [FLOOR[3]])
+        self.assertEqual(facts(self, records)["review_roster"], [A_FLOOR_REVIEWER])
 
     def test_a_plan_without_a_list_roster_reads_as_none(self):
         records = [a_record("review-plan", risk="gray", roster="x")]

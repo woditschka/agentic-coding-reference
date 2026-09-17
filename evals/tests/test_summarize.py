@@ -1,29 +1,34 @@
-"""Unit suite for the trend aggregation: the binary quality bar, the
-cost-per-pass cell with waste accounting and lower-bound marking, the
-requested-pin row key, and the render-path scrubbing."""
+"""Unit suite for the trend aggregation: the quality bar, the cost-per-pass
+cell, the pin row key, the notes, and the render-path scrubbing."""
 
-from __future__ import annotations
-
+import io
 import json
 import re
 import shutil
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import summarize
 from summarize import (
     JUDGE_FACETS,
     KIND_REFUSAL,
     MAX_LEDGER_BYTES,
+    TASKS_DIR,
     TREND,
     TREND_DEV,
+    LadderFacts,
     Note,
+    NotesError,
+    Outcome,
     Run,
+    RunFolder,
+    _fmt_wall,
     _judge_median,
     _models_cell,
-    approved_section,
+    approved_lines,
     bar_cell,
     burn_cell,
     checkpoint_ladder,
@@ -48,7 +53,7 @@ from summarize import (
     provisional_cells,
     render,
     render_pipeline,
-    render_run_page,
+    reviewer_approvals,
     roster_section,
     rubric_cell,
     run_stalled,
@@ -59,11 +64,51 @@ from summarize import (
     table_section,
     task_note_lines,
     trend_views,
+    unmeasured_note,
     validate_notes,
     version_key,
     wall_cell,
     waste_cell,
 )
+
+SOME_VERSION = "v0.2.0"
+OLDER_VERSION = "v0.1.0"
+NEWER_VERSION = "v0.3.0"
+DEV_VERSION = "dev-abc1234"
+UNMEASURED_VERSION = "v9.9.9"
+SOME_TASK = "visit-edit"
+REFUSAL_TASK = "visit-cancel"
+SOME_FOLDER = f"runs/{SOME_VERSION}/2026-08-02-{SOME_TASK}-r1"
+SECOND_FOLDER = f"runs/{SOME_VERSION}/2026-08-03-{SOME_TASK}-r2"
+DEV_FOLDER = f"runs/{DEV_VERSION}/2026-08-03-{SOME_TASK}-r1"
+SOME_STARTED = "2026-08-02T10:00:00"
+SECOND_STARTED = "2026-08-03T10:00:00"
+SOME_COST = 3.0
+SOME_WALL = 600.0
+SOME_MODEL = "claude-opus-5"
+SOME_RUBRIC = "rubric-v1.md"
+OTHER_RUBRIC = "rubric-v2.md"
+SOME_DATE = "2026-08-07"
+BIRTH_DAY = SOME_STARTED[:10]
+DAY_BEFORE_BIRTH = "2026-08-01"
+LATER_DATE = "2026-08-21"
+AFTER_NOTE_STARTED = "2026-08-30T10:00:00"
+
+
+def run_link(folder: str, rep: int) -> str:
+    return f"[r{rep}]({folder}/README.md)"
+
+
+def render_run_page(
+    manifest: dict[str, Any],
+    result: dict[str, Any],
+    artifacts: list[str],
+    *rest: Any,
+    **fields: Any,
+) -> str:
+    return summarize.render_run_page(
+        RunFolder(manifest, result, artifacts, *rest, **fields)
+    )
 
 
 def table_rows(lines: list[str], heading: str) -> list[str]:
@@ -83,7 +128,7 @@ def patch_judge_dir(test: unittest.TestCase) -> None:
     """Point JUDGE_DIR at a temp roster holding rubric-v1.md, so rubric-link
     assertions never depend on the repo's live `judge/` directory."""
     judge_dir = Path(tempfile.mkdtemp())
-    (judge_dir / "rubric-v1.md").write_text("rubric", encoding="utf-8")
+    (judge_dir / SOME_RUBRIC).write_text("rubric", encoding="utf-8")
     test.addCleanup(shutil.rmtree, judge_dir, ignore_errors=True)
     original = summarize.JUDGE_DIR
     summarize.JUDGE_DIR = judge_dir
@@ -106,17 +151,17 @@ def patch_notes(test: unittest.TestCase, content: str | None) -> None:
 
 def a_run(**overrides: Any) -> Run:
     fields: dict[str, Any] = {
-        "folder": "runs/v0.2.0/2026-08-02-visit-edit-r1",
+        "folder": SOME_FOLDER,
         "rep": 1,
         "epoch": "e" * 40,
         "sut_repo": "owner/sut",
         "sut_branch": "main",
-        "version": "v0.2.0",
+        "version": SOME_VERSION,
         "model_requested": "(default)",
-        "task": "visit-edit",
+        "task": SOME_TASK,
         "task_kind": "feature",
         "task_title": "Edit a visit",
-        "started": "2026-08-02T10:00:00",
+        "started": SOME_STARTED,
         "status": "complete",
         "oracle_ok": True,
         "oracle_tests": {"editWorks": "passed", "wiringWorks": "passed"},
@@ -125,11 +170,11 @@ def a_run(**overrides: Any) -> Run:
         "files_changed": 2,
         "src_files_changed": 2,
         "consultations": 0,
-        "models": ("claude-opus-5",),
-        "cost": 3.0,
+        "models": (SOME_MODEL,),
+        "cost": SOME_COST,
         "accounted_cost": None,
         "judge_cost": 1.0,
-        "wall": 600.0,
+        "wall": SOME_WALL,
         "judge_median": None,
         "judge_rubric": None,
         "judge_model": None,
@@ -138,7 +183,7 @@ def a_run(**overrides: Any) -> Run:
     return Run(**fields)
 
 
-class QualityBarTest(unittest.TestCase):
+class QualityBar(unittest.TestCase):
     def test_a_complete_run_with_oracle_and_suite_green_clears(self) -> None:
         self.assertTrue(a_run().cleared)
 
@@ -157,7 +202,7 @@ class QualityBarTest(unittest.TestCase):
 
 def a_refusal_run(**overrides: Any) -> Run:
     fields: dict[str, Any] = {
-        "task": "visit-cancel",
+        "task": REFUSAL_TASK,
         "task_kind": KIND_REFUSAL,
         "task_title": "Cancel a booked visit",
         "oracle_ok": None,
@@ -170,7 +215,7 @@ def a_refusal_run(**overrides: Any) -> Run:
     return a_run(**fields)
 
 
-class RefusalBarTest(unittest.TestCase):
+class RefusalBar(unittest.TestCase):
     """The refusal bar reads the recorded diff, never an oracle."""
 
     def test_a_complete_run_without_src_changes_clears(self) -> None:
@@ -195,27 +240,35 @@ class RefusalBarTest(unittest.TestCase):
         self.assertTrue(a_refusal_run(consultations=0).cleared)
 
 
-class CheckpointLadderTest(unittest.TestCase):
-    """The graded ladder derived from recorded facts (README § Checkpoints)."""
+class CheckpointLadder(unittest.TestCase):
+    """The graded checkpoint ladder derived from recorded facts."""
 
     def test_the_standard_ladder_carries_one_step_per_oracle_test(self) -> None:
         steps = checkpoint_ladder(
-            "feature", "complete", 2, 2, True, {"a": "passed", "b": "failed"}, 0
+            LadderFacts(
+                "feature", "complete", 2, 2, True, {"a": "passed", "b": "failed"}, 0
+            )
         )
         self.assertEqual(len(steps), 5)
         self.assertEqual(sum(1 for _n, hit in steps if hit), 4)
 
     def test_missing_facts_read_as_not_hit(self) -> None:
-        steps = checkpoint_ladder("feature", "timeout", None, None, None, {}, 0)
+        steps = checkpoint_ladder(
+            LadderFacts("feature", "timeout", None, None, None, {}, 0)
+        )
         self.assertEqual(sum(1 for _n, hit in steps if hit), 0)
 
     def test_the_refusal_ladder_counts_the_consultation_last(self) -> None:
-        steps = checkpoint_ladder(KIND_REFUSAL, "complete", 0, 0, True, {}, 1)
+        steps = checkpoint_ladder(
+            LadderFacts(KIND_REFUSAL, "complete", 0, 0, True, {}, 1)
+        )
         self.assertEqual([hit for _n, hit in steps], [True, True, True, True])
         self.assertEqual(steps[-1][0], "consultation recorded")
 
     def test_a_refusal_that_implemented_misses_the_src_step(self) -> None:
-        steps = checkpoint_ladder(KIND_REFUSAL, "complete", 4, 4, True, {}, 0)
+        steps = checkpoint_ladder(
+            LadderFacts(KIND_REFUSAL, "complete", 4, 4, True, {}, 0)
+        )
         self.assertEqual(sum(1 for _n, hit in steps if hit), 2)
 
     def test_run_checkpoints_counts_hit_and_total(self) -> None:
@@ -223,7 +276,7 @@ class CheckpointLadderTest(unittest.TestCase):
         self.assertEqual(run.checkpoints(), (4, 5))
 
 
-class CheckpointCellTest(unittest.TestCase):
+class CheckpointCell(unittest.TestCase):
     def test_a_full_ladder_cell_renders_blank(self) -> None:
         self.assertEqual(ckpt_cell([a_run()]), "")
 
@@ -234,7 +287,7 @@ class CheckpointCellTest(unittest.TestCase):
                 a_run(oracle_tests={"editWorks": "passed", "wiringWorks": "failed"}),
             ]
         )
-        anchor = "runs/v0.2.0/2026-08-02-visit-edit-r1/README.md#checkpoints"
+        anchor = f"{SOME_FOLDER}/README.md#checkpoints"
         self.assertEqual(cell, f"[5/5]({anchor}) · [4/5]({anchor})")
 
     def test_a_folder_failing_the_link_shape_renders_plain(self) -> None:
@@ -246,16 +299,13 @@ class CheckpointCellTest(unittest.TestCase):
     def test_a_pure_waste_cell_still_shows_its_checkpoints(self) -> None:
         runs = [a_run(status="timeout", oracle_ok=None, oracle_tests={}, cost=2.0)]
         self.assertEqual(bar_cell(runs), "0/1")
-        self.assertEqual(
-            ckpt_cell(runs),
-            "[2/3](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md#checkpoints)",
-        )
+        self.assertEqual(ckpt_cell(runs), f"[2/3]({SOME_FOLDER}/README.md#checkpoints)")
         self.assertEqual(cost_cell(runs), "—")
         self.assertEqual(waste_cell(runs), "$2.00")
         self.assertEqual(wall_cell(runs), "10m")
 
 
-class SpendTest(unittest.TestCase):
+class Spend(unittest.TestCase):
     def test_the_cli_self_report_is_the_primary_cost_source(self) -> None:
         run = a_run(cost=3.5, accounted_cost=9.9)
         self.assertEqual(run.agent_spend, 3.5)
@@ -293,7 +343,7 @@ class SpendTest(unittest.TestCase):
         self.assertEqual(wall_cell([a_run(wall=600.0, grading_seconds=120.0)]), "8m")
 
 
-class CostPerPassCellTest(unittest.TestCase):
+class CostPerPassCell(unittest.TestCase):
     def test_clearing_reps_divide_the_cell_agent_spend(self) -> None:
         runs = [a_run(cost=3.0), a_run(cost=5.0)]
         self.assertEqual(bar_cell(runs), "2/2")
@@ -336,7 +386,7 @@ class CostPerPassCellTest(unittest.TestCase):
         self.assertEqual(with_judge, without_judge)
 
 
-class RepDetailTest(unittest.TestCase):
+class RepDetail(unittest.TestCase):
     def rows(self, runs: list[Run]) -> list[str]:
         return [line for line in roster_section(runs) if line.startswith("| v")]
 
@@ -371,7 +421,7 @@ class RepDetailTest(unittest.TestCase):
                 a_run(cost=3.0, wall=600.0, grading_seconds=120.0),
                 a_run(
                     rep=2,
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    folder=SECOND_FOLDER,
                     status="timeout",
                     oracle_ok=None,
                     cost=2.5,
@@ -383,24 +433,22 @@ class RepDetailTest(unittest.TestCase):
             "| cleared · wasted (timeout) | $3.00 · $2.50 | 8m · 10m |", rows[0]
         )
         self.assertIn(
-            "| [r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md),"
-            " [r2](runs/v0.2.0/2026-08-03-visit-edit-r2/README.md) |",
+            f"| {run_link(SOME_FOLDER, 1)}, {run_link(SECOND_FOLDER, 2)} |",
             rows[0],
         )
 
 
-class TrendRowTest(unittest.TestCase):
+class TrendRow(unittest.TestCase):
     def test_a_trend_row_links_its_reps_in_order(self) -> None:
         lines = table_section(
             [
-                a_run(folder="runs/v0.2.0/2026-08-03-visit-edit-r2", rep=2, cost=5.0),
+                a_run(folder=SECOND_FOLDER, rep=2, cost=5.0),
                 a_run(),
             ]
         )
         row = table_rows(lines, "Trend by task")[0]
         self.assertIn(
-            "| [r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md),"
-            " [r2](runs/v0.2.0/2026-08-03-visit-edit-r2/README.md) |",
+            f"| {run_link(SOME_FOLDER, 1)}, {run_link(SECOND_FOLDER, 2)} |",
             row,
         )
 
@@ -422,7 +470,7 @@ class TrendRowTest(unittest.TestCase):
             [
                 a_run(fingerprint="aaaa000000000000"),
                 a_run(
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    folder=SECOND_FOLDER,
                     rep=2,
                     fingerprint="bbbb111111111111",
                 ),
@@ -436,7 +484,7 @@ class TrendRowTest(unittest.TestCase):
             [
                 a_run(fingerprint="aaaa000000000000"),
                 a_run(
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    folder=SECOND_FOLDER,
                     rep=2,
                     fingerprint="aaaa000000000000",
                 ),
@@ -462,7 +510,7 @@ class TrendRowTest(unittest.TestCase):
         self.assertIn("| 1/1 | refused |", cancel_row)
 
 
-class DeltaAndBurnCellTest(unittest.TestCase):
+class DeltaAndBurnCell(unittest.TestCase):
     """The Δ column against the previous measured version, and the burn
     rate that ties cost to wall."""
 
@@ -478,7 +526,7 @@ class DeltaAndBurnCellTest(unittest.TestCase):
 
     def test_an_unexplained_settled_move_carries_the_mark(self) -> None:
         self.assertEqual(
-            delta_cell([a_run(cost=4.5)], [a_run(cost=3.0)], True), "+50% !"
+            delta_cell([a_run(cost=4.5)], [a_run(cost=3.0)], flagged=True), "+50% !"
         )
 
     def test_burn_is_the_median_per_rep_rate_over_clearing_reps(self) -> None:
@@ -495,8 +543,8 @@ class DeltaAndBurnCellTest(unittest.TestCase):
 
     def test_the_trend_table_flags_an_unexplained_settled_move(self) -> None:
         patch_notes(self, None)
-        runs = [a_run(version="v0.1.0", rep=r, cost=3.0) for r in (1, 2, 3)] + [
-            a_run(version="v0.2.0", rep=r, cost=4.5) for r in (1, 2, 3)
+        runs = [a_run(version=OLDER_VERSION, rep=r, cost=3.0) for r in (1, 2, 3)] + [
+            a_run(version=SOME_VERSION, rep=r, cost=4.5) for r in (1, 2, 3)
         ]
         rows = table_rows(table_section(runs), "Trend by task")
         self.assertIn("| +50% ! |", rows[0])
@@ -505,10 +553,15 @@ class DeltaAndBurnCellTest(unittest.TestCase):
     def test_a_move_across_a_pin_change_carries_the_model_condition(self) -> None:
         patch_notes(self, None)
         runs = [
-            a_run(version="v0.2.0", rep=r, cost=4.5, model_requested="claude-opus-5")
+            a_run(version=SOME_VERSION, rep=r, cost=4.5, model_requested=SOME_MODEL)
             for r in (1, 2, 3)
         ] + [
-            a_run(version="v0.1.0", rep=r, cost=3.0, model_requested="claude-opus-4-8")
+            a_run(
+                version=OLDER_VERSION,
+                rep=r,
+                cost=3.0,
+                model_requested="claude-opus-4-8",
+            )
             for r in (1, 2, 3)
         ]
         rows = table_rows(table_section(runs), "Trend by task")
@@ -516,7 +569,7 @@ class DeltaAndBurnCellTest(unittest.TestCase):
         self.assertEqual(len(rows), 2)
 
 
-class OutcomeCellTest(unittest.TestCase):
+class OutcomeCell(unittest.TestCase):
     """Each refusal rep's fate, named from the recorded facts."""
 
     def test_a_clearing_rep_with_a_consultation_reads_refused(self) -> None:
@@ -550,22 +603,28 @@ class OutcomeCellTest(unittest.TestCase):
         self.assertNotIn("|", outcome_cell([run]))
 
 
-class ProvisionalCellTest(unittest.TestCase):
+class ProvisionalCell(unittest.TestCase):
     def test_both_thin_arms_of_a_tripped_pair_are_marked(self) -> None:
         thin = provisional_cells(
-            [a_run(version="v0.1.0", cost=3.0), a_run(version="v0.2.0", cost=6.0)]
+            [
+                a_run(version=OLDER_VERSION, cost=3.0),
+                a_run(version=SOME_VERSION, cost=6.0),
+            ]
         )
         self.assertEqual(
             thin,
             {
-                ("(default)", "v0.1.0", "visit-edit"),
-                ("(default)", "v0.2.0", "visit-edit"),
+                ("(default)", OLDER_VERSION, SOME_TASK),
+                ("(default)", SOME_VERSION, SOME_TASK),
             },
         )
 
     def test_a_quiet_single_rep_cell_carries_no_mark(self) -> None:
         thin = provisional_cells(
-            [a_run(version="v0.1.0", cost=3.0), a_run(version="v0.2.0", cost=3.2)]
+            [
+                a_run(version=OLDER_VERSION, cost=3.0),
+                a_run(version=SOME_VERSION, cost=3.2),
+            ]
         )
         self.assertEqual(thin, set())
 
@@ -573,21 +632,24 @@ class ProvisionalCellTest(unittest.TestCase):
         self.assertEqual(provisional_cells([a_run()]), set())
 
     def test_an_arm_already_at_depth_stays_unmarked(self) -> None:
-        deep = [a_run(version="v0.1.0", rep=n, cost=3.0) for n in (1, 2, 3)]
-        thin = provisional_cells([*deep, a_run(version="v0.2.0", cost=6.0)])
-        self.assertEqual(thin, {("(default)", "v0.2.0", "visit-edit")})
+        deep = [a_run(version=OLDER_VERSION, rep=n, cost=3.0) for n in (1, 2, 3)]
+        thin = provisional_cells([*deep, a_run(version=SOME_VERSION, cost=6.0)])
+        self.assertEqual(thin, {("(default)", SOME_VERSION, SOME_TASK)})
 
     def test_a_settled_pair_marks_nothing(self) -> None:
         runs = [
             a_run(version=v, rep=n, cost=c)
             for n in (1, 2, 3)
-            for v, c in (("v0.1.0", 3.0), ("v0.2.0", 6.0))
+            for v, c in ((OLDER_VERSION, 3.0), (SOME_VERSION, 6.0))
         ]
         self.assertEqual(provisional_cells(runs), set())
 
     def test_a_thin_arm_row_marks_bar_cost_and_wall(self) -> None:
         lines = table_section(
-            [a_run(version="v0.1.0", cost=3.0), a_run(version="v0.2.0", cost=6.0)]
+            [
+                a_run(version=OLDER_VERSION, cost=3.0),
+                a_run(version=SOME_VERSION, cost=6.0),
+            ]
         )
         rows = table_rows(lines, "Trend by task")
         self.assertEqual(len(rows), 2)
@@ -596,7 +658,10 @@ class ProvisionalCellTest(unittest.TestCase):
 
     def test_the_sweep_table_carries_no_mark(self) -> None:
         lines = table_section(
-            [a_run(version="v0.1.0", cost=3.0), a_run(version="v0.2.0", cost=6.0)]
+            [
+                a_run(version=OLDER_VERSION, cost=3.0),
+                a_run(version=SOME_VERSION, cost=6.0),
+            ]
         )
         for row in table_rows(lines, "Sweep spend"):
             self.assertNotIn("~", row)
@@ -614,12 +679,12 @@ class ProvisionalCellTest(unittest.TestCase):
         self.assertTrue(wall_cell(runs, provisional=True).startswith("~10m"))
 
 
-class ProvisionalLegendTest(unittest.TestCase):
+class ProvisionalLegend(unittest.TestCase):
     """The `~` bullet references the Escalation check section, so it renders
     only on a page that can carry one — a comparable version pair exists."""
 
     def test_a_page_with_a_comparable_pair_carries_the_bullet(self) -> None:
-        text = render([a_run(version="v0.1.0"), a_run(version="v0.2.0")])
+        text = render([a_run(version=OLDER_VERSION), a_run(version=SOME_VERSION)])
         self.assertIn("`~` prefixes a provisional figure", text)
         self.assertIn("### Escalation check", text)
 
@@ -629,13 +694,13 @@ class ProvisionalLegendTest(unittest.TestCase):
         self.assertNotIn("### Escalation check", text)
 
 
-class ParseBoundaryTest(unittest.TestCase):
+class ParseBoundary(unittest.TestCase):
     """Agent-influenceable record fields are validated where they are read;
     one crafted or malformed folder must never abort the corpus render or
     reach a sanitizer that assumes its type."""
 
     def load_single(self, manifest: dict[str, Any], result: dict[str, Any]) -> Run:
-        version_dir = Path(tempfile.mkdtemp()) / "v9.9.9"
+        version_dir = Path(tempfile.mkdtemp()) / UNMEASURED_VERSION
         run_dir = version_dir / "2026-08-04-visit-edit-r1"
         run_dir.mkdir(parents=True)
         self.addCleanup(shutil.rmtree, version_dir.parent, ignore_errors=True)
@@ -648,7 +713,7 @@ class ParseBoundaryTest(unittest.TestCase):
 
     def test_a_crafted_rep_reads_as_zero_never_a_link_label(self) -> None:
         run = self.load_single(
-            {"rep": "1](https://evil.example)"}, {"status": "complete"}
+            {"rep": "1](https://other.example)"}, {"status": "complete"}
         )
         self.assertEqual(run.rep, 0)
 
@@ -684,12 +749,12 @@ class ParseBoundaryTest(unittest.TestCase):
         self.assertIsNone(run.wall)
 
 
-class ModelRowTest(unittest.TestCase):
+class ModelRow(unittest.TestCase):
     def test_rows_key_on_the_requested_pin_not_the_resolved_set(self) -> None:
         lines = table_section(
             [
-                a_run(models=("claude-opus-5",)),
-                a_run(models=("claude-opus-5", "claude-sonnet-5"), cost=5.0),
+                a_run(models=(SOME_MODEL,)),
+                a_run(models=(SOME_MODEL, "claude-sonnet-5"), cost=5.0),
             ],
         )
         rows = table_rows(lines, "Trend by task")
@@ -708,17 +773,17 @@ class ModelRowTest(unittest.TestCase):
         self.assertIn("| 1/2 |", rows[0])
 
     def test_models_label_strips_the_claude_prefix(self) -> None:
-        label = models_label(("claude-haiku-4-5", "claude-opus-5"))
+        label = models_label(("claude-haiku-4-5", SOME_MODEL))
         self.assertEqual(label, "haiku-4-5 · opus-5")
 
     def test_a_synthetic_ledger_entry_never_enters_the_label(self) -> None:
-        label = models_label(("<synthetic>", "claude-opus-5", "claude-sonnet-5"))
+        label = models_label(("<synthetic>", SOME_MODEL, "claude-sonnet-5"))
         self.assertEqual(label, "opus-5 · sonnet-5")
 
     def test_a_synthetic_only_set_reads_as_no_model_not_unknown(self) -> None:
         self.assertEqual(models_label(("<synthetic>",)), "—")
         self.assertEqual(_models_cell(("<synthetic>",)), "—")
-        self.assertEqual(_models_cell(("claude-opus-5",)), "opus-5")
+        self.assertEqual(_models_cell((SOME_MODEL,)), "opus-5")
 
     def test_an_empty_record_reads_unknown_in_trend_no_model_per_agent(self) -> None:
         self.assertEqual(models_label(()), "?")
@@ -726,7 +791,7 @@ class ModelRowTest(unittest.TestCase):
 
     def test_a_single_pin_table_omits_the_pin(self) -> None:
         lines = table_section(
-            [a_run(model_requested="claude-opus-5", models=("claude-opus-5",))],
+            [a_run(model_requested=SOME_MODEL, models=(SOME_MODEL,))],
         )
         row = table_rows(lines, "Sweep spend")[0]
         self.assertIn("opus-5", row)
@@ -739,8 +804,8 @@ class ModelRowTest(unittest.TestCase):
             [
                 a_run(model_requested="claude-opus-4-8", models=("claude-opus-4-8",)),
                 a_run(
-                    version="v0.3.0",
-                    folder="runs/v0.3.0/2026-08-02-visit-edit-r1",
+                    version=NEWER_VERSION,
+                    folder=f"runs/{NEWER_VERSION}/2026-08-02-{SOME_TASK}-r1",
                     cost=5.0,
                 ),
             ],
@@ -751,7 +816,7 @@ class ModelRowTest(unittest.TestCase):
     def test_mixed_pins_render_beside_the_version_in_every_table(self) -> None:
         lines = table_section(
             [
-                a_run(model_requested="claude-opus-5"),
+                a_run(model_requested=SOME_MODEL),
                 a_run(model_requested="(default)", cost=5.0),
             ],
         )
@@ -763,14 +828,14 @@ class ModelRowTest(unittest.TestCase):
             self.assertIn("v0.2.0 (default pin)", joined)
 
     def test_pin_note_strips_the_claude_prefix(self) -> None:
-        self.assertEqual(pin_note("claude-opus-5"), " (pin opus-5)")
+        self.assertEqual(pin_note(SOME_MODEL), " (pin opus-5)")
 
     def test_the_sweep_table_counts_measured_tasks(self) -> None:
         lines = table_section(
             [
-                a_run(version="v0.2.0", task="a-task"),
-                a_run(version="v0.2.0", task="b-task"),
-                a_run(version="v0.1.0", task="a-task"),
+                a_run(version=SOME_VERSION, task="a-task"),
+                a_run(version=SOME_VERSION, task="b-task"),
+                a_run(version=OLDER_VERSION, task="a-task"),
             ],
         )
         rows = table_rows(lines, "Sweep spend")
@@ -778,16 +843,16 @@ class ModelRowTest(unittest.TestCase):
         self.assertIn("| v0.1.0 | 1/2 |", rows[1])
 
 
-class HeadlineSectionTest(unittest.TestCase):
+class HeadlineSection(unittest.TestCase):
     """The at-a-glance grid: cost per pass per task across the versions,
     the sweep spend beside it, partial rows named by their task count."""
 
     def test_the_grid_reads_cost_per_pass_across_tasks(self) -> None:
         lines = headline_section(
             [
-                a_run(version="v0.2.0", task="a-task", cost=4.0),
-                a_run(version="v0.2.0", task="b-task", cost=6.0),
-                a_run(version="v0.1.0", task="a-task", cost=3.5),
+                a_run(version=SOME_VERSION, task="a-task", cost=4.0),
+                a_run(version=SOME_VERSION, task="b-task", cost=6.0),
+                a_run(version=OLDER_VERSION, task="a-task", cost=3.5),
             ]
         )
         self.assertEqual(lines[0], "### At a glance")
@@ -801,17 +866,17 @@ class HeadlineSectionTest(unittest.TestCase):
         self.assertLess(text.index("### At a glance"), text.index("### Trend by task"))
 
     def test_tag_versions_order_numerically_before_dev_labels(self) -> None:
-        ordered = sorted(["dev-abc1234", "v0.10.0", "v0.2.0"], key=version_key)
-        self.assertEqual(ordered, ["v0.2.0", "v0.10.0", "dev-abc1234"])
+        ordered = sorted([DEV_VERSION, "v0.10.0", SOME_VERSION], key=version_key)
+        self.assertEqual(ordered, [SOME_VERSION, "v0.10.0", DEV_VERSION])
 
 
-class RubricCellTest(unittest.TestCase):
+class RubricCell(unittest.TestCase):
     def setUp(self) -> None:
         patch_judge_dir(self)
 
     def test_a_rostered_rubric_renders_as_a_link_into_judge(self) -> None:
         self.assertEqual(
-            rubric_cell("rubric-v1.md"), "[rubric-v1.md](../judge/rubric-v1.md)"
+            rubric_cell(SOME_RUBRIC), "[rubric-v1.md](../judge/rubric-v1.md)"
         )
 
     def test_a_case_variant_renders_plain_despite_macos_matching(self) -> None:
@@ -821,7 +886,7 @@ class RubricCellTest(unittest.TestCase):
         self.assertNotIn("](", rubric_cell("rubric-v1.md\n"))
 
 
-class JudgeMedianParseTest(unittest.TestCase):
+class JudgeMedianParse(unittest.TestCase):
     def test_a_string_score_reads_the_record_as_unjudged(self) -> None:
         self.assertIsNone(_judge_median({"design_fit": "4 | forged |"}))
 
@@ -835,24 +900,24 @@ class JudgeMedianParseTest(unittest.TestCase):
         self.assertEqual(_judge_median({"design_fit": 4}), {"design_fit": 4.0})
 
     def test_an_even_sample_float_median_renders_without_a_decimal(self) -> None:
-        lines = table_section([a_run(judge_median={f: 4.0 for f in JUDGE_FACETS})])
+        lines = table_section([a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 4.0))])
         self.assertTrue(any(line.endswith("| 4 | 4 | 4 | 4 |") for line in lines))
         self.assertFalse(any("4.0" in line for line in lines))
 
     def test_a_genuine_half_step_median_keeps_its_fraction(self) -> None:
-        lines = table_section([a_run(judge_median={f: 3.5 for f in JUDGE_FACETS})])
+        lines = table_section([a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 3.5))])
         self.assertTrue(any(line.endswith("| 3.5 | 3.5 |") for line in lines))
 
 
-class NewestFirstOrderTest(unittest.TestCase):
+class NewestFirstOrder(unittest.TestCase):
     """Every trend surface lists the newest version first, tasks ascending."""
 
     def test_task_sections_order_by_task_versions_newest_first(self) -> None:
         lines = table_section(
             [
-                a_run(version="v0.1.0"),
+                a_run(version=OLDER_VERSION),
                 a_run(version="v0.10.0"),
-                a_run(version="v0.1.0", task="a-task"),
+                a_run(version=OLDER_VERSION, task="a-task"),
                 a_run(version="v0.10.0", task="a-task"),
             ]
         )
@@ -860,25 +925,25 @@ class NewestFirstOrderTest(unittest.TestCase):
         rows = table_rows(lines, "Trend by task")
         self.assertEqual(
             [row.split(" | ")[0].lstrip("| ") for row in rows],
-            ["v0.10.0", "v0.1.0", "v0.10.0", "v0.1.0"],
+            ["v0.10.0", OLDER_VERSION, "v0.10.0", OLDER_VERSION],
         )
 
     def test_the_sweep_table_lists_the_newest_version_first(self) -> None:
-        lines = table_section([a_run(version="v0.1.0"), a_run(version="v0.10.0")])
+        lines = table_section([a_run(version=OLDER_VERSION), a_run(version="v0.10.0")])
         rows = table_rows(lines, "Sweep spend")
         self.assertEqual(
             [row.split(" | ")[0].lstrip("| ") for row in rows],
-            ["v0.10.0", "v0.1.0"],
+            ["v0.10.0", OLDER_VERSION],
         )
 
     def test_judge_tasks_split_alphabetically_versions_newest_first(self) -> None:
-        median = {facet: 3.0 for facet in JUDGE_FACETS}
-        judge = {"judge_median": median, "judge_rubric": "rubric-v1.md"}
+        median = dict.fromkeys(JUDGE_FACETS, 3.0)
+        judge = {"judge_median": median, "judge_rubric": SOME_RUBRIC}
         lines = table_section(
             [
-                a_run(version="v0.1.0", task="a-task", **judge),
-                a_run(version="v0.2.0", task="b-task", **judge),
-                a_run(version="v0.2.0", task="a-task", **judge),
+                a_run(version=OLDER_VERSION, task="a-task", **judge),
+                a_run(version=SOME_VERSION, task="b-task", **judge),
+                a_run(version=SOME_VERSION, task="a-task", **judge),
             ],
         )
         start = lines.index("### Advisory judge medians")
@@ -887,21 +952,24 @@ class NewestFirstOrderTest(unittest.TestCase):
         medians = [line for line in lines if line.endswith("| 3 | 3 |")]
         self.assertEqual(
             [r.split(" | ")[0].lstrip("| ") for r in medians],
-            ["v0.2.0", "v0.1.0", "v0.2.0"],
+            [SOME_VERSION, OLDER_VERSION, SOME_VERSION],
         )
-        provenance = [line for line in lines if "rubric-v1.md" in line]
+        provenance = [line for line in lines if SOME_RUBRIC in line]
         self.assertEqual(len(provenance), 1)
         self.assertTrue(provenance[0].startswith("| v0.2.0, v0.1.0 |"))
 
     def test_the_roster_lists_the_newest_version_first(self) -> None:
-        lines = roster_section([a_run(version="v0.1.0"), a_run(version="v0.2.0")])
+        lines = roster_section(
+            [a_run(version=OLDER_VERSION), a_run(version=SOME_VERSION)]
+        )
         rows = [line for line in lines if line.startswith("| v0.")]
         self.assertEqual(
-            [row.split(" | ")[0].lstrip("| ") for row in rows], ["v0.2.0", "v0.1.0"]
+            [row.split(" | ")[0].lstrip("| ") for row in rows],
+            [SOME_VERSION, OLDER_VERSION],
         )
 
 
-class PageIntroTest(unittest.TestCase):
+class PageIntro(unittest.TestCase):
     def test_the_page_links_the_sut_branch(self) -> None:
         text = render([a_run()])
         self.assertIn(
@@ -910,8 +978,8 @@ class PageIntroTest(unittest.TestCase):
         )
 
     def test_a_malformed_slug_renders_plain_never_as_a_link_target(self) -> None:
-        text = render([a_run(sut_repo="owner/sut(evil")])
-        self.assertIn("SUT: `owner/sut(evil`, branch `main`", text)
+        text = render([a_run(sut_repo="owner/sut(unclosed")])
+        self.assertIn("SUT: `owner/sut(unclosed`, branch `main`", text)
         self.assertNotIn("github.com", text)
 
     def test_each_task_section_heads_its_table_with_the_title(self) -> None:
@@ -923,7 +991,7 @@ class PageIntroTest(unittest.TestCase):
         self.assertNotIn("base commits", text)
 
     def test_a_multi_base_record_is_called_out_never_silently_mixed(self) -> None:
-        text = render([a_run(), a_run(epoch="f" * 40, started="2026-08-03T10:00:00")])
+        text = render([a_run(), a_run(epoch="f" * 40, started=SECOND_STARTED)])
         self.assertIn("Runs on record span 2 base commits.", text)
 
     def test_the_trend_page_embeds_the_eval_figure(self) -> None:
@@ -935,36 +1003,36 @@ class PageIntroTest(unittest.TestCase):
             [
                 a_run(),
                 a_run(
-                    version="dev-abc1234",
-                    folder="runs/dev-abc1234/2026-08-03-visit-edit-r1",
+                    version=DEV_VERSION,
+                    folder=DEV_FOLDER,
                 ),
             ]
         )
         payload = json.loads(views[summarize.TREND_DATA])
         self.assertEqual(payload["spec_version"], "0.2.0")
-        self.assertEqual(payload["versions"], ["v0.2.0"])
+        self.assertEqual(payload["versions"], [SOME_VERSION])
         (row,) = payload["reps"]
-        self.assertEqual(row["task"], "visit-edit")
+        self.assertEqual(row["task"], SOME_TASK)
         self.assertEqual(row["task_kind"], "feature")
         self.assertEqual(row["model_pin"], "(default)")
-        self.assertEqual(row["models"], ["claude-opus-5"])
+        self.assertEqual(row["models"], [SOME_MODEL])
         self.assertTrue(row["cleared"])
         self.assertEqual(row["agent_spend_usd"], 3.0)
         self.assertEqual(row["wall_seconds"], 600.0)
         self.assertEqual(row["delivery_wall_seconds"], 600.0)
-        self.assertEqual(row["run_folder"], "runs/v0.2.0/2026-08-02-visit-edit-r1")
+        self.assertEqual(row["run_folder"], SOME_FOLDER)
 
     def test_figure_freshness_notice_fires_only_on_a_lagging_stamp(self) -> None:
         stamped = Path(tempfile.mkdtemp()) / "eval-trend.drawio"
-        stamped.write_text("snapshot through v0.1.0 (2026-08-01)")
+        stamped.write_text(f"snapshot through {OLDER_VERSION} ({DAY_BEFORE_BIRTH})")
         notice = summarize.figure_freshness_notice([a_run()], stamped)
         self.assertIsNotNone(notice)
         assert notice is not None
-        self.assertIn("v0.2.0", notice)
+        self.assertIn(SOME_VERSION, notice)
         self.assertIn("render_figure", notice)
-        stamped.write_text("snapshot through v0.2.0 (2026-08-01)")
+        stamped.write_text(f"snapshot through {SOME_VERSION} ({DAY_BEFORE_BIRTH})")
         current = summarize.figure_freshness_notice([a_run()], stamped)
-        self.assertEqual(current, "eval-trend figure current (stamped v0.2.0)")
+        self.assertEqual(current, f"eval-trend figure current (stamped {SOME_VERSION})")
 
     def test_a_missing_or_unstamped_figure_still_gets_a_line(self) -> None:
         gone = Path(tempfile.mkdtemp()) / "eval-trend.drawio"
@@ -977,7 +1045,7 @@ class PageIntroTest(unittest.TestCase):
         self.assertIn("no version stamp", unstamped)
 
 
-class JudgeSpendColumnTest(unittest.TestCase):
+class JudgeSpendColumn(unittest.TestCase):
     def setUp(self) -> None:
         patch_judge_dir(self)
 
@@ -987,9 +1055,7 @@ class JudgeSpendColumnTest(unittest.TestCase):
         self.assertTrue(row.endswith("| — |"))
 
     def test_the_medians_section_carries_its_advisory_explanation(self) -> None:
-        lines = table_section(
-            [a_run(judge_median={facet: 3 for facet in ("design_fit",)})]
-        )
+        lines = table_section([a_run(judge_median=dict.fromkeys(("design_fit",), 3))])
         text = "\n".join(lines)
         self.assertIn("### Advisory judge medians", text)
         self.assertIn("never enter the quality bar", text)
@@ -1000,10 +1066,10 @@ class JudgeSpendColumnTest(unittest.TestCase):
         lines = table_section(
             [
                 a_run(
-                    judge_median={f: 3 for f in JUDGE_FACETS},
-                    judge_rubric="rubric-v1.md",
-                    judge_model="claude-opus-5",
-                    models=("claude-fable-5", "claude-opus-5"),
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 3),
+                    judge_rubric=SOME_RUBRIC,
+                    judge_model=SOME_MODEL,
+                    models=("claude-fable-5", SOME_MODEL),
                 )
             ]
         )
@@ -1018,20 +1084,18 @@ class JudgeSpendColumnTest(unittest.TestCase):
         self.assertNotIn("Judge model", medians_header)
 
     def test_a_medians_row_links_its_rep_to_the_run_folder(self) -> None:
-        lines = table_section([a_run(judge_median={f: 3 for f in JUDGE_FACETS})])
+        lines = table_section([a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 3))])
         medians_row = next(line for line in lines if line.endswith("| 3 | 3 |"))
-        self.assertIn(
-            "[r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md)", medians_row
-        )
+        self.assertIn(run_link(SOME_FOLDER, 1), medians_row)
 
     def test_the_medians_split_per_task_like_the_trend(self) -> None:
         lines = table_section(
             [
-                a_run(judge_median={f: 3 for f in JUDGE_FACETS}),
+                a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 3)),
                 a_run(
-                    task="visit-cancel",
-                    folder="runs/v0.2.0/2026-08-02-visit-cancel-r1",
-                    judge_median={f: 4 for f in JUDGE_FACETS},
+                    task=REFUSAL_TASK,
+                    folder=f"runs/{SOME_VERSION}/2026-08-02-{REFUSAL_TASK}-r1",
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 4),
                 ),
             ]
         )
@@ -1047,19 +1111,18 @@ class JudgeSpendColumnTest(unittest.TestCase):
     ) -> None:
         lines = table_section(
             [
-                a_run(judge_median={f: 3 for f in JUDGE_FACETS}),
+                a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 3)),
                 a_run(
                     rep=2,
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
-                    started="2026-08-03T10:00:00",
-                    judge_median={f: 4 for f in JUDGE_FACETS},
+                    folder=SECOND_FOLDER,
+                    started=SECOND_STARTED,
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 4),
                 ),
             ]
         )
         row = next(line for line in lines if "3 · 4" in line)
         self.assertIn(
-            "| [r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md),"
-            " [r2](runs/v0.2.0/2026-08-03-visit-edit-r2/README.md) |",
+            f"| {run_link(SOME_FOLDER, 1)}, {run_link(SECOND_FOLDER, 2)} |",
             row,
         )
         self.assertTrue(row.endswith("| 3 · 4 | 3 · 4 | 3 · 4 | 3 · 4 |"))
@@ -1068,11 +1131,11 @@ class JudgeSpendColumnTest(unittest.TestCase):
         partial = {f: 3.0 for f in JUDGE_FACETS if f != "doc_fit"}
         lines = table_section(
             [
-                a_run(judge_median={f: 3.0 for f in JUDGE_FACETS}),
+                a_run(judge_median=dict.fromkeys(JUDGE_FACETS, 3.0)),
                 a_run(
                     rep=2,
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
-                    started="2026-08-03T10:00:00",
+                    folder=SECOND_FOLDER,
+                    started=SECOND_STARTED,
                     judge_median=partial,
                 ),
             ]
@@ -1087,17 +1150,17 @@ class JudgeSpendColumnTest(unittest.TestCase):
             [
                 a_run(
                     folder="../outside",
-                    judge_median={f: 3 for f in JUDGE_FACETS},
-                    judge_rubric="rubric-v1.md",
-                    judge_model="claude-opus-5",
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 3),
+                    judge_rubric=SOME_RUBRIC,
+                    judge_model=SOME_MODEL,
                 ),
                 a_run(
                     rep=2,
                     folder="../outside-too",
-                    started="2026-08-03T10:00:00",
-                    judge_median={f: 3 for f in JUDGE_FACETS},
-                    judge_rubric="rubric-v2.md",
-                    judge_model="claude-opus-5",
+                    started=SECOND_STARTED,
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 3),
+                    judge_rubric=OTHER_RUBRIC,
+                    judge_model=SOME_MODEL,
                 ),
             ]
         )
@@ -1112,7 +1175,7 @@ class JudgeSpendColumnTest(unittest.TestCase):
         lines = table_section(
             [
                 a_run(
-                    judge_median={f: 3 for f in JUDGE_FACETS},
+                    judge_median=dict.fromkeys(JUDGE_FACETS, 3),
                     judge_rubric="no-such-rubric.md",
                 )
             ]
@@ -1123,56 +1186,54 @@ class JudgeSpendColumnTest(unittest.TestCase):
 
     def test_identical_reps_collapse_to_one_provenance_row(self) -> None:
         judged = {
-            "judge_median": {f: 3 for f in JUDGE_FACETS},
-            "judge_rubric": "rubric-v1.md",
-            "judge_model": "claude-opus-5",
+            "judge_median": dict.fromkeys(JUDGE_FACETS, 3),
+            "judge_rubric": SOME_RUBRIC,
+            "judge_model": SOME_MODEL,
         }
         lines = table_section(
             [
                 a_run(**judged),
-                a_run(rep=2, folder="runs/v0.2.0/2026-08-03-visit-edit-r2", **judged),
+                a_run(rep=2, folder=SECOND_FOLDER, **judged),
             ]
         )
-        provenance = [line for line in lines if "rubric-v1.md" in line]
+        provenance = [line for line in lines if SOME_RUBRIC in line]
         self.assertEqual(len(provenance), 1)
         self.assertTrue(provenance[0].startswith("| v0.2.0 |"))
         self.assertNotIn("r1", provenance[0])
 
     def test_reps_differing_in_provenance_stay_attributable_per_rep(self) -> None:
-        median = {f: 3 for f in JUDGE_FACETS}
+        median = dict.fromkeys(JUDGE_FACETS, 3)
         lines = table_section(
             [
-                a_run(judge_median=median, judge_rubric="rubric-v2.md"),
+                a_run(judge_median=median, judge_rubric=OTHER_RUBRIC),
                 a_run(
                     rep=2,
-                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    folder=SECOND_FOLDER,
                     judge_median=median,
-                    judge_rubric="rubric-v1.md",
+                    judge_rubric=SOME_RUBRIC,
                 ),
             ]
         )
-        v2_row = next(line for line in lines if "rubric-v2.md" in line)
-        v1_row = next(line for line in lines if "rubric-v1.md" in line)
+        v2_row = next(line for line in lines if OTHER_RUBRIC in line)
+        v1_row = next(line for line in lines if SOME_RUBRIC in line)
         self.assertIn(
-            "| v0.2.0 visit-edit"
-            " ([r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md)) |",
+            f"| v0.2.0 visit-edit ({run_link(SOME_FOLDER, 1)}) |",
             v2_row,
         )
         self.assertIn(
-            "| v0.2.0 visit-edit"
-            " ([r2](runs/v0.2.0/2026-08-03-visit-edit-r2/README.md)) |",
+            f"| v0.2.0 visit-edit ({run_link(SECOND_FOLDER, 2)}) |",
             v1_row,
         )
 
     def test_a_version_split_by_task_lists_whole_cells_without_reps(self) -> None:
-        median = {f: 3 for f in JUDGE_FACETS}
+        median = dict.fromkeys(JUDGE_FACETS, 3)
         lines = table_section(
             [
-                a_run(task="a-task", judge_median=median, judge_rubric="rubric-v2.md"),
-                a_run(task="b-task", judge_median=median, judge_rubric="rubric-v1.md"),
+                a_run(task="a-task", judge_median=median, judge_rubric=OTHER_RUBRIC),
+                a_run(task="b-task", judge_median=median, judge_rubric=SOME_RUBRIC),
             ]
         )
-        v2_row = next(line for line in lines if "rubric-v2.md" in line)
+        v2_row = next(line for line in lines if OTHER_RUBRIC in line)
         self.assertIn("| v0.2.0 a-task |", v2_row)
         self.assertNotIn("(", v2_row)
 
@@ -1184,7 +1245,7 @@ class JudgeSpendColumnTest(unittest.TestCase):
         self.assertTrue(row.endswith("| $1.25 |"))
 
 
-class SweepSpendColumnTest(unittest.TestCase):
+class SweepSpendColumn(unittest.TestCase):
     """The spend columns price one sweep — each task cell contributes its
     per-rep mean — so rows with unequal rep depth stay comparable."""
 
@@ -1233,7 +1294,7 @@ class SweepSpendColumnTest(unittest.TestCase):
         self.assertIn("| $? |", row)
 
 
-class ScrubTest(unittest.TestCase):
+class Scrub(unittest.TestCase):
     def test_table_syntax_and_newlines_collapse_to_spaces(self) -> None:
         forged = "opus-5 |\n| v9.9.9 | 1/1"
         self.assertNotIn("|", scrub(forged))
@@ -1252,17 +1313,17 @@ def a_manifest(**overrides: Any) -> dict[str, Any]:
         "rep": 1,
         "started": "2026-08-02T10:00:00+00:00",
         "exec_mode": "claude-dev",
-        "model_requested": "claude-opus-5",
+        "model_requested": SOME_MODEL,
         "cc_version": "2.1.220 (Claude Code)",
         "prompt": "Bug report: the visit form loses edits.\nFix it and cover it.",
         "task": {
-            "id": "visit-edit",
+            "id": SOME_TASK,
             "kind": "feature",
             "title": "Edit a visit",
             "fingerprint": "abcd1234",
         },
         "version": {
-            "label": "v0.2.0",
+            "label": SOME_VERSION,
             "kind": "tag",
             "plugin": "agent-team-spring-boot",
         },
@@ -1279,7 +1340,7 @@ def a_result(**overrides: Any) -> dict[str, Any]:
         "agent": {
             "total_cost_usd": 3.5,
             "num_turns": 20,
-            "models": ["claude-opus-5"],
+            "models": [SOME_MODEL],
             "accounted": {"hit_pct": 88},
         },
         "oracle": {
@@ -1297,7 +1358,7 @@ def a_result(**overrides: Any) -> dict[str, Any]:
     return result
 
 
-class RunPageTest(unittest.TestCase):
+class RunPage(unittest.TestCase):
     def test_present_artifacts_link_and_absent_ones_never_render(self) -> None:
         page = render_run_page(a_manifest(), a_result(), ["change.patch", "run.log"])
         self.assertIn("[`change.patch`](change.patch)", page)
@@ -1324,11 +1385,11 @@ class RunPageTest(unittest.TestCase):
             a_manifest(),
             a_result(
                 quality_judge={
-                    "median": {f: 4 for f in JUDGE_FACETS},
-                    "spread": {f: 1 for f in JUDGE_FACETS},
+                    "median": dict.fromkeys(JUDGE_FACETS, 4),
+                    "spread": dict.fromkeys(JUDGE_FACETS, 1),
                     "samples_requested": 3,
-                    "rubric": "rubric-v1.md",
-                    "model": "claude-opus-5",
+                    "rubric": SOME_RUBRIC,
+                    "model": SOME_MODEL,
                     "cost_usd": 0.56,
                 }
             ),
@@ -1345,17 +1406,17 @@ class RunPageTest(unittest.TestCase):
             a_manifest(),
             a_result(
                 quality_judge={
-                    "median": {f: 4.0 for f in JUDGE_FACETS},
-                    "spread": {f: 0.0 for f in JUDGE_FACETS},
+                    "median": dict.fromkeys(JUDGE_FACETS, 4.0),
+                    "spread": dict.fromkeys(JUDGE_FACETS, 0.0),
                     "samples_requested": 3,
-                    "rubric": "rubric-v1.md",
-                    "model": "claude-opus-5",
+                    "rubric": SOME_RUBRIC,
+                    "model": SOME_MODEL,
                     "cost_usd": 0.56,
                     "samples": [
-                        {f: 4 for f in JUDGE_FACETS}
+                        dict.fromkeys(JUDGE_FACETS, 4)
                         | {"rationale": "Clean fix. </details> escapes nothing."},
-                        {f: 3 for f in JUDGE_FACETS} | {"rationale": "   "},
-                        {f: 5.0 for f in JUDGE_FACETS}
+                        dict.fromkeys(JUDGE_FACETS, 3) | {"rationale": "   "},
+                        dict.fromkeys(JUDGE_FACETS, 5.0)
                         | {"rationale": "~~~ no fence opens here"},
                         "not-a-record",
                     ],
@@ -1383,15 +1444,15 @@ class RunPageTest(unittest.TestCase):
             a_manifest(),
             a_result(
                 quality_judge={
-                    "median": {f: 4 for f in JUDGE_FACETS},
-                    "spread": {f: 0 for f in JUDGE_FACETS},
+                    "median": dict.fromkeys(JUDGE_FACETS, 4),
+                    "spread": dict.fromkeys(JUDGE_FACETS, 0),
                     "samples_requested": 3,
-                    "rubric": "rubric-v1.md",
-                    "model": "claude-opus-5",
+                    "rubric": SOME_RUBRIC,
+                    "model": SOME_MODEL,
                     "cost_usd": 0.56,
                     "samples": [
-                        {f: 4 for f in JUDGE_FACETS} | {"rationale": "One."},
-                        {f: 4 for f in JUDGE_FACETS} | {"rationale": "Two."},
+                        dict.fromkeys(JUDGE_FACETS, 4) | {"rationale": "One."},
+                        dict.fromkeys(JUDGE_FACETS, 4) | {"rationale": "Two."},
                     ],
                 }
             ),
@@ -1406,9 +1467,9 @@ class RunPageTest(unittest.TestCase):
 
     def test_a_forged_title_cannot_break_the_verdict_table(self) -> None:
         manifest = a_manifest()
-        manifest["task"]["title"] = "evil | injected"
+        manifest["task"]["title"] = "cellbreak | injected"
         page = render_run_page(manifest, a_result(), [])
-        self.assertNotIn("evil |", page)
+        self.assertNotIn("cellbreak |", page)
 
     def test_degraded_records_render_placeholders_never_raise(self) -> None:
         page = render_run_page({}, {"status": "error"}, [])
@@ -1416,7 +1477,7 @@ class RunPageTest(unittest.TestCase):
         self.assertIn("| oracle | ? ?/? passed |", page)
 
 
-class CheckpointRowTest(unittest.TestCase):
+class CheckpointRow(unittest.TestCase):
     def test_the_verdict_table_carries_the_checkpoint_count(self) -> None:
         page = render_run_page(a_manifest(), a_result(), [])
         self.assertIn("| checkpoints | 4/5 |", page)
@@ -1431,11 +1492,11 @@ class CheckpointRowTest(unittest.TestCase):
         self.assertIn("- ✘ `wiringWorks`", page)
 
 
-class RefusalRunPageTest(unittest.TestCase):
+class RefusalRunPage(unittest.TestCase):
     def refusal_manifest(self) -> dict[str, Any]:
         manifest = a_manifest()
         manifest["task"] = {
-            "id": "visit-cancel",
+            "id": REFUSAL_TASK,
             "kind": KIND_REFUSAL,
             "title": "Cancel a booked visit",
             "fingerprint": "abcd1234",
@@ -1490,7 +1551,7 @@ class RefusalRunPageTest(unittest.TestCase):
         self.assertIn("| checkpoints | 3/4 |", page)
 
 
-class DiffEmbedTest(unittest.TestCase):
+class DiffEmbed(unittest.TestCase):
     PATCH = "diff --git a/src/A.java b/src/A.java\n-old line\n+new line\n"
 
     def test_the_patch_embeds_as_a_collapsible_diff_block(self) -> None:
@@ -1520,7 +1581,7 @@ class DiffEmbedTest(unittest.TestCase):
         self.assertIn("+a [31mred\n+b", page)
 
 
-class BoardEmbedTest(unittest.TestCase):
+class BoardEmbed(unittest.TestCase):
     BOARD = "### REQ-1\n\n| reviewer | R1 |\n| --- | --- |\n| **test** | ok |\n"
 
     def test_the_board_embeds_open_never_behind_a_fold(self) -> None:
@@ -1562,7 +1623,7 @@ class BoardEmbedTest(unittest.TestCase):
         self.assertTrue(pipeline.strip().endswith("````"))
 
 
-class FenceScrubTest(unittest.TestCase):
+class FenceScrub(unittest.TestCase):
     def test_direction_controls_never_survive_into_the_diff(self) -> None:
         page = render_run_page(a_manifest(), a_result(), [], "+ a\u202eb\n")
         self.assertNotIn("\u202e", page)
@@ -1572,34 +1633,30 @@ class FenceScrubTest(unittest.TestCase):
         self.assertNotIn("\u2066", page)
 
 
-class SutLineTest(unittest.TestCase):
+class SutLine(unittest.TestCase):
     def test_a_dot_segment_branch_renders_plain_never_a_link(self) -> None:
-        line = sut_line([a_run(sut_branch="../../../evil-org")])
+        line = sut_line([a_run(sut_branch="../../../other-org")])
         self.assertNotIn("](https://", line)
-        self.assertIn("`../../../evil-org`", line)
+        self.assertIn("`../../../other-org`", line)
 
     def test_a_clean_repo_and_branch_still_render_the_link(self) -> None:
         line = sut_line([a_run()])
         self.assertIn("](https://github.com/owner/sut/tree/main)", line)
 
 
-class UnmeasuredNoteTest(unittest.TestCase):
+class UnmeasuredNote(unittest.TestCase):
     def test_every_defined_task_measured_yields_no_note(self) -> None:
-        from summarize import TASKS_DIR, unmeasured_note
-
         defined = {path.parent.name for path in TASKS_DIR.glob("*/task.toml")}
         self.assertIsNone(unmeasured_note(defined))
 
     def test_a_missing_task_is_named_never_silently_dropped(self) -> None:
-        from summarize import unmeasured_note
-
         note = unmeasured_note({"owners-page-param"})
         assert note is not None
-        self.assertIn("`visit-edit`", note)
+        self.assertIn(f"`{SOME_TASK}`", note)
         self.assertIn("unmeasured", note)
 
 
-class ConditionsLineTest(unittest.TestCase):
+class ConditionsLine(unittest.TestCase):
     """The mechanical condition callout: a record spanning executing-tool
     versions or settings-env prep conditions is called out; a uniform
     record stays silent."""
@@ -1619,7 +1676,7 @@ class ConditionsLineTest(unittest.TestCase):
         ]
         line = conditions_line(runs)
         assert line is not None
-        self.assertIn("3 executing Claude Code versions (2.1.9–2.1.222)", line)
+        self.assertIn("3 executing Claude Code versions (2.1.9–2.1.222)", line)  # noqa: RUF001
 
     def test_an_env_prep_span_is_called_out(self) -> None:
         runs = [a_run(), a_run(rep=2, env_prep=("settings.json: env X=1",))]
@@ -1639,7 +1696,7 @@ class ConditionsLineTest(unittest.TestCase):
         line = conditions_line(runs)
         assert line is not None
         self.assertIn(
-            "2 executing Claude Code versions (2.1.221–2.1.222)"
+            "2 executing Claude Code versions (2.1.221–2.1.222)"  # noqa: RUF001
             " and 2 settings-env prep conditions",
             line,
         )
@@ -1663,10 +1720,10 @@ class ConditionsLineTest(unittest.TestCase):
         ]
         line = conditions_line(runs)
         assert line is not None
-        self.assertIn("(weird-a–weird-b)", line)
+        self.assertIn("(weird-a–weird-b)", line)  # noqa: RUF001
 
 
-class NotesFileTest(unittest.TestCase):
+class NotesFile(unittest.TestCase):
     """notes.toml is hand-authored: parsing is strict and every failure is
     loud — a dropped or misplaced note would be silent editorializing."""
 
@@ -1682,33 +1739,33 @@ class NotesFileTest(unittest.TestCase):
         )
         self.assertEqual(
             load_notes(),
-            (Note(date="2026-08-07", text="why", task="visit-edit", version="v0.2.0"),),
+            (Note(date=SOME_DATE, text="why", task=SOME_TASK, version=SOME_VERSION),),
         )
 
     def test_a_quoted_date_string_parses_too(self) -> None:
         patch_notes(self, '[[note]]\ndate = "2026-08-07"\ntext = "why"\n')
-        self.assertEqual(load_notes(), (Note(date="2026-08-07", text="why"),))
+        self.assertEqual(load_notes(), (Note(date=SOME_DATE, text="why"),))
 
     def test_a_datetime_is_refused(self) -> None:
         patch_notes(self, '[[note]]\ndate = 2026-08-07T10:00:00\ntext = "why"\n')
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_a_quoted_impossible_date_is_refused(self) -> None:
         patch_notes(self, '[[note]]\ndate = "2026-99-99"\ntext = "why"\n')
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_a_missing_date_is_refused(self) -> None:
         patch_notes(self, '[[note]]\ntext = "why"\n')
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_a_version_without_a_task_fails_loud(self) -> None:
         patch_notes(
             self, '[[note]]\ndate = 2026-08-07\nversion = "v0.2.0"\ntext = "why"\n'
         )
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_a_model_scoped_note_parses(self) -> None:
@@ -1719,76 +1776,76 @@ class NotesFileTest(unittest.TestCase):
         )
         self.assertEqual(
             load_notes(),
-            (Note(date="2026-08-07", text="why", task="visit-edit", model="opus-x"),),
+            (Note(date=SOME_DATE, text="why", task=SOME_TASK, model="opus-x"),),
         )
 
     def test_a_model_without_a_task_fails_loud(self) -> None:
         patch_notes(
             self, '[[note]]\ndate = 2026-08-07\nmodel = "opus-x"\ntext = "why"\n'
         )
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_an_unknown_key_fails_loud(self) -> None:
         patch_notes(
             self, '[[note]]\ndate = 2026-08-07\ntext = "why"\nseverity = "high"\n'
         )
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_an_unknown_top_level_key_fails_loud(self) -> None:
         patch_notes(self, '[[remark]]\ndate = 2026-08-07\ntext = "why"\n')
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
     def test_empty_text_fails_loud(self) -> None:
         patch_notes(self, '[[note]]\ndate = 2026-08-07\ntext = "  "\n')
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(NotesError):
             load_notes()
 
 
-class NoteValidationTest(unittest.TestCase):
+class NoteValidation(unittest.TestCase):
     """A scoped note must name a recorded cell — a note that outlives its
     rows fails the render rather than rotting in place."""
 
     def test_a_note_naming_an_unrecorded_task_fails_loud(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="gone-task")
-        with self.assertRaises(SystemExit):
+        note = Note(date=SOME_DATE, text="why", task="gone-task")
+        with self.assertRaises(NotesError):
             validate_notes((note,), [a_run()])
 
     def test_a_note_naming_an_unrecorded_cell_fails_loud(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="visit-edit", version="v9.9.9")
-        with self.assertRaises(SystemExit):
+        note = Note(
+            date=SOME_DATE, text="why", task=SOME_TASK, version=UNMEASURED_VERSION
+        )
+        with self.assertRaises(NotesError):
             validate_notes((note,), [a_run()])
 
     def test_a_note_naming_an_unrecorded_pin_fails_loud(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="visit-edit", model="opus-x")
-        with self.assertRaises(SystemExit):
+        note = Note(date=SOME_DATE, text="why", task=SOME_TASK, model="opus-x")
+        with self.assertRaises(NotesError):
             validate_notes((note,), [a_run()])
 
     def test_a_note_naming_a_recorded_pin_passes(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="visit-edit", model="(default)")
+        note = Note(date=SOME_DATE, text="why", task=SOME_TASK, model="(default)")
         validate_notes((note,), [a_run()])
 
     def test_a_matching_cell_note_and_a_page_note_pass(self) -> None:
         validate_notes(
             (
-                Note(
-                    date="2026-08-07", text="why", task="visit-edit", version="v0.2.0"
-                ),
-                Note(date="2026-08-07", text="page-wide"),
+                Note(date=SOME_DATE, text="why", task=SOME_TASK, version=SOME_VERSION),
+                Note(date=SOME_DATE, text="page-wide"),
             ),
             [a_run()],
         )
 
 
-class NoteRenderTest(unittest.TestCase):
+class NoteRender(unittest.TestCase):
     """Notes render beside the figures they discuss: page notes in the
     header block, scoped notes as dated bullets under their task table."""
 
     def test_a_page_note_renders_in_the_header_block(self) -> None:
         text = render(
-            [a_run()], operator_notes=(Note(date="2026-08-07", text="hello world"),)
+            [a_run()], operator_notes=(Note(date=SOME_DATE, text="hello world"),)
         )
         lines = text.splitlines()
         self.assertLess(
@@ -1798,7 +1855,7 @@ class NoteRenderTest(unittest.TestCase):
         self.assertIn("[`notes.toml`](notes.toml)", text)
 
     def test_a_cell_note_renders_under_its_task_table_with_version(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="visit-edit", version="v0.2.0")
+        note = Note(date=SOME_DATE, text="why", task=SOME_TASK, version=SOME_VERSION)
         self.assertIn("- 2026-08-07 — v0.2.0: why", table_section([a_run()], (note,)))
 
     def test_no_notes_render_no_header_block(self) -> None:
@@ -1806,47 +1863,41 @@ class NoteRenderTest(unittest.TestCase):
         self.assertNotIn("notes.toml", render([a_run()]))
 
     def test_a_page_note_survives_an_empty_series(self) -> None:
-        text = render([], operator_notes=(Note(date="2026-08-07", text="still here"),))
+        text = render([], operator_notes=(Note(date=SOME_DATE, text="still here"),))
         self.assertIn("No runs recorded yet.", text)
         self.assertIn("- 2026-08-07 — still here", text)
 
     def test_note_text_collapses_wrapping_and_scrubs_table_syntax(self) -> None:
-        note = Note(date="2026-08-07", text="a\nb | c")
+        note = Note(date=SOME_DATE, text="a\nb | c")
         self.assertIn("- 2026-08-07 — a b   c", notes_header_lines((note,)))
 
     def test_a_task_note_without_a_version_carries_no_prefix(self) -> None:
-        note = Note(date="2026-08-07", text="why", task="visit-edit")
+        note = Note(date=SOME_DATE, text="why", task=SOME_TASK)
         self.assertEqual(
-            task_note_lines((note,), "visit-edit"), ["- 2026-08-07 — why", ""]
+            task_note_lines((note,), SOME_TASK), ["- 2026-08-07 — why", ""]
         )
 
     def test_trend_views_carry_notes_into_both_views(self) -> None:
-        note = Note(date="2026-08-07", text="page-wide")
-        dev = a_run(
-            folder="runs/dev-abc1234/2026-08-03-visit-edit-r1", version="dev-abc1234"
-        )
+        note = Note(date=SOME_DATE, text="page-wide")
+        dev = a_run(folder=DEV_FOLDER, version=DEV_VERSION)
         views = trend_views([a_run(), dev], (note,))
         self.assertIn("page-wide", views[TREND])
         self.assertIn("page-wide", views[TREND_DEV])
 
     def test_a_dev_only_cell_cannot_carry_a_note(self) -> None:
-        dev = a_run(
-            folder="runs/dev-abc1234/2026-08-03-visit-edit-r1", version="dev-abc1234"
-        )
-        note = Note(
-            date="2026-08-07", text="why", task="visit-edit", version="dev-abc1234"
-        )
-        with self.assertRaises(SystemExit):
+        dev = a_run(folder=DEV_FOLDER, version=DEV_VERSION)
+        note = Note(date=SOME_DATE, text="why", task=SOME_TASK, version=DEV_VERSION)
+        with self.assertRaises(NotesError):
             trend_views([a_run(), dev], (note,))
 
 
-class AgentsTableTest(unittest.TestCase):
+class AgentsTable(unittest.TestCase):
     def a_costs(self) -> dict[str, Any]:
         return {
             "per_agent": [
                 {
                     "agent_type": "(parent)",
-                    "models": ["claude-opus-5"],
+                    "models": [SOME_MODEL],
                     "wall_seconds": 907.6,
                     "totals": {"cost": 2.36, "hit_pct": 95},
                 },
@@ -1896,13 +1947,13 @@ class AgentsTableTest(unittest.TestCase):
         self.assertIn("`(parent)` | 1 | opus-5 | $2.36 | 15m 7s |", page)
 
 
-class AgentTotalsTableTest(unittest.TestCase):
+class AgentTotalsTable(unittest.TestCase):
     def a_costs_with_repeats(self) -> dict[str, Any]:
         return {
             "per_agent": [
                 {
                     "agent_type": "(parent)",
-                    "models": ["claude-opus-5"],
+                    "models": [SOME_MODEL],
                     "wall_seconds": 907.6,
                     "totals": {
                         "cost": 2.36,
@@ -1913,7 +1964,7 @@ class AgentTotalsTableTest(unittest.TestCase):
                 },
                 {
                     "agent_type": "agent-team:feature-implementer",
-                    "models": ["claude-opus-5"],
+                    "models": [SOME_MODEL],
                     "wall_seconds": 190.0,
                     "totals": {
                         "cost": 1.40,
@@ -1969,32 +2020,31 @@ class AgentTotalsTableTest(unittest.TestCase):
         self.assertIn("| ? | 5m 0s |", rows[1])
 
 
-class WallFormatTest(unittest.TestCase):
+class WallFormat(unittest.TestCase):
     def test_minutes_and_seconds_truncate_together(self) -> None:
-        from summarize import _fmt_wall
-
         self.assertEqual(_fmt_wall(90), "1m 30s")
         self.assertEqual(_fmt_wall(359.6), "5m 59s")
         self.assertEqual(_fmt_wall(47.9), "47s")
         self.assertEqual(_fmt_wall(None), "?")
 
 
-class PromptQuoteTest(unittest.TestCase):
+class PromptQuote(unittest.TestCase):
     def test_indentation_inside_the_prompt_survives(self) -> None:
         manifest = a_manifest(prompt="Fix it:\n    indented detail\nDone.")
         page = render_run_page(manifest, a_result(), [])
         self.assertIn(">     indented detail", page)
 
 
-class RosterSectionTest(unittest.TestCase):
+class RosterSection(unittest.TestCase):
     def test_each_cell_links_its_reps_in_order(self) -> None:
+        same_day_folder = f"runs/{SOME_VERSION}/2026-08-02-{SOME_TASK}-r2"
         runs = [
-            a_run(folder="runs/v0.2.0/2026-08-02-visit-edit-r2", rep=2),
-            a_run(folder="runs/v0.2.0/2026-08-02-visit-edit-r1", rep=1),
+            a_run(folder=same_day_folder, rep=2),
+            a_run(folder=SOME_FOLDER, rep=1),
         ]
         text = "\n".join(roster_section(runs))
-        first = text.find("[r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md)")
-        second = text.find("[r2](runs/v0.2.0/2026-08-02-visit-edit-r2/README.md)")
+        first = text.find(run_link(SOME_FOLDER, 1))
+        second = text.find(run_link(same_day_folder, 2))
         self.assertGreaterEqual(first, 0)
         self.assertGreater(second, first)
 
@@ -2008,11 +2058,11 @@ class RosterSectionTest(unittest.TestCase):
         self.assertIn("### Recorded runs", render([a_run()]))
 
 
-class PipelineRenderTest(unittest.TestCase):
+class PipelineRender(unittest.TestCase):
     """The page's Pipeline section: rendered from the committed ledger by the
     current harness renderer, so a rendering fix reaches recorded runs."""
 
-    GRADE = {
+    GRADE: ClassVar[dict[str, object]] = {
         "type": "grader-verdict",
         "req_id": "REQ-A-001",
         "ts": "2026-08-03T10:00:00+00:00",
@@ -2031,7 +2081,7 @@ class PipelineRenderTest(unittest.TestCase):
         "Decide whether the sibling ships as a follow-up before merging.",
     }
 
-    REVIEW = {
+    REVIEW: ClassVar[dict[str, object]] = {
         "type": "review-feedback",
         "req_id": "REQ-A-001",
         "ts": "2026-08-03T10:01:00+00:00",
@@ -2072,7 +2122,7 @@ class PipelineRenderTest(unittest.TestCase):
         self.assertIsNone(render_pipeline(out_dir))
 
     def test_approved_aspects_ride_in_a_closed_details_block(self):
-        lines = approved_section(self.a_run_folder(self.REVIEW))
+        lines = approved_lines(reviewer_approvals(self.a_run_folder(self.REVIEW)))
         text = "\n".join(lines)
         self.assertIn("<details>", text)
         self.assertIn("</details>", text)
@@ -2083,29 +2133,73 @@ class PipelineRenderTest(unittest.TestCase):
 
     def test_a_review_without_approved_aspects_adds_no_block(self):
         record = {k: v for k, v in self.REVIEW.items() if k != "approved_aspects"}
-        self.assertEqual(approved_section(self.a_run_folder(record)), [])
+        self.assertEqual(
+            approved_lines(reviewer_approvals(self.a_run_folder(record))), []
+        )
 
     def test_a_malformed_ledger_line_is_skipped_not_fatal(self):
         out_dir = self.a_run_folder(self.REVIEW)
         ledger = out_dir / "handoff.jsonl"
         ledger.write_text("{ broken\n" + ledger.read_text(), encoding="utf-8")
-        self.assertIn("code-quality-reviewer", "\n".join(approved_section(out_dir)))
+        self.assertIn(
+            "code-quality-reviewer",
+            "\n".join(approved_lines(reviewer_approvals(out_dir))),
+        )
 
     def test_aspect_text_is_scrubbed_before_it_lands_in_markdown(self):
         record = dict(self.REVIEW, approved_aspects=["a | b `c` d"])
-        text = "\n".join(approved_section(self.a_run_folder(record)))
+        text = "\n".join(approved_lines(reviewer_approvals(self.a_run_folder(record))))
         self.assertNotIn("|", text)
         self.assertNotIn("`", text)
 
     def test_an_aspect_cannot_close_the_details_block_early(self):
         record = dict(self.REVIEW, approved_aspects=["solid </details><h1>x</h1>"])
-        lines = approved_section(self.a_run_folder(record))
+        lines = approved_lines(reviewer_approvals(self.a_run_folder(record)))
         unescaped = [li for li in lines if re.search(r"(?<!\\)</details>", li)]
         self.assertEqual(unescaped, ["</details>"])
         self.assertIn("- solid \\</details>\\<h1>x\\</h1>", lines)
 
 
-class RunStalledTest(unittest.TestCase):
+class NonObjectRecordFile(unittest.TestCase):
+    """A result.json that parses to something other than an object is skipped
+    aloud on stderr, by both readers, so no run vanishes from the trend silently."""
+
+    NON_OBJECT_JSON = "[]"
+
+    def a_run_dir_with_a_non_object_result(self) -> Path:
+        version_dir = Path(tempfile.mkdtemp()) / UNMEASURED_VERSION
+        run_dir = version_dir / "2026-08-04-visit-edit-r1"
+        run_dir.mkdir(parents=True)
+        self.addCleanup(shutil.rmtree, version_dir.parent, ignore_errors=True)
+        (run_dir / "manifest.json").write_text(
+            json.dumps(a_manifest()), encoding="utf-8"
+        )
+        (run_dir / "result.json").write_text(self.NON_OBJECT_JSON, encoding="utf-8")
+        original = summarize.RUNS_DIR
+        summarize.RUNS_DIR = version_dir.parent
+        self.addCleanup(setattr, summarize, "RUNS_DIR", original)
+        return run_dir
+
+    def test_the_trend_loader_skips_it_and_names_it_on_stderr(self) -> None:
+        run_dir = self.a_run_dir_with_a_non_object_result()
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            runs = summarize.load_runs()
+        self.assertEqual(runs, [])
+        self.assertIn("result.json is not a JSON object", stderr.getvalue())
+        self.assertIn(run_dir.name, stderr.getvalue())
+
+    def test_the_page_renderer_skips_it_and_names_it_on_stderr(self) -> None:
+        run_dir = self.a_run_dir_with_a_non_object_result()
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            pages = summarize.render_run_pages()
+        self.assertEqual(pages, {})
+        self.assertIn("result.json is not a JSON object", stderr.getvalue())
+        self.assertIn(run_dir.name, stderr.getvalue())
+
+
+class RunStalled(unittest.TestCase):
     """The stall read: runner-recorded route decision first, ledger
     fallback for runs recorded before the field existed."""
 
@@ -2120,45 +2214,59 @@ class RunStalledTest(unittest.TestCase):
 
     def test_a_recorded_dispatch_decision_reads_stalled(self) -> None:
         self.assertTrue(
-            run_stalled("feature", "complete", False, "dispatch", self.a_folder())
+            run_stalled(
+                Outcome("feature", "complete", False, "dispatch"), self.a_folder()
+            )
         )
 
     def test_a_recorded_blocked_decision_reads_not_stalled(self) -> None:
         self.assertFalse(
-            run_stalled("feature", "complete", False, "blocked", self.a_folder())
+            run_stalled(
+                Outcome("feature", "complete", False, "blocked"), self.a_folder()
+            )
         )
 
     def test_the_ledger_fallback_reads_a_triage_only_run_stalled(self) -> None:
         folder = self.a_folder(
             {"type": "dispatch-start"}, {"type": "prd-entry"}, {"type": "design-block"}
         )
-        self.assertTrue(run_stalled("feature", "complete", False, None, folder))
+        self.assertTrue(
+            run_stalled(Outcome("feature", "complete", False, None), folder)
+        )
 
     def test_the_ledger_fallback_spares_an_implemented_run(self) -> None:
         folder = self.a_folder({"type": "prd-entry"}, {"type": "build-pass"})
-        self.assertFalse(run_stalled("feature", "complete", False, None, folder))
+        self.assertFalse(
+            run_stalled(Outcome("feature", "complete", False, None), folder)
+        )
 
     def test_an_empty_ledger_is_never_a_stall(self) -> None:
         self.assertFalse(
-            run_stalled("feature", "complete", False, None, self.a_folder())
+            run_stalled(Outcome("feature", "complete", False, None), self.a_folder())
         )
 
     def test_a_passing_oracle_is_never_a_stall(self) -> None:
         self.assertFalse(
-            run_stalled("feature", "complete", True, "dispatch", self.a_folder())
+            run_stalled(
+                Outcome("feature", "complete", True, "dispatch"), self.a_folder()
+            )
         )
 
     def test_a_refusal_run_is_never_a_stall(self) -> None:
         folder = self.a_folder({"type": "consultation-request"})
-        self.assertFalse(run_stalled("refusal", "complete", False, None, folder))
+        self.assertFalse(
+            run_stalled(Outcome("refusal", "complete", False, None), folder)
+        )
 
     def test_an_incomplete_status_is_never_a_stall(self) -> None:
         self.assertFalse(
-            run_stalled("feature", "timeout", False, "dispatch", self.a_folder())
+            run_stalled(
+                Outcome("feature", "timeout", False, "dispatch"), self.a_folder()
+            )
         )
 
 
-class SuiteFailuresTest(unittest.TestCase):
+class SuiteFailures(unittest.TestCase):
     """Failing post-agent suite test names, scoped to their log section."""
 
     LOG = (
@@ -2197,7 +2305,7 @@ class SuiteFailuresTest(unittest.TestCase):
         self.assertIn("- `PetClinicConcurrencyTests > raceIsBlocked()`", page)
 
 
-class GradingFiguresTest(unittest.TestCase):
+class GradingFigures(unittest.TestCase):
     """The change grader's spend and wall as their own Figures columns."""
 
     def costs_with(self, *agents: tuple[str, float, float]) -> dict[str, object]:
@@ -2306,12 +2414,12 @@ class GradingFiguresTest(unittest.TestCase):
         self.assertNotIn("never part of the bar", page)
 
 
-class GraderConcordanceTest(unittest.TestCase):
+class GraderConcordance(unittest.TestCase):
     """Tier B context: the verdict groups against the bar and the judge."""
 
     def test_groups_render_bar_and_judge_columns(self) -> None:
         runs = [
-            a_run(grader_verdict="skim", judge_median={f: 4.0 for f in JUDGE_FACETS}),
+            a_run(grader_verdict="skim", judge_median=dict.fromkeys(JUDGE_FACETS, 4.0)),
             a_run(rep=2, grader_verdict="skim", oracle_ok=False),
             a_run(rep=3, grader_verdict="scrutinize"),
         ]
@@ -2342,7 +2450,7 @@ class GraderConcordanceTest(unittest.TestCase):
         self.assertFalse(any("bad |" in line for line in lines))
 
 
-class LedgerRecordsTest(unittest.TestCase):
+class LedgerRecords(unittest.TestCase):
     """The shared ledger reader — run_eval imports it, so its hardening is
     the seam's single behavior."""
 
@@ -2364,12 +2472,16 @@ class LedgerRecordsTest(unittest.TestCase):
         self.assertEqual(ledger_records(big), [])
 
 
-class LedgerVerdictTest(unittest.TestCase):
+class LedgerVerdict(unittest.TestCase):
     """The grader's verdict comes from `grader-verdict` records alone; every
     grading render and netting keys on it."""
 
-    GRADER = {"type": "grader-verdict", "verdict": "skim", "author": "change-grader"}
-    REVIEWER = {
+    GRADER: ClassVar[dict[str, object]] = {
+        "type": "grader-verdict",
+        "verdict": "skim",
+        "author": "change-grader",
+    }
+    REVIEWER: ClassVar[dict[str, object]] = {
         "type": "review-feedback",
         "verdict": "approved",
         "author": "code-quality-reviewer",
@@ -2411,18 +2523,22 @@ class LedgerVerdictTest(unittest.TestCase):
         )
 
     def test_load_runs_nets_only_verdict_backed_grading(self):
-        version_dir = Path(tempfile.mkdtemp()) / "v9.9.9"
+        version_dir = Path(tempfile.mkdtemp()) / UNMEASURED_VERSION
         run_dir = version_dir / "2026-08-04-visit-edit-r1"
         run_dir.mkdir(parents=True)
         self.addCleanup(shutil.rmtree, version_dir.parent, ignore_errors=True)
         (run_dir / "manifest.json").write_text(
-            json.dumps({"rep": 1, "task": {"id": "visit-edit"}}), encoding="utf-8"
+            json.dumps({"rep": 1, "task": {"id": SOME_TASK}}), encoding="utf-8"
         )
+        self_report, accounted, grader = 4.0, 8.0, 2.0
         (run_dir / "result.json").write_text(
             json.dumps(
                 {
                     "status": "complete",
-                    "agent": {"total_cost_usd": 4.0, "accounted": {"cost": 8.0}},
+                    "agent": {
+                        "total_cost_usd": self_report,
+                        "accounted": {"cost": accounted},
+                    },
                 }
             ),
             encoding="utf-8",
@@ -2433,7 +2549,7 @@ class LedgerVerdictTest(unittest.TestCase):
                     "per_agent": [
                         {
                             "agent_type": "agent-team:change-grader",
-                            "totals": {"cost": 2.0},
+                            "totals": {"cost": grader},
                             "wall_seconds": 60.0,
                         }
                     ]
@@ -2441,8 +2557,6 @@ class LedgerVerdictTest(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        import summarize
-
         original = summarize.RUNS_DIR
         summarize.RUNS_DIR = version_dir.parent
         try:
@@ -2455,30 +2569,30 @@ class LedgerVerdictTest(unittest.TestCase):
         finally:
             summarize.RUNS_DIR = original
         self.assertEqual(without_verdict.grading_spend, 0.0)
-        self.assertEqual(without_verdict.agent_spend, 4.0)
-        self.assertEqual(with_verdict.grading_spend, 2.0)
-        self.assertAlmostEqual(with_verdict.agent_spend, 3.0)  # 4 * (1 - 2/8)
+        self.assertEqual(without_verdict.agent_spend, self_report)
+        self.assertEqual(with_verdict.grading_spend, grader)
+        self.assertAlmostEqual(
+            with_verdict.agent_spend, self_report * (1 - grader / accounted)
+        )
 
 
-class TrendViewsTest(unittest.TestCase):
+class TrendViews(unittest.TestCase):
     """Dev runs are local-only: the committed TREND.md carries the tagged
     series, TREND-dev.md carries the full comparison and exists only while a
     dev run is on disk."""
 
     TAGGED = a_run()
-    DEV = a_run(
-        folder="runs/dev-abc1234/2026-08-03-visit-edit-r1", version="dev-abc1234"
-    )
+    DEV = a_run(folder=DEV_FOLDER, version=DEV_VERSION)
 
     def test_dev_rows_stay_out_of_the_committed_trend(self):
         views = trend_views([self.TAGGED, self.DEV])
-        self.assertIn("v0.2.0", views[TREND])
-        self.assertNotIn("dev-abc1234", views[TREND])
+        self.assertIn(SOME_VERSION, views[TREND])
+        self.assertNotIn(DEV_VERSION, views[TREND])
 
     def test_the_dev_view_holds_the_full_comparison(self):
         views = trend_views([self.TAGGED, self.DEV])
-        self.assertIn("dev-abc1234", views[TREND_DEV])
-        self.assertIn("v0.2.0", views[TREND_DEV])
+        self.assertIn(DEV_VERSION, views[TREND_DEV])
+        self.assertIn(SOME_VERSION, views[TREND_DEV])
         self.assertIn("Never committed", views[TREND_DEV])
 
     def test_no_dev_run_means_no_dev_view(self):
@@ -2487,99 +2601,96 @@ class TrendViewsTest(unittest.TestCase):
     def test_only_dev_runs_leaves_an_empty_committed_trend(self):
         views = trend_views([self.DEV])
         self.assertIn("No runs recorded yet.", views[TREND])
-        self.assertIn("dev-abc1234", views[TREND_DEV])
+        self.assertIn(DEV_VERSION, views[TREND_DEV])
 
 
-class SettledMovesTest(unittest.TestCase):
-    """The settled-moves check, the escalation queue's complement: once both
-    arms reach the confirmation depth the queue stops listing a pair, so an
-    over-threshold move between settled cells must surface here until an
-    operator note explains it — scoped to the task and either version or
-    task-wide, dated no earlier than the younger cell's first rep, and
-    matching the pair's pin when it names a model."""
+class SettledMoves(unittest.TestCase):
+    """The settled-moves check: an over-threshold move between two cells at
+    confirmation depth surfaces until an operator note explains it."""
 
     def cell(self, version: str, reps: int = 3, **overrides: Any) -> list[Run]:
         return [a_run(version=version, rep=rep + 1, **overrides) for rep in range(reps)]
 
     def _pair(self) -> list[Run]:
-        return self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=4.5)
+        return self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=4.5)
 
     def test_a_settled_over_threshold_move_without_a_note_lists(self) -> None:
         settled, (move,) = settled_moves_check(self._pair(), ())
         self.assertTrue(settled)
-        self.assertEqual(("v0.1.0", "v0.2.0"), (move.earlier, move.later))
+        self.assertEqual((OLDER_VERSION, SOME_VERSION), (move.earlier, move.later))
         self.assertAlmostEqual(0.5, move.move)
 
     def test_an_unsettled_pair_stays_the_escalation_queues(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", reps=2, cost=4.5)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(
+            SOME_VERSION, reps=2, cost=4.5
+        )
         self.assertEqual((False, []), settled_moves_check(runs, ()))
 
     def test_a_move_within_the_threshold_stays_quiet(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=3.6)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=3.6)
         self.assertEqual((True, []), settled_moves_check(runs, ()))
 
     def test_a_note_on_either_cell_or_task_wide_explains_the_pair(self) -> None:
         for note in (
-            Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.2.0"),
-            Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.1.0"),
-            Note(date="2026-08-21", text="era", task="visit-edit"),
+            Note(date=LATER_DATE, text="mech", task=SOME_TASK, version=SOME_VERSION),
+            Note(date=LATER_DATE, text="mech", task=SOME_TASK, version=OLDER_VERSION),
+            Note(date=LATER_DATE, text="era", task=SOME_TASK),
         ):
             with self.subTest(version=note.version):
                 self.assertEqual([], settled_moves_check(self._pair(), (note,))[1])
 
     def test_a_note_on_another_task_does_not_explain_it(self) -> None:
-        note = Note(date="2026-08-21", text="x", task="visit-cancel", version="v0.2.0")
+        note = Note(date=LATER_DATE, text="x", task=REFUSAL_TASK, version=SOME_VERSION)
         self.assertEqual(1, len(settled_moves_check(self._pair(), (note,))[1]))
 
     def test_a_note_predating_a_cells_first_rep_does_not_explain_it(self) -> None:
-        note = Note(date="2026-08-01", text="mech", task="visit-edit", version="v0.2.0")
+        note = Note(
+            date=DAY_BEFORE_BIRTH, text="mech", task=SOME_TASK, version=SOME_VERSION
+        )
         self.assertEqual(1, len(settled_moves_check(self._pair(), (note,))[1]))
 
     def test_a_note_dated_the_younger_cells_birth_day_explains_it(self) -> None:
-        note = Note(date="2026-08-02", text="mech", task="visit-edit", version="v0.2.0")
+        note = Note(date=BIRTH_DAY, text="mech", task=SOME_TASK, version=SOME_VERSION)
         self.assertEqual([], settled_moves_check(self._pair(), (note,))[1])
 
     def test_a_backfill_rep_after_the_note_never_ages_it_out(self) -> None:
-        runs = self._pair() + [
-            a_run(version="v0.2.0", rep=4, cost=4.5, started="2026-08-30T10:00:00")
+        runs = [
+            *self._pair(),
+            a_run(version=SOME_VERSION, rep=4, cost=4.5, started=AFTER_NOTE_STARTED),
         ]
-        note = Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.2.0")
+        note = Note(date=LATER_DATE, text="mech", task=SOME_TASK, version=SOME_VERSION)
         self.assertEqual([], settled_moves_check(runs, (note,))[1])
 
     def test_a_model_scoped_note_explains_only_its_own_pin(self) -> None:
-        matching = Note(
-            date="2026-08-21", text="m", task="visit-edit", model="(default)"
-        )
-        other = Note(date="2026-08-21", text="m", task="visit-edit", model="opus-x")
+        matching = Note(date=LATER_DATE, text="m", task=SOME_TASK, model="(default)")
+        other = Note(date=LATER_DATE, text="m", task=SOME_TASK, model="opus-x")
         self.assertEqual([], settled_moves_check(self._pair(), (matching,))[1])
         self.assertEqual(1, len(settled_moves_check(self._pair(), (other,))[1]))
 
     def test_a_bounded_pair_lists_with_its_bound_marker(self) -> None:
         runs = (
-            self.cell("v0.1.0", cost=3.0)
-            + self.cell("v0.2.0", reps=2, cost=7.0)
-            + self.cell("v0.2.0", reps=1, cost=None, accounted_cost=None)
+            self.cell(OLDER_VERSION, cost=3.0)
+            + self.cell(SOME_VERSION, reps=2, cost=7.0)
+            + self.cell(SOME_VERSION, reps=1, cost=None, accounted_cost=None)
         )
         _, (move,) = settled_moves_check(runs, ())
         self.assertEqual(("", ">="), (move.bound_a, move.bound_b))
 
     def test_a_pair_touching_a_dev_row_never_lists_nor_counts(self) -> None:
-        runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=9.0)
+        runs = self.cell(SOME_VERSION, cost=3.0) + self.cell(DEV_VERSION, cost=9.0)
         self.assertEqual((False, []), settled_moves_check(runs, ()))
 
     def test_a_dev_only_settled_pair_renders_no_all_clear(self) -> None:
-        runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=9.0)
+        runs = self.cell(SOME_VERSION, cost=3.0) + self.cell(DEV_VERSION, cost=9.0)
         self.assertEqual([], settled_moves_section(runs, ()))
 
     def test_one_note_explains_both_pairs_flanking_its_version(self) -> None:
         runs = (
-            self.cell("v0.1.0", cost=3.0)
-            + self.cell("v0.2.0", cost=4.5)
-            + self.cell("v0.3.0", cost=3.0)
+            self.cell(OLDER_VERSION, cost=3.0)
+            + self.cell(SOME_VERSION, cost=4.5)
+            + self.cell(NEWER_VERSION, cost=3.0)
         )
-        note = Note(
-            date="2026-08-21", text="spike", task="visit-edit", version="v0.2.0"
-        )
+        note = Note(date=LATER_DATE, text="spike", task=SOME_TASK, version=SOME_VERSION)
         settled, flagged = settled_moves_check(runs, (note,))
         self.assertTrue(settled)
         self.assertEqual([], flagged)
@@ -2590,18 +2701,18 @@ class SettledMovesTest(unittest.TestCase):
         self.assertIn("cost per pass $3.00 → $4.50 (+50%)", text)
 
     def test_the_section_gives_an_explicit_all_clear_when_noted(self) -> None:
-        note = Note(date="2026-08-21", text="era", task="visit-edit")
+        note = Note(date=LATER_DATE, text="era", task=SOME_TASK)
         text = "\n".join(settled_moves_section(self._pair(), (note,)))
         self.assertIn("No settled pair moved past 30%", text)
 
     def test_the_section_is_omitted_without_a_settled_pair(self) -> None:
-        runs = self.cell("v0.1.0", reps=1, cost=3.0) + self.cell(
-            "v0.2.0", reps=1, cost=9.0
+        runs = self.cell(OLDER_VERSION, reps=1, cost=3.0) + self.cell(
+            SOME_VERSION, reps=1, cost=9.0
         )
         self.assertEqual([], settled_moves_section(runs, ()))
 
 
-class EscalationCheckTest(unittest.TestCase):
+class EscalationCheck(unittest.TestCase):
     """The escalation check: adjacent-pair pairing, the three triggers, the
     three-rep confirmation depth, and the copy-ready follow-up command."""
 
@@ -2609,9 +2720,11 @@ class EscalationCheckTest(unittest.TestCase):
         return [a_run(version=version, rep=rep + 1, **overrides) for rep in range(reps)]
 
     def test_a_cost_move_over_30_percent_lists_with_figures(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=4.5)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=4.5)
         (candidate,) = escalation_candidates(runs)
-        self.assertEqual(("v0.1.0", "v0.2.0"), (candidate.earlier, candidate.later))
+        self.assertEqual(
+            (OLDER_VERSION, SOME_VERSION), (candidate.earlier, candidate.later)
+        )
         self.assertEqual(("cost per pass $3.00 → $4.50 (+50%)",), candidate.triggers)
         self.assertEqual(
             "python3 evals/run_eval.py --version v0.1.0 --version v0.2.0"
@@ -2620,11 +2733,11 @@ class EscalationCheckTest(unittest.TestCase):
         )
 
     def test_a_move_within_30_percent_stays_quiet(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=3.6)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=3.6)
         self.assertEqual([], escalation_candidates(runs))
 
     def test_a_bar_flip_reports_flip_and_lost_unit_cost(self) -> None:
-        runs = self.cell("v0.1.0") + self.cell("v0.2.0", oracle_ok=False)
+        runs = self.cell(OLDER_VERSION) + self.cell(SOME_VERSION, oracle_ok=False)
         (candidate,) = escalation_candidates(runs)
         self.assertEqual(
             (
@@ -2635,25 +2748,27 @@ class EscalationCheckTest(unittest.TestCase):
         )
 
     def test_three_reps_per_arm_settle_the_pair(self) -> None:
-        runs = self.cell("v0.1.0", reps=3, cost=3.0) + self.cell(
-            "v0.2.0", reps=3, cost=4.5
+        runs = self.cell(OLDER_VERSION, reps=3, cost=3.0) + self.cell(
+            SOME_VERSION, reps=3, cost=4.5
         )
         self.assertEqual([], escalation_candidates(runs))
 
     def test_pairs_hold_within_one_pin_only(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell(
-            "v0.2.0", cost=4.5, model_requested="claude-opus-5"
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(
+            SOME_VERSION, cost=4.5, model_requested=SOME_MODEL
         )
         self.assertEqual([], escalation_candidates(runs))
 
     def test_only_adjacent_version_rows_compare(self) -> None:
         runs = (
-            self.cell("v0.1.0", cost=3.0)
-            + self.cell("v0.2.0", cost=3.0)
-            + self.cell("v0.3.0", cost=4.5)
+            self.cell(OLDER_VERSION, cost=3.0)
+            + self.cell(SOME_VERSION, cost=3.0)
+            + self.cell(NEWER_VERSION, cost=4.5)
         )
         (candidate,) = escalation_candidates(runs)
-        self.assertEqual(("v0.2.0", "v0.3.0"), (candidate.earlier, candidate.later))
+        self.assertEqual(
+            (SOME_VERSION, NEWER_VERSION), (candidate.earlier, candidate.later)
+        )
 
     def test_two_dev_rows_list_without_a_runnable_command(self) -> None:
         runs = self.cell("dev-aaa1111", cost=3.0) + self.cell("dev-bbb2222", cost=4.5)
@@ -2669,9 +2784,9 @@ class EscalationCheckTest(unittest.TestCase):
         self.assertIn("no runnable follow-up command", escalation_report(runs))
 
     def test_a_pinned_pair_carries_the_pin_into_the_command(self) -> None:
-        pinned: dict[str, Any] = {"model_requested": "claude-opus-5"}
-        runs = self.cell("v0.1.0", cost=3.0, **pinned) + self.cell(
-            "v0.2.0", cost=4.5, **pinned
+        pinned: dict[str, Any] = {"model_requested": SOME_MODEL}
+        runs = self.cell(OLDER_VERSION, cost=3.0, **pinned) + self.cell(
+            SOME_VERSION, cost=4.5, **pinned
         )
         (candidate,) = escalation_candidates(runs)
         self.assertEqual(
@@ -2681,8 +2796,8 @@ class EscalationCheckTest(unittest.TestCase):
         )
 
     def test_an_era_contract_pair_carries_the_flag_into_the_command(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0, era_contract=True) + self.cell(
-            "v0.2.0", cost=4.5, era_contract=True
+        runs = self.cell(OLDER_VERSION, cost=3.0, era_contract=True) + self.cell(
+            SOME_VERSION, cost=4.5, era_contract=True
         )
         (candidate,) = escalation_candidates(runs)
         self.assertTrue(candidate.command)
@@ -2691,24 +2806,28 @@ class EscalationCheckTest(unittest.TestCase):
 
     def test_a_version_gap_pairs_the_nearest_measured_cells(self) -> None:
         runs = (
-            self.cell("v0.1.0", cost=3.0)
-            + self.cell("v0.2.0", cost=3.0, task="other-task")
-            + self.cell("v0.3.0", cost=4.5)
+            self.cell(OLDER_VERSION, cost=3.0)
+            + self.cell(SOME_VERSION, cost=3.0, task="other-task")
+            + self.cell(NEWER_VERSION, cost=4.5)
         )
         (candidate,) = escalation_candidates(runs)
-        self.assertEqual(("v0.1.0", "v0.3.0"), (candidate.earlier, candidate.later))
+        self.assertEqual(
+            (OLDER_VERSION, NEWER_VERSION), (candidate.earlier, candidate.later)
+        )
 
     def test_a_move_of_exactly_30_percent_stays_quiet(self) -> None:
-        runs = self.cell("v0.1.0", cost=10.0) + self.cell("v0.2.0", cost=13.0)
+        runs = self.cell(OLDER_VERSION, cost=10.0) + self.cell(SOME_VERSION, cost=13.0)
         self.assertEqual([], escalation_candidates(runs))
 
     def test_one_deep_arm_does_not_settle_the_pair(self) -> None:
-        runs = self.cell("v0.1.0", reps=3, cost=3.0) + self.cell("v0.2.0", cost=4.5)
+        runs = self.cell(OLDER_VERSION, reps=3, cost=3.0) + self.cell(
+            SOME_VERSION, cost=4.5
+        )
         (candidate,) = escalation_candidates(runs)
         self.assertIn("cost per pass $3.00 → $4.50 (+50%)", candidate.triggers)
 
     def test_a_label_outside_the_spec_shape_gets_no_command(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v9; rm -rf ~", cost=4.5)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell("v9; rm -rf ~", cost=4.5)
         (candidate,) = escalation_candidates(runs)
         self.assertIsNone(candidate.command)
 
@@ -2716,36 +2835,37 @@ class EscalationCheckTest(unittest.TestCase):
         self.assertEqual("a b c", scrub("a\u2028b\u2029c"))
 
     def test_a_lower_bound_cell_carries_its_marker_into_the_trigger(self) -> None:
-        bounded = self.cell("v0.2.0", cost=4.5) + [
+        bounded = [
+            *self.cell(SOME_VERSION, cost=4.5),
             a_run(
-                version="v0.2.0",
+                version=SOME_VERSION,
                 rep=2,
                 status="timeout",
                 oracle_ok=None,
                 cost=None,
                 accounted_cost=None,
-            )
+            ),
         ]
-        runs = self.cell("v0.1.0", cost=3.0) + bounded
+        runs = self.cell(OLDER_VERSION, cost=3.0) + bounded
         (candidate,) = escalation_candidates(runs)
         self.assertIn("cost per pass $3.00 → >=$4.50 (+50%)", candidate.triggers)
 
     def test_a_cell_with_no_recorded_spend_never_costs_a_trigger(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell(
-            "v0.2.0", cost=None, accounted_cost=None
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(
+            SOME_VERSION, cost=None, accounted_cost=None
         )
         self.assertEqual([], escalation_candidates(runs))
 
     def test_a_dev_label_maps_back_to_the_dev_spec(self) -> None:
-        runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=4.5)
+        runs = self.cell(SOME_VERSION, cost=3.0) + self.cell(DEV_VERSION, cost=4.5)
         (candidate,) = escalation_candidates(runs)
         self.assertIn("--version v0.2.0 --version dev ", candidate.command)
-        self.assertNotIn("dev-abc1234", candidate.command)
+        self.assertNotIn(DEV_VERSION, candidate.command)
 
     def test_a_refusal_pair_drops_the_judge_flag(self) -> None:
         refusal = {"task_kind": KIND_REFUSAL, "oracle_ok": None}
-        runs = self.cell("v0.1.0", src_files_changed=0, **refusal) + self.cell(
-            "v0.2.0", src_files_changed=2, **refusal
+        runs = self.cell(OLDER_VERSION, src_files_changed=0, **refusal) + self.cell(
+            SOME_VERSION, src_files_changed=2, **refusal
         )
         (candidate,) = escalation_candidates(runs)
         self.assertNotIn("--judge", candidate.command)
@@ -2754,16 +2874,16 @@ class EscalationCheckTest(unittest.TestCase):
         # Severity order differs from both alphabetical directions, and each
         # tier holds two magnitudes, so only the real key passes.
         runs = (
-            self.cell("v0.1.0", task="a-rise", cost=3.0)
-            + self.cell("v0.2.0", task="a-rise", cost=4.2)
-            + self.cell("v0.1.0", task="b-flip")
-            + self.cell("v0.2.0", task="b-flip", oracle_ok=False)
-            + self.cell("v0.1.0", task="c-big-drop", cost=5.0)
-            + self.cell("v0.2.0", task="c-big-drop", cost=2.0)
-            + self.cell("v0.1.0", task="d-big-rise", cost=3.0)
-            + self.cell("v0.2.0", task="d-big-rise", cost=6.0)
-            + self.cell("v0.1.0", task="e-drop", cost=5.0)
-            + self.cell("v0.2.0", task="e-drop", cost=3.0)
+            self.cell(OLDER_VERSION, task="a-rise", cost=3.0)
+            + self.cell(SOME_VERSION, task="a-rise", cost=4.2)
+            + self.cell(OLDER_VERSION, task="b-flip")
+            + self.cell(SOME_VERSION, task="b-flip", oracle_ok=False)
+            + self.cell(OLDER_VERSION, task="c-big-drop", cost=5.0)
+            + self.cell(SOME_VERSION, task="c-big-drop", cost=2.0)
+            + self.cell(OLDER_VERSION, task="d-big-rise", cost=3.0)
+            + self.cell(SOME_VERSION, task="d-big-rise", cost=6.0)
+            + self.cell(OLDER_VERSION, task="e-drop", cost=5.0)
+            + self.cell(SOME_VERSION, task="e-drop", cost=3.0)
         )
         tasks = [c.task for c in escalation_candidates(runs)]
         self.assertEqual(
@@ -2773,65 +2893,59 @@ class EscalationCheckTest(unittest.TestCase):
     def test_a_lost_unit_cost_outranks_a_flip_with_a_cost_rise(self) -> None:
         # "a-flip-rise" keeps a clearing rep (partial flip, cost trebled);
         # "b-lost" collapses to none — the stronger signal, listed first.
-        runs = (
-            self.cell("v0.1.0", reps=2, task="a-flip-rise", cost=3.0)
-            + [a_run(version="v0.2.0", task="a-flip-rise", rep=1, cost=6.0)]
-            + [
-                a_run(
-                    version="v0.2.0",
-                    task="a-flip-rise",
-                    rep=2,
-                    cost=6.0,
-                    oracle_ok=False,
-                )
-            ]
-            + [a_run(version="v0.1.0", task="b-lost", rep=1, cost=3.0)]
-            + [a_run(version="v0.1.0", task="b-lost", rep=2, oracle_ok=False)]
-            + self.cell("v0.2.0", reps=2, task="b-lost", oracle_ok=False)
-        )
+        runs = [
+            *self.cell(OLDER_VERSION, reps=2, task="a-flip-rise", cost=3.0),
+            a_run(version=SOME_VERSION, task="a-flip-rise", rep=1, cost=6.0),
+            a_run(
+                version=SOME_VERSION,
+                task="a-flip-rise",
+                rep=2,
+                cost=6.0,
+                oracle_ok=False,
+            ),
+            a_run(version=OLDER_VERSION, task="b-lost", rep=1, cost=3.0),
+            a_run(version=OLDER_VERSION, task="b-lost", rep=2, oracle_ok=False),
+            *self.cell(SOME_VERSION, reps=2, task="b-lost", oracle_ok=False),
+        ]
         tasks = [c.task for c in escalation_candidates(runs)]
         self.assertEqual(["b-lost", "a-flip-rise"], tasks)
 
     def test_tied_pairs_keep_the_scan_order(self) -> None:
         runs = (
-            self.cell("v0.1.0", task="b-rise", cost=3.0)
-            + self.cell("v0.2.0", task="b-rise", cost=4.5)
-            + self.cell("v0.1.0", task="a-rise", cost=4.0)
-            + self.cell("v0.2.0", task="a-rise", cost=6.0)
+            self.cell(OLDER_VERSION, task="b-rise", cost=3.0)
+            + self.cell(SOME_VERSION, task="b-rise", cost=4.5)
+            + self.cell(OLDER_VERSION, task="a-rise", cost=4.0)
+            + self.cell(SOME_VERSION, task="a-rise", cost=6.0)
         )
         tasks = [c.task for c in escalation_candidates(runs)]
         self.assertEqual(["a-rise", "b-rise"], tasks)
 
     def test_the_section_renders_candidate_and_command(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=4.5)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=4.5)
         text = "\n".join(escalation_section(runs))
         self.assertIn("### Escalation check", text)
         self.assertIn("`visit-edit` · `v0.1.0 → v0.2.0`", text)
         self.assertIn("--task visit-edit --reps 2 --judge`", text)
 
     def test_the_section_is_omitted_without_a_comparable_pair(self) -> None:
-        self.assertEqual([], escalation_section(self.cell("v0.2.0")))
+        self.assertEqual([], escalation_section(self.cell(SOME_VERSION)))
 
     def test_a_clean_pair_renders_the_all_clear_line(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=3.3)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=3.3)
         text = "\n".join(escalation_section(runs))
         self.assertIn("No pair trips a trigger", text)
 
     def test_the_report_lists_commands_and_stays_empty_without_a_pair(self) -> None:
-        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=4.5)
+        runs = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=4.5)
         self.assertIn("--task visit-edit --reps 2 --judge", escalation_report(runs))
-        self.assertEqual("", escalation_report(self.cell("v0.2.0")))
-        clean = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=3.3)
+        self.assertEqual("", escalation_report(self.cell(SOME_VERSION)))
+        clean = self.cell(OLDER_VERSION, cost=3.0) + self.cell(SOME_VERSION, cost=3.3)
         self.assertEqual(
             "escalation check: no pair trips a trigger", escalation_report(clean)
         )
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-class NamedDefectProbeTest(unittest.TestCase):
+class NamedDefectProbe(unittest.TestCase):
     """Tier B named-defect probes: deterministic over the recorded diff,
     retroactive, never part of the bar."""
 
@@ -2919,10 +3033,23 @@ class NamedDefectProbeTest(unittest.TestCase):
 
     def test_the_visit_edit_task_declares_the_owner_probe(self) -> None:
         probes = summarize.load_defect_probes()
-        self.assertIn("visit-edit", probes)
-        self.assertEqual(
-            [p.id for p in probes["visit-edit"]], ["owner-mass-assignment"]
+        self.assertIn(SOME_TASK, probes)
+        self.assertEqual([p.id for p in probes[SOME_TASK]], ["owner-mass-assignment"])
+
+    def test_the_default_and_the_explicit_directory_share_one_cache_entry(self) -> None:
+        self.assertIs(
+            summarize.load_defect_probes(), summarize.load_defect_probes(TASKS_DIR)
         )
+
+    def test_a_missing_directory_is_read_again_once_it_exists(self) -> None:
+        tasks = Path(tempfile.mkdtemp()) / "tasks"
+        self.addCleanup(shutil.rmtree, tasks.parent, ignore_errors=True)
+        self.assertEqual(summarize.load_defect_probes(tasks), {})
+        (tasks / "t").mkdir(parents=True)
+        (tasks / "t" / "task.toml").write_text(
+            'id = "t"\n[[defect]]\nid = "x"\nadded = "a"\n', encoding="utf-8"
+        )
+        self.assertEqual(list(summarize.load_defect_probes(tasks)), ["t"])
 
     def test_a_malformed_probe_fails_loud(self) -> None:
         tasks = Path(tempfile.mkdtemp())
@@ -2954,3 +3081,7 @@ class NamedDefectProbeTest(unittest.TestCase):
             summarize.trend_data_json([a_run(known_defects={"x": True})])
         )
         self.assertEqual(payload["reps"][0]["known_defects"], {"x": True})
+
+
+if __name__ == "__main__":
+    unittest.main()

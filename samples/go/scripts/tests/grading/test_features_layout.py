@@ -1,15 +1,4 @@
-"""Classification against this stack's real layout.toml (Go).
-
-The classification table freezes the kind / module / sensitive contract this
-project's own layout.toml encodes, so the layout's storage format can change
-without altering the feature row; it skips on a pre-init tree. The module
-strategies a Go project forks onto (a Gradle/Maven or TypeScript tree) pin
-against one-rule layouts. The stack-agnostic review-kind and numstat pins live
-in core (tests/grading/test_features.py).
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_features_layout
-Stdlib only.
-"""
+"""Classification against this stack's real layout.toml (Go) and the module strategies it forks onto."""
 
 import unittest
 from pathlib import Path

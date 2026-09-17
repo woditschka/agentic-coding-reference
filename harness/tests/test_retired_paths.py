@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-"""Tests for retired_paths.py (stdlib only).
+"""The retired-paths manifest: its grammar, the coverage rule, the produced-set derivation, and the append-only update."""
 
-Run: python3 harness/tests/test_retired_paths.py
-
-Pins the manifest grammar (comments, duplicates, hostile shapes), the
-coverage rule (exact file vs directory prefix), the consumer-path mapping the
-produced-set derivation rests on, the live manifest's floor, and the update
-subcommand's append-only idempotence. The git-backed derivation itself
-(produced_paths at a tag) is exercised end-to-end by the battery's
-retired-paths step against the real repository.
-"""
-
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +10,10 @@ from unittest import mock
 from _loader import load
 
 retired_paths = load("retired_paths", "retired_paths.py")
+
+SEED_FLOOR = 24
+SOME_TAG = "v0.0.1"
+SOME_LABEL = "test"
 
 
 class ParseManifest(unittest.TestCase):
@@ -29,14 +24,14 @@ class ParseManifest(unittest.TestCase):
         self.assertEqual(entries, ["scripts/a.py", ".claude/skills/x/"])
         self.assertEqual(problems, [])
 
-    def test_duplicate_is_a_problem(self):
+    def test_a_duplicate_is_a_problem(self):
         entries, problems = retired_paths.parse_manifest("scripts/a.py\nscripts/a.py\n")
         self.assertEqual(entries, ["scripts/a.py"])
         self.assertEqual(len(problems), 1)
         self.assertIn("duplicate", problems[0])
 
-    def test_hostile_shapes_are_problems_and_excluded(self):
-        for hostile in (
+    def test_absolute_parent_dot_and_spaced_entries_are_problems_and_excluded(self):
+        for entry in (
             "/etc/passwd",
             "a/../b.py",
             ".",
@@ -44,8 +39,8 @@ class ParseManifest(unittest.TestCase):
             "scripts/x.py # inline comment",
             "scripts/two words.py",
         ):
-            with self.subTest(hostile=hostile):
-                entries, problems = retired_paths.parse_manifest(hostile + "\n")
+            with self.subTest(entry=entry):
+                entries, problems = retired_paths.parse_manifest(entry + "\n")
                 self.assertEqual(entries, [])
                 self.assertTrue(problems)
 
@@ -55,17 +50,17 @@ class ParseManifest(unittest.TestCase):
 
 
 class Covered(unittest.TestCase):
-    ENTRIES = ["scripts/old.py", ".claude/skills/doc-review/"]
+    ENTRIES = ("scripts/old.py", ".claude/skills/doc-review/")
 
-    def test_exact_file_entry(self):
+    def test_an_exact_file_entry_covers_the_file(self):
         self.assertTrue(retired_paths.covered("scripts/old.py", self.ENTRIES))
 
-    def test_directory_prefix_entry(self):
+    def test_a_directory_entry_covers_its_contents(self):
         self.assertTrue(
             retired_paths.covered(".claude/skills/doc-review/SKILL.md", self.ENTRIES)
         )
 
-    def test_uncovered_paths(self):
+    def test_an_extended_name_or_a_sibling_is_not_covered(self):
         for path in (
             "scripts/old.pyc",
             ".claude/skills/doc-reviewer/SKILL.md",
@@ -99,13 +94,12 @@ class ConsumerPathMapping(unittest.TestCase):
 
 
 class LiveManifest(unittest.TestCase):
-    def test_live_manifest_is_well_formed_with_the_seed_floor(self):
+    def test_the_live_manifest_is_well_formed_and_holds_the_seed_floor(self):
+        # The manifest is append-only, so the seed's count never shrinks.
         entries = retired_paths.read_manifest()
-        # The 2026-08-20 seed holds 24 entries; the manifest is append-only,
-        # so the floor never shrinks.
-        self.assertGreaterEqual(len(entries), 24)
+        self.assertGreaterEqual(len(entries), SEED_FLOOR)
 
-    def test_worktree_produced_set_is_consumer_relative(self):
+    def test_the_worktree_produced_set_is_consumer_relative(self):
         produced = retired_paths.produced_paths(None)
         self.assertIn("scripts/handoff.py", produced)
         self.assertIn(".claude/skills/handoff-routing/SKILL.md", produced)
@@ -122,28 +116,26 @@ class ProducedAtRef(unittest.TestCase):
         "040000 tree ffff\tharness/stacks/go\n"
     )
 
-    def test_ls_tree_side_mirrors_the_worktree_exclusions(self):
-        # Symlinks (mode 120000), cache dirs, and .pyc never materialize, so
-        # they must not count as produced at a tag — a filter asymmetry would
-        # manufacture false retirements the append-only manifest keeps forever.
-        import subprocess as sp
-
-        fake = sp.CompletedProcess([], 0, stdout=self.LS_TREE, stderr="")
+    def test_the_ls_tree_side_mirrors_the_worktree_exclusions(self):
+        # Symlinks, cache dirs, and .pyc never materialize; counting them as
+        # produced at a tag would manufacture retirements the append-only
+        # manifest keeps forever.
+        fake = subprocess.CompletedProcess([], 0, stdout=self.LS_TREE, stderr="")
         with mock.patch.object(retired_paths.subprocess, "run", return_value=fake):
-            produced = retired_paths.produced_paths("v0.0.1")
+            produced = retired_paths.produced_paths(SOME_TAG)
         self.assertEqual(
             produced,
             {"scripts/handoff.py", ".claude/skills/x/SKILL.md"},
         )
 
-    def test_suspicious_ref_is_refused(self):
+    def test_a_dash_prefixed_or_empty_ref_is_refused(self):
         for ref in ("--output=/tmp/x", "-v", ""):
             with self.subTest(ref=ref), self.assertRaises(SystemExit):
                 retired_paths.produced_paths(ref)
 
 
 class Update(unittest.TestCase):
-    def test_appends_only_uncovered_paths_and_is_idempotent(self):
+    def test_only_uncovered_paths_are_appended_and_a_rerun_appends_nothing(self):
         with tempfile.TemporaryDirectory() as td:
             manifest = Path(td) / "retired-paths.txt"
             manifest.write_text("scripts/old.py\n")
@@ -152,15 +144,17 @@ class Update(unittest.TestCase):
                 "retired_since",
                 return_value={"scripts/old.py", "scripts/gone.py"},
             ):
-                appended = retired_paths.update("v0.0.1", "test", manifest)
+                appended = retired_paths.update(SOME_TAG, SOME_LABEL, manifest)
                 self.assertEqual(appended, ["scripts/gone.py"])
                 text = manifest.read_text()
-                self.assertIn("# retired after v0.0.1 (test)", text)
+                self.assertIn(f"# retired after {SOME_TAG} ({SOME_LABEL})", text)
                 self.assertEqual(
                     retired_paths.read_manifest(manifest),
                     ["scripts/old.py", "scripts/gone.py"],
                 )
-                self.assertEqual(retired_paths.update("v0.0.1", "test", manifest), [])
+                self.assertEqual(
+                    retired_paths.update(SOME_TAG, SOME_LABEL, manifest), []
+                )
 
 
 if __name__ == "__main__":

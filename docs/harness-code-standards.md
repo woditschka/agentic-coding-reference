@@ -21,10 +21,10 @@ Sections follow: the baseline the code targets, then names, function shape, type
 
 Names are accurate, and their length is proportional to their scope. A single letter is correct inside a three-line comprehension and wrong as a parameter of a function that spans a screen. The vocabulary is the harness's own, as [`glossary.md`](glossary.md) defines it: a ledger entry is a `record`, never a `rec`; the layout table is a `layout`, never a `cfg`.
 
-- A module is named by what it holds, a function by what it does or returns. Actions read verb-first (`render_view`, `resolve_roster`); queries read as nouns or predicates (`latest_build_pass`, `is_stale`).
+- A module is named by what it holds, a function by what it does or returns. Actions read verb-first (`render_view`, `build_board`); queries read as nouns or predicates (`latest_of`, `is_substantive_dissent`).
 - No `util`, `common`, or `misc` module. A function without a domain home has not found its abstraction yet. A module of pure functions over one type the project does not own is the Python form of the utility class and is named for that type (`paths`, never `helpers`).
 - No abbreviation outside a scope of a few lines. Three short forms count as words in this code base: `args` for a parsed argument namespace, `exc` inside an `except` clause, `md` as a Markdown format tag.
-- No type name repeated in a member name: `roster.resolve()`, not `roster.resolve_roster()`.
+- No type name repeated in a member name: `decision.as_json()`, not `decision.decision_as_json()`.
 - A boolean parameter is keyword-only, so a call site names it: `render(entries, color=False)`.
 - A constant with cross-module meaning has one defining module and is imported from there. A literal that carries meaning is named at its first use; a bare `3` in a comparison is a defect.
 
@@ -68,7 +68,7 @@ Comments explain why. A comment that restates what the code does is deleted; a c
 ## Errors, Exit, and Reporting
 
 - An error carries the context a person needs at the point of failure: the path, the record line, the expected shape. `raise ValueError("bad input")` is a defect.
-- No blind `except Exception`. The one sanctioned shape is a read-only overlay that must never take its host down, such as the board's cost overlay; that site carries `# noqa: BLE001` and a one-line why.
+- No blind `except Exception` outside four sanctioned shapes, each site carrying `# noqa: BLE001` and a one-line why. A read-only overlay never takes its host down (`handoff/cost.py`). A hook backstop reaches its declared fail direction rather than crashing (`.claude/hooks/`). An eval-sweep collection or teardown step never voids a paid measurement (`evals/run_eval.py`). A report-only producer step never crashes the run it reports on (`marketplace/prune-retired.py`, `verify_harness/probe_annotations.py`). Every other site narrows to the exceptions it expects.
 - A library function raises; a composition root decides the exit code. `sys.exit` appears only in a `main` or in the `if __name__ == "__main__": raise SystemExit(main())` idiom.
 - Each application reports through one function that writes to stderr, so the report shape is uniform and testable. Scattered `print(..., file=sys.stderr)` calls are consolidated as a module is passed.
 - `subprocess.run` states `check=` explicitly and passes `text=True`. A command's failure is either raised or read from `returncode` in the next statement.
@@ -85,7 +85,7 @@ The code targets Python 3.11 and uses its idiom where the idiom is clearer than 
 - f-strings for all formatting. `str.join` over a comprehension for lists.
 - `functools.cache` for a pure, repeatedly called reader; no module-level mutable caches.
 - Comprehensions and generator expressions over accumulator loops when the result is one expression.
-- `from __future__ import annotations` is absent. A name that exists in the type stubs alone takes the string form in a signature, since an interpreter before 3.14 evaluates the annotation at definition; the battery's annotation probe evaluates every shipped signature.
+- `from __future__ import annotations` is absent. An interpreter before 3.14 evaluates a signature annotation at definition, so a name that exists in the type stubs alone, or is bound only under a guarded import, takes the string form. The battery's annotation probe evaluates every shipped signature.
 
 ## Shell
 
@@ -93,7 +93,7 @@ Shell scripts orchestrate; they hold no roster and no logic that Python can hold
 
 ## The Gate
 
-The mechanical half of this standard lives in `pyproject.toml` and in the battery; the judgment half lives in review. The per-file-ignores table in `pyproject.toml` is the debt list: one entry per file still under the previous bar, naming the rules it fails. An entry only shrinks. A module pass deletes it. A new file never joins it.
+The mechanical half of this standard lives in `pyproject.toml` and in the battery; the judgment half lives in review. The per-file-ignores table in `pyproject.toml` holds two blanket test exemptions and nothing else. Its debt list, one entry per file still under the previous bar, is an empty table. A new file never joins it.
 
 | Rule | Mechanical enforcement | Review clause |
 |---|---|---|
@@ -126,5 +126,5 @@ The `/audit-harness` adversarial review walks a Python diff against this list, t
 - [ ] Every comment states a why the code cannot; no history, no citation, no narration.
 - [ ] Every public name has a one-sentence imperative docstring; no signature restated.
 - [ ] Errors carry context; exits live in composition roots; subprocess failures are handled in the next statement.
-- [ ] The touched module's debt-list entry shrank or vanished; no new entry.
+- [ ] The touched module has no per-file-ignores entry and adds none.
 - [ ] The design document still describes the module after the change.

@@ -26,6 +26,23 @@ A_SIBLING_MODULE_FILE = "lib/src/main/code/pkg/file.ext"
 A_ROOT_TREE_FILE = "src/main/code/pkg/file.ext"
 A_ROOT_TREE_TEST = "src/test/code/pkg/sub/file.ext"
 A_FILE_OUTSIDE_THE_TREE = "app/notes.ext"
+A_PROD_ROW = (3, 1, "src/m.txt")
+A_TEST_ROW = (2, 2, "a_test.txt")
+A_DOCS_ROW = (40, 0, "docs/x.md")
+A_CONFIG_ROW = (5, 0, "c.toml")
+A_CONFIG_ROW_UNDER_A_PROD_ROOT = (6, 0, "src/app.toml")
+ANOTHER_PROD_ROW = (2, 0, "src/n.txt")
+A_BINARY_ROW = ("-", "-", "src/blob.bin")
+AN_UNDOCUMENTED_ROW = ("weird", "?", "src/m.txt")
+A_SENSITIVE_ROW = (1, 0, "src/auth/k.txt")
+
+
+def numstat(*rows):
+    return "".join(f"{added}\t{deleted}\t{path}\n" for added, deleted, path in rows)
+
+
+def changed_lines(*rows):
+    return sum(added + deleted for added, deleted, _ in rows)
 
 
 def a_layout():
@@ -111,33 +128,40 @@ class ParseNumstat(unittest.TestCase):
         return parse_numstat(numstat, a_layout(), a_review_config())
 
     def test_only_prod_and_test_lines_count_toward_the_size(self):
-        out = self.fold(
-            "3\t1\tsrc/m.txt\n2\t2\ta_test.txt\n40\t0\tdocs/x.md\n"
-            "5\t0\tc.toml\n6\t0\tsrc/app.toml\n"
+        # The size metric classifies by tree, so a config file under a
+        # production root counts while its review kind stays config.
+        rows = (
+            A_PROD_ROW,
+            A_TEST_ROW,
+            A_DOCS_ROW,
+            A_CONFIG_ROW,
+            A_CONFIG_ROW_UNDER_A_PROD_ROOT,
         )
 
-        self.assertEqual(out["lines"], 14)
+        out = self.fold(numstat(*rows))
+
         self.assertEqual(
-            out["paths"],
-            ["src/m.txt", "a_test.txt", "docs/x.md", "c.toml", "src/app.toml"],
+            out["lines"],
+            changed_lines(A_PROD_ROW, A_TEST_ROW, A_CONFIG_ROW_UNDER_A_PROD_ROOT),
         )
+        self.assertEqual(out["paths"], [path for _, _, path in rows])
         self.assertEqual(out["kinds"][-1], "config")
         self.assertFalse(out["binary"])
 
     def test_a_binary_row_flags_and_does_not_count(self):
-        out = self.fold("-\t-\tsrc/blob.bin\n1\t0\tsrc/m.txt\n")
+        out = self.fold(numstat(A_BINARY_ROW, A_PROD_ROW))
 
         self.assertTrue(out["binary"])
-        self.assertEqual(out["lines"], 1)
+        self.assertEqual(out["lines"], changed_lines(A_PROD_ROW))
 
     def test_an_undocumented_shape_keeps_the_path_and_counts_nothing(self):
-        out = self.fold("weird\t?\tsrc/m.txt\n2\t0\tsrc/n.txt\n")
+        out = self.fold(numstat(AN_UNDOCUMENTED_ROW, ANOTHER_PROD_ROW))
 
-        self.assertEqual(out["lines"], 2)
-        self.assertEqual(out["paths"], ["src/m.txt", "src/n.txt"])
+        self.assertEqual(out["lines"], changed_lines(ANOTHER_PROD_ROW))
+        self.assertEqual(out["paths"], [AN_UNDOCUMENTED_ROW[2], ANOTHER_PROD_ROW[2]])
 
     def test_a_sensitive_path_flags_the_delta(self):
-        self.assertTrue(self.fold("1\t0\tsrc/auth/k.txt\n")["sensitive"])
+        self.assertTrue(self.fold(numstat(A_SENSITIVE_ROW))["sensitive"])
 
 
 class DiffFeatures(unittest.TestCase):

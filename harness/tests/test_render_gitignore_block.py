@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for render-gitignore-block.py (stdlib only).
-
-Run: python3 harness/tests/test_render_gitignore_block.py
-
-Pins the generator guards:
-  1. A directory path renders in its /* form and a file path as itself.
-  2. The rendered block is the header, the ledger line, then the roster in
-     order.
-  3. The committed block matches the doctor's roster.
-  4. Write and --check agree: a fresh render passes --check; a corrupted
-     copy fails it.
-"""
+"""The gitignore-block renderer: line shapes, block order, the doctor roster, and the render-then-check contract."""
 
 import sys
 import tempfile
@@ -22,6 +11,9 @@ from _loader import load
 
 rgb = load("render_gitignore_block", "render-gitignore-block.py")
 
+RENDERED = 0
+DRIFT_EXIT = 1
+USAGE_EXIT = 2
 SOME_PATHS = [".claude/skills", "scripts/handoff.py", "schemas/scratch"]
 
 
@@ -67,23 +59,27 @@ class DoctorRoster(unittest.TestCase):
 
 class RenderThenCheck(unittest.TestCase):
     def test_the_committed_block_matches_the_roster(self):
-        self.assertEqual(rgb.main(["render-gitignore-block.py", "--check"]), 0)
+        self.assertEqual(rgb.main(["render-gitignore-block.py", "--check"]), RENDERED)
 
-    def test_a_corrupted_copy_fails_the_check(self):
+    def test_a_drifted_copy_fails_the_check_until_rerendered(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "gitignore-runtime.txt"
             output.write_text("stale\n", encoding="utf-8")
             original = rgb.OUTPUT
             rgb.OUTPUT = output
             try:
-                self.assertEqual(rgb.main(["render-gitignore-block.py", "--check"]), 1)
-                self.assertEqual(rgb.main(["render-gitignore-block.py"]), 0)
-                self.assertEqual(rgb.main(["render-gitignore-block.py", "--check"]), 0)
+                self.assertEqual(
+                    rgb.main(["render-gitignore-block.py", "--check"]), DRIFT_EXIT
+                )
+                self.assertEqual(rgb.main(["render-gitignore-block.py"]), RENDERED)
+                self.assertEqual(
+                    rgb.main(["render-gitignore-block.py", "--check"]), RENDERED
+                )
             finally:
                 rgb.OUTPUT = original
 
-    def test_usage_error(self):
-        self.assertEqual(rgb.main(["render-gitignore-block.py", "--bogus"]), 2)
+    def test_an_unknown_flag_is_a_usage_error(self):
+        self.assertEqual(rgb.main(["render-gitignore-block.py", "--bogus"]), USAGE_EXIT)
 
 
 if __name__ == "__main__":

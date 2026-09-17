@@ -22,6 +22,7 @@ OTHER_SLICE = "REQ-OTHER-009"
 A_PRD_UPDATE = {"path": "docs/prd.md", "summary": "edge case added"}
 A_DESIGN_UPDATE = {"path": "docs/system-design.md", "summary": "row added"}
 LOG_LINES = 3
+A_NON_STRING = 7
 
 
 def a_build_pass(**fields):
@@ -58,24 +59,26 @@ class ReviewAnchor(unittest.TestCase):
         )
 
     def test_a_re_review_without_its_start_is_refused_naming_the_build_pass(self):
-        refusal = review_anchor_missing(
-            entries(a_build_pass(), a_start(), a_build_pass()), a_feedback()
-        )
+        log = entries(a_build_pass(), a_start(), a_build_pass())
+
+        refusal = review_anchor_missing(log, a_feedback())
 
         self.assertEqual(
             refusal,
             f"review-feedback by {A_REVIEWER} has no dispatch-start since the "
-            "build-pass at line 3; append a dispatch-start "
+            f"build-pass at line {len(log)}; append a dispatch-start "
             "(handoff-append skill § Dispatch-Start) and retry",
         )
 
     def test_another_reviewer_s_start_does_not_anchor(self):
-        refusal = review_anchor_missing(
-            entries(a_build_pass(), a_start("other")), a_feedback()
-        )
+        log = entries(a_build_pass(), a_start("other"))
+
+        refusal = review_anchor_missing(log, a_feedback())
 
         self.assertIsNotNone(refusal)
-        self.assertIn("no dispatch-start since the build-pass at line 1", refusal)
+        self.assertIn(
+            f"no dispatch-start since the build-pass at line {log[0].no}", refusal
+        )
 
     def test_another_slice_is_ignored(self):
         log = entries(a_build_pass(req_id=OTHER_SLICE))
@@ -113,16 +116,18 @@ class DesignSync(unittest.TestCase):
         self.assertIsNone(self.missing(a_response(), a_design_block()))
 
     def test_a_re_triage_before_the_prd_change_does_not_clear_it(self):
-        refusal = self.missing(a_design_block(), a_response())
+        log = (a_design_block(), a_response())
 
-        self.assertIn("consultation-response at line 2", refusal)
+        refusal = self.missing(*log)
+
+        self.assertIn(f"consultation-response at line {len(log)}", refusal)
 
     def test_two_prd_changes_name_the_later_line(self):
-        refusal = self.missing(
-            a_response(), a_response(author=DESIGNER, updates=()), a_response()
-        )
+        log = (a_response(), a_response(author=DESIGNER, updates=()), a_response())
 
-        self.assertIn("consultation-response at line 3", refusal)
+        refusal = self.missing(*log)
+
+        self.assertIn(f"consultation-response at line {len(log)}", refusal)
 
     def test_another_slice_is_skipped(self):
         self.assertIsNone(self.missing(a_response(req_id=OTHER_SLICE)))
@@ -153,7 +158,7 @@ class ChangesPrd(unittest.TestCase):
         self.assertFalse(self.changes("docs/prd.md.bak"))
 
     def test_a_non_string_path_does_not_count(self):
-        self.assertFalse(self.changes(None, 7))
+        self.assertFalse(self.changes(None, A_NON_STRING))
 
 
 class RespondingTo(unittest.TestCase):

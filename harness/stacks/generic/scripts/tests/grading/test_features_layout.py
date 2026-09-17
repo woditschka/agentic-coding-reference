@@ -1,15 +1,4 @@
-"""Classification against synthetic layouts (generic).
-
-The generic stack's shipped layout.toml is a placeholder the project replaces,
-so the classification table freezes the kind / module / sensitive contract the
-change-grading skill documents against a synthetic layout, and stays green
-after the project fills in its real layout. The module strategies pin against
-one-rule layouts. The stack-agnostic review-kind and numstat pins live in core
-(tests/grading/test_features.py).
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_features_layout
-Stdlib only.
-"""
+"""Classification against a synthetic layout (generic) and the module strategies, independent of the placeholder layout.toml."""
 
 import unittest
 from dataclasses import replace

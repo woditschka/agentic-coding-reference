@@ -11,6 +11,8 @@ from changeset.git_facts import exclude_pathspecs, resolve_ref, resolve_tree, ru
 
 SOME_GLOBS = ("vendor/**", "gen/*.generated")
 LATIN1_BYTES = b"caf\xe9\n"
+SHA_LENGTH = 40
+A_NON_STRING = 1234
 
 
 class ExcludePathspecs(unittest.TestCase):
@@ -83,20 +85,28 @@ class RefHardening(unittest.TestCase):
     """The guards run before git; no repository is needed."""
 
     def test_a_dash_prefixed_ref_is_refused_before_git(self):
-        self.assertIsNone(resolve_ref("--output=/tmp/pwned"))
+        self.assertIsNone(resolve_ref("--output=/tmp/out"))
 
     def test_an_empty_or_absent_ref_resolves_to_nothing(self):
         self.assertIsNone(resolve_ref(""))
         self.assertIsNone(resolve_ref(None))
 
     def test_a_symbolic_or_dash_prefixed_tree_name_is_refused(self):
-        for bad in ("HEAD", "@{-1}", ":/regex", "-x", "main", "abc123", "z" * 40):
+        for bad in (
+            "HEAD",
+            "@{-1}",
+            ":/regex",
+            "-x",
+            "main",
+            "abc123",
+            "z" * SHA_LENGTH,
+        ):
             with self.subTest(name=bad):
                 self.assertIsNone(resolve_tree(bad))
 
     def test_a_non_string_tree_name_is_refused(self):
         self.assertIsNone(resolve_tree(None))
-        self.assertIsNone(resolve_tree(1234))
+        self.assertIsNone(resolve_tree(A_NON_STRING))
 
 
 if __name__ == "__main__":

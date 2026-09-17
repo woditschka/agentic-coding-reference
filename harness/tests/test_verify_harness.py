@@ -1,23 +1,11 @@
 #!/usr/bin/env python3
-"""Tests for the battery's pure helpers (stdlib only).
+"""Pin the battery's parsing helpers and the failure branches of its checks."""
 
-Run: python3 harness/tests/test_verify_harness.py
-
-The battery's dynamic steps prove themselves against the live tree on every
-run; what needs pinning are the parsing helpers whose subtle rules a refactor
-could silently weaken: frontmatter stripping (a body's own "---" rules are
-content), link normalization, section-scoped table rows, binary detection,
-and the placeholder allowlist.
-
-The helpers live in the verify_harness package (ADR 2026-07-18
-check-sync-decomposition) and are imported by name: text (pure helpers),
-battery (the aggregator), checks.lint / checks.sync / checks.suites (the
-step functions). The confinement gate (checks.confinement) has its own
-mirror suite, test_confinement.py. ROOT here is the harness/ toolbox root
-(_loader), which is exactly verify_harness.text.HERE; the repo root is
-verify_harness.text.ROOT.
-"""
-
+import ast
+import contextlib
+import importlib.util
+import io
+import re
 import subprocess
 import sys
 import tempfile
@@ -28,11 +16,22 @@ from _loader import ROOT
 
 sys.path.insert(0, str(ROOT))
 
-import registry  # noqa: E402
-from verify_harness import battery, text  # noqa: E402
-from verify_harness.checks import lint, suites, sync  # noqa: E402
+import registry
+from verify_harness import battery, text
+from verify_harness.checks import lint, suites, sync
 
 STACKS = registry.STACKS
+SOME_TAG = "v9.9.9\n"
+GIT_DESCRIBE_NO_TAG = 128
+PENDING_TOOLS_CHANGE = "?? tools/x.py\n"
+CLEAN_TREE = ""
+SOME_MYPY_PATH = "/usr/bin/mypy"
+SOME_DEV_VIEW = "evals/results/TREND-dev.md"
+SOME_DEV_RUN = "evals/results/runs/dev-x"
+SEED_RETIRED_PATH = "scripts/score-change.py"
+PYPROJECT_RUFF_PIN = "0.15.22"
+MISMATCHED_RUFF_PIN = "9.9.9"
+CONFINEMENT_BINARIES = ("squid", "socat")
 
 
 class StripFrontmatter(unittest.TestCase):
@@ -148,12 +147,6 @@ class SectionRows(unittest.TestCase):
         rows = text.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)")
         self.assertEqual(rows, ["handoff-routing", "goland"])
 
-    def test_commit_type_rows_stay_out(self):
-        self.assertNotIn(
-            "feat",
-            text.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)"),
-        )
-
 
 class BinaryDetection(unittest.TestCase):
     def test_nul_byte_marks_binary(self):
@@ -168,24 +161,14 @@ class BinaryDetection(unittest.TestCase):
 
 class RegistryShRosterFree(unittest.TestCase):
     def test_registry_sh_carries_no_roster(self):
-        # registry.py is the sole roster home; registry.sh holds only shell
-        # helpers. The last bash consumer (materialize-samples.sh) now shells
-        # out for STACKS, so a roster reappearing here would be a second
-        # hand-synced copy — the drift channel this collapse retired by
-        # construction.
         sh = (ROOT / "registry.sh").read_text(encoding="utf-8")
         for name in ("STACKS", "ALL_TOOLS", "PLUGIN_TOOLS"):
-            self.assertNotIn(
-                f"{name}=(", sh, f"{name} roster must live only in registry.py"
-            )
-            self.assertNotIn(f"{name}=", sh, f"{name} must live only in registry.py")
+            self.assertNotIn(f"{name}=(", sh)
+            self.assertNotIn(f"{name}=", sh)
 
 
 class StackParallelCompleteness(unittest.TestCase):
     def test_every_three_way_parallel_is_gated(self):
-        # STACK_PARALLEL_FILES is hand-maintained; this pins it to the tree.
-        # A markdown file present in every stack's .claude tree IS a three-way
-        # parallel — a new one must join the roster gate, not drift silently.
         per_stack = [
             {
                 p.relative_to(ROOT / "stacks" / s).as_posix()
@@ -214,14 +197,10 @@ class FrontmatterSkills(unittest.TestCase):
 
 class BundledSkillDenylist(unittest.TestCase):
     def test_the_proven_collision_is_pinned(self):
-        # security-review is the transcript-proven substitution (ADR
-        # 2026-08-11); the denylist must never lose it.
         self.assertIn("security-review", sync.CLAUDE_CODE_BUNDLED_SKILLS)
 
     def test_no_shipped_preload_names_a_bundled_skill(self):
-        # The live-tree half of check 2g, pinned as a unit test: every
-        # skills-list entry on every agent surface stays off the roster.
-        surfaces = ((".claude/agents", ".md"),) + tuple(registry.mirror_surfaces())
+        surfaces = ((".claude/agents", ".md"), *registry.mirror_surfaces())
         layers = [ROOT / "core"] + [ROOT / "stacks" / s for s in STACKS]
         for layer in layers:
             for agents_dir, suffix in surfaces:
@@ -238,9 +217,7 @@ class BundledSkillDenylist(unittest.TestCase):
 
 class StackSchemasDoNotShadowCore(unittest.TestCase):
     def test_no_stack_schema_shadows_a_core_schema(self):
-        # materialize copies core then stack, stack winning on overlap: a
-        # stack schema named like a core one would silently re-fork the
-        # single-sourced copy (the prd-entry dedup) — gate the channel shut.
+        # materialize copies core then stack with stack winning on overlap.
         core = {p.name for p in (ROOT / "core" / "schemas" / "scratch").glob("*.json")}
         for s in STACKS:
             names = {
@@ -279,9 +256,7 @@ class PlaceholderAllowlist(unittest.TestCase):
                 self.assertIsNone(sync.PH_ALLOW.match(path))
 
     def test_tokens_are_built_by_concatenation(self):
-        # The battery source must never contain the literal token, or the
-        # placeholder gate would flag its own scanner. The source is now the
-        # launcher plus the verify_harness package.
+        # A literal token in the battery source would flag its own scanner.
         sources = [
             ROOT / "verify-harness.py",
             *sorted((ROOT / "verify_harness").rglob("*.py")),
@@ -292,7 +267,7 @@ class PlaceholderAllowlist(unittest.TestCase):
 
 
 class ParityGateHelpers(unittest.TestCase):
-    BODY = [
+    BODY = (
         "## One",
         "```",
         "## fenced heading stays out",
@@ -313,12 +288,10 @@ class ParityGateHelpers(unittest.TestCase):
         "### LOW",
         "## After",
         "### stray outside the section",
-    ]
-    CANON = {"autofix", "blocked", "clarify", "escalate", "truncation"}
+    )
+    CANON = frozenset({"autofix", "blocked", "clarify", "escalate", "truncation"})
 
     def test_h2_headings_skip_fenced_blocks(self):
-        # Indented and ~~~ fences hide headings too; a ``` inside a ~~~
-        # block is literal content, not a closing fence.
         self.assertEqual(
             text.h2_headings(self.BODY), ["One", "Severity Classification", "After"]
         )
@@ -341,9 +314,7 @@ class ParityGateHelpers(unittest.TestCase):
         self.assertEqual((judged, len(problems)), (1, 1))
         self.assertIn("not in review-workflow's canonical set", problems[0])
 
-    def test_tag_findings_judges_variant_forms_not_skips(self):
-        # A case-variant head, a spaced colon, and a link-styled tag reach
-        # judgment; non-vocabulary links and prose brackets never do.
+    def test_tag_findings_judges_variant_forms_instead_of_skipping_them(self):
         for sample, fragment in (
             ("[Blocked]", "case-variant head"),
             ("[autofix]", "case-variant head"),
@@ -357,8 +328,6 @@ class ParityGateHelpers(unittest.TestCase):
             self.assertEqual(text.tag_findings(benign, self.CANON), (0, []), benign)
 
     def test_tag_findings_malformed_targets_reach_judgment(self):
-        # A wrong-case, digits-first, empty, or whitespace-carrying target
-        # must reach the judge, never silently fall out of the scan.
         for bad in (
             "[CLARIFY:Security-Reviewer]",
             "[CLARIFY:2fast]",
@@ -371,9 +340,6 @@ class ParityGateHelpers(unittest.TestCase):
         self.assertIsNotNone(text.TAG_TARGET.match("security-reviewer"))
 
     def test_live_tree_carries_judged_tags(self):
-        # The vocabulary gate's anti-vacuity floor rests on the stack skills
-        # actually carrying tags; pin that premise so carrier drift surfaces
-        # here before it silently empties the gate.
         canon = set(
             text.section_rows(
                 (ROOT / "core/.claude/skills/review-workflow/SKILL.md").read_text(
@@ -389,8 +355,6 @@ class ParityGateHelpers(unittest.TestCase):
         self.assertGreater(total, 0)
 
     def test_pinned_ide_delta_still_names_live_headings(self):
-        # A stale pin would silently allow a divergence nobody decided; the
-        # pin is scoped per pair and must name headings live in that pair.
         for skill_pair, pins in sync.IDE_HEADING_DELTA.items():
             rosters = [
                 text.h2_headings(
@@ -404,76 +368,44 @@ class ParityGateHelpers(unittest.TestCase):
                 self.assertIn(go_heading, rosters[0])
                 self.assertIn(java_heading, rosters[1])
 
-    def test_stack_parallel_pins_are_exact_and_live(self):
-        # Pin-hygiene guard for the stack-parallel roster gate: every pinned
-        # file is on the gated roster; every pin names a non-empty PROPER
-        # subset of the stacks (all three would be the ordinary roster
-        # compare, none would pin a dead heading) with valid slugs; and each
-        # stack's copy matches the pin exactly — the presence check the gate
-        # runs, pinned here so a stale pin fails this suite, not only the
-        # battery.
+    def test_stack_parallel_pins_name_a_proper_subset_and_match_each_stack(self):
         for rel_path, pins in sync.STACK_PARALLEL_PINNED.items():
             self.assertIn(rel_path, sync.STACK_PARALLEL_FILES)
             live = {}
             for s in STACKS:
                 content = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
-                # Mirror the gate's body(): frontmatter is stripped only when
-                # the file opens with a fence — the agents README carries none.
+                # Like the gate, frontmatter is stripped only behind an opening fence.
                 lines = content.splitlines()
                 if lines and text.FENCE.match(lines[0]):
                     lines = text.strip_frontmatter(content)
                 live[s] = text.h2_headings(lines)
             for heading, carriers in pins.items():
-                self.assertTrue(
-                    set(carriers) < set(STACKS),
-                    f"pin '{heading}' must name a proper subset "
-                    f"of STACKS, got {carriers!r}",
-                )
-                self.assertTrue(carriers, f"pin '{heading}' names no carrier")
+                self.assertTrue(set(carriers) < set(STACKS), (heading, carriers))
+                self.assertTrue(carriers, heading)
                 for s in STACKS:
-                    self.assertEqual(
-                        heading in live[s],
-                        s in carriers,
-                        f"pin '{heading}' ({rel_path}) disagrees with stacks/{s}",
-                    )
-                    # Pinned headings sit outside the ordered roster compare,
-                    # so the gate (and this guard) must catch duplication.
-                    self.assertLessEqual(
-                        live[s].count(heading),
-                        1,
-                        f"pin '{heading}' ({rel_path}) duplicated in stacks/{s}",
-                    )
+                    self.assertEqual(heading in live[s], s in carriers, (heading, s))
+                    self.assertLessEqual(live[s].count(heading), 1, (heading, s))
 
     def test_stack_parallel_files_exist_in_every_stack(self):
-        # The roster gate skips a file missing from two stacks (len < 2
-        # guard); pin the premise that every listed parallel ships three copies.
         for rel_path in sync.STACK_PARALLEL_FILES:
             for s in STACKS:
                 self.assertTrue(
-                    (ROOT / "stacks" / s / rel_path).is_file(),
-                    f"stacks/{s}/{rel_path} missing",
+                    (ROOT / "stacks" / s / rel_path).is_file(), (s, rel_path)
                 )
 
 
-class DetectStack(unittest.TestCase):
-    # The marker-priority contract is load-bearing for materialize-samples.sh, /init,
-    # and /materialize but was exercised only implicitly on the three
-    # single-marker samples: go wins on multi-marker trees, any java marker
-    # maps to java-spring-boot, and no marker falls back to generic.
-
+class StackDetection(unittest.TestCase):
     def setUp(self):
         self._td = tempfile.TemporaryDirectory()
+        self.addCleanup(self._td.cleanup)
         self.root = Path(self._td.name)
-
-    def tearDown(self):
-        self._td.cleanup()
 
     def _detect(self, *markers):
         for m in markers:
             (self.root / m).write_text("", encoding="utf-8")
         return registry.detect_stack(self.root)
 
-    def test_single_markers(self):
+    def test_each_single_marker_maps_to_its_stack(self):
         for marker, stack in (
             ("go.mod", "go"),
             ("build.gradle", "java-spring-boot"),
@@ -494,19 +426,10 @@ class DetectStack(unittest.TestCase):
 
 
 class HandSyncedConstantParity(unittest.TestCase):
-    # Constants the shipped engines and the doctor manifest carry as
-    # hand-owned copies (the ADR 2026-07-12 class). The router routes on
-    # them, the grader keys its reviewers row on them, and the doctor
-    # validates against them — a change landing in one copy desynchronizes
-    # the three silently. These asserts are the gate. They live maintainer-
-    # side on purpose: a consumer tree carries one stack and must never
-    # depend on harness/stacks/*.
+    """Constants the router, the grader, and the doctor manifest carry as hand-owned copies agree."""
 
     @staticmethod
     def _load_handoff_pkg():
-        # The public API surface is the handoff package (ROSTER_FLOOR, RETRY_CAP
-        # re-exported), not the entry launcher (ADR 2026-07-17
-        # runtime-package-layout).
         import importlib
 
         scripts = str(ROOT / "core/scripts")
@@ -524,26 +447,15 @@ class HandSyncedConstantParity(unittest.TestCase):
 
     def test_reviewer_floor_agrees_across_router_grader_doctor(self):
         handoff = self._load_handoff_pkg()
-        # The grader's floor lives in grading.config (ADR 2026-07-17
-        # runtime-package-layout); the package resolves via the same
-        # scripts-root sys.path entry _load_handoff_pkg installs.
         import importlib
 
         grading_config = importlib.import_module("grading.config")
+        self.assertEqual(handoff.ROSTER_FLOOR, grading_config.REVIEWERS)
         self.assertEqual(
-            handoff.ROSTER_FLOOR,
-            grading_config.REVIEWERS,
-            "router and grader disagree on the reviewer floor",
-        )
-        self.assertEqual(
-            list(handoff.ROSTER_FLOOR),
-            self._manifest()["reviewers"]["floor"],
-            "router and doctor manifest disagree on the floor",
+            list(handoff.ROSTER_FLOOR), self._manifest()["reviewers"]["floor"]
         )
 
     def test_retry_cap_matches_the_core_schema(self):
-        # One core build-failure schema since the enumFrom dedup (ADR
-        # 2026-08-02 gate-facts): the retry pin is a two-site parity now.
         handoff = self._load_handoff_pkg()
         import json
 
@@ -552,28 +464,17 @@ class HandSyncedConstantParity(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        self.assertEqual(
-            handoff.RETRY_CAP,
-            schema["properties"]["retry"]["maximum"],
-            "core build-failure retry.maximum drifted from RETRY_CAP",
-        )
+        self.assertEqual(handoff.RETRY_CAP, schema["properties"]["retry"]["maximum"])
 
     def test_channel_enum_matches_doctor_manifest(self):
         self.assertEqual(
             list(registry.CHANNELS),
             self._manifest()["project_data"]["channel_values"],
-            "registry.CHANNELS and the doctor manifest disagree",
         )
 
 
 class QuickSuiteSkipProof(unittest.TestCase):
-    """Steps 6b/6bc skip under --quick only on the joint clean-tree proof
-    over tools/ and evals/ — a pending change in either tree runs both steps
-    (the eval suites are the only executable coverage of
-    tools/harness-stats/accounting.py). Gitignored dev-run artifacts are
-    invisible to the proof, so 6bc still validates the derived views when any
-    exists. These pins keep the skip from widening: no per-tree skip, no
-    skip outside --quick, no silent skip past a dev artifact."""
+    """The tools and eval suites skip under --quick only on a joint clean-tree proof."""
 
     def _battery(self, quick):
         return battery.Battery(quick=quick, strict=False)
@@ -588,22 +489,22 @@ class QuickSuiteSkipProof(unittest.TestCase):
     def test_no_proof_outside_quick(self):
         import unittest.mock as mock
 
-        with mock.patch.object(suites, "git_status", return_value=""):
+        with mock.patch.object(suites, "git_status", return_value=CLEAN_TREE):
             self.assertIsNone(suites._quick_skip_proof(self._battery(quick=False)))
 
     def test_pending_change_blocks_the_proof(self):
         import unittest.mock as mock
 
         with mock.patch.object(
-            suites, "git_status", return_value="?? tools/x.py\n"
+            suites, "git_status", return_value=PENDING_TOOLS_CHANGE
         ) as gs:
             self.assertIsNone(suites._quick_skip_proof(self._battery(quick=True)))
-        gs.assert_called_once_with("tools/", "evals/")  # the probe stays joint
+        gs.assert_called_once_with("tools/", "evals/")
 
     def test_clean_trees_yield_the_proof_in_quick(self):
         import unittest.mock as mock
 
-        with mock.patch.object(suites, "git_status", return_value=""):
+        with mock.patch.object(suites, "git_status", return_value=CLEAN_TREE):
             self.assertIsNotNone(suites._quick_skip_proof(self._battery(quick=True)))
 
     def test_tools_suites_skip_runs_nothing(self):
@@ -612,7 +513,7 @@ class QuickSuiteSkipProof(unittest.TestCase):
         b = self._battery(quick=True)
         redirect, _ = self._quiet()
         with (
-            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(suites, "git_status", return_value=CLEAN_TREE),
             mock.patch.object(
                 suites.subprocess, "run", side_effect=AssertionError("ran a suite")
             ),
@@ -627,7 +528,7 @@ class QuickSuiteSkipProof(unittest.TestCase):
         b = self._battery(quick=True)
         redirect, _ = self._quiet()
         with (
-            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(suites, "git_status", return_value=CLEAN_TREE),
             mock.patch.object(suites, "_dev_artifacts", return_value=[]),
             mock.patch.object(
                 suites.subprocess, "run", side_effect=AssertionError("ran a suite")
@@ -644,24 +545,24 @@ class QuickSuiteSkipProof(unittest.TestCase):
         b = self._battery(quick=True)
         calls = []
 
-        def fake_run(cmd, **kwargs):
+        def fake_run(cmd, **_kwargs):
             calls.append(cmd)
             return sp.CompletedProcess(cmd, 0, stdout="", stderr="")
 
         redirect, out = self._quiet()
         with (
-            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(suites, "git_status", return_value=CLEAN_TREE),
             mock.patch.object(
                 suites,
                 "_dev_artifacts",
-                return_value=["evals/results/TREND-dev.md"],
+                return_value=[SOME_DEV_VIEW],
             ),
             mock.patch.object(suites.subprocess, "run", side_effect=fake_run),
             redirect,
         ):
             suites.check_eval_suites(b)
         self.assertFalse(b.failed)
-        self.assertEqual(len(calls), 1)  # the derived-view gate, nothing else
+        self.assertEqual(len(calls), 1)
         self.assertIn("--check", calls[0])
         self.assertIn("git-invisible", out.getvalue())
 
@@ -675,11 +576,11 @@ class QuickSuiteSkipProof(unittest.TestCase):
 
         sink = io.StringIO()
         with (
-            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(suites, "git_status", return_value=CLEAN_TREE),
             mock.patch.object(
                 suites,
                 "_dev_artifacts",
-                return_value=["evals/results/runs/dev-x"],
+                return_value=[SOME_DEV_RUN],
             ),
             mock.patch.object(
                 suites.subprocess,
@@ -694,11 +595,7 @@ class QuickSuiteSkipProof(unittest.TestCase):
 
 
 class RetiredPathsCheck(unittest.TestCase):
-    """Step 3k's failure branches, pinned: a manifest entry the source
-    produces again must FAIL (setup.sh prunes listed paths), a runtime path
-    the last tag produced that is gone without a manifest entry must FAIL
-    with the mechanical fix named, and a tagless checkout must FAIL under
-    --strict (the push-time gates) instead of silently disarming."""
+    """The retired-paths check fails on a reintroduced entry, an uncovered deletion, and a tagless strict checkout."""
 
     def _run(self, strict, produced_now, retired, describe_rc=0):
         import contextlib
@@ -709,7 +606,7 @@ class RetiredPathsCheck(unittest.TestCase):
         import retired_paths
 
         b = battery.Battery(quick=False, strict=strict)
-        describe = sp.CompletedProcess([], describe_rc, stdout="v9.9.9\n", stderr="")
+        describe = sp.CompletedProcess([], describe_rc, stdout=SOME_TAG, stderr="")
         sink = io.StringIO()
         with (
             mock.patch.object(
@@ -723,12 +620,9 @@ class RetiredPathsCheck(unittest.TestCase):
             sync.check_retired_paths(b)
         return b.failed, sink.getvalue()
 
-    def test_live_manifest_entry_fails(self):
-        # scripts/score-change.py is a seed entry; producing it again must FAIL.
+    def test_a_reproduced_manifest_entry_fails(self):
         failed, out = self._run(
-            strict=False,
-            produced_now={"scripts/score-change.py"},
-            retired=set(),
+            strict=False, produced_now={SEED_RETIRED_PATH}, retired=set()
         )
         self.assertTrue(failed)
         self.assertIn("reintroduced", out)
@@ -748,21 +642,25 @@ class RetiredPathsCheck(unittest.TestCase):
 
     def test_tagless_checkout_fails_only_under_strict(self):
         failed, out = self._run(
-            strict=True, produced_now=set(), retired=set(), describe_rc=128
+            strict=True,
+            produced_now=set(),
+            retired=set(),
+            describe_rc=GIT_DESCRIBE_NO_TAG,
         )
         self.assertTrue(failed)
         self.assertIn("fetch-depth", out)
         failed, out = self._run(
-            strict=False, produced_now=set(), retired=set(), describe_rc=128
+            strict=False,
+            produced_now=set(),
+            retired=set(),
+            describe_rc=GIT_DESCRIBE_NO_TAG,
         )
         self.assertFalse(failed)
         self.assertIn("not checked", out)
 
 
 class StrictToolPresence(unittest.TestCase):
-    """--strict turns a missing SAST tool into a FAIL, not a SKIP — the
-    property the two push-time gates rest on. Without it, an absent linter
-    skips with a note (the dev-machine default)."""
+    """A missing lint tool fails under --strict and skips without it."""
 
     def _failed_when_absent(self, check, strict):
         import contextlib
@@ -779,9 +677,6 @@ class StrictToolPresence(unittest.TestCase):
             check(b)
         return b.failed
 
-    # The ruff and mypy steps (ADR 2026-07-17) join the same contract: a
-    # missing tool is a SKIP on a dev machine, a FAIL under the push-time
-    # --strict gate.
     _GATED = (
         lint.check_bandit,
         lint.check_shellcheck,
@@ -802,17 +697,12 @@ class StrictToolPresence(unittest.TestCase):
 
 
 class MypyScope(unittest.TestCase):
-    """The mypy step reads its scope from the root pyproject [tool.mypy].files
-    (ADR 2026-07-17). Slice 2 ships an empty scope that passes trivially;
-    slice 3 grows it module by module."""
+    """The mypy step reads its scope from the root pyproject and always checks the entries."""
 
     def test_scope_is_a_list_from_pyproject(self):
         self.assertIsInstance(lint._mypy_scope(), list)
 
-    def test_empty_scope_still_checks_the_entry(self):
-        # mypy installed but the pyproject scope cleared: the scope run is a
-        # trivial pass, but the entry solo run still executes — clearing the
-        # files list must never silently disarm the launcher's strict check.
+    def test_an_empty_scope_still_checks_every_entry_module(self):
         import contextlib
         import io
         import types
@@ -822,7 +712,7 @@ class MypyScope(unittest.TestCase):
         sink = io.StringIO()
         clean = types.SimpleNamespace(returncode=0, stdout="", stderr="")
         with (
-            mock.patch.object(lint.shutil, "which", return_value="/usr/bin/mypy"),
+            mock.patch.object(lint.shutil, "which", return_value=SOME_MYPY_PATH),
             mock.patch.object(lint, "_mypy_scope", return_value=[]),
             mock.patch.object(lint.subprocess, "run", return_value=clean) as run,
             contextlib.redirect_stdout(sink),
@@ -837,8 +727,8 @@ class MypyScope(unittest.TestCase):
         )
 
 
-class TestAnchorHelpers(unittest.TestCase):
-    """github_slug + heading_anchors feed the link-integrity anchor check."""
+class AnchorHelpers(unittest.TestCase):
+    """github_slug and heading_anchors feed the link-integrity anchor check."""
 
     def test_slug_strips_markdown_and_punctuation(self):
         self.assertEqual(
@@ -852,15 +742,25 @@ class TestAnchorHelpers(unittest.TestCase):
         sample = "## Setup\n\ntext\n\n## Setup\n"
         self.assertEqual(text.heading_anchors(sample), {"setup", "setup-1"})
 
-    def test_fenced_headings_and_a_ids_handled(self):
+    def test_fenced_headings_are_skipped_and_anchor_ids_are_collected(self):
         sample = '# Real\n\n```\n# commented heading\n```\n\n<a id="pinned"></a>\n'
         self.assertEqual(text.heading_anchors(sample), {"real", "pinned"})
 
 
+def _pod_dockerfile(
+    ruff="'ruff==" + PYPROJECT_RUFF_PIN + "'",
+    mypy="'mypy==2.3.0'",
+    binaries=CONFINEMENT_BINARIES,
+    extra_line="",
+):
+    return (
+        f"RUN pip install {ruff} {mypy} 'bandit==1.9.4'\n"
+        f"RUN apt-get install -y {' '.join(binaries)}\n" + extra_line
+    )
+
+
 class PodToolchainPins(unittest.TestCase):
-    """The pod Dockerfile's python toolchain pins stay parity-gated against
-    pyproject's ruff required-version (ADR 2026-07-12: a hand-owned parallel
-    gets a gate); mypy and bandit must be ==-pinned at all."""
+    """The pod Dockerfile's toolchain pins agree with the pyproject and stay ==-pinned."""
 
     def _run(self, root):
         import contextlib
@@ -877,12 +777,11 @@ class PodToolchainPins(unittest.TestCase):
             suites.check_pod_toolchain_pins(b)
         return b.failed, err.getvalue()
 
-    def _write(self, root, ruff_pin):
+    def _write(self, root, dockerfile=None):
         pod = Path(root) / "tools/claude-dev"
         pod.mkdir(parents=True)
         (pod / "Dockerfile").write_text(
-            f"RUN pip install 'ruff=={ruff_pin}' 'mypy==2.3.0' 'bandit==1.9.4'\n"
-            "RUN apt-get install -y squid socat\n",
+            dockerfile if dockerfile is not None else _pod_dockerfile(),
             encoding="utf-8",
         )
         (pod / "claude-dev").write_text(
@@ -891,96 +790,84 @@ class PodToolchainPins(unittest.TestCase):
             encoding="utf-8",
         )
         (Path(root) / "pyproject.toml").write_text(
-            '[tool.ruff]\nrequired-version = "0.15.22"\n', encoding="utf-8"
+            f'[tool.ruff]\nrequired-version = "{PYPROJECT_RUFF_PIN}"\n',
+            encoding="utf-8",
+        )
+        # The workflow mirrors the image's pins, so a test that drifts the
+        # image against pyproject still exercises that comparison alone.
+        image = (pod / "Dockerfile").read_text(encoding="utf-8")
+        pins = re.findall(r"'(ruff|mypy|bandit)==([0-9][0-9.]*)'", image)
+        workflow = Path(root) / ".github/workflows"
+        workflow.mkdir(parents=True)
+        (workflow / "checks.yml").write_text(
+            "".join(f'pipx install "{tool}=={version}"\n' for tool, version in pins),
+            encoding="utf-8",
         )
 
     def test_real_repo_pins_agree(self):
-        self.assertEqual(suites.check_pod_toolchain_pins.__doc__[:4], "6bb.")
         failed, err = self._run(text.ROOT)
         self.assertFalse(failed, err)
 
     def test_matching_synthetic_pins_pass(self):
         with tempfile.TemporaryDirectory() as root:
-            self._write(root, "0.15.22")
+            self._write(root)
             failed, err = self._run(root)
             self.assertFalse(failed, err)
 
-    def test_ruff_mismatch_fails(self):
+    def test_a_ruff_pin_off_the_pyproject_version_fails(self):
         with tempfile.TemporaryDirectory() as root:
-            self._write(root, "9.9.9")
+            self._write(root, _pod_dockerfile(ruff=f"'ruff=={MISMATCHED_RUFF_PIN}'"))
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("required-version", err)
 
-    def test_unpinned_mypy_fails(self):
+    def test_an_unpinned_mypy_fails(self):
         with tempfile.TemporaryDirectory() as root:
-            self._write(root, "0.15.22")
-            df = Path(root) / "tools/claude-dev/Dockerfile"
-            df.write_text(
-                "RUN pip install 'ruff==0.15.22' mypy 'bandit==1.9.4'\n"
-                "RUN apt-get install -y squid socat\n",
-                encoding="utf-8",
-            )
+            self._write(root, _pod_dockerfile(mypy="mypy"))
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("==-pin mypy", err)
 
-    def test_dropped_sandbox_override_fails(self):
+    def test_a_dropped_sandbox_override_fails(self):
         # bubblewrap cannot create a user namespace under the default seccomp
         # profile, so dropping the override would revive a startup refusal.
         with tempfile.TemporaryDirectory() as root:
-            self._write(root, "0.15.22")
+            self._write(root)
             launcher = Path(root) / "tools/claude-dev/claude-dev"
             launcher.write_text("CMD=(claude)\n", encoding="utf-8")
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("sandbox-off --settings injection", err)
 
-    def test_dropped_confinement_binary_fails(self):
-        for binary in ("squid", "socat"):
+    def test_a_dropped_confinement_binary_fails(self):
+        for binary in CONFINEMENT_BINARIES:
             with self.subTest(binary=binary), tempfile.TemporaryDirectory() as root:
-                self._write(root, "0.15.22")
-                df = Path(root) / "tools/claude-dev/Dockerfile"
-                kept = [b for b in ("squid", "socat") if b != binary]
-                df.write_text(
-                    "RUN pip install 'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4'\n"
-                    f"RUN apt-get install -y {' '.join(kept)}\n",
-                    encoding="utf-8",
-                )
+                kept = [b for b in CONFINEMENT_BINARIES if b != binary]
+                self._write(root, _pod_dockerfile(binaries=kept))
                 failed, err = self._run(root)
                 self.assertTrue(failed, binary)
                 self.assertIn(binary, err)
 
-    def test_pipe_to_shell_install_fails(self):
+    def test_an_install_piped_into_a_shell_fails(self):
         for tail in ("| bash", "| sudo bash", "|/bin/sh", "| env zsh", "| dash"):
             with self.subTest(tail=tail), tempfile.TemporaryDirectory() as root:
-                self._write(root, "0.15.22")
-                df = Path(root) / "tools/claude-dev/Dockerfile"
-                df.write_text(
-                    "RUN pip install 'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4'\n"
-                    "RUN apt-get install -y squid socat\n"
-                    f"RUN curl -fsSL https://example.com/install.sh {tail}\n",
-                    encoding="utf-8",
-                )
+                curl = f"RUN curl -fsSL https://example.com/install.sh {tail}\n"
+                self._write(root, _pod_dockerfile(extra_line=curl))
                 failed, err = self._run(root)
                 self.assertTrue(failed, tail)
                 self.assertIn("pipes into a shell", err)
 
 
 class ImportBoundaries(unittest.TestCase):
-    """1g gates the scripts composition root's one-way import graph (ADR
-    2026-07-17 runtime-package-layout) and the battery's own verify_harness
-    package (ADR 2026-07-18 check-sync-decomposition). It passes on the real
-    tree and bites a forbidden edge with a file:line message."""
+    """The import-boundary check passes on the real tree and names a forbidden edge by file and line."""
 
     def _run(self, here):
         import contextlib
         import io
         import unittest.mock as mock
 
-        # Resolve the synthetic root: rel() resolves each file before
-        # relative_to(ROOT), so an unresolved macOS tempdir (/var/folders is a
-        # symlink to /private/var/folders) would fall outside the patched ROOT.
+        # The check resolves each file before relative_to(ROOT), so an
+        # unresolved macOS tempdir would fall outside the patched root.
         here = Path(here).resolve()
         b = battery.Battery(quick=False, strict=True)
         err = io.StringIO()
@@ -994,9 +881,7 @@ class ImportBoundaries(unittest.TestCase):
         return b.failed, err.getvalue()
 
     def _copy_trees(self, root):
-        # Both gated trees: the scripts composition root and the verify_harness
-        # package (the gate fails loudly on a table entry with no file, so a
-        # synthetic HERE must carry both).
+        # The gate fails on a table entry with no file, so both trees are copied.
         import shutil
 
         ignore = shutil.ignore_patterns("__pycache__")
@@ -1008,11 +893,10 @@ class ImportBoundaries(unittest.TestCase):
         return scripts
 
     def test_real_repo_graph_is_intact(self):
-        self.assertEqual(lint.check_import_boundaries.__doc__[:3], "1g.")
         failed, err = self._run(lint.HERE)
         self.assertFalse(failed, err)
 
-    def test_forbidden_edge_bites_with_file_line(self):
+    def test_a_forbidden_edge_fails_with_its_file_and_line(self):
         with tempfile.TemporaryDirectory() as td:
             scripts = self._copy_trees(td)
             routing = scripts / "handoff/routing.py"
@@ -1033,9 +917,9 @@ class ImportBoundaries(unittest.TestCase):
             failed, err = self._run(td)
             self.assertTrue(failed)
             self.assertIn("submodule-form", err)
-            self.assertIn("runtime-package-layout", err)
+            self.assertIn("resolves to the entry itself", err)
 
-    def test_new_untabled_module_fails_loudly(self):
+    def test_a_module_missing_from_the_table_fails(self):
         with tempfile.TemporaryDirectory() as td:
             self._copy_trees(td)
             scripts = Path(td) / "core/scripts"
@@ -1044,9 +928,7 @@ class ImportBoundaries(unittest.TestCase):
             self.assertTrue(failed)
             self.assertIn("newthing.py", err)
 
-    def test_verify_harness_leaf_importing_upward_bites(self):
-        # text is the leaf: an edge back into the aggregator inverts the
-        # one-way graph and must fail with the file:line message.
+    def test_a_leaf_importing_the_aggregator_fails_with_its_file_and_line(self):
         with tempfile.TemporaryDirectory() as td:
             self._copy_trees(td)
             leaf = Path(td) / "verify_harness/text.py"
@@ -1065,11 +947,25 @@ class AnnotationProbe(unittest.TestCase):
 
     PROBE = ROOT / "verify_harness" / "probe_annotations.py"
 
-    def probe(self, source):
+    GUARDED_IMPORT = (
+        "try:\n"
+        "    from engine import Config\n"
+        "except ImportError:\n"
+        "    pass\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from engine import Config\n\n\n"
+    )
+
+    def probe(self, source, *, by_path=False):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         scripts = Path(tmp.name)
         (scripts / "entry.py").write_text(source, encoding="utf-8")
+        (scripts / "engine").mkdir()
+        (scripts / "engine" / "__init__.py").write_text(
+            "class Config:\n    pass\n", encoding="utf-8"
+        )
+        entry = str(scripts / "entry.py")
         return subprocess.run(
             [
                 sys.executable,
@@ -1077,7 +973,8 @@ class AnnotationProbe(unittest.TestCase):
                 "-B",
                 str(self.PROBE),
                 str(scripts),
-                str(scripts / "entry.py"),
+                entry,
+                *(["--by-path", entry] if by_path else []),
             ],
             capture_output=True,
             text=True,
@@ -1103,6 +1000,192 @@ class AnnotationProbe(unittest.TestCase):
 
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("1 annotated objects across 1 modules", done.stdout)
+
+    def test_a_name_bound_only_under_a_guarded_import_fails_the_by_path_load(self):
+        done = self.probe(
+            "from typing import TYPE_CHECKING\n\n"
+            + self.GUARDED_IMPORT
+            + "def build(config: Config) -> None:\n    return None\n",
+            by_path=True,
+        )
+
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("entry.py (loaded by path): NameError", done.stdout)
+
+    def test_the_string_form_of_a_guarded_name_passes_the_by_path_load(self):
+        done = self.probe(
+            "from typing import TYPE_CHECKING\n\n"
+            + self.GUARDED_IMPORT
+            + 'def build(config: "Config") -> None:\n    return None\n',
+            by_path=True,
+        )
+
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("1 of them loaded by path as well", done.stdout)
+
+
+def _load_launcher():
+    spec = importlib.util.spec_from_file_location(
+        "verify_harness_launcher", ROOT / "verify-harness.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _normalized(label):
+    return "".join(ch for ch in re.sub(r"\(.*?\)", "", label).lower() if ch.isalnum())
+
+
+def _header_steps(source):
+    """Return the header's (id, label) pairs in step order, read from both columns."""
+    header = source.split('"""')[1]
+    table = header.split("re-enumerating:\n", 1)[1].split("\n\n", 1)[0]
+    steps = []
+    for line in table.splitlines():
+        for column in (line[:41], line[41:]):
+            match = re.match(r"^\s*(\d)([a-z]*)\s+(.+?)\s*$", column)
+            if match:
+                steps.append(((int(match.group(1)), match.group(2)), match.group(3)))
+    return [label for _, label in sorted(steps, key=lambda step: step[0])]
+
+
+def _dispatched_titles(source):
+    """Return the note title of every step `_run_steps` dispatches, in order."""
+    tree = ast.parse(source)
+    run_steps = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "_run_steps"
+    )
+    titles = []
+    for call in (
+        s.value
+        for s in run_steps.body
+        if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call)
+    ):
+        if isinstance(call.func, ast.Attribute):
+            titles.append(call.args[0].value)
+        else:
+            titles.append(_note_title(call.func.id))
+    return titles
+
+
+def _note_title(function_name):
+    for path in (ROOT / "verify_harness" / "checks").glob("*.py"):
+        for node in ast.parse(path.read_text()).body:
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                for call in ast.walk(node):
+                    if (
+                        isinstance(call, ast.Call)
+                        and isinstance(call.func, ast.Attribute)
+                        and call.func.attr == "note"
+                    ):
+                        argument = call.args[0]
+                        if isinstance(argument, ast.JoinedStr):
+                            argument = argument.values[0]
+                        return argument.value
+    raise AssertionError(f"no note title for {function_name}")
+
+
+class LauncherHeader(unittest.TestCase):
+    def test_the_header_lists_every_dispatched_step_in_order(self):
+        source = (ROOT / "verify-harness.py").read_text()
+        labels = _header_steps(source)
+        titles = _dispatched_titles(source)
+        self.assertEqual(len(labels), len(titles))
+        for label, title in zip(labels, titles, strict=True):
+            self.assertTrue(
+                _normalized(title).startswith(_normalized(label)), (label, title)
+            )
+
+
+class LauncherVerdict(unittest.TestCase):
+    def test_an_unknown_flag_is_a_usage_failure_with_exit_two(self):
+        launcher = _load_launcher()
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = launcher.main(["verify-harness.py", "--bogus"])
+        self.assertEqual(code, 2)
+        self.assertTrue(err.getvalue().startswith("FAIL: usage:"))
+
+    def test_a_failed_run_ends_with_the_verdict_line(self):
+        launcher = _load_launcher()
+        b = battery.Battery(quick=False)
+        b.failed = True
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            code = launcher._verdict(b)
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL: verify-harness: see failures above", err.getvalue())
+
+
+class ShippedProseGates(unittest.TestCase):
+    def _run(self, check, layer_text, suffix=".md"):
+        import tempfile
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as td:
+            layer = Path(td) / "core"
+            skill = layer / ".claude" / "skills" / "one"
+            skill.mkdir(parents=True)
+            (skill / f"SKILL{suffix}").write_text(layer_text, encoding="utf-8")
+            b = battery.Battery(quick=False)
+            err = io.StringIO()
+            with (
+                mock.patch.object(sync, "LAYERS", (layer,)),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(err),
+            ):
+                check(b)
+            return b.failed, err.getvalue()
+
+    def test_clean_prose_passes_both_gates(self):
+        text = "---\ntoolCallBudget: 12\n---\nRead docs/adr/ before writing. The placeholder is REQ-XX-001.\n"
+        self.assertFalse(self._run(sync.check_prose_self_containment, text)[0])
+        self.assertFalse(self._run(sync.check_runtime_number_free_prose, text)[0])
+
+    def test_a_dated_decision_record_citation_fails(self):
+        failed, err = self._run(
+            sync.check_prose_self_containment,
+            "See docs/adr/2026-07-19-network-write-confinement-gate.md.\n",
+        )
+        self.assertTrue(failed)
+        self.assertIn("decision record", err)
+
+    def test_a_concrete_requirement_id_fails(self):
+        failed, err = self._run(
+            sync.check_prose_self_containment, "Implements REQ-AUTH-002.\n"
+        )
+        self.assertTrue(failed)
+        self.assertIn("requirement id", err)
+
+    def test_the_schema_placeholder_and_a_write_scope_path_pass(self):
+        text = '{"pattern": "docs/adr/2026-01-01-...md"}'
+        self.assertFalse(
+            self._run(sync.check_prose_self_containment, text, suffix=".json")[0]
+        )
+
+    def test_a_numeric_budget_outside_frontmatter_fails(self):
+        failed, err = self._run(
+            sync.check_runtime_number_free_prose,
+            "---\nname: x\n---\nStop after 40 tool calls.\n",
+        )
+        self.assertTrue(failed)
+        self.assertIn("runtime number", err)
+
+    def test_the_live_tree_passes_both_gates(self):
+        for check in (
+            sync.check_prose_self_containment,
+            sync.check_runtime_number_free_prose,
+        ):
+            b = battery.Battery(quick=False)
+            with (
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                check(b)
+            self.assertFalse(b.failed, check.__name__)
 
 
 if __name__ == "__main__":

@@ -124,7 +124,7 @@ The root `README.md` invokes the pitch exception from Voice and Register: its re
 
 ## Python Code Standards
 
-Every Python tree in the repository, the shipped runtime, the producer tooling, the battery, the eval bench, and the tools, is held to the bar the harness ships to its consumers, realized for Python in [`docs/harness-code-standards.md`](docs/harness-code-standards.md). The design it must keep true is [`docs/harness-system-design.md`](docs/harness-system-design.md); its suites follow [`docs/harness-testing-principles.md`](docs/harness-testing-principles.md). The mechanical subset is the battery's lint, format, mypy, and import-boundary steps; the per-file-ignores table in `pyproject.toml` is the debt list and only shrinks.
+Every Python tree in the repository, the shipped runtime, the producer tooling, the battery, the eval bench, and the tools, is held to the bar the harness ships to its consumers, realized for Python in [`docs/harness-code-standards.md`](docs/harness-code-standards.md). The design it must keep true is [`docs/harness-system-design.md`](docs/harness-system-design.md); its suites follow [`docs/harness-testing-principles.md`](docs/harness-testing-principles.md). The mechanical subset is the battery's lint, format, mypy, and import-boundary steps; the per-file-ignores table in `pyproject.toml` holds only the two blanket test exemptions; a new file never joins.
 
 ## Commit Convention
 

@@ -9,11 +9,6 @@ tools:
   - runTerminalCommand
 model: ['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']
 toolCallBudget: 14
-handoffs:
-  - label: Start Requirements
-    agent: product-requirements-expert
-    prompt: "Analyze the following request and append a prd-entry record to .scratch/handoff.jsonl per the prd-authoring skill. Without an intake-decision record covering the request, this is the legacy dispatch path the contract describes — prefer seeding an intake-decision via the intake skill first."
-    send: false
 ---
 
 You are the pipeline coordinator. You route work to the right specialist from `.scratch/` state alone, because routing judgment must stay neutral. You never write code, modify documents, or create files — your only output is a routing recommendation.

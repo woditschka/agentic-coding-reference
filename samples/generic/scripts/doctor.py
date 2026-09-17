@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Deterministic checks for the harness-project API.
+"""Validate a project's briefs and runtime wiring against the doctor expectations manifest.
 
-Validates a project's docs/ brief against doctor-expectations.toml — the
-machine-checkable subset of the harness-project API spec. This is the blocking
-layer: existence, required sections, data slots, naming conventions, and
-channel invariants. Judgment checks live in the audit-docs skill, not here.
-
-Stdlib only. Requires Python 3.11+ (tomllib).
+The blocking layer of the harness-project API: existence, required sections,
+data slots, naming conventions, and channel invariants. Judgment checks live in
+the audit-docs skill.
 """
 
 import argparse
@@ -15,8 +12,10 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, TypeAlias, TypeGuard
 
 try:
     import tomllib
@@ -24,58 +23,81 @@ except ModuleNotFoundError:  # pragma: no cover
     sys.stderr.write("doctor requires Python 3.11+ (tomllib)\n")
     sys.exit(2)
 
-# One check result: (status, check-name, detail). status is PASS/FAIL/SKIP/WARN;
-# check-name is a short category or the checked path; detail is a message. Raw
-# config values (manifest/entry dicts) reach the check-name slot untyped, so the
-# alias stays str-shaped and the Any flows in at the tuple's construction.
-Result: TypeAlias = tuple[str, str, str]
-_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# The layout checks reuse the engine's own validators, so the doctor and the
+# engine cannot disagree on what is accepted. The package is absent when a
+# maintainer script loads this module by path, and those checks skip there.
+try:
+    from grading.config import (
+        REVIEWERS,
+        load_stack_defaults,
+        merged_table,
+        shadowed_keys,
+        validate_module_rules,
+        validate_review,
+    )
 
-PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
-# WARN is advisory-only: printed and JSON-emitted like the others, never
-# counted toward the exit code. Used for the marketplace version-skew check —
-# a skew needs a human decision (re-run setup), not a blocked pipeline.
-WARN = "WARN"
+    GRADING_AVAILABLE = True
+except ImportError:
+    GRADING_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from grading.config import ReviewConfig
+
+Status: TypeAlias = Literal["PASS", "FAIL", "SKIP", "WARN"]
+Table: TypeAlias = Mapping[str, object]
+# The parse boundary: what tomllib returns for the harness-owned manifest.
+Raw: TypeAlias = dict[str, Any]
+
+PASS: Final[Status] = "PASS"
+FAIL: Final[Status] = "FAIL"
+SKIP: Final[Status] = "SKIP"
+# Advisory: rendered and emitted like the others, never counted toward the exit code.
+WARN: Final[Status] = "WARN"
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parent / "doctor-expectations.toml"
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+_ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_BULLET_RE = re.compile(r"^\s*[-*+]\s")
+_HOOK_MATCHER_RE = re.compile(r"\.claude/hooks/([\w.-]+)")
+# Any REQ-shaped token, so a near-miss id fails here rather than at the first
+# ledger append the record schemas reject.
+_REQ_TOKEN_RE = re.compile(r"\bREQ-[A-Z]+-[0-9]+\b")
+# A field or parameter table mirrors a source schema and rots with the code.
+_FIELD_TABLE_HEADER = re.compile(
+    r"\s*\|\s*(fields?|parameters?|params?|arguments?|args?)\s*\|",
+    re.IGNORECASE,
+)
+# Shape only: the value is machine-written from VERSION-DATE, so calendar
+# validity is not checked here.
+STAMP_LINE = re.compile(r"^<!--\s*harness:")
+STAMP_WELL_FORMED = re.compile(r"^<!--\s*harness:\s*(\d{4}-\d{2}-\d{2})\b.*-->\s*$")
 
-# Harness-managed chapters of the project-owned CLAUDE.md, identified by their
-# exact `## ` heading. /init scaffolds each and /materialize refreshes it in
-# place from the single source (harness/claude-md/managed-chapters.md) on every
-# upgrade. The check asserts each required chapter exists and is non-empty. Kept
-# in lockstep with that source file's headings by the parity guard in
-# harness/tests/test_materialize.py.
-REQUIRED_CHAPTERS = [
+# Harness-managed chapters of the project-owned CLAUDE.md, matched by exact
+# heading; materialize refreshes each in place from the managed-chapter source.
+REQUIRED_CHAPTERS = (
     "## Agent Usage (Mandatory)",
     "## Memory",
     "## Writing Standards",
     "## Scratch Directory",
     "## Documentation Updates",
-]
+)
 
-# Paths that hold harness runtime content. On the manifest and marketplace
-# channels none of these may be tracked by git: the runtime arrives out-of-band
-# (materialized from /harness, or via plugin). This list mirrors the runtime
-# block in a consumer's .gitignore — project-owned files (settings.json,
-# scripts/layout.toml, docs/) are deliberately absent so they stay tracked.
-# The subset of the runtime the marketplace plugin itself supplies (skills,
-# hooks, every tool's agents dir — registry.marketplace_excludes() is the
-# producer-side twin). On that channel these must not also sit on disk in the
-# project: the tool would load every skill and agent twice. The engine sliver
-# (scripts/, schemas/) and tool config stay project-side by design.
-MARKETPLACE_PLUGIN_PATHS = [
+# The runtime the marketplace plugin supplies; a second copy in the project
+# tree loads every skill and agent twice.
+MARKETPLACE_PLUGIN_PATHS = (
     ".claude/skills",
     ".claude/agents",
     ".claude/hooks",
     ".github/agents",
     ".opencode/agents",
-]
+)
 
-# The pre-v0.2.0 marketplace name. A settings key still pointing at it is dead
-# config after the agent-team rename: updates and refreshes silently stop
-# matching. The doctor warns; the migration is one-time.
+# The marketplace name before the agent-team rename; a settings key still on
+# it silently stops matching updates.
 LEGACY_MARKETPLACE = "agentic-harness"
 
+# Harness runtime content: never tracked by git on the manifest and
+# marketplace channels. The consumer .gitignore block is rendered from this list.
 RUNTIME_PATHS = [
     ".claude/skills",
     ".claude/agents",
@@ -167,9 +189,250 @@ RUNTIME_PATHS = [
     "scripts/tests/handoff/test_view.py",
 ]
 
+# Every roster reviewer states the dispatch-event contract; without
+# dispatch-start it never appends its start record, and truncation detection
+# is blind to it.
+_REQUIRED_REVIEWER_TOKENS = ("dispatch-start", "review-workflow")
+
+# The working-memory artifact a reviewer body must never instruct reading. The
+# bare slug matches with or without the .md suffix. design-block is not
+# forbidden: every reviewer reads the ledger that holds it.
+_FORBIDDEN_REVIEWER_REFS = ("implementation-plan",)
+
+
+class Result(NamedTuple):
+    """One check row: its status, the check name or checked path, and the detail."""
+
+    status: Status
+    check: str
+    detail: str
+
+
+def passed(check: str, detail: str) -> Result:
+    """Build a passing row."""
+    return Result(PASS, check, detail)
+
+
+def failed(check: str, detail: str) -> Result:
+    """Build a failing row."""
+    return Result(FAIL, check, detail)
+
+
+def skipped(check: str, detail: str) -> Result:
+    """Build a skipped row."""
+    return Result(SKIP, check, detail)
+
+
+def warned(check: str, detail: str) -> Result:
+    """Build an advisory row."""
+    return Result(WARN, check, detail)
+
+
+class Slot(NamedTuple):
+    """A data slot: a section whose body must match a pattern."""
+
+    section: str
+    must_match: re.Pattern[str]
+
+
+class Budget(NamedTuple):
+    """A word ceiling and the layout key that may raise it."""
+
+    max_words: int
+    override_key: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class FileSpec:
+    """One roster entry: a brief, or the decision-log directory when `directory` is set."""
+
+    path: str
+    template: str
+    directory: bool
+    entry_pattern: re.Pattern[str] | None
+    required_sections: tuple[str, ...]
+    slots: tuple[Slot, ...]
+    budget: Budget | None
+
+
+class AgentSurface(NamedTuple):
+    """Where one tool keeps an agent body: the path around the agent's name."""
+
+    prefix: str
+    suffix: str
+
+    @property
+    def directory(self) -> str:
+        """Return the agent directory, relative to the project root."""
+        return self.prefix.rstrip("/")
+
+    def body_path(self, name: str) -> str:
+        """Return the body path for one agent name."""
+        return f"{self.prefix}{name}{self.suffix}"
+
+    def agent_name(self, filename: str) -> str | None:
+        """Return the agent name a body file carries, or None when the file is not a body."""
+        if not filename.endswith(self.suffix):
+            return None
+        return filename[: -len(self.suffix)] if self.suffix else filename
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewerSpec:
+    """The reviewer floor, the name shape, and each tool's agent surface."""
+
+    floor: tuple[str, ...]
+    name_pattern: re.Pattern[str]
+    surfaces: Mapping[str, AgentSurface]
+
+
+@dataclass(frozen=True, slots=True)
+class Manifest:
+    """The expectations manifest, parsed once."""
+
+    spec_version: str
+    project_data_path: str
+    required_keys: tuple[str, ...]
+    channel_values: tuple[str, ...]
+    reviewers: ReviewerSpec | None
+    req_id_pattern: re.Pattern[str]
+    design_doc: str
+    prd: str
+    handbook_denylist: tuple[str, ...]
+    files: tuple[FileSpec, ...]
+
+
+class LayoutFault(NamedTuple):
+    """Why the project's layout could not be read."""
+
+    kind: Literal["missing", "unparseable"]
+    detail: str
+
+
+@dataclass(frozen=True, slots=True)
+class Project:
+    """The project under check, with its layout read once and its declarations resolved."""
+
+    root: Path
+    layout_file: Path
+    layout: Table
+    layout_fault: LayoutFault | None
+    channel: str | None
+    extensions: tuple[str, ...]
+
+
+def read_manifest(path: Path) -> Manifest:
+    """Parse the expectations manifest into its record."""
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    project_data = raw["project_data"]
+    cross_doc = raw["cross_doc"]
+    reviewers = raw.get("reviewers")
+    return Manifest(
+        spec_version=raw["spec_version"],
+        project_data_path=project_data["path"],
+        required_keys=tuple(project_data["required_keys"]),
+        channel_values=tuple(project_data["channel_values"]),
+        reviewers=None if reviewers is None else _reviewer_spec(reviewers),
+        req_id_pattern=re.compile(cross_doc["req_id_pattern"]),
+        design_doc=cross_doc["source"],
+        prd=cross_doc["defined_in"],
+        handbook_denylist=tuple(raw["handbook"]["denylist"]),
+        files=tuple(_file_spec(entry) for entry in raw["file"]),
+    )
+
+
+def _reviewer_spec(raw: Raw) -> ReviewerSpec:
+    tool_dirs = raw["tool_dirs"]
+    if not isinstance(tool_dirs, dict):
+        raise TypeError("[reviewers] tool_dirs must be a table")
+    surfaces = {
+        tool: AgentSurface(*template.split("{name}"))
+        for tool, template in tool_dirs.items()
+    }
+    return ReviewerSpec(
+        floor=tuple(raw["floor"]),
+        name_pattern=re.compile(raw["name_pattern"]),
+        surfaces=surfaces,
+    )
+
+
+def _file_spec(entry: Raw) -> FileSpec:
+    entry_pattern = entry.get("entry_pattern")
+    if entry.get("directory") and entry_pattern is None:
+        raise TypeError(
+            f"[[file]] {entry['path']} is a directory entry without an entry_pattern"
+        )
+    max_words = entry.get("max_words")
+    if max_words is not None and not isinstance(max_words, int):
+        raise TypeError(f"[[file]] max_words must be an integer, got {max_words!r}")
+    override_key = entry.get("budget_override_key")
+    return FileSpec(
+        path=entry["path"],
+        template=entry["template"],
+        directory=bool(entry.get("directory")),
+        entry_pattern=None if entry_pattern is None else re.compile(entry_pattern),
+        required_sections=tuple(entry.get("required_sections", ())),
+        slots=tuple(
+            Slot(slot["section"], re.compile(slot["must_match"]))
+            for slot in entry.get("slots", ())
+        ),
+        budget=None if max_words is None else Budget(max_words, override_key),
+    )
+
+
+def read_project(manifest: Manifest, root: Path) -> Project:
+    """Read the project's layout once and resolve the declarations later checks key on."""
+    layout_file = root / manifest.project_data_path
+    layout, fault = _read_layout(layout_file)
+    return Project(
+        root=root,
+        layout_file=layout_file,
+        layout=layout,
+        layout_fault=fault,
+        channel=declared_channel(manifest, layout),
+        extensions=declared_extensions(layout),
+    )
+
+
+def _read_layout(path: Path) -> tuple[Table, LayoutFault | None]:
+    if not path.is_file():
+        return {}, LayoutFault("missing", "")
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8")), None
+    except tomllib.TOMLDecodeError as exc:
+        return {}, LayoutFault("unparseable", str(exc))
+
+
+def declared_channel(manifest: Manifest, layout: Table) -> str | None:
+    """Return the declared channel when it is one the manifest allows."""
+    channel = lookup(layout, "harness.channel")
+    if isinstance(channel, str) and channel in manifest.channel_values:
+        return channel
+    return None
+
+
+def declared_extensions(layout: Table) -> tuple[str, ...]:
+    """Return the declared extension paths when the declaration is well-formed."""
+    extensions = lookup(layout, "harness.extensions")
+    return tuple(extensions) if _is_string_list(extensions) else ()
+
+
+def _is_string_list(value: object) -> TypeGuard[list[str]]:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def lookup(table: Table, dotted: str) -> object:
+    """Return the value at a dotted key path, or None when any step is absent."""
+    node: object = table
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
 
 def parse_sections(text: str) -> dict[str, str]:
-    """Map each '## ' heading to its body text (up to the next '## ')."""
+    """Map each `## ` heading to its body text."""
     sections: dict[str, str] = {}
     current: str | None = None
     lines: list[str] = []
@@ -186,174 +449,178 @@ def parse_sections(text: str) -> dict[str, str]:
     return sections
 
 
-def lookup(data: Any, dotted: str) -> Any:
-    node = data
-    for part in dotted.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return None
-        node = node[part]
-    return node
+def unfenced_lines(lines: Sequence[str]) -> Iterator[tuple[int, str]]:
+    """Yield each line outside a fenced code block with its index; a fence line is never yielded."""
+    in_fence = False
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence:
+            yield index, line
 
 
-def check_project_data(
-    manifest: dict[str, Any], root: Path
-) -> tuple[list[Result], Any, Any]:
-    cfg = manifest["project_data"]
-    rel = cfg["path"]
+def count_words(text: str) -> int:
+    """Count words as `wc -w` does, after stripping HTML comments."""
+    stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+    return len(stripped.split())
+
+
+def check_project_data(manifest: Manifest, project: Project) -> list[Result]:
+    """Check the layout's [harness] declarations against the manifest."""
+    rel = manifest.project_data_path
+    fault = project.layout_fault
+    if fault is not None:
+        if fault.kind == "missing":
+            return [failed("project-data", f"{rel} missing")]
+        return [failed("project-data", f"{rel} unparseable: {fault.detail}")]
+    layout = project.layout
+    results = [_required_key_result(rel, layout, key) for key in manifest.required_keys]
+    declarations = (
+        _channel_result(manifest, layout),
+        _spec_version_result(manifest, layout),
+        _extensions_result(layout),
+        _auto_grade_result(layout),
+    )
+    results.extend(result for result in declarations if result is not None)
+    return results
+
+
+def _required_key_result(rel: str, layout: Table, dotted: str) -> Result:
+    value = lookup(layout, dotted)
+    if value is None:
+        return failed("project-data", f"{rel}: key {dotted} missing")
+    return passed("project-data", f"{dotted} = {value}")
+
+
+def _channel_result(manifest: Manifest, layout: Table) -> Result | None:
+    channel = lookup(layout, "harness.channel")
+    if channel is None or declared_channel(manifest, layout) is not None:
+        return None
+    return failed(
+        "project-data",
+        f"channel must be one of {list(manifest.channel_values)}, got {channel!r}",
+    )
+
+
+def _spec_version_result(manifest: Manifest, layout: Table) -> Result | None:
+    declared = lookup(layout, "harness.spec_version")
+    if declared is None or declared == manifest.spec_version:
+        return None
+    return failed(
+        "project-data",
+        f"spec_version {declared} does not match manifest {manifest.spec_version}",
+    )
+
+
+def _extensions_result(layout: Table) -> Result | None:
+    extensions = lookup(layout, "harness.extensions")
+    if extensions is None or _is_string_list(extensions):
+        return None
+    return failed(
+        "project-data", "harness.extensions must be a list of runtime-relative paths"
+    )
+
+
+def _auto_grade_result(layout: Table) -> Result | None:
+    # The router fails open on a non-boolean, so a quoted "false" would keep
+    # grading on; this is where the typo is fixable.
+    auto_grade = lookup(layout, "harness.auto_grade")
+    if auto_grade is None or isinstance(auto_grade, bool):
+        return None
+    return failed(
+        "project-data", f"harness.auto_grade must be a boolean, got {auto_grade!r}"
+    )
+
+
+def check_file_entry(spec: FileSpec, root: Path) -> list[Result]:
+    """Check one roster entry: presence, required sections, and filled slots."""
+    if spec.directory:
+        return check_directory_entry(spec, root)
+    rel = spec.path
     path = root / rel
     if not path.is_file():
-        return [(FAIL, "project-data", f"{rel} missing")], None, None
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as exc:
-        return [(FAIL, "project-data", f"{rel} unparseable: {exc}")], None, None
-
-    results: list[Result] = []
-    for dotted in cfg["required_keys"]:
-        value = lookup(data, dotted)
-        if value is None:
-            results.append((FAIL, "project-data", f"{rel}: key {dotted} missing"))
-        else:
-            results.append((PASS, "project-data", f"{dotted} = {value}"))
-
-    channel = lookup(data, "harness.channel")
-    if channel is not None and channel not in cfg["channel_values"]:
-        results.append(
-            (
-                FAIL,
-                "project-data",
-                f"channel must be one of {cfg['channel_values']}, got {channel!r}",
-            )
-        )
-        channel = None
-
-    declared = lookup(data, "harness.spec_version")
-    if declared is not None and declared != manifest["spec_version"]:
-        results.append(
-            (
-                FAIL,
-                "project-data",
-                f"spec_version {declared} does not match manifest {manifest['spec_version']}",
-            )
-        )
-
-    extensions = lookup(data, "harness.extensions")
-    if extensions is not None and not (
-        isinstance(extensions, list) and all(isinstance(e, str) for e in extensions)
-    ):
-        results.append(
-            (
-                FAIL,
-                "project-data",
-                "harness.extensions must be a list of runtime-relative paths",
-            )
-        )
-        extensions = None
-
-    # auto_grade gates the terminal change-grader dispatch. The router fails
-    # open on a non-boolean (grading stays on), so a `"false"` string would
-    # silently keep grading — catch that typo here where it is fixable.
-    auto_grade = lookup(data, "harness.auto_grade")
-    if auto_grade is not None and not isinstance(auto_grade, bool):
-        results.append(
-            (
-                FAIL,
-                "project-data",
-                f"harness.auto_grade must be a boolean, got {auto_grade!r}",
-            )
-        )
-    return results, channel, extensions
+        return [failed(rel, f"missing — materialize {spec.template}")]
+    sections = parse_sections(path.read_text(encoding="utf-8"))
+    results = [passed(rel, "exists")]
+    results.extend(
+        _section_result(rel, sections, name) for name in spec.required_sections
+    )
+    results.extend(
+        result
+        for slot in spec.slots
+        if (result := _slot_result(rel, sections, slot)) is not None
+    )
+    return results
 
 
-def check_directory_entry(entry: dict[str, Any], root: Path) -> list[Result]:
-    rel = entry["path"]
+def _section_result(rel: str, sections: Mapping[str, str], name: str) -> Result:
+    if name in sections:
+        return passed(rel, f"section '{name}' present")
+    return failed(rel, f"required section '## {name}' missing")
+
+
+def _slot_result(rel: str, sections: Mapping[str, str], slot: Slot) -> Result | None:
+    body = sections.get(slot.section)
+    if body is None:
+        return None
+    if slot.must_match.search(body):
+        return passed(rel, f"slot in '{slot.section}' filled")
+    return failed(
+        rel,
+        f"section '{slot.section}' lacks required data "
+        f"(pattern {slot.must_match.pattern})",
+    )
+
+
+def check_directory_entry(spec: FileSpec, root: Path) -> list[Result]:
+    """Check a directory entry: present, with a README and conforming entry names."""
+    rel = spec.path
     path = root / rel
     if not path.is_dir():
-        return [(FAIL, rel, f"missing — materialize {entry['template']}")]
-    results: list[Result] = [(PASS, rel, "exists")]
-    readme = path / "README.md"
-    if readme.is_file():
-        results.append((PASS, rel, "README.md present"))
+        return [failed(rel, f"missing — materialize {spec.template}")]
+    results = [passed(rel, "exists")]
+    if (path / "README.md").is_file():
+        results.append(passed(rel, "README.md present"))
     else:
-        results.append(
-            (FAIL, rel, "README.md missing — materialize " + entry["template"])
-        )
-    pattern = re.compile(entry["entry_pattern"])
-    for child in sorted(path.iterdir()):
-        if child.name == "README.md" or not child.name.endswith(".md"):
-            continue
-        if pattern.match(child.name):
-            results.append((PASS, rel, f"{child.name} conforms"))
-        else:
-            results.append(
-                (FAIL, rel, f"{child.name} violates entry naming YYYY-MM-DD-kebab.md")
-            )
+        results.append(failed(rel, f"README.md missing — materialize {spec.template}"))
+    entries = (
+        child
+        for child in sorted(path.iterdir())
+        if child.name != "README.md" and child.name.endswith(".md")
+    )
+    results.extend(_entry_name_result(rel, spec, child.name) for child in entries)
     return results
 
 
-def check_file_entry(entry: dict[str, Any], root: Path) -> list[Result]:
-    if entry.get("directory"):
-        return check_directory_entry(entry, root)
-    rel = entry["path"]
-    path = root / rel
-    if not path.is_file():
-        return [(FAIL, rel, f"missing — materialize {entry['template']}")]
-    results: list[Result] = [(PASS, rel, "exists")]
-    sections = parse_sections(path.read_text(encoding="utf-8"))
-    for required in entry.get("required_sections", []):
-        if required in sections:
-            results.append((PASS, rel, f"section '{required}' present"))
-        else:
-            results.append((FAIL, rel, f"required section '## {required}' missing"))
-    for slot in entry.get("slots", []):
-        body = sections.get(slot["section"])
-        if body is None:
-            continue  # the missing-section failure is already recorded
-        if re.search(slot["must_match"], body):
-            results.append((PASS, rel, f"slot in '{slot['section']}' filled"))
-        else:
-            results.append(
-                (
-                    FAIL,
-                    rel,
-                    f"section '{slot['section']}' lacks required data "
-                    f"(pattern {slot['must_match']})",
-                )
-            )
-    return results
+def _entry_name_result(rel: str, spec: FileSpec, name: str) -> Result:
+    if spec.entry_pattern is not None and spec.entry_pattern.match(name):
+        return passed(rel, f"{name} conforms")
+    return failed(rel, f"{name} violates entry naming YYYY-MM-DD-kebab.md")
 
 
-# Any token shaped like a REQ-ID, regardless of digit count. Compared against
-# the manifest's req_id_pattern to surface near-miss ids (e.g. REQ-AB-1000) at
-# doctor time — the scratch schemas anchor req_id to the canonical shape, so a
-# near-miss would otherwise pass here and fail only on the first pipeline append.
-_REQ_TOKEN_RE = re.compile(r"\bREQ-[A-Z]+-[0-9]+\b")
-
-
-def check_cross_doc(manifest: dict[str, Any], root: Path) -> list[Result]:
-    cfg = manifest["cross_doc"]
-    source = root / cfg["source"]
-    target = root / cfg["defined_in"]
+def check_cross_doc(manifest: Manifest, root: Path) -> list[Result]:
+    """Check that every requirement id the design doc cites is defined in the PRD, and well-formed."""
+    source = root / manifest.design_doc
+    target = root / manifest.prd
     if not source.is_file() or not target.is_file():
-        return [(SKIP, "cross-doc", "source or target missing (reported above)")]
-    pattern = re.compile(cfg["req_id_pattern"])
-    src_text = source.read_text(encoding="utf-8")
-    tgt_text = target.read_text(encoding="utf-8")
-    cited = set(pattern.findall(src_text))
-    defined = set(pattern.findall(tgt_text))
+        return [skipped("cross-doc", "source or target missing (reported above)")]
+    pattern = manifest.req_id_pattern
+    source_text = source.read_text(encoding="utf-8")
+    target_text = target.read_text(encoding="utf-8")
+    cited = set(pattern.findall(source_text))
+    defined = set(pattern.findall(target_text))
     results: list[Result] = []
     malformed = sorted(
         {
-            tok
-            for text in (src_text, tgt_text)
-            for tok in _REQ_TOKEN_RE.findall(text)
-            if not pattern.fullmatch(tok)
+            token
+            for text in (source_text, target_text)
+            for token in _REQ_TOKEN_RE.findall(text)
+            if not pattern.fullmatch(token)
         }
     )
     if malformed:
         results.append(
-            (
-                FAIL,
+            failed(
                 "cross-doc",
                 "malformed REQ-ID token(s) — the record schemas require "
                 "REQ-<LETTERS>-<3 digits>: " + ", ".join(malformed),
@@ -362,110 +629,129 @@ def check_cross_doc(manifest: dict[str, Any], root: Path) -> list[Result]:
     unknown = sorted(cited - defined)
     if unknown:
         results.append(
-            (
-                FAIL,
+            failed(
                 "cross-doc",
-                f"cited in {cfg['source']} but not defined in {cfg['defined_in']}: "
+                f"cited in {manifest.design_doc} but not defined in {manifest.prd}: "
                 + ", ".join(unknown),
             )
         )
     if not results:
         results.append(
-            (PASS, "cross-doc", f"{len(cited)} REQ-ID citation(s), all defined")
+            passed("cross-doc", f"{len(cited)} REQ-ID citation(s), all defined")
         )
     return results
 
 
-def check_handbook_refs(manifest: dict[str, Any], root: Path) -> list[Result]:
-    names = manifest["handbook"]["denylist"]
-    results: list[Result] = []
-    for entry in manifest["file"]:
-        path = root / entry["path"]
-        if entry.get("directory"):
-            files = sorted(path.glob("*.md")) if path.is_dir() else []
-        else:
-            files = [path] if path.is_file() else []
-        for f in files:
-            hits = sorted({n for n in names if n in f.read_text(encoding="utf-8")})
-            if hits:
-                results.append(
-                    (
-                        FAIL,
-                        "handbook-refs",
-                        f"{f.relative_to(root)} references harness-owned doc(s): "
-                        + ", ".join(hits),
-                    )
-                )
+def check_handbook_refs(manifest: Manifest, root: Path) -> list[Result]:
+    """Fail each roster file that references a harness-owned handbook document."""
+    names = manifest.handbook_denylist
+    results = [
+        failed(
+            "handbook-refs",
+            f"{file.relative_to(root)} references harness-owned doc(s): "
+            + ", ".join(hits),
+        )
+        for file in _roster_files(manifest, root)
+        if (
+            hits := sorted(
+                {name for name in names if name in file.read_text(encoding="utf-8")}
+            )
+        )
+    ]
     if not results:
-        results.append(
-            (PASS, "handbook-refs", "no roster file references handbook documents")
-        )
+        return [passed("handbook-refs", "no roster file references handbook documents")]
     return results
 
 
-def check_handbook_docs_absent(manifest: dict[str, Any], root: Path) -> list[Result]:
-    # A consumer's docs/ must not carry harness-owned handbook docs themselves:
-    # their content lives with the harness — as installed skills or as docs in
-    # the reference repo. A project migrating from an older harness that copied
-    # them into docs/ should remove them — /materialize proposes exactly this.
-    # None of the roster files are denylist names, so the roster is never
-    # implicated. (Project vocabulary belongs in docs/ubiquitous-language.md,
-    # never in a docs/glossary.md of its own.)
-    names = manifest["handbook"]["denylist"]
+def _roster_files(manifest: Manifest, root: Path) -> Iterator[Path]:
+    for spec in manifest.files:
+        path = root / spec.path
+        if spec.directory:
+            yield from sorted(path.glob("*.md")) if path.is_dir() else ()
+        elif path.is_file():
+            yield path
+
+
+def check_handbook_docs_absent(manifest: Manifest, root: Path) -> list[Result]:
+    """Fail when docs/ carries a harness-owned handbook document of its own."""
     docs = root / "docs"
-    stale = sorted(n for n in names if (docs / n).is_file())
+    stale = sorted(
+        name for name in manifest.handbook_denylist if (docs / name).is_file()
+    )
     if stale:
         return [
-            (
-                FAIL,
+            failed(
                 "handbook-docs",
                 "docs/ holds harness-owned handbook doc(s) — remove them; the "
                 "harness or its reference repo carries the canonical copy: "
                 f"{', '.join(stale)}",
             )
         ]
-    return [(PASS, "handbook-docs", "no harness-owned handbook docs in docs/")]
+    return [passed("handbook-docs", "no harness-owned handbook docs in docs/")]
 
 
-def check_channel_invariants(
-    channel: Any, root: Path, extensions: Any = None
-) -> list[Result]:
+def check_channel_invariants(project: Project) -> list[Result]:
+    """Check the channel's runtime invariants: nothing beside the plugin, nothing tracked out-of-band."""
+    channel = project.channel
     if channel is None:
-        return [(SKIP, "channel", "channel undeclared (reported above)")]
+        return [skipped("channel", "channel undeclared (reported above)")]
     if channel == "copy":
-        return [(PASS, "channel", "copy channel: harness runtime committed by design")]
-    exts = [e.rstrip("/") for e in (extensions or [])]
+        return [passed("channel", "copy channel: harness runtime committed by design")]
+    extensions = [path.rstrip("/") for path in project.extensions]
     if channel == "marketplace":
-        # Presence on disk, not git status: an untracked runtime beside the
-        # plugin (a copy→marketplace switch leftover, or a stray materialize)
-        # loads every skill and agent twice. On manifest, untracked runtime
-        # on disk IS the design, so this applies to marketplace only.
-        present: list[str] = []
-        for base in MARKETPLACE_PLUGIN_PATHS:
-            base_path = root / base
-            if not base_path.exists():
-                continue
-            for p in sorted(base_path.rglob("*")):
-                if not p.is_file():
-                    continue
-                rel = p.relative_to(root).as_posix()
-                if not any(rel == e or rel.startswith(e + "/") for e in exts):
-                    present.append(rel)
+        present = _runtime_on_disk(project.root, extensions)
         if present:
-            sample = ", ".join(present[:5])
             return [
-                (
-                    FAIL,
+                failed(
                     "channel",
                     f"marketplace channel but {len(present)} runtime file(s) on "
-                    f"disk beside the plugin: {sample} — these load twice; "
+                    f"disk beside the plugin: {', '.join(present[:5])} — these load twice; "
                     "delete the leftovers or declare them as extensions",
                 )
             ]
-    # manifest and marketplace both deliver the runtime out-of-band: it is
-    # materialized into the working tree but must never be tracked by git.
+    tracked = _tracked_runtime(project.root)
+    if tracked is None:
+        return [skipped("channel", "git unavailable; untracked invariant not verified")]
+    tracked = [path for path in tracked if not _under_extension(path, extensions)]
+    if tracked:
+        return [
+            failed(
+                "channel",
+                f"{channel} channel but {len(tracked)} harness runtime file(s) "
+                f"tracked: {', '.join(tracked[:5])}",
+            )
+        ]
+    detail = f"{channel} channel: no harness runtime files tracked"
+    if extensions:
+        detail += f"; {len(extensions)} declared extension(s) kept tracked"
+    return [passed("channel", detail)]
+
+
+def _under_extension(path: str, extensions: Sequence[str]) -> bool:
+    return any(path == ext or path.startswith(ext + "/") for ext in extensions)
+
+
+def _runtime_on_disk(root: Path, extensions: Sequence[str]) -> list[str]:
+    # Presence on disk, not git status: an untracked copy loads twice as well.
+    return [
+        rel
+        for base in MARKETPLACE_PLUGIN_PATHS
+        for rel in _files_under(root, base)
+        if not _under_extension(rel, extensions)
+    ]
+
+
+def _files_under(root: Path, base: str) -> Iterator[str]:
+    if not (root / base).exists():
+        return
+    for path in sorted((root / base).rglob("*")):
+        if path.is_file():
+            yield path.relative_to(root).as_posix()
+
+
+def _tracked_runtime(root: Path) -> list[str] | None:
     try:
-        out = subprocess.run(
+        listing = subprocess.run(
             ["git", "ls-files", "--", *RUNTIME_PATHS],
             cwd=root,
             capture_output=True,
@@ -473,330 +759,227 @@ def check_channel_invariants(
             check=True,
         ).stdout
     except (OSError, subprocess.CalledProcessError):
-        return [(SKIP, "channel", "git unavailable; untracked invariant not verified")]
-    tracked = [line for line in out.splitlines() if line.strip()]
-    # Declared extensions are project-owned skills/agents that live in the runtime
-    # tree but are the project's own work — they stay tracked by design, so exclude
-    # them from the untracked invariant. A path under any declared extension prefix
-    # is not a harness runtime file.
-    if exts:
-        tracked = [
-            p for p in tracked if not any(p == e or p.startswith(e + "/") for e in exts)
-        ]
-    if tracked:
-        sample = ", ".join(tracked[:5])
+        return None
+    return [line for line in listing.splitlines() if line.strip()]
+
+
+def check_reviewer_roster(manifest: Manifest, project: Project) -> list[Result]:
+    """Check the reviewer roster: the floor's bodies, each declared extra, and undeclared bodies."""
+    spec = manifest.reviewers
+    if spec is None:
+        return [skipped("reviewer-roster", "manifest declares no [reviewers] floor")]
+    fault = project.layout_fault
+    if fault is not None:
+        rel = manifest.project_data_path
+        return [skipped("reviewer-roster", f"{rel} {fault.kind} (reported above)")]
+    extras_value = lookup(project.layout, "harness.extra_reviewers")
+    names: object = [] if extras_value is None else extras_value
+    if not _is_string_list(names):
         return [
-            (
-                FAIL,
-                "channel",
-                f"{channel} channel but {len(tracked)} harness runtime file(s) "
-                f"tracked: {sample}",
-            )
-        ]
-    msg = f"{channel} channel: no harness runtime files tracked"
-    if exts:
-        msg += f"; {len(exts)} declared extension(s) kept tracked"
-    return [(PASS, "channel", msg)]
-
-
-def check_reviewer_roster(
-    manifest: dict[str, Any], root: Path, channel: Any, extensions: Any
-) -> list[Result]:
-    """Enforce the reviewer roster: the mandatory floor plus declared extras.
-
-    The floor reviewers gate every change and cannot be dropped; a project adds
-    reviewers through scripts/layout.toml [harness] extra_reviewers, never
-    subtracts. Each roster reviewer must have an agent body in every declared
-    tool surface. Each extra reviewer must also be listed in [harness]
-    extensions — the durable project-owned declaration; on manifest the
-    gitignore re-include and untracked-check exclusion also key on it. On the
-    marketplace channel only the floor ships in the plugin, so its existence
-    check is skipped there; extras are project-owned, and their checks and the
-    undeclared-body drift scan run on every channel.
-    """
-    cfg = manifest.get("reviewers")
-    if cfg is None:
-        return [(SKIP, "reviewer-roster", "manifest declares no [reviewers] floor")]
-
-    rel = manifest["project_data"]["path"]
-    path = root / rel
-    if not path.is_file():
-        return [(SKIP, "reviewer-roster", f"{rel} missing (reported above)")]
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError:
-        return [(SKIP, "reviewer-roster", f"{rel} unparseable (reported above)")]
-
-    floor = list(cfg["floor"])
-    tool_dirs = cfg["tool_dirs"]
-
-    extra = lookup(data, "harness.extra_reviewers")
-    if extra is None:
-        extra = []
-    elif not (isinstance(extra, list) and all(isinstance(e, str) for e in extra)):
-        return [
-            (
-                FAIL,
+            failed(
                 "reviewer-roster",
                 "harness.extra_reviewers must be a list of reviewer names",
             )
         ]
-
-    # Declaration check (every channel): an extra reviewer's name must follow the
-    # *-reviewer convention, so its review-feedback records match the schema.
-    name_re = re.compile(cfg["name_pattern"])
-    name_results: list[Result] = [
-        (
-            FAIL,
-            "reviewer-roster",
-            f"extra reviewer {e!r} must match the *-reviewer naming convention",
-        )
-        for e in extra
-        if not name_re.match(e)
-    ]
-    extra = [e for e in extra if name_re.match(e)]
-
-    # A floor reviewer is already in the roster; re-declaring it in
-    # extra_reviewers is a mistake (it would also demand a floor body in
-    # extensions). Reject it and drop it from the extras set.
-    floor_set = set(floor)
-    name_results += [
-        (
-            FAIL,
-            "reviewer-roster",
-            f"{e!r} is a floor reviewer and must not be listed in extra_reviewers",
-        )
-        for e in extra
-        if e in floor_set
-    ]
-    extra = [e for e in extra if e not in floor_set]
-
-    tools = lookup(data, "harness.tools")
-    if not (isinstance(tools, list) and all(isinstance(t, str) for t in tools)):
-        tools = list(tool_dirs)  # absent/invalid: assume every known surface
-    # An unknown name is a typo, not a choice: silently filtering it would
-    # let materialize skip that tool's surfaces while this check passes.
-    name_results += [
-        (
-            FAIL,
-            "reviewer-roster",
-            f"harness.tools names unknown surface {t!r} — known: {sorted(tool_dirs)}",
-        )
-        for t in tools
-        if t not in tool_dirs
-    ]
-    tools = [t for t in tools if t in tool_dirs]
+    extras, results = _declared_extras(spec, names)
+    tools, tool_results = _declared_tools(spec, lookup(project.layout, "harness.tools"))
+    results.extend(tool_results)
     if not tools:
-        # Fail loud on every channel: with no known tool surface the floor
-        # and extras loops below iterate zero times — on marketplace that
-        # would silently pass a declared, bodyless extra reviewer.
-        return name_results + [
-            (
-                FAIL,
+        # With no surface the body loops run zero times, and a declared,
+        # bodyless extra would pass silently.
+        results.append(
+            failed(
                 "reviewer-roster",
                 "harness.tools names no known tool surface — reviewer "
                 "bodies cannot be checked on any channel; fix the "
                 "[harness] tools list",
             )
-        ]
-    exts = extensions or []
-
-    results: list[Result] = list(name_results)
-    if channel == "marketplace":
-        # Floor bodies ship in the plugin. Extras never do — they are
-        # project-owned and live in the tree — so their body/extensions
-        # checks and the drift scan below still run on this channel.
-        results.append(
-            (
-                SKIP,
-                "reviewer-floor",
-                f"marketplace channel: {len(floor)} floor reviewer "
-                "bodies ship in the plugin, not the tree",
-            )
         )
-    else:
-        agent_dirs = {(root / tool_dirs[t].format(name="_probe")).parent for t in tools}
-        if not any(d.is_dir() for d in agent_dirs):
-            return name_results + [
-                (
-                    SKIP,
-                    "reviewer-roster",
-                    "no agent directories present — runtime not materialized in tree",
-                )
-            ]
-        for name in floor:
-            for tool in tools:
-                expected = tool_dirs[tool].format(name=name)
-                if (root / expected).is_file():
-                    results.append((PASS, "reviewer-floor", f"{expected} present"))
-                else:
-                    results.append(
-                        (
-                            FAIL,
-                            "reviewer-floor",
-                            f"floor reviewer body missing: {expected} "
-                            "— the four-reviewer floor is mandatory",
-                        )
-                    )
-    for name in extra:
-        for tool in tools:
-            expected = tool_dirs[tool].format(name=name)
-            if not (root / expected).is_file():
-                hint = (
-                    " — extras never ship in a plugin; commit the body project-side"
-                    if channel == "marketplace"
-                    else ""
-                )
-                results.append(
-                    (
-                        FAIL,
-                        "reviewer-roster",
-                        f"extra reviewer body missing: {expected}{hint}",
-                    )
-                )
-            elif expected not in exts:
-                results.append(
-                    (
-                        FAIL,
-                        "reviewer-roster",
-                        f"extra reviewer {expected} not in [harness] "
-                        "extensions — list it there to declare it "
-                        "project-owned; on manifest the gitignore "
-                        "re-include and untracked check also key on "
-                        "the entry",
-                    )
-                )
-            else:
-                results.append(_check_extra_body_contract(root, expected))
-
-    # Drift check: a *-reviewer body in the tree that is neither floor nor a
-    # declared extra would silently never gate. Declaration is authoritative;
-    # this catches the forgotten wiring. Scan EVERY known tool surface, not just
-    # the declared ones — a reviewer body dropped into an undeclared surface is
-    # exactly the forgotten wiring this check exists to surface.
-    roster = set(floor) | set(extra)
-    discovered: set[str] = set()
-    for tool in tool_dirs:
-        prefix, suffix = tool_dirs[tool].split("{name}")
-        agent_dir = root / prefix.rstrip("/")
-        if not agent_dir.is_dir():
-            continue
-        for child in agent_dir.iterdir():
-            if not (child.is_file() and child.name.endswith(suffix)):
-                continue
-            name = child.name[: -len(suffix)] if suffix else child.name
-            if name.endswith("-reviewer"):
-                discovered.add(name)
-    for name in sorted(discovered - roster):
+        return results
+    floor_results = _floor_body_results(spec, project, tools)
+    if floor_results is None:
         results.append(
-            (
-                FAIL,
+            skipped(
                 "reviewer-roster",
-                f"{name!r} agent body present but not in [harness] "
-                "extra_reviewers — it will not gate; declare it or remove it",
+                "no agent directories present — runtime not materialized in tree",
             )
         )
+        return results
+    results.extend(floor_results)
+    results.extend(_extra_body_results(spec, project, extras, tools))
+    results.extend(_undeclared_body_results(spec, project.root, {*spec.floor, *extras}))
     return results
 
 
-# The dispatch-event contract every roster reviewer states (harness-project
-# API, extra reviewers): the dispatch-start First Tool Call stanza — without
-# it the reviewer never appends dispatch-start, so deterministic truncation
-# detection (ADR 2026-06-04) is blind to that reviewer — and the
-# review-workflow output protocol. Token presence is the deterministic
-# backstop, the same mechanism as the fresh-eyes scan below; stanza prose
-# quality stays judgment (/audit-agents). Floor bodies are rendered from the
-# gated harness source and are not re-scanned here.
-_REQUIRED_REVIEWER_TOKENS = ("dispatch-start", "review-workflow")
+def _declared_extras(
+    spec: ReviewerSpec, names: Sequence[str]
+) -> tuple[list[str], list[Result]]:
+    results = [
+        failed(
+            "reviewer-roster",
+            f"extra reviewer {name!r} must match the *-reviewer naming convention",
+        )
+        for name in names
+        if not spec.name_pattern.match(name)
+    ]
+    shaped = [name for name in names if spec.name_pattern.match(name)]
+    results.extend(
+        failed(
+            "reviewer-roster",
+            f"{name!r} is a floor reviewer and must not be listed in extra_reviewers",
+        )
+        for name in shaped
+        if name in spec.floor
+    )
+    return [name for name in shaped if name not in spec.floor], results
 
 
-def _check_extra_body_contract(root: Path, expected: str) -> Result:
-    """One result row for a declared, present, extension-listed extra body."""
+def _declared_tools(
+    spec: ReviewerSpec, value: object
+) -> tuple[list[str], list[Result]]:
+    # An absent or malformed list means every known surface; an unknown name
+    # is a typo, and filtering it silently would let materialize skip that
+    # tool while this check passes.
+    tools = value if _is_string_list(value) else list(spec.surfaces)
+    results = [
+        failed(
+            "reviewer-roster",
+            f"harness.tools names unknown surface {tool!r} — known: {sorted(spec.surfaces)}",
+        )
+        for tool in tools
+        if tool not in spec.surfaces
+    ]
+    return [tool for tool in tools if tool in spec.surfaces], results
+
+
+def _floor_body_results(
+    spec: ReviewerSpec, project: Project, tools: Sequence[str]
+) -> list[Result] | None:
+    if project.channel == "marketplace":
+        return [
+            skipped(
+                "reviewer-floor",
+                f"marketplace channel: {len(spec.floor)} floor reviewer "
+                "bodies ship in the plugin, not the tree",
+            )
+        ]
+    directories = {project.root / spec.surfaces[tool].directory for tool in tools}
+    if not any(directory.is_dir() for directory in directories):
+        return None
+    return [
+        _floor_body_result(project.root, spec.surfaces[tool].body_path(name))
+        for name in spec.floor
+        for tool in tools
+    ]
+
+
+def _floor_body_result(root: Path, expected: str) -> Result:
+    if (root / expected).is_file():
+        return passed("reviewer-floor", f"{expected} present")
+    return failed(
+        "reviewer-floor",
+        f"floor reviewer body missing: {expected} — the four-reviewer floor is mandatory",
+    )
+
+
+def _extra_body_results(
+    spec: ReviewerSpec, project: Project, extras: Sequence[str], tools: Sequence[str]
+) -> list[Result]:
+    return [
+        _extra_body_result(project, spec.surfaces[tool].body_path(name))
+        for name in extras
+        for tool in tools
+    ]
+
+
+def _extra_body_result(project: Project, expected: str) -> Result:
+    if not (project.root / expected).is_file():
+        hint = (
+            " — extras never ship in a plugin; commit the body project-side"
+            if project.channel == "marketplace"
+            else ""
+        )
+        return failed(
+            "reviewer-roster", f"extra reviewer body missing: {expected}{hint}"
+        )
+    if expected not in project.extensions:
+        return failed(
+            "reviewer-roster",
+            f"extra reviewer {expected} not in [harness] "
+            "extensions — list it there to declare it "
+            "project-owned; on manifest the gitignore "
+            "re-include and untracked check also key on "
+            "the entry",
+        )
+    return _extra_body_contract(project.root, expected)
+
+
+def _extra_body_contract(root: Path, expected: str) -> Result:
     try:
         text = (root / expected).read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as e:
-        return (FAIL, "reviewer-roster", f"cannot read {expected}: {e}")
-    missing = [t for t in _REQUIRED_REVIEWER_TOKENS if t not in text]
+    except (OSError, UnicodeDecodeError) as exc:
+        return failed("reviewer-roster", f"cannot read {expected}: {exc}")
+    missing = [token for token in _REQUIRED_REVIEWER_TOKENS if token not in text]
     if missing:
-        return (
-            FAIL,
+        return failed(
             "reviewer-roster",
             f"extra reviewer {expected} lacks {', '.join(missing)} — "
             "every roster reviewer carries the dispatch-start First Tool "
             "Call stanza and the review-workflow output protocol; without "
             "dispatch-start, truncation detection is blind to this reviewer",
         )
-    return (
-        PASS,
+    return passed(
         "reviewer-roster",
         f"{expected} present, kept, and carries the dispatch-event contract",
     )
 
 
-# The working-memory artifact a reviewer body must never instruct reading. The
-# fresh-eyes invariant: a reviewer judges the change set against long-term memory
-# (docs/) and does not take the implementer's plan as review input. The bare slug
-# (no `.md`) is matched, so `implementation-plan` and `.scratch/implementation-
-# plan.md` both trip it. This is a deterministic regression backstop for the one
-# concrete, checkable case — a body re-introducing the plan read. It does NOT
-# police prose paraphrase, nor the handoff log a reviewer reads to anchor its
-# dispatch (the discipline there lives in the review-workflow skill, not here).
-# `design-block` is deliberately NOT forbidden: it is a record inside the handoff
-# log every reviewer already reads to find its build-pass anchor, so a body-prose
-# grep can neither detect nor prevent seeing it, and the token also matches a body
-# that names design-block only to say it must not be consulted.
-_FORBIDDEN_REVIEWER_REFS = ("implementation-plan",)
+def _undeclared_body_results(
+    spec: ReviewerSpec, root: Path, roster: set[str]
+) -> list[Result]:
+    # Every known surface is scanned, declared or not: a body in an undeclared
+    # surface is exactly the forgotten wiring.
+    discovered = {name for name, _path in reviewer_bodies(root, spec.surfaces)}
+    return [
+        failed(
+            "reviewer-roster",
+            f"{name!r} agent body present but not in [harness] "
+            "extra_reviewers — it will not gate; declare it or remove it",
+        )
+        for name in sorted(discovered - roster)
+    ]
 
 
-def check_reviewer_fresh_eyes(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail if any reviewer body instructs reading the implementer's plan.
-
-    Scans every *-reviewer body present in the tree across all known tool
-    surfaces, on every channel — an in-tree body is project-owned by
-    definition (on marketplace the floor ships in the plugin, rendered from
-    the same gated source, so only extras appear in the tree). Skipped when
-    the tree carries no reviewer bodies.
-    """
-    cfg = manifest.get("reviewers")
-    if cfg is None:
-        return [(SKIP, "reviewer-fresh-eyes", "manifest declares no [reviewers] floor")]
-
-    tool_dirs = cfg["tool_dirs"]
-    results: list[Result] = []
-    found_any = False
-    for tool in tool_dirs:
-        prefix, suffix = tool_dirs[tool].split("{name}")
-        agent_dir = root / prefix.rstrip("/")
-        if not agent_dir.is_dir():
+def reviewer_bodies(
+    root: Path, surfaces: Mapping[str, AgentSurface]
+) -> Iterator[tuple[str, Path]]:
+    """Yield every reviewer body in the tree across all known surfaces, with its agent name."""
+    for surface in surfaces.values():
+        directory = root / surface.directory
+        if not directory.is_dir():
             continue
-        for child in sorted(agent_dir.iterdir()):
-            if not (child.is_file() and child.name.endswith(suffix)):
-                continue
-            name = child.name[: -len(suffix)] if suffix else child.name
-            if not name.endswith("-reviewer"):
-                continue
-            found_any = True
-            rel = child.relative_to(root).as_posix()
-            text = child.read_text(encoding="utf-8")
-            hits = [tok for tok in _FORBIDDEN_REVIEWER_REFS if tok in text]
-            if hits:
-                results.append(
-                    (
-                        FAIL,
-                        "reviewer-fresh-eyes",
-                        f"{rel!r} references working memory ({', '.join(hits)}) "
-                        "— a reviewer reads the change set, not the "
-                        "implementer's plan (fresh-eyes invariant)",
-                    )
-                )
-            else:
-                results.append(
-                    (PASS, "reviewer-fresh-eyes", f"{rel!r} reads no working memory")
-                )
-    if not found_any:
+        for child in sorted(directory.iterdir()):
+            name = surface.agent_name(child.name) if child.is_file() else None
+            if name is not None and name.endswith("-reviewer"):
+                yield name, child
+
+
+def check_reviewer_fresh_eyes(manifest: Manifest, root: Path) -> list[Result]:
+    """Fail each reviewer body that instructs reading the implementer's plan."""
+    # An in-tree body is project-owned on every channel: on marketplace the
+    # floor ships in the plugin, so only extras appear in the tree.
+    spec = manifest.reviewers
+    if spec is None:
         return [
-            (
-                SKIP,
+            skipped("reviewer-fresh-eyes", "manifest declares no [reviewers] floor")
+        ]
+    results = [
+        _fresh_eyes_result(root, body)
+        for _name, body in reviewer_bodies(root, spec.surfaces)
+    ]
+    if not results:
+        return [
+            skipped(
                 "reviewer-fresh-eyes",
                 "no reviewer bodies in the tree — runtime not materialized, "
                 "or a marketplace project with no extras",
@@ -805,78 +988,88 @@ def check_reviewer_fresh_eyes(manifest: dict[str, Any], root: Path) -> list[Resu
     return results
 
 
-def check_hook_registration(root: Path, channel: str) -> list[Result]:
-    """Hook scripts and their settings matchers must agree, both directions.
-
-    Forward: a hook file with no registration in .claude/settings.json (or the
-    local settings.local.json override) never runs — dead weight that silently
-    disables whatever it guards. This matters on upgrade: the hook scripts are
-    harness-owned runtime that /materialize replaces, and its settings refresh
-    now registers each delivered hook deterministically (an added PreToolUse
-    matcher, ensure-present), so a freshly materialized project passes. This
-    check still guards a project not yet re-materialized, or a settings.json a
-    human de-registered — it surfaces any hook left unregistered.
-
-    Reverse: a settings matcher referencing a .claude/hooks/ script that is
-    absent invokes a nonexistent command on every matched tool call. On the
-    marketplace channel hooks ship in the plugin (registered in its
-    hooks.json), never the project tree — any .claude/hooks/ matcher there is
-    a leftover from a channel switch, the one documented switch step nothing
-    gated before.
-    """
-    hooks_dir = root / ".claude" / "hooks"
-    # Hooks are Python (.sh still recognized for a legacy tree). A test_*
-    # sibling is a test suite, not a hook — it needs no registration.
-    scripts = (
-        sorted(
-            p.name
-            for pattern in ("*.py", "*.sh")
-            for p in hooks_dir.glob(pattern)
-            if p.is_file() and not p.name.startswith("test_")
+def _fresh_eyes_result(root: Path, body: Path) -> Result:
+    rel = body.relative_to(root).as_posix()
+    text = body.read_text(encoding="utf-8")
+    hits = [token for token in _FORBIDDEN_REVIEWER_REFS if token in text]
+    if hits:
+        return failed(
+            "reviewer-fresh-eyes",
+            f"{rel!r} references working memory ({', '.join(hits)}) "
+            "— a reviewer reads the change set, not the "
+            "implementer's plan (fresh-eyes invariant)",
         )
-        if hooks_dir.is_dir()
-        else []
-    )
-    blob = ""
-    for name in ("settings.json", "settings.local.json"):
-        sp = root / ".claude" / name
-        if sp.is_file():
-            try:
-                blob += sp.read_text(encoding="utf-8") + "\n"
-            except OSError:
-                pass
-    if scripts and not blob:
+    return passed("reviewer-fresh-eyes", f"{rel!r} reads no working memory")
+
+
+def check_hook_registration(root: Path, channel: str | None) -> list[Result]:
+    """Check that hook scripts and settings matchers agree in both directions."""
+    hooks_dir = root / ".claude" / "hooks"
+    scripts = _hook_scripts(hooks_dir)
+    registrations = _settings_text(root)
+    if scripts and not registrations:
         return [
-            (
-                FAIL,
+            failed(
                 "hook-registration",
                 f"{len(scripts)} hook script(s) in .claude/hooks/ but no "
                 ".claude/settings.json to register them",
             )
         ]
+    results = [_registration_result(name, registrations) for name in scripts]
+    results.extend(_matcher_results(registrations, scripts, channel))
+    if results:
+        return results
+    if not hooks_dir.is_dir():
+        return [skipped("hook-registration", "no .claude/hooks/ in tree")]
+    return [skipped("hook-registration", "no hook scripts in .claude/hooks/")]
+
+
+def _hook_scripts(hooks_dir: Path) -> list[str]:
+    # Hooks are Python; .sh is still recognized for a legacy tree. A test_
+    # sibling is a suite, not a hook.
+    if not hooks_dir.is_dir():
+        return []
+    return sorted(
+        path.name
+        for pattern in ("*.py", "*.sh")
+        for path in hooks_dir.glob(pattern)
+        if path.is_file() and not path.name.startswith("test_")
+    )
+
+
+def _settings_text(root: Path) -> str:
+    text = ""
+    for name in ("settings.json", "settings.local.json"):
+        path = root / ".claude" / name
+        if not path.is_file():
+            continue
+        try:
+            text += path.read_text(encoding="utf-8") + "\n"
+        except OSError:
+            continue
+    return text
+
+
+def _registration_result(name: str, registrations: str) -> Result:
+    # A path segment, not a substring, so allow.py is not masked by handoff-allow.py.
+    if "/" + name in registrations:
+        return passed("hook-registration", f"{name} registered")
+    return failed(
+        "hook-registration",
+        f"{name} present in .claude/hooks/ but not registered in "
+        ".claude/settings.json — the hook never runs; add its "
+        "PreToolUse matcher (or remove the script)",
+    )
+
+
+def _matcher_results(
+    registrations: str, scripts: Sequence[str], channel: str | None
+) -> list[Result]:
     results: list[Result] = []
-    for name in scripts:
-        # Match the basename as a path segment ("/<name>"), not a bare substring,
-        # so a short hook (allow.py) is not masked by a longer registered one
-        # (handoff-allow.py). Every registration references the hook by path, so
-        # the leading slash is always present.
-        if "/" + name in blob:
-            results.append((PASS, "hook-registration", f"{name} registered"))
-        else:
-            results.append(
-                (
-                    FAIL,
-                    "hook-registration",
-                    f"{name} present in .claude/hooks/ but not registered in "
-                    ".claude/settings.json — the hook never runs; add its "
-                    "PreToolUse matcher (or remove the script)",
-                )
-            )
-    for name in sorted(set(re.findall(r"\.claude/hooks/([\w.-]+)", blob))):
+    for name in sorted(set(_HOOK_MATCHER_RE.findall(registrations))):
         if channel == "marketplace":
             results.append(
-                (
-                    FAIL,
+                failed(
                     "hook-registration",
                     f"settings registers .claude/hooks/{name} but hooks ship "
                     "in the plugin on the marketplace channel — leftover from "
@@ -885,315 +1078,218 @@ def check_hook_registration(root: Path, channel: str) -> list[Result]:
             )
         elif name not in scripts:
             results.append(
-                (
-                    FAIL,
+                failed(
                     "hook-registration",
                     f"settings registers .claude/hooks/{name} but the script "
                     "is absent — the matcher invokes a nonexistent command on "
                     "every matched tool call; remove it or restore the script",
                 )
             )
-    if not results:
-        if not hooks_dir.is_dir():
-            return [(SKIP, "hook-registration", "no .claude/hooks/ in tree")]
-        return [(SKIP, "hook-registration", "no hook scripts in .claude/hooks/")]
     return results
+
+
+class Headings(NamedTuple):
+    """The live `## ` headings of a CLAUDE.md: every position, and each title's first position and count."""
+
+    positions: frozenset[int]
+    first_at: Mapping[str, int]
+    occurrences: Mapping[str, int]
 
 
 def check_required_chapters(root: Path) -> list[Result]:
-    """CLAUDE.md must carry each harness-managed chapter, filled.
-
-    CLAUDE.md is project-owned, but the orchestration doctrine (the
-    `## Agent Usage (Mandatory)` chapter) is stack-agnostic harness content,
-    identified by its heading rather than by marker comments. /init scaffolds it
-    and /materialize refreshes it in place from the single source on every
-    upgrade, so the rules stay current without a per-project edit. Each required
-    chapter must exist as an exact heading line and have a non-empty body (at
-    least one non-blank line before the next `## ` heading or end of file). A
-    CLAUDE.md missing or with an empty chapter is a legacy file the /materialize
-    migration has not yet converted. Channel-independent — CLAUDE.md is
-    project-owned on every channel.
-    """
-    cm = root / "CLAUDE.md"
-    if not cm.is_file():
-        return [(FAIL, "required-chapter", "no CLAUDE.md in project root")]
+    """Check that CLAUDE.md carries each harness-managed chapter once, filled."""
+    claude_md = root / "CLAUDE.md"
+    if not claude_md.is_file():
+        return [failed("required-chapter", "no CLAUDE.md in project root")]
     try:
-        lines = cm.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError) as e:
-        return [(FAIL, "required-chapter", f"cannot read CLAUDE.md: {e}")]
-    # Locate real `## ` headings — those outside fenced code blocks. A heading
-    # inside a ```fence``` is illustrative, not a live chapter; skipping fences
-    # matches the convention of check_field_tables and check_req_acceptance.
-    h2_lines: set[int] = set()
-    heading_at: dict[str, int] = {}
-    heading_count: dict[str, int] = {}
-    in_fence = False
-    for i, ln in enumerate(lines):
-        if ln.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if not in_fence and ln.startswith("## "):
-            h2_lines.add(i)
-            heading_at.setdefault(ln, i)  # first real occurrence wins
-            heading_count[ln] = heading_count.get(ln, 0) + 1
-    results: list[Result] = []
-    for title in REQUIRED_CHAPTERS:
-        start = heading_at.get(title)
-        if start is None:
-            results.append(
-                (
-                    FAIL,
-                    "required-chapter",
-                    f"CLAUDE.md has no '{title}' chapter — run /materialize",
-                )
-            )
-            continue
-        if heading_count[title] > 1:
-            # render refreshes only the first occurrence; a second is left stale.
-            results.append(
-                (
-                    FAIL,
-                    "required-chapter",
-                    f"CLAUDE.md has {heading_count[title]} '{title}' chapters — keep one (run /materialize)",
-                )
-            )
-            continue
-        end = min((i for i in h2_lines if i > start), default=len(lines))
-        body = lines[start + 1 : end]
-        if not any(ln.strip() for ln in body):
-            results.append(
-                (
-                    FAIL,
-                    "required-chapter",
-                    f"'{title}' chapter is empty — run /materialize",
-                )
-            )
-        else:
-            results.append((PASS, "required-chapter", f"'{title}' present and filled"))
-    return results
+        lines = claude_md.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return [failed("required-chapter", f"cannot read CLAUDE.md: {exc}")]
+    headings = _live_headings(lines)
+    return [_chapter_result(title, headings, lines) for title in REQUIRED_CHAPTERS]
 
 
-# The harness stamp: a single greppable line refresh-chapters.py writes at the top
-# of CLAUDE.md — `<!-- harness: <YYYY-MM-DD> -->`, the release date of the
-# materialized version. Because CLAUDE.md is the one file injected into every
-# session's context, the token lands in every transcript, letting downstream
-# analysis attribute a session to the harness that produced it (the docs' line-1
-# provenance reaches only the few sessions that open a doc). The date maps
-# one-to-one to the version and is orderable. The check is structural — present,
-# single, well-formed ISO date. It cannot verify "matches the materializing
-# version": a consumer has no harness/VERSION-DATE. verify-harness's materialization-
-# faithfulness step enforces that for the samples. The well-formed check validates
-# shape (`\d{4}-\d{2}-\d{2}`), not calendar ranges — the value is machine-written
-# from VERSION-DATE, so an impossible date never reaches a real consumer.
-STAMP_LINE = re.compile(r"^<!--\s*harness:")
-STAMP_WELL_FORMED = re.compile(r"^<!--\s*harness:\s*(\d{4}-\d{2}-\d{2})\b.*-->\s*$")
+def _live_headings(lines: Sequence[str]) -> Headings:
+    first_at: dict[str, int] = {}
+    occurrences: dict[str, int] = {}
+    positions: set[int] = set()
+    for index, line in unfenced_lines(lines):
+        if line.startswith("## "):
+            positions.add(index)
+            first_at.setdefault(line, index)
+            occurrences[line] = occurrences.get(line, 0) + 1
+    return Headings(frozenset(positions), first_at, occurrences)
+
+
+def _chapter_result(title: str, headings: Headings, lines: Sequence[str]) -> Result:
+    start = headings.first_at.get(title)
+    if start is None:
+        return failed(
+            "required-chapter", f"CLAUDE.md has no '{title}' chapter — run /materialize"
+        )
+    if headings.occurrences[title] > 1:
+        return failed(
+            "required-chapter",
+            f"CLAUDE.md has {headings.occurrences[title]} '{title}' chapters — keep one (run /materialize)",
+        )
+    end = min(
+        (index for index in headings.positions if index > start), default=len(lines)
+    )
+    if not any(line.strip() for line in lines[start + 1 : end]):
+        return failed(
+            "required-chapter", f"'{title}' chapter is empty — run /materialize"
+        )
+    return passed("required-chapter", f"'{title}' present and filled")
 
 
 def check_harness_stamp(root: Path) -> list[Result]:
-    """CLAUDE.md must carry a single, well-formed harness date stamp."""
-    cm = root / "CLAUDE.md"
-    if not cm.is_file():
-        return [(FAIL, "harness-stamp", "no CLAUDE.md in project root")]
+    """Check that CLAUDE.md carries one well-formed harness date stamp."""
+    claude_md = root / "CLAUDE.md"
+    if not claude_md.is_file():
+        return [failed("harness-stamp", "no CLAUDE.md in project root")]
     try:
-        # Read bytes, not read_text: read_text does universal-newline translation,
-        # which strips \r and would hide the CRLF case the branch below detects.
-        raw = cm.read_bytes()
-        text = raw.decode("utf-8")
-    except (OSError, UnicodeDecodeError) as e:
-        return [(FAIL, "harness-stamp", f"cannot read CLAUDE.md: {e}")]
-    stamps = [ln for ln in text.splitlines() if STAMP_LINE.match(ln.lstrip())]
+        # read_text would translate CRLF away and hide the case below.
+        raw = claude_md.read_bytes()
+        stamps = _stamp_lines(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        return [failed("harness-stamp", f"cannot read CLAUDE.md: {exc}")]
     if not stamps:
-        # refresh-chapters.py refuses to stamp a CRLF file, so "no stamp" on a CRLF
-        # CLAUDE.md really means CRLF — point there, not into a /materialize loop.
-        if b"\r\n" in raw:
-            return [
-                (
-                    FAIL,
-                    "harness-stamp",
-                    "CLAUDE.md has CRLF line endings — normalize to LF, then run /materialize",
-                )
-            ]
-        return [
-            (
-                FAIL,
-                "harness-stamp",
-                "CLAUDE.md has no '<!-- harness: <YYYY-MM-DD> -->' stamp — run /materialize",
-            )
-        ]
+        return [_absent_stamp_result(raw)]
     if len(stamps) > 1:
         return [
-            (
-                FAIL,
+            failed(
                 "harness-stamp",
                 f"CLAUDE.md has {len(stamps)} harness stamps — keep one (run /materialize)",
             )
         ]
-    m = STAMP_WELL_FORMED.match(stamps[0].strip())
-    if not m:
+    match = STAMP_WELL_FORMED.match(stamps[0].strip())
+    if not match:
         return [
-            (
-                FAIL,
+            failed(
                 "harness-stamp",
                 "CLAUDE.md harness stamp is malformed — expected "
                 "'<!-- harness: <YYYY-MM-DD> -->' (run /materialize)",
             )
         ]
-    return [(PASS, "harness-stamp", f"harness stamp present: {m.group(1)}")]
+    return [passed("harness-stamp", f"harness stamp present: {match.group(1)}")]
 
 
-def count_words(text: str) -> int:
-    """Word count matching `wc -w`, after stripping HTML comments.
-
-    HTML comments carry template boilerplate (the provenance line, AGENT
-    hints) that should not count against a near-empty materialized doc. Words,
-    not lines, is the metric: under the no-hard-wrap writing standard a
-    paragraph is a single logical line, so a line count is blind to prose bloat.
-    """
-    stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
-    return len(stripped.split())
+def _stamp_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if STAMP_LINE.match(line.lstrip())]
 
 
-def _load_layout(manifest: dict[str, Any], root: Path) -> dict[str, Any]:
-    """Parse the project's layout.toml, or {} when absent/unparseable."""
-    path = root / manifest["project_data"]["path"]
-    if not path.is_file():
-        return {}
+def _absent_stamp_result(raw: bytes) -> Result:
+    # The chapter refresh refuses a CRLF file, so a stamp-less CRLF CLAUDE.md
+    # needs the line-ending fix, not another materialize.
+    if b"\r\n" in raw:
+        return failed(
+            "harness-stamp",
+            "CLAUDE.md has CRLF line endings — normalize to LF, then run /materialize",
+        )
+    return failed(
+        "harness-stamp",
+        "CLAUDE.md has no '<!-- harness: <YYYY-MM-DD> -->' stamp — run /materialize",
+    )
+
+
+def check_layout_module_rules(project: Project) -> list[Result]:
+    """Fail when the layout's [[module]] rules would not survive engine load."""
+    if not project.layout:
+        return [skipped("layout-modules", "no parseable scripts/layout.toml")]
+    if not GRADING_AVAILABLE:
+        return [skipped("layout-modules", "grading package not importable")]
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError:
-        return {}
-
-
-def check_layout_module_rules(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail when layout.toml's [[module]] rules would not survive engine load.
-
-    The grading engine validates module rules loudly at config load; a consumer
-    should hit that wall here — at doctor time, right after an init or a
-    materialize upgrade — never mid-grading. Reuses the engine's own validator
-    (grading.config), so the doctor and the engine cannot disagree on what is
-    accepted. The import is lazy: doctor also runs in harness-maintainer
-    contexts where the grading package is not on the path, and skips there.
-    A missing or unparseable layout.toml is reported by check_project_data.
-    """
-    layout = _load_layout(manifest, root)
-    if not layout:
-        return [(SKIP, "layout-modules", "no parseable scripts/layout.toml")]
-    try:
-        from grading.config import validate_module_rules
-    except ImportError:
-        return [(SKIP, "layout-modules", "grading package not importable")]
-    try:
-        validate_module_rules(layout.get("module", []))
+        validate_module_rules(project.layout.get("module", []))
     except ValueError as exc:
-        return [(FAIL, "layout-modules", str(exc))]
-    return [(PASS, "layout-modules", "[[module]] rules validate")]
+        return [failed("layout-modules", str(exc))]
+    return [passed("layout-modules", "[[module]] rules validate")]
 
 
-def check_layout_review(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail when layout.toml's [review] table would not survive engine load.
-
-    Same rule as check_layout_module_rules: the plan engine raises loudly on a
-    malformed [review] value and route falls closed to the full battery — a
-    consumer should hit that wall here, at doctor time, never mid-review.
-    Reuses the engine's own validator (grading.config.validate_review) with
-    the roster the engine would build: the floor plus declared extras.
-    """
-    layout = _load_layout(manifest, root)
+def check_layout_review(project: Project) -> list[Result]:
+    """Fail when the layout's merged [review] table would not survive engine load."""
+    layout = project.layout
     if not layout:
-        return [(SKIP, "layout-review", "no parseable scripts/layout.toml")]
+        return [skipped("layout-review", "no parseable scripts/layout.toml")]
+    if not GRADING_AVAILABLE:
+        return [skipped("layout-review", "grading package not importable")]
     try:
-        from grading.config import REVIEWERS, validate_review
-    except ImportError:
-        return [(SKIP, "layout-review", "grading package not importable")]
+        defaults = load_stack_defaults(project.layout_file.parent)
+    except (ValueError, tomllib.TOMLDecodeError):
+        # layout-defaults owns that failure; one FAIL, not two.
+        return [
+            skipped(
+                "layout-review", "stack defaults failed to load; see layout-defaults"
+            )
+        ]
+    try:
+        merged = merged_table("review", layout, defaults)
+        review = validate_review(merged, _review_roster(layout))
+    except ValueError as exc:
+        return [failed("layout-review", str(exc))]
+    probe = _probe_source(review, layout)
+    return [passed("layout-review", f"[review] table validates; probe: {probe}")]
+
+
+def _review_roster(layout: Table) -> list[str]:
     harness_table = layout.get("harness")
-    extras_raw = (
+    extras = (
         harness_table.get("extra_reviewers")
         if isinstance(harness_table, dict)
         else None
     )
-    roster = list(REVIEWERS) + [
-        e
-        for e in (extras_raw if isinstance(extras_raw, list) else [])
-        if isinstance(e, str) and e not in REVIEWERS
+    declared = extras if isinstance(extras, list) else []
+    return [
+        *REVIEWERS,
+        *(name for name in declared if isinstance(name, str) and name not in REVIEWERS),
     ]
-    review = layout.get("review")
-    try:
-        from grading.config import load_stack_defaults, merged_table
 
-        scripts_dir = (root / manifest["project_data"]["path"]).parent
-        try:
-            defaults = load_stack_defaults(scripts_dir)
-        except (ValueError, tomllib.TOMLDecodeError):
-            # layout-defaults owns that failure; one FAIL, not two.
-            return [
-                (
-                    SKIP,
-                    "layout-review",
-                    "stack defaults failed to load; see layout-defaults",
-                )
-            ]
-        merged = merged_table("review", layout, defaults)
-        review_config = validate_review(merged, roster)
-    except ValueError as exc:
-        return [(FAIL, "layout-review", str(exc))]
-    # Name the probe in effect — the engine's merged view, which the project
-    # file alone does not show (ADR 2026-09-07, amendment 2026-09-09).
-    probe = review_config.security_surface
-    declared = isinstance(review, dict) and "security_surface" in review
+
+def _probe_source(review: "ReviewConfig", layout: Table) -> str:
+    # The engine's merged view, which the project file alone does not show.
+    probe = review.security_surface
+    table = layout.get("review")
     if not probe:
-        source = "empty; the security reviewer runs on every high and gray plan"
-    elif declared:
-        source = f"project override, {len(probe)} patterns"
-    else:
-        source = f"stack default, {len(probe)} patterns"
-    return [(PASS, "layout-review", f"[review] table validates; probe: {source}")]
+        return "empty; the security reviewer runs on every high and gray plan"
+    if isinstance(table, dict) and "security_surface" in table:
+        return f"project override, {len(probe)} patterns"
+    return f"stack default, {len(probe)} patterns"
 
 
-def check_layout_defaults(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail when the stack's shipped scripts/layout-defaults.toml would not
-    survive engine load; warn when the project's layout.toml restates a key
-    with the default's exact value, since a restated key shadows the default
-    and freezes there through every upgrade (ADR 2026-09-07, amendment
-    2026-09-09). Absent file: an older install, the project's tables load
-    alone."""
-    layout = _load_layout(manifest, root)
-    if not layout:
-        return [(SKIP, "layout-defaults", "no parseable scripts/layout.toml")]
-    try:
-        from grading.config import load_stack_defaults, shadowed_keys
-    except ImportError:
-        return [(SKIP, "layout-defaults", "grading package not importable")]
-    scripts_dir = (root / manifest["project_data"]["path"]).parent
+def check_layout_defaults(project: Project) -> list[Result]:
+    """Fail when the stack defaults would not load; warn when the layout restates one."""
+    if not project.layout:
+        return [skipped("layout-defaults", "no parseable scripts/layout.toml")]
+    if not GRADING_AVAILABLE:
+        return [skipped("layout-defaults", "grading package not importable")]
+    scripts_dir = project.layout_file.parent
     if not (scripts_dir / "layout-defaults.toml").is_file():
         return [
-            (SKIP, "layout-defaults", "no scripts/layout-defaults.toml (older install)")
+            skipped(
+                "layout-defaults", "no scripts/layout-defaults.toml (older install)"
+            )
         ]
     try:
         defaults = load_stack_defaults(scripts_dir)
     except (ValueError, tomllib.TOMLDecodeError) as exc:
-        return [(FAIL, "layout-defaults", str(exc))]
-    shadowed = shadowed_keys(layout, defaults)
+        return [failed("layout-defaults", str(exc))]
+    shadowed = shadowed_keys(project.layout, defaults)
     if shadowed:
         return [
-            (
-                WARN,
+            warned(
                 "layout-defaults",
                 f"layout.toml restates the stack default for {', '.join(shadowed)}; "
                 "delete the key to follow upgrades",
             )
         ]
-    return [(PASS, "layout-defaults", "stack defaults load; no key shadowed")]
+    return [passed("layout-defaults", "stack defaults load; no key shadowed")]
 
 
 def check_backlog_connector(root: Path) -> list[Result]:
-    """Warn when the project-owned scripts/backlog.sh is absent: `/next`
-    ranks from git alone until `init` scaffolds it. WARN, never FAIL — an
-    unbound backlog is a valid solo project (ADR 2026-09-12)."""
+    """Warn when the project-owned backlog connector is absent."""
     if (root / "scripts" / "backlog.sh").is_file():
-        return [(PASS, "backlog-connector", "scripts/backlog.sh present")]
+        return [passed("backlog-connector", "scripts/backlog.sh present")]
     return [
-        (
-            WARN,
+        warned(
             "backlog-connector",
             "scripts/backlog.sh missing — /next ranks from git alone until "
             "/init scaffolds the connector skeleton",
@@ -1201,22 +1297,15 @@ def check_backlog_connector(root: Path) -> list[Result]:
     ]
 
 
-def check_layout_gate(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail when layout.toml's [gate] table has the wrong shape.
-
-    The table is optional — its absence skips the build-record vocabulary
-    check rather than blocking — but a present table with a malformed value
-    surfaces only when the first build record fails schema validation
-    mid-pipeline. The spec marks the table [doctor]; this check honors that.
-    """
-    layout = _load_layout(manifest, root)
-    if not layout:
-        return [(SKIP, "layout-gate", "no parseable scripts/layout.toml")]
-    gate = layout.get("gate")
+def check_layout_gate(project: Project) -> list[Result]:
+    """Fail when a present [gate] table has the wrong shape."""
+    if not project.layout:
+        return [skipped("layout-gate", "no parseable scripts/layout.toml")]
+    gate = project.layout.get("gate")
     if gate is None:
-        return [(SKIP, "layout-gate", "no [gate] table (optional)")]
+        return [skipped("layout-gate", "no [gate] table (optional)")]
     if not isinstance(gate, dict):
-        return [(FAIL, "layout-gate", f"[gate] must be a table (got {gate!r})")]
+        return [failed("layout-gate", f"[gate] must be a table (got {gate!r})")]
     problems: list[str] = []
     command = gate.get("command")
     if not (isinstance(command, str) and command.strip()):
@@ -1225,100 +1314,66 @@ def check_layout_gate(manifest: dict[str, Any], root: Path) -> list[Result]:
     if not (
         isinstance(verbs, list)
         and verbs
-        and all(isinstance(v, str) and v for v in verbs)
+        and all(isinstance(verb, str) and verb for verb in verbs)
     ):
         problems.append(
             f"[gate] verbs must be a non-empty list of strings (got {verbs!r})"
         )
     if problems:
-        return [(FAIL, "layout-gate", p) for p in problems]
-    return [(PASS, "layout-gate", "[gate] command and verbs validate")]
+        return [failed("layout-gate", problem) for problem in problems]
+    return [passed("layout-gate", "[gate] command and verbs validate")]
 
 
-def check_doc_budgets(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Fail when a budgeted doc exceeds its word ceiling.
-
-    The ceiling defaults to the manifest's max_words and is overridable per
-    project through the layout.toml [harness] key the entry names — a recorded,
-    reviewable opt-out for genuine scale, never a silent one. Absence of the doc
-    is reported by check_file_entry, not here.
-    """
-    layout = _load_layout(manifest, root)
-    results: list[Result] = []
-    for entry in manifest["file"]:
-        max_words = entry.get("max_words")
-        if max_words is None:
-            continue
-        path = root / entry["path"]
-        if not path.is_file():
-            continue
-        rel = entry["path"]
-        ceiling, source = max_words, "default"
-        key = entry.get("budget_override_key")
-        if key is not None:
-            override = lookup(layout, key)
-            if (
-                isinstance(override, int)
-                and not isinstance(override, bool)
-                and override > 0
-            ):
-                ceiling, source = override, f"override {key}={override}"
-        words = count_words(path.read_text(encoding="utf-8"))
-        if words > ceiling:
-            remedy = (
-                "compact source-owned detail and superseded entries "
-                "(doc-sync skill § Compaction)"
-            )
-            if key is not None:
-                remedy += f", or raise {key} in layout.toml [harness] deliberately"
-            results.append(
-                (
-                    FAIL,
-                    "doc-budget",
-                    f"{rel} is {words} words, over the {ceiling}-word ceiling "
-                    f"({source}) — {remedy}",
-                )
-            )
-        else:
-            results.append(
-                (PASS, "doc-budget", f"{rel} {words}/{ceiling} words ({source})")
-            )
-    return results
+def check_doc_budgets(manifest: Manifest, project: Project) -> list[Result]:
+    """Fail each budgeted doc that exceeds its word ceiling."""
+    return [
+        _budget_result(spec, spec.budget, project)
+        for spec in manifest.files
+        if spec.budget is not None and (project.root / spec.path).is_file()
+    ]
 
 
-# A field/parameter/type-table header in system-design.md mirrors a source
-# schema that rots when the code changes (document-writing § Prohibited
-# Patterns, "Field tables in system-design.md"). The check is anchored at line
-# start and fence-aware: a table inside a fenced code block is an illustrative
-# example, not a live schema mirror, so it is skipped.
-_FIELD_TABLE_HEADER = re.compile(
-    r"\s*\|\s*(fields?|parameters?|params?|arguments?|args?)\s*\|",
-    re.IGNORECASE,
-)
+def _budget_result(spec: FileSpec, budget: Budget, project: Project) -> Result:
+    ceiling, source = _budget_ceiling(budget, project.layout)
+    words = count_words((project.root / spec.path).read_text(encoding="utf-8"))
+    if words <= ceiling:
+        return passed("doc-budget", f"{spec.path} {words}/{ceiling} words ({source})")
+    remedy = "compact source-owned detail and superseded entries (doc-sync skill § Compaction)"
+    if budget.override_key is not None:
+        remedy += (
+            f", or raise {budget.override_key} in layout.toml [harness] deliberately"
+        )
+    return failed(
+        "doc-budget",
+        f"{spec.path} is {words} words, over the {ceiling}-word ceiling "
+        f"({source}) — {remedy}",
+    )
 
 
-def check_field_tables(manifest: dict[str, Any], root: Path) -> list[Result]:
-    # The system-design doc owns summaries, not source. A field/parameter table
-    # mirrors a source schema that rots when the code changes. The target is the
-    # cross_doc source (docs/system-design.md) — the design doc is already named
-    # there, so no per-file flag is needed.
-    rel = manifest["cross_doc"]["source"]
+def _budget_ceiling(budget: Budget, layout: Table) -> tuple[int, str]:
+    key = budget.override_key
+    override = None if key is None else lookup(layout, key)
+    if isinstance(override, int) and not isinstance(override, bool) and override > 0:
+        return override, f"override {key}={override}"
+    return budget.max_words, "default"
+
+
+def check_field_tables(manifest: Manifest, root: Path) -> list[Result]:
+    """Fail when the design doc carries a field or parameter table outside a code fence."""
+    rel = manifest.design_doc
     path = root / rel
     if not path.is_file():
-        return [(SKIP, "field-tables", f"{rel} missing (reported above)")]
-    hits: list[int] = []
-    in_fence = False
-    for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if not in_fence and _FIELD_TABLE_HEADER.match(line):
-            hits.append(i)
+        return [skipped("field-tables", f"{rel} missing (reported above)")]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    hits = [
+        index + 1
+        for index, line in unfenced_lines(lines)
+        if _FIELD_TABLE_HEADER.match(line)
+    ]
     if hits:
-        shown = ", ".join(str(n) for n in hits[:5])
+        shown = ", ".join(str(number) for number in hits[:5])
         return [
-            (
-                FAIL,
+            failed(
                 "field-tables",
                 f"{rel} has {len(hits)} field/parameter table(s) (line(s) {shown}) — "
                 "source is authoritative for field lists; replace each with a one-line "
@@ -1326,59 +1381,34 @@ def check_field_tables(manifest: dict[str, Any], root: Path) -> list[Result]:
                 "Patterns)",
             )
         ]
-    return [(PASS, "field-tables", f"{rel}: no field/parameter tables")]
+    return [passed("field-tables", f"{rel}: no field/parameter tables")]
 
 
-def check_req_acceptance(manifest: dict[str, Any], root: Path) -> list[Result]:
-    """Every REQ-ID in the PRD must appear in at least one Markdown list item.
-
-    The PRD is narrative prose tagged inline with [REQ-XX-NNN]; the bounded,
-    testable contract is the requirement's "Done when" acceptance bullet (a list
-    item). A REQ-ID that appears only in prose, a heading, or a table has no
-    bounded bar — the fresh-eyes reviewer judges the change against docs/, so an
-    untestable requirement is a real gap. Acceptance bullets and the superseded
-    mapping are both lists, so an active or retired requirement always qualifies.
-    """
-    # The PRD is the cross_doc defined_in doc (docs/prd.md) — already named there,
-    # so no per-file flag is needed.
-    rel = manifest["cross_doc"]["defined_in"]
+def check_req_acceptance(manifest: Manifest, root: Path) -> list[Result]:
+    """Fail each PRD requirement id that never appears in a list item."""
+    rel = manifest.prd
     path = root / rel
     if not path.is_file():
-        return [(SKIP, "req-acceptance", f"{rel} missing (reported above)")]
-    req_pattern = re.compile(manifest["cross_doc"]["req_id_pattern"])
-    bullet = re.compile(r"^\s*[-*+]\s")
+        return [skipped("req-acceptance", f"{rel} missing (reported above)")]
     in_bullet: set[str] = set()
     anywhere: set[str] = set()
-    in_fence = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        # A REQ-ID inside a fenced code block is an illustrative example, not a
-        # live mention — skip fenced lines, as check_field_tables does.
-        if line.lstrip().startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        ids = req_pattern.findall(line)
-        if not ids:
-            continue
+    for _index, line in unfenced_lines(path.read_text(encoding="utf-8").splitlines()):
+        ids = manifest.req_id_pattern.findall(line)
         anywhere.update(ids)
-        if bullet.match(line):
+        if _BULLET_RE.match(line):
             in_bullet.update(ids)
     orphans = sorted(anywhere - in_bullet)
     if orphans:
-        shown = ", ".join(orphans[:5])
         return [
-            (
-                FAIL,
+            failed(
                 "req-acceptance",
                 f"{rel}: {len(orphans)} requirement(s) mentioned only in prose, with no "
-                f'"Done when" acceptance bullet: {shown} — give each a tagged list item '
-                "stating its bounded, testable contract",
+                f'"Done when" acceptance bullet: {", ".join(orphans[:5])} — give each a '
+                "tagged list item stating its bounded, testable contract",
             )
         ]
     return [
-        (
-            PASS,
+        passed(
             "req-acceptance",
             f"{rel}: all {len(anywhere)} requirement(s) carry an acceptance bullet",
         )
@@ -1386,33 +1416,16 @@ def check_req_acceptance(manifest: dict[str, Any], root: Path) -> list[Result]:
 
 
 def check_legacy_plugin_keys(root: Path) -> list[Result]:
-    """Pre-v0.2.0 registration keys are dead config: the agent-team rename
-    (ADR 2026-08-01) moved every plugin and the marketplace itself, and a
-    settings entry keyed on the old names silently stops matching updates.
-    WARN, never FAIL: the migration is a one-time human action."""
-    findings: list[str] = []
-    for name in ("settings.json", "settings.local.json"):
-        try:
-            data = json.loads((root / ".claude" / name).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if not isinstance(data, dict):
-            continue
-        enabled = data.get("enabledPlugins")
-        if isinstance(enabled, dict):
-            findings.extend(
-                f"{name}: {key}"
-                for key in enabled
-                if isinstance(key, str) and key.endswith("@" + LEGACY_MARKETPLACE)
-            )
-        markets = data.get("extraKnownMarketplaces")
-        if isinstance(markets, dict) and LEGACY_MARKETPLACE in markets:
-            findings.append(f"{name}: extraKnownMarketplaces.{LEGACY_MARKETPLACE}")
+    """Warn when a settings file still registers the plugin under the retired marketplace name."""
+    findings = [
+        finding
+        for name in ("settings.json", "settings.local.json")
+        for finding in _legacy_keys(root / ".claude" / name)
+    ]
     if not findings:
-        return [(PASS, "legacy-keys", "no pre-v0.2.0 registration keys")]
+        return [passed("legacy-keys", "no pre-v0.2.0 registration keys")]
     return [
-        (
-            WARN,
+        warned(
             "legacy-keys",
             f"pre-v0.2.0 key(s): {'; '.join(findings)} — migrate once: remove "
             f"the {LEGACY_MARKETPLACE} marketplace, add agent-team, reinstall "
@@ -1421,76 +1434,86 @@ def check_legacy_plugin_keys(root: Path) -> list[Result]:
     ]
 
 
+def _legacy_keys(settings: Path) -> list[str]:
+    try:
+        data = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    findings: list[str] = []
+    enabled = data.get("enabledPlugins")
+    if isinstance(enabled, dict):
+        findings.extend(
+            f"{settings.name}: {key}"
+            for key in enabled
+            if isinstance(key, str) and key.endswith("@" + LEGACY_MARKETPLACE)
+        )
+    markets = data.get("extraKnownMarketplaces")
+    if isinstance(markets, dict) and LEGACY_MARKETPLACE in markets:
+        findings.append(f"{settings.name}: extraKnownMarketplaces.{LEGACY_MARKETPLACE}")
+    return findings
+
+
 def check_version_skew(root: Path, version_date_file: Path) -> list[Result]:
-    """Marketplace-channel advisory: compare the CLAUDE.md harness stamp to
-    the plugin's bundled VERSION-DATE. The plugin cache advances on a plugin
-    update, but the project-side engine sliver and managed chapters advance
-    only when the marketplace-setup re-runs — a date mismatch means new
-    plugin surfaces are driving old engines. WARN only, never FAIL: the skew
-    needs a human decision (re-run setup), not a blocked pipeline."""
+    """Warn when the CLAUDE.md stamp and the plugin's VERSION-DATE disagree."""
     try:
-        lines = Path(version_date_file).read_text(encoding="utf-8").splitlines()
-        plugin_date = lines[0].strip()
-    except (OSError, IndexError, UnicodeDecodeError) as e:
-        return [(SKIP, "version-skew", f"cannot read {version_date_file}: {e}")]
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", plugin_date):
-        return [
-            (
-                SKIP,
-                "version-skew",
-                f"{version_date_file} carries no YYYY-MM-DD first line",
-            )
-        ]
-    cm = root / "CLAUDE.md"
-    try:
-        stamps = [
-            ln
-            for ln in cm.read_text(encoding="utf-8").splitlines()
-            if STAMP_LINE.match(ln.lstrip())
-        ]
-    except (OSError, UnicodeDecodeError):
-        return [
-            (
-                SKIP,
-                "version-skew",
-                "no readable CLAUDE.md stamp to compare (harness-stamp reports it)",
-            )
-        ]
-    m = STAMP_WELL_FORMED.match(stamps[0].strip()) if len(stamps) == 1 else None
-    if m is None:
-        return [
-            (
-                SKIP,
-                "version-skew",
-                "no well-formed CLAUDE.md stamp to compare (harness-stamp reports it)",
-            )
-        ]
-    stamp_date = m.group(1)
+        plugin_date = _plugin_date(version_date_file)
+        stamp_date = _stamp_date(root)
+    except ValueError as exc:
+        return [skipped("version-skew", str(exc))]
     if stamp_date == plugin_date:
         return [
-            (PASS, "version-skew", f"project engines and plugin agree: {plugin_date}")
+            passed("version-skew", f"project engines and plugin agree: {plugin_date}")
         ]
-    # ISO dates order lexicographically, so the comparison names the actual
-    # stale side instead of asserting one causal direction for any mismatch.
+    return [
+        warned(
+            "version-skew",
+            f"project engines stamped {stamp_date}, plugin is {plugin_date} — "
+            + _skew_hint(stamp_date, plugin_date),
+        )
+    ]
+
+
+def _plugin_date(version_date_file: Path) -> str:
+    try:
+        first_line = version_date_file.read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError, UnicodeDecodeError) as exc:
+        raise ValueError(f"cannot read {version_date_file}: {exc}") from exc
+    plugin_date = first_line.strip()
+    if not _ISO_DATE_RE.fullmatch(plugin_date):
+        raise ValueError(f"{version_date_file} carries no YYYY-MM-DD first line")
+    return plugin_date
+
+
+def _stamp_date(root: Path) -> str:
+    try:
+        stamps = _stamp_lines((root / "CLAUDE.md").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError(
+            "no readable CLAUDE.md stamp to compare (harness-stamp reports it)"
+        ) from exc
+    match = STAMP_WELL_FORMED.match(stamps[0].strip()) if len(stamps) == 1 else None
+    if match is None:
+        raise ValueError(
+            "no well-formed CLAUDE.md stamp to compare (harness-stamp reports it)"
+        )
+    return match.group(1)
+
+
+def _skew_hint(stamp_date: str, plugin_date: str) -> str:
+    # ISO dates order lexically, so the hint names the stale side.
     if stamp_date < plugin_date:
-        hint = (
+        return (
             "the plugin updated without a setup re-run; re-run the "
             "marketplace-setup skill so the engine sliver and managed "
             "chapters match the plugin surfaces"
         )
-    else:
-        hint = (
-            "the project engines are newer than the plugin — update the "
-            "plugin from the marketplace, then re-run the "
-            "marketplace-setup skill"
-        )
-    return [
-        (
-            WARN,
-            "version-skew",
-            f"project engines stamped {stamp_date}, plugin is {plugin_date} — {hint}",
-        )
-    ]
+    return (
+        "the project engines are newer than the plugin — update the "
+        "plugin from the marketplace, then re-run the "
+        "marketplace-setup skill"
+    )
 
 
 def run(
@@ -1498,57 +1521,79 @@ def run(
     manifest_path: Path,
     plugin_version_date: Path | None = None,
 ) -> list[Result]:
-    manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
-    root = Path(project_root)
-    results: list[Result] = []
-    project_data_results, channel, extensions = check_project_data(manifest, root)
-    results.extend(project_data_results)
-    for entry in manifest["file"]:
-        results.extend(check_file_entry(entry, root))
-    results.extend(check_layout_module_rules(manifest, root))
-    results.extend(check_layout_review(manifest, root))
-    results.extend(check_layout_defaults(manifest, root))
-    results.extend(check_layout_gate(manifest, root))
+    """Run every check over a project and return the rows in report order."""
+    manifest = read_manifest(manifest_path)
+    project = read_project(manifest, project_root)
+    root = project.root
+    results = check_project_data(manifest, project)
+    for spec in manifest.files:
+        results.extend(check_file_entry(spec, root))
+    results.extend(check_layout_module_rules(project))
+    results.extend(check_layout_review(project))
+    results.extend(check_layout_defaults(project))
+    results.extend(check_layout_gate(project))
     results.extend(check_backlog_connector(root))
-    results.extend(check_doc_budgets(manifest, root))
+    results.extend(check_doc_budgets(manifest, project))
     results.extend(check_field_tables(manifest, root))
     results.extend(check_req_acceptance(manifest, root))
     results.extend(check_cross_doc(manifest, root))
     results.extend(check_handbook_refs(manifest, root))
     results.extend(check_handbook_docs_absent(manifest, root))
-    results.extend(check_channel_invariants(channel, root, extensions))
-    results.extend(check_reviewer_roster(manifest, root, channel, extensions))
+    results.extend(check_channel_invariants(project))
+    results.extend(check_reviewer_roster(manifest, project))
     results.extend(check_reviewer_fresh_eyes(manifest, root))
-    results.extend(check_hook_registration(root, channel))
+    results.extend(check_hook_registration(root, project.channel))
     results.extend(check_legacy_plugin_keys(root))
     results.extend(check_required_chapters(root))
     results.extend(check_harness_stamp(root))
-    if plugin_version_date is None:
-        # Plugin-skill invocations that forgot the flag still have the
-        # plugin root in the environment; a terminal run on the marketplace
-        # channel gets a visible SKIP instead of a silently absent check.
-        env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
-        candidate = Path(env_root) / "VERSION-DATE" if env_root else None
-        if candidate is not None and candidate.is_file():
-            plugin_version_date = candidate
-    if plugin_version_date is not None:
-        results.extend(check_version_skew(root, plugin_version_date))
-    elif channel == "marketplace":
-        results.append(
-            (
-                SKIP,
+    results.extend(_version_skew_results(project, plugin_version_date))
+    return results
+
+
+def _version_skew_results(project: Project, explicit: Path | None) -> list[Result]:
+    version_date_file = explicit or _plugin_version_date_from_environment()
+    if version_date_file is not None:
+        return check_version_skew(project.root, version_date_file)
+    if project.channel == "marketplace":
+        return [
+            skipped(
                 "version-skew",
                 "not checked: pass --plugin-version-date (the plugin doctor "
                 "skill does) to compare engine and plugin dates",
             )
-        )
-    return results
+        ]
+    return []
+
+
+def _plugin_version_date_from_environment() -> Path | None:
+    # A plugin skill that forgot the flag still has the plugin root in its
+    # environment; a marketplace run then reports a visible row.
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    if not plugin_root:
+        return None
+    candidate = Path(plugin_root) / "VERSION-DATE"
+    return candidate if candidate.is_file() else None
+
+
+def render_report(results: Sequence[Result], *, as_json: bool) -> str:
+    """Render the rows for the terminal, or as JSON."""
+    if as_json:
+        return json.dumps([result._asdict() for result in results], indent=2)
+    # A detail may quote a key from a project-tree file; strip control bytes
+    # before the terminal render.
+    lines = "".join(
+        f"{result.status:4} {result.check}: {_CONTROL_RE.sub('', result.detail)}\n"
+        for result in results
+    )
+    failures = sum(1 for result in results if result.status == FAIL)
+    return f"{lines}\n{failures} failure(s), {len(results)} check(s)"
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the doctor from the command line and return its exit code."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("command", choices=["check"])
-    parser.add_argument("--project-root", type=Path, default=Path("."))
+    parser.add_argument("--project-root", type=Path, default=Path())
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
@@ -1560,31 +1605,16 @@ def main(argv: list[str] | None = None) -> int:
         "WARN on mismatch",
     )
     args = parser.parse_args(argv)
-
     try:
         results = run(
             args.project_root.resolve(), args.manifest, args.plugin_version_date
         )
-    except (OSError, tomllib.TOMLDecodeError, KeyError, re.error) as exc:
+    except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError, re.error) as exc:
         sys.stderr.write(f"doctor: {exc}\n")
         return 2
-
-    failures = sum(1 for status, _, _ in results if status == FAIL)
-    if args.json:
-        print(
-            json.dumps(
-                [{"status": s, "check": c, "detail": d} for s, c, d in results],
-                indent=2,
-            )
-        )
-    else:
-        for status, check, detail in results:
-            # A detail may quote a key from a project-tree file; strip
-            # control bytes before the terminal render.
-            print(f"{status:4} {check}: {_CONTROL_RE.sub('', detail)}")
-        print(f"\n{failures} failure(s), {len(results)} check(s)")
-    return 1 if failures else 0
+    print(render_report(results, as_json=args.json))
+    return 1 if any(result.status == FAIL for result in results) else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

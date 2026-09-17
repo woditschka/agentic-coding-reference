@@ -15,7 +15,10 @@ NG_ROW = "NG-5"
 OTHER_ROW = "NG-4"
 DECISION = "Cancelling only is in scope"
 OTHER_SLICE = "REQ-OTHER-009"
-NO_INTAKE_YET = False
+FIRST_LINE = 1
+INTAKE_SOURCE = f"intake:{FIRST_LINE}"
+CONSULTATION_SOURCE = f"consultation:{FIRST_LINE}"
+A_NON_STRING = 7
 
 
 def an_override(non_goal_id=NG_ROW, owner_decision=DECISION, source="dispatch"):
@@ -43,7 +46,7 @@ def a_human_response(**fields):
         "consultation-response",
         **{
             "author": HUMAN,
-            "in_response_to": 1,
+            "in_response_to": FIRST_LINE,
             "answer": f"Yes. {DECISION}.",
             **fields,
         },
@@ -122,7 +125,7 @@ class OverrideShape(unittest.TestCase):
                 )
 
     def test_a_malformed_source_is_an_error(self):
-        for source in ("intake", "intake:0", "intake:1234567890", 7):
+        for source in ("intake", "intake:0", "intake:1234567890", A_NON_STRING):
             with self.subTest(source=source):
                 self.assertEqual(
                     errors_of([an_override(source=source)]),
@@ -153,7 +156,7 @@ class IntakeSource(unittest.TestCase):
         sources = sources_over(a_human_intake())
 
         self.assertEqual(
-            errors_of([an_override(source="intake:1")], sources=sources), []
+            errors_of([an_override(source=INTAKE_SOURCE)], sources=sources), []
         )
 
     def test_a_partial_quote_of_a_decision_passes(self):
@@ -161,7 +164,7 @@ class IntakeSource(unittest.TestCase):
 
         self.assertEqual(
             errors_of(
-                [an_override(owner_decision="Cancelling only", source="intake:1")],
+                [an_override(owner_decision="Cancelling only", source=INTAKE_SOURCE)],
                 sources=sources,
             ),
             [],
@@ -172,12 +175,12 @@ class IntakeSource(unittest.TestCase):
 
         self.assertEqual(
             errors_of(
-                [an_override(owner_decision="something else", source="intake:1")],
+                [an_override(owner_decision="something else", source=INTAKE_SOURCE)],
                 sources=sources,
             ),
             [
                 f"scope_overrides {NG_ROW}: owner_decision quote not found in "
-                "intake:1's decisions"
+                f"{INTAKE_SOURCE}'s decisions"
             ],
         )
 
@@ -185,9 +188,9 @@ class IntakeSource(unittest.TestCase):
         sources = sources_over(a_record("prd-entry"))
 
         self.assertEqual(
-            errors_of([an_override(source="intake:1")], sources=sources),
+            errors_of([an_override(source=INTAKE_SOURCE)], sources=sources),
             [
-                f"scope_overrides {NG_ROW}: intake:1 is not a human "
+                f"scope_overrides {NG_ROW}: {INTAKE_SOURCE} is not a human "
                 "intake-decision for this req_id"
             ],
         )
@@ -195,14 +198,14 @@ class IntakeSource(unittest.TestCase):
     def test_an_agent_authored_intake_is_rejected(self):
         sources = sources_over(a_human_intake(author="product-requirements-expert"))
 
-        errors = errors_of([an_override(source="intake:1")], sources=sources)
+        errors = errors_of([an_override(source=INTAKE_SOURCE)], sources=sources)
 
         self.assertIn("not a human intake-decision", errors[0])
 
     def test_an_intake_of_another_slice_is_rejected(self):
         sources = sources_over(a_human_intake(req_id=OTHER_SLICE))
 
-        errors = errors_of([an_override(source="intake:1")], sources=sources)
+        errors = errors_of([an_override(source=INTAKE_SOURCE)], sources=sources)
 
         self.assertIn("not a human intake-decision for this req_id", errors[0])
 
@@ -212,17 +215,17 @@ class ConsultationSource(unittest.TestCase):
         sources = sources_over(a_human_response())
 
         self.assertEqual(
-            errors_of([an_override(source="consultation:1")], sources=sources), []
+            errors_of([an_override(source=CONSULTATION_SOURCE)], sources=sources), []
         )
 
     def test_the_quote_must_appear_in_the_answer(self):
         sources = sources_over(a_human_response(answer="No."))
 
         self.assertEqual(
-            errors_of([an_override(source="consultation:1")], sources=sources),
+            errors_of([an_override(source=CONSULTATION_SOURCE)], sources=sources),
             [
                 f"scope_overrides {NG_ROW}: owner_decision quote not found in "
-                "consultation:1's answer"
+                f"{CONSULTATION_SOURCE}'s answer"
             ],
         )
 
@@ -230,9 +233,9 @@ class ConsultationSource(unittest.TestCase):
         sources = sources_over(a_human_response(author="system-design-expert"))
 
         self.assertEqual(
-            errors_of([an_override(source="consultation:1")], sources=sources),
+            errors_of([an_override(source=CONSULTATION_SOURCE)], sources=sources),
             [
-                f"scope_overrides {NG_ROW}: consultation:1 is not a human "
+                f"scope_overrides {NG_ROW}: {CONSULTATION_SOURCE} is not a human "
                 "consultation-response for this req_id"
             ],
         )
@@ -240,16 +243,16 @@ class ConsultationSource(unittest.TestCase):
     def test_a_response_of_another_slice_is_rejected(self):
         sources = sources_over(a_human_response(req_id=OTHER_SLICE))
 
-        errors = errors_of([an_override(source="consultation:1")], sources=sources)
+        errors = errors_of([an_override(source=CONSULTATION_SOURCE)], sources=sources)
 
         self.assertIn("not a human consultation-response for this req_id", errors[0])
 
     def test_an_answer_that_is_not_text_is_rejected(self):
         sources = sources_over(a_human_response(answer=["yes"]))
 
-        errors = errors_of([an_override(source="consultation:1")], sources=sources)
+        errors = errors_of([an_override(source=CONSULTATION_SOURCE)], sources=sources)
 
-        self.assertIn("quote not found in consultation:1's answer", errors[0])
+        self.assertIn(f"quote not found in {CONSULTATION_SOURCE}'s answer", errors[0])
 
 
 if __name__ == "__main__":

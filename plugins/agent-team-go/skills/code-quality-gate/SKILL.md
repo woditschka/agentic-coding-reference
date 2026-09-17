@@ -60,7 +60,7 @@ Run `python3 scripts/grading.py contracts-sync --feature <req_id>` with the othe
 
 ## IDE Static Analysis (optional)
 
-When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `make ci` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
+When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `make ci` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if the GoLand MCP tool `get_file_problems` actually ran this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
 
 ## Completion Criteria
 
@@ -69,8 +69,10 @@ A feature is complete when:
 - [ ] All TDD cycles finished
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] All tests pass (`go test ./...`)
-- [ ] IDE static-analysis pre-check clean on touched files — check this box only if the `mcp__goland__*` tools were actually invoked this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
-- [ ] Code formatted (`go fmt ./...`)
+- [ ] IDE static-analysis pre-check clean on touched files — check this box only if the GoLand MCP tool `get_file_problems` actually ran this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
+- [ ] Format check passes (`make fmt-check`)
+- [ ] Module files tidy (`make tidy-check`)
+- [ ] Vet passes (`go vet ./...`)
 - [ ] Project builds (`make build`)
 - [ ] Lint passes (`make lint`)
 - [ ] Dependency policy passes (`make deps-check`)

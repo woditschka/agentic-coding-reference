@@ -8,13 +8,14 @@ import types
 import typing
 import unittest
 
+import handoff
+
 from tests.support import (
     _REPO_SCHEMAS,
     GOLDEN_RECORDS,
     SOME_REQ_ID,
     SOME_TS,
     golden_record,
-    handoff,
 )
 
 
@@ -58,13 +59,17 @@ def _structured_subschema(node, root):
     return None
 
 
+SOME_RETRY = 2
+SOME_DURATION_SECONDS = 12.5
+SOME_GATE_CHECKS = ["build", "test", "lint"]
+
 STACK_RECORDS = {
     "build-failure": {
         "type": "build-failure",
         "req_id": SOME_REQ_ID,
         "ts": SOME_TS,
         "author": "feature-implementer",
-        "retry": 2,
+        "retry": SOME_RETRY,
         "failed_check": "test",
         "error_output": "assertion failed",
         "attempted": "added the guard clause",
@@ -74,7 +79,7 @@ STACK_RECORDS = {
         "req_id": SOME_REQ_ID,
         "ts": SOME_TS,
         "author": "feature-implementer",
-        "gate_checks_run": ["build", "test", "lint"],
+        "gate_checks_run": SOME_GATE_CHECKS,
     },
     "prd-entry": {
         "type": "prd-entry",
@@ -154,26 +159,33 @@ class ParseRecordRoundTrip(unittest.TestCase):
                 self.assertEqual((parsed.type, parsed.ts), (record_type, SOME_TS))
 
     def test_a_consultation_response_lifts_its_memory_updates(self):
-        parsed = handoff.parse_record(golden_record("consultation-response"))
+        raw = golden_record("consultation-response")
+        (update,) = raw["memory_updates"]
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.ConsultationResponse)
         self.assertEqual(
             parsed.memory_updates,
-            (handoff.MemoryUpdate("docs/system-design.md", "Note adapter placement."),),
+            (handoff.MemoryUpdate(update["path"], update["summary"]),),
         )
         self.assertEqual(
-            (parsed.in_response_to, parsed.notes), (1, "See the adapter ADR.")
+            (parsed.in_response_to, parsed.notes),
+            (raw["in_response_to"], raw["notes"]),
         )
 
     def test_a_design_block_lifts_its_patterns(self):
-        parsed = handoff.parse_record(golden_record("design-block"))
+        raw = golden_record("design-block")
+        (pattern,) = raw["patterns"]
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.DesignBlock)
-        self.assertEqual(parsed.primary_paths, ("src/widget.py",))
-        self.assertEqual(parsed.supporting_paths, ("tests/test_widget.py",))
+        self.assertEqual(parsed.primary_paths, tuple(raw["primary_paths"]))
+        self.assertEqual(parsed.supporting_paths, tuple(raw["supporting_paths"]))
         self.assertEqual(
             parsed.patterns,
-            (handoff.Pattern("src/base.py:10", "Follow the base adapter."),),
+            (handoff.Pattern(pattern["ref"], pattern["description"]),),
         )
 
     def test_absent_optionals_resolve_to_their_defaults(self):
@@ -186,37 +198,63 @@ class ParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.notes)
 
     def test_a_design_doc_autofix_lifts_its_source_finding(self):
-        parsed = handoff.parse_record(golden_record("design-doc-autofix"))
+        raw = golden_record("design-doc-autofix")
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.DesignDocAutofix)
         self.assertIsInstance(parsed.source_finding, handoff.SourceFinding)
-        self.assertEqual(parsed.source_finding.review_feedback_author, "doc-reviewer")
-        self.assertEqual(parsed.source_finding.fix, "The adapter owns serialization.")
-        self.assertEqual((parsed.lines_changed, parsed.chars_changed), (1, 20))
+        self.assertEqual(
+            parsed.source_finding.review_feedback_author,
+            raw["source_finding"]["review_feedback_author"],
+        )
+        self.assertEqual(parsed.source_finding.fix, raw["source_finding"]["fix"])
+        self.assertEqual(
+            (parsed.lines_changed, parsed.chars_changed),
+            (raw["lines_changed"], raw["chars_changed"]),
+        )
 
     def test_a_prd_autofix_lifts_its_source_finding(self):
-        parsed = handoff.parse_record(golden_record("prd-autofix"))
+        raw = golden_record("prd-autofix")
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.PrdAutofix)
         self.assertIsInstance(parsed.source_finding, handoff.SourceFinding)
-        self.assertEqual(parsed.file, "docs/prd.md")
-        self.assertEqual((parsed.lines_changed, parsed.chars_changed), (1, 6))
+        self.assertEqual(parsed.file, raw["file"])
+        self.assertEqual(
+            (parsed.lines_changed, parsed.chars_changed),
+            (raw["lines_changed"], raw["chars_changed"]),
+        )
 
     def test_a_grader_verdict_lifts_its_named_facets(self):
-        parsed = handoff.parse_record(golden_record("grader-verdict"))
+        raw = golden_record("grader-verdict")
+        blast_radius = raw["facets"]["blast_radius"]
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.GraderVerdict)
         self.assertEqual(
-            parsed.facets.blast_radius, handoff.Facet("skim", "One module touched.")
+            parsed.facets.blast_radius,
+            handoff.Facet(blast_radius["verdict"], blast_radius["note"]),
         )
-        self.assertEqual(parsed.facets.scope_deviation.note, "Matches the slice.")
-        self.assertEqual((parsed.responding_to, parsed.verdict), ((1,), "skim"))
+        self.assertEqual(
+            parsed.facets.scope_deviation.note, raw["facets"]["scope_deviation"]["note"]
+        )
+        self.assertEqual(
+            (parsed.responding_to, parsed.verdict),
+            (tuple(raw["responding_to"]), raw["verdict"]),
+        )
 
     def test_grader_features_lift_nested_and_nullable_fields(self):
-        parsed = handoff.parse_record(golden_record("grader-features"))
+        raw = golden_record("grader-features")
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed.features, handoff.Features)
-        self.assertEqual(parsed.features.test_prod_ratio, 1.5)
+        self.assertEqual(
+            parsed.features.test_prod_ratio, raw["features"]["test_prod_ratio"]
+        )
         self.assertIs(parsed.features.build_passed, True)
         self.assertIsNone(parsed.features.reviewers)
 
@@ -227,14 +265,17 @@ class ParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.features.review_roster)
 
     def test_a_review_plan_bridges_the_pass_keyword(self):
-        parsed = handoff.parse_record(golden_record("review-plan"))
+        raw = golden_record("review-plan")
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed.basis, handoff.PlanBasis)
         self.assertEqual(
-            (parsed.basis.pass_, parsed.basis.tree_sha), ("first", "a" * 40)
+            (parsed.basis.pass_, parsed.basis.tree_sha),
+            (raw["basis"]["pass"], raw["basis"]["tree_sha"]),
         )
         self.assertIsNone(parsed.basis.prev_tree_sha)
-        self.assertEqual(parsed.roster, ("code-quality-reviewer", "test-reviewer"))
+        self.assertEqual(parsed.roster, tuple(raw["roster"]))
 
     def test_a_review_plan_basis_lifts_the_security_surface(self):
         raw = golden_record("review-plan")
@@ -255,13 +296,16 @@ class ParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.basis.security_surface)
 
     def test_review_feedback_lifts_findings_and_defaults(self):
-        parsed = handoff.parse_record(golden_record("review-feedback"))
+        raw = golden_record("review-feedback")
+        (raw_finding,) = raw["findings"]
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.ReviewFeedback)
         (finding,) = parsed.findings
         self.assertEqual(
             (finding.severity, finding.fix, finding.clarify_target),
-            ("critical", None, None),
+            (raw_finding["severity"], None, None),
         )
         self.assertEqual((parsed.recommendations, parsed.approved_aspects), ((), ()))
 
@@ -269,7 +313,7 @@ class ParseRecordRoundTrip(unittest.TestCase):
         parsed = handoff.parse_record(STACK_RECORDS["build-failure"])
 
         self.assertIsInstance(parsed, handoff.BuildFailure)
-        self.assertEqual(parsed.retry, 2)
+        self.assertEqual(parsed.retry, SOME_RETRY)
         self.assertIsNone(parsed.partial)
         self.assertIsNone(parsed.abort_reason)
 
@@ -288,41 +332,43 @@ class ParseRecordRoundTrip(unittest.TestCase):
     def test_a_build_pass_lifts_its_gate_checks(self):
         parsed = handoff.parse_record(STACK_RECORDS["build-pass"])
 
-        self.assertEqual(parsed.gate_checks_run, ("build", "test", "lint"))
+        self.assertEqual(parsed.gate_checks_run, tuple(SOME_GATE_CHECKS))
         self.assertIsNone(parsed.duration_seconds)
 
     def test_a_build_pass_lifts_its_duration(self):
         parsed = handoff.parse_record(
-            {**STACK_RECORDS["build-pass"], "duration_seconds": 12.5}
+            {**STACK_RECORDS["build-pass"], "duration_seconds": SOME_DURATION_SECONDS}
         )
 
-        self.assertEqual(parsed.duration_seconds, 12.5)
+        self.assertEqual(parsed.duration_seconds, SOME_DURATION_SECONDS)
 
     def test_a_prd_entry_lifts_arrays_and_defaults(self):
-        parsed = handoff.parse_record(STACK_RECORDS["prd-entry"])
+        raw = STACK_RECORDS["prd-entry"]
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.PrdEntry)
-        self.assertEqual(parsed.acceptance_criteria, ("it does the thing",))
-        self.assertEqual(parsed.test_names, ("TestWidgetDoesTheThing",))
+        self.assertEqual(parsed.acceptance_criteria, tuple(raw["acceptance_criteria"]))
+        self.assertEqual(parsed.test_names, tuple(raw["test_names"]))
         self.assertEqual((parsed.non_goals, parsed.dependencies), ((), ()))
         self.assertIsNone(parsed.notes)
 
     def test_an_intake_decision_lifts_its_fields(self):
-        parsed = handoff.parse_record(
-            {
-                "type": "intake-decision",
-                "req_id": SOME_REQ_ID,
-                "author": "human",
-                "request": "add editing",
-                "decisions": ["NG-5 is narrowed"],
-                "source": "task-prompt",
-            }
-        )
+        raw = {
+            "type": "intake-decision",
+            "req_id": SOME_REQ_ID,
+            "author": "human",
+            "request": "add editing",
+            "decisions": ["NG-5 is narrowed"],
+            "source": "task-prompt",
+        }
+
+        parsed = handoff.parse_record(raw)
 
         self.assertIsInstance(parsed, handoff.IntakeDecision)
         self.assertEqual(
             (parsed.request, parsed.decisions, parsed.source),
-            ("add editing", ("NG-5 is narrowed",), "task-prompt"),
+            (raw["request"], tuple(raw["decisions"]), raw["source"]),
         )
 
 

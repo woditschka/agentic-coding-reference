@@ -25,8 +25,10 @@ JSON decision:
   context. A failed gate is a `dispatch` of the upstream agent carrying the
   exact errors — the bounce, expressed as the re-dispatch it is.
 - **`blocked`** always halts for a human: a dirty log, a `conflicting`
-  verdict, a stalled reviewer, a `human-consultation`, `review-non-convergence`
-  (§ Review Non-Convergence), feature-complete.
+  verdict, a stalled reviewer (`reviewer-stalled`) or planner
+  (`planner-stalled`), a `human-consultation`, a consultation record naming no
+  author or responder to resume (`consultation-invalid`),
+  `review-non-convergence` (§ Review Non-Convergence), feature-complete.
 - **`escalate`** marks a state the table does not decide; the coordinator
   resolves it. The escalate arm is enumerated in `SKILL.md` § Handoff
   Conditions.

@@ -1,25 +1,14 @@
 #!/usr/bin/env python3
-"""summarize.py — regenerate the derived views from the run folders and the
-operator notes file: evals/results/TREND.md plus one README.md per run folder.
+"""Regenerate the derived views from the run folders and the operator notes.
 
-The folders are the ground truth; every view is derived and deterministic.
-Operator commentary lives in `results/notes.toml` — dated, optionally scoped
-to a task or one of its cells, validated loudly — and renders into the trend
-beside the figures it discusses. Figures never come from notes.
-The trend aggregates per (version, requested-model-pin, task) cell against
-the binary quality bar and renders cost per pass — the cell's agent spend
-divided by its bar-clearing reps. The run page presents one folder — prompt,
-verdict, figures, the change and board, agent roster, artifact links — so a
-reader lands on prose, not a folder of raw records. Every rendered string is
-scrubbed to stay inert in a terminal; agent-authored markdown renders only
-inside structure-guarded blocks (adaptive diff fence, balance-checked board).
-`--check` renders without writing and fails on drift from any committed view,
-orphaned pages included. Runs standalone and at the end of every sweep.
+The folders are the ground truth; every view is derived and deterministic,
+and --check renders without writing and fails on drift from any committed
+view. Every rendered string is scrubbed to stay inert in a terminal.
 """
 
-from __future__ import annotations
-
 import datetime
+import functools
+import itertools
 import json
 import math
 import re
@@ -59,14 +48,10 @@ INTRO = (
 
 # The escalation rule's confirmation depth: the default single rep plus the
 # two re-runs the rule adds. A pair whose cells both reach this depth is
-# settled — the depth is the evidence bar, however the reps landed. Defined
-# before the table bullets, which render the figure.
+# settled, however the reps landed.
 ESCALATION_CONFIRMED_REPS = 3
 
-# The trend renders one table per task, headed by the task id and its
-# description, with versions newest first — the trend reads straight down,
-# and each concern holds its own column instead of a sigil packed into a
-# grid cell.
+# One table per task, versions newest first, each concern its own column.
 TREND_INTRO = (
     "One table per task, its description under the heading and its frozen"
     " prompt under `../tasks/`. Each row is one measured cell — a version"
@@ -107,7 +92,7 @@ _TREND_BULLETS = (
     " same-pin move past 30% with no explaining note (Settled moves without"
     " a note, below).",
     "- Burn is the median spend per delivery minute over the clearing reps"
-    " ($/min): cost of a clearing rep ≈ wall × burn, so a flat burn means"
+    " ($/min): cost of a clearing rep ≈ wall × burn, so a flat burn means"  # noqa: RUF001
     " the cost moved with the pipeline's length, not its price.",
     "- `>=` marks a lower bound: a rep's spend went unrecorded.",
 )
@@ -139,61 +124,61 @@ _SWEEP_BULLETS = (
     " `—` means the judge did not run.",
 )
 
-# The refusal task kind: graded by the recorded diff, not a held-out oracle
-# (README § Refusal tasks). The constant lives here because run_eval imports
-# this module, never the reverse.
+# The refusal task kind, graded by the recorded diff rather than a held-out
+# oracle. The constant lives here because run_eval imports this module.
 KIND_REFUSAL = "refusal"
 
-# The result.json schema stamp the runner writes and this reader expects —
-# single-sourced here for the same import-direction reason. load_runs warns
-# on a mismatching stamp instead of guessing at a future shape silently.
+# The result.json schema stamp the runner writes and this reader expects.
 RESULT_SCHEMA = 1
 
 
-def checkpoint_ladder(
-    kind: str,
-    status: str,
-    files_changed: int | None,
-    src_files_changed: int | None,
-    suite_green: bool | None,
-    oracle_tests: dict[str, str],
-    consultations: int,
-) -> list[tuple[str, bool]]:
-    """The task kind's graded checkpoint ladder, derived from recorded facts
-    (README § Checkpoints). Every step is Tier A except the refusal ladder's
-    consultation step, which reads the agent-authored ledger (Tier B) and
-    never enters the bar. A missing fact reads as not-hit, fail-closed."""
-    if kind == KIND_REFUSAL:
+@dataclass(frozen=True, slots=True)
+class LadderFacts:
+    """The recorded facts a checkpoint ladder is derived from."""
+
+    kind: str
+    status: str
+    files_changed: int | None
+    src_files_changed: int | None
+    suite_green: bool | None
+    oracle_tests: dict[str, str]
+    consultations: int
+
+
+def checkpoint_ladder(facts: LadderFacts) -> list[tuple[str, bool]]:
+    """Derive the task kind's graded checkpoint ladder, a missing fact reading as not hit."""
+    # The refusal ladder's consultation step reads the agent-authored ledger
+    # and never enters the bar.
+    if facts.kind == KIND_REFUSAL:
         return [
-            ("agent complete", status == "complete"),
-            ("no src change", src_files_changed == 0),
-            ("suite green", suite_green is True),
-            ("consultation recorded", consultations > 0),
+            ("agent complete", facts.status == "complete"),
+            ("no src change", facts.src_files_changed == 0),
+            ("suite green", facts.suite_green is True),
+            ("consultation recorded", facts.consultations > 0),
         ]
     steps = [
-        ("agent complete", status == "complete"),
-        ("change produced", bool(files_changed)),
-        ("suite green", suite_green is True),
+        ("agent complete", facts.status == "complete"),
+        ("change produced", bool(facts.files_changed)),
+        ("suite green", facts.suite_green is True),
     ]
     steps += [
-        (name, outcome == "passed") for name, outcome in sorted(oracle_tests.items())
+        (name, outcome == "passed")
+        for name, outcome in sorted(facts.oracle_tests.items())
     ]
     return steps
 
 
-# The judge facet roster, in render order. Single source: the runner and the
-# rubric contract test import it from here, so a facet rename cannot leave
-# this table silently rendering `?` columns.
+# The judge facet roster in render order; the runner and the rubric contract
+# test import it from here.
 JUDGE_FACETS = ("design_fit", "test_quality", "maintainability", "doc_fit")
 
 
 @dataclass(frozen=True)
 class DefectProbe:
-    """A named defect a task declares in its task.toml `[[defect]]` table:
-    a pattern over the added lines of the recorded diff, and an optional
-    guard whose presence clears the hit. Tier B — deterministic, computed
-    over every run on record from `change.patch`, context only (README §
-    Named-defect probes)."""
+    """A named defect a task declares: a pattern over the added lines of its diff, optionally guarded."""
+
+    # The probe is deterministic context over every run on record, never
+    # part of the bar.
 
     id: str
     description: str
@@ -205,75 +190,69 @@ class DefectProbe:
     files: str = ""
 
 
-_PROBE_CACHE: dict[Path, dict[str, tuple[DefectProbe, ...]]] = {}
+def _probe_from_entry(manifest: Path, entry: object) -> DefectProbe:
+    """Parse one `[[defect]]` table, refusing any malformed field by name."""
+    if not isinstance(entry, dict):
+        raise TypeError(f"{manifest}: [[defect]] entries must be tables")
+    probe_id = entry.get("id")
+    added = entry.get("added")
+    guard = entry.get("guard")
+    files = entry.get("files", "")
+    if not isinstance(files, str):
+        raise TypeError(
+            f"{manifest}: [[defect]] {probe_id}: files must be a path prefix"
+        )
+    if not isinstance(probe_id, str) or not probe_id:
+        raise ValueError(f"{manifest}: [[defect]] id must be a non-empty string")
+    if not isinstance(added, str) or not added:
+        raise ValueError(f"{manifest}: [[defect]] {probe_id}: added must be a regex")
+    if guard is not None and not isinstance(guard, str):
+        raise TypeError(f"{manifest}: [[defect]] {probe_id}: guard must be a regex")
+    try:
+        return DefectProbe(
+            id=probe_id,
+            description=str(entry.get("description", "")),
+            added=re.compile(added),
+            guard=re.compile(guard) if guard else None,
+            files=files,
+        )
+    except re.error as error:
+        raise ValueError(
+            f"{manifest}: [[defect]] {probe_id}: invalid regex: {error}"
+        ) from None
 
 
 def load_defect_probes(
     tasks_dir: Path | None = None,
 ) -> dict[str, tuple[DefectProbe, ...]]:
-    """Task id → declared probes, from `tasks/<id>/task.toml`. A task with
-    no `[[defect]]` table is absent from the map. A malformed probe fails
-    loudly: a silently dropped probe would read as a clean history."""
-    tasks_dir = tasks_dir or TASKS_DIR
-    if tasks_dir in _PROBE_CACHE:
-        return _PROBE_CACHE[tasks_dir]
+    """Load each task's declared probes from its task.toml, failing loud on a malformed one."""
+    # A missing directory is not memoized: one created later must be read.
+    resolved = (tasks_dir or TASKS_DIR).resolve()
+    if not resolved.is_dir():
+        return {}
+    return _read_defect_probes(resolved)
+
+
+@functools.cache
+def _read_defect_probes(tasks_dir: Path) -> dict[str, tuple[DefectProbe, ...]]:
+    """Read every task's probes beneath one resolved tasks directory."""
+    # A silently dropped probe would read as a clean history.
     probes: dict[str, tuple[DefectProbe, ...]] = {}
-    if not tasks_dir.is_dir():
-        return probes
     for manifest in sorted(tasks_dir.glob("*/task.toml")):
         raw = tomllib.loads(manifest.read_text(encoding="utf-8"))
         declared = raw.get("defect") or []
         if not isinstance(declared, list):
-            raise ValueError(f"{manifest}: [[defect]] must be an array of tables")
-        loaded: list[DefectProbe] = []
-        for entry in declared:
-            if not isinstance(entry, dict):
-                raise ValueError(f"{manifest}: [[defect]] entries must be tables")
-            probe_id = entry.get("id")
-            added = entry.get("added")
-            guard = entry.get("guard")
-            files = entry.get("files", "")
-            if not isinstance(files, str):
-                raise ValueError(
-                    f"{manifest}: [[defect]] {probe_id}: files must be a path prefix"
-                )
-            if not isinstance(probe_id, str) or not probe_id:
-                raise ValueError(
-                    f"{manifest}: [[defect]] id must be a non-empty string"
-                )
-            if not isinstance(added, str) or not added:
-                raise ValueError(
-                    f"{manifest}: [[defect]] {probe_id}: added must be a regex"
-                )
-            if guard is not None and not isinstance(guard, str):
-                raise ValueError(
-                    f"{manifest}: [[defect]] {probe_id}: guard must be a regex"
-                )
-            try:
-                loaded.append(
-                    DefectProbe(
-                        id=probe_id,
-                        description=str(entry.get("description", "")),
-                        added=re.compile(added),
-                        guard=re.compile(guard) if guard else None,
-                        files=files,
-                    )
-                )
-            except re.error as error:
-                raise ValueError(
-                    f"{manifest}: [[defect]] {probe_id}: invalid regex: {error}"
-                ) from None
+            raise TypeError(f"{manifest}: [[defect]] must be an array of tables")
+        loaded = tuple(_probe_from_entry(manifest, entry) for entry in declared)
         if loaded:
-            probes[manifest.parent.name] = tuple(loaded)
-    _PROBE_CACHE[tasks_dir] = probes
+            probes[manifest.parent.name] = loaded
     return probes
 
 
 def _added_lines_by_file(patch: str) -> dict[str, list[str]]:
-    """Added lines per changed file, keyed by the `+++ b/` header path. A
-    `+++ ` line is a header only directly after its `--- ` partner, outside
-    any hunk; inside a hunk an added line whose text begins `++ ` renders
-    the same way and is content. `diff ` opens a new file."""
+    """Return the added lines per changed file, keyed by the `+++ b/` header path."""
+    # A `+++ ` line is a header only directly after its `--- ` partner,
+    # outside any hunk; inside a hunk an added line beginning `++ ` is content.
     files: dict[str, list[str]] = {}
     current: str | None = None
     after_minus = False
@@ -299,8 +278,7 @@ def _added_lines_by_file(patch: str) -> dict[str, list[str]]:
 
 
 def _under(path: str, prefix: str) -> bool:
-    """Whether `path` sits under the directory `prefix` names; "" is every
-    path, and `src/main` never matches `src/mainland/`."""
+    """Tell whether path sits under the directory prefix names, an empty prefix matching every path."""
     if not prefix:
         return True
     root = prefix.rstrip("/")
@@ -308,11 +286,9 @@ def _under(path: str, prefix: str) -> bool:
 
 
 def defect_hits(patch: str, probes: tuple[DefectProbe, ...]) -> dict[str, bool]:
-    """Probe id → whether the recorded diff carries the named defect: some
-    changed file has an added line matching the probe and no added line in
-    that same file matching its guard. Only added lines count, so a defect
-    the diff removes or leaves untouched is not the change's; the guard is
-    file-scoped, so a guard added elsewhere clears nothing."""
+    """Judge each probe against the recorded diff: an added match with no guard added in the same file."""
+    # Only added lines count, so a defect the diff removes or leaves
+    # untouched is not the change's; the guard is file-scoped.
     by_file = _added_lines_by_file(patch)
     hits: dict[str, bool] = {}
     for probe in probes:
@@ -354,10 +330,9 @@ _LINK_SAFE = re.compile(r"^\w[\w.-]*(?:/\w[\w.-]*)*\Z")
 
 
 def finite(value: object) -> float | None:
-    """A usable number from an agent-influenceable record, or None. Excludes
-    bool (a JSON `true` is not a dollar) and non-finite floats — `json.loads`
-    accepts bare `NaN`/`Infinity`, and one such value in one folder must not
-    poison arithmetic or abort the whole corpus render."""
+    """Return a usable number from an agent-influenceable record, or None."""
+    # A JSON `true` is not a dollar, and json.loads accepts bare NaN and
+    # Infinity, which must not poison arithmetic or abort the corpus render.
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     try:
@@ -368,13 +343,14 @@ def finite(value: object) -> float | None:
 
 
 def scrub(text: str) -> str:
-    """Neutralize agent-influenceable bytes before they land in committed
-    markdown or the operator's terminal."""
+    """Neutralize agent-influenceable bytes before they land in markdown or a terminal."""
     return _CELL_UNSAFE.sub(" ", text).strip()
 
 
 @dataclass(frozen=True)
 class Run:
+    """One measured run, loaded from its folder's records."""
+
     folder: str  # run-folder path relative to results/, "" when unknown
     rep: int
     epoch: str
@@ -414,13 +390,13 @@ class Run:
     # conditions rather than partitioning by them, and calls a span out.
     cc_version: str = ""
     env_prep: tuple[str, ...] = ()
-    # Whether prep applied the era contract (README § era contract): the
+    # Whether prep applied the era contract: the
     # arm ran its version's own era files and entry. A follow-up sweep of
     # such a cell must carry the flag, or its reps land under a different
     # condition than the pair it re-runs.
     era_contract: bool = False
     # The task fingerprint from the manifest. A clarifying prompt edit keeps
-    # the task id (README § task identity), so one task's runs may span
+    # the task id, so one task's runs may span
     # fingerprints; the task section calls a span out, never silently mixes.
     fingerprint: str = ""
     # The runner-recorded post-session routing decision; None on runs
@@ -435,20 +411,10 @@ class Run:
 
     @property
     def agent_spend(self) -> float:
-        """Delivery cost only — spend that is not the change, never in the
-        cost-per-pass metric: the Tier C judge reports in its own column,
-        and the change grader's share (optional support for the human merge
-        decision) is netted out here, mirroring the run page.
-
-        The netting is proportional: the grader's fraction of the accounted
-        total, applied to whichever total this run reports. The self-report
-        and the accounting price the same run differently, so subtracting an
-        accounted dollar figure from the self-report would over-net; a
-        fraction is basis-free. The fraction is capped at 1, so no share can
-        push a figure below zero — a share that owns the whole accounted
-        total zeroes the cell and shows itself in the Grading spend column.
-        The CLI's self-report is preferred; the transcript-derived figure
-        covers timeouts and crashes."""
+        """Return the delivery cost with the change grader's share netted out proportionally."""
+        # The self-report and the accounting price the run differently, so a
+        # cross-basis subtraction would over-net; the fraction is capped at 1.
+        # The CLI self-report is preferred; the accounted figure covers crashes.
         total = self.cost if self.cost is not None else (self.accounted_cost or 0.0)
         if self.grading_spend <= 0 or not self.accounted_cost:
             return total
@@ -457,27 +423,22 @@ class Run:
 
     @property
     def delivery_wall(self) -> float | None:
-        """Wall minus the grader's serial terminal hop — the delivery time
-        the median-wall cell reads."""
+        """Return the wall minus the grader's serial terminal hop, or None unrecorded."""
         if self.wall is None:
             return None
         return max(self.wall - self.grading_seconds, 0.0)
 
     @property
     def spend_known(self) -> bool:
-        """False when no cost source recorded anything — the rep burned an
-        unknown amount and every figure it enters is a lower bound."""
+        """Tell whether any cost source recorded a spend for the rep."""
         return self.cost is not None or self.accounted_cost is not None
 
     @property
     def cleared(self) -> bool:
-        """The quality bar, fail-closed: complete, oracle all-pass, suite
-        green. A red pristine baseline gets no waiver — it makes the bar
-        unreachable for the base and the sweep loudly worthless until the
-        SUT base is fixed (`suite_green_base` attributes it). A refusal
-        task's bar reads the recorded diff instead of an oracle: complete,
-        suite green, no `src/` change (README § Refusal tasks); a record
-        missing the src count fails the bar rather than guessing."""
+        """Judge the machine-verified bar, fail-closed on any missing fact."""
+        # A red pristine baseline gets no waiver: it makes the bar unreachable
+        # and the sweep loudly worthless until the SUT base is fixed. A refusal
+        # task's bar reads the recorded diff instead of an oracle.
         if self.task_kind == KIND_REFUSAL:
             return (
                 self.status == "complete"
@@ -491,36 +452,51 @@ class Run:
         )
 
     def checkpoints(self) -> tuple[int, int]:
-        """(hit, total) on the kind's checkpoint ladder — the graded record
-        of how far the rep got (README § Checkpoints)."""
+        """Return (hit, total) on the kind's checkpoint ladder."""
         steps = checkpoint_ladder(
-            self.task_kind,
-            self.status,
-            self.files_changed,
-            self.src_files_changed,
-            self.suite_green,
-            self.oracle_tests,
-            self.consultations,
+            LadderFacts(
+                self.task_kind,
+                self.status,
+                self.files_changed,
+                self.src_files_changed,
+                self.suite_green,
+                self.oracle_tests,
+                self.consultations,
+            )
         )
         return sum(1 for _name, hit in steps if hit), len(steps)
 
 
 def _str_or_none(value: object) -> str | None:
-    """A string from an agent-influenceable record, or None — a non-str
-    value must read as unknown, never reach a sanitizer that assumes str."""
+    """Return a record's string value, or None for any other type."""
     return value if isinstance(value, str) else None
 
 
 def _int_or_none(value: object) -> int | None:
+    """Return a record's integer value, or None for a bool or any other type."""
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     return None
 
 
+def _bool_or_none(value: object) -> bool | None:
+    """Return a record's boolean value, or None for any other type."""
+    return value if isinstance(value, bool) else None
+
+
+def _table(record: dict[str, object], key: str) -> dict[str, object]:
+    """Return the object under key, or {} when it is absent or not an object."""
+    value = record.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _list(value: object) -> list[object]:
+    """Return a record's list value, or [] when it is not a list."""
+    return value if isinstance(value, list) else []
+
+
 def _judge_median(value: object) -> dict[str, float] | None:
-    """The recorded medians as numbers, validated at the parse boundary. A
-    non-dict record or a non-finite score reads as unjudged rather than
-    rendering an agent-influenceable string into a committed table."""
+    """Return the recorded facet medians as numbers, or None when any is malformed."""
     if not isinstance(value, dict):
         return None
     medians: dict[str, float] = {}
@@ -532,150 +508,176 @@ def _judge_median(value: object) -> dict[str, float] | None:
     return medians or None
 
 
+def _read_json(path: Path) -> dict[str, object] | None:
+    """Parse one JSON object file, or None when it is absent, malformed, or not an object."""
+    if not path.is_file():
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    if isinstance(loaded, dict):
+        return loaded
+    # A run must never vanish from the trend silently.
+    _warn(f"warning: {path.name} is not a JSON object, skipped", path.parent)
+    return None
+
+
+def _folder_grading(folder: Path) -> "tuple[str | None, GradingShare | None]":
+    """Return the folder's ledger verdict and the grader share it backs."""
+    # A cost row without a backing verdict record does not count as grading.
+    verdict = ledger_grader_verdict(folder)
+    grading = None
+    if verdict:
+        grading = grading_figures(_read_json(folder / "agent-costs.json"))
+    return verdict, grading
+
+
+def _known_defects(
+    folder: Path, task_id: str, probes_by_task: dict[str, tuple[DefectProbe, ...]]
+) -> dict[str, bool] | None:
+    """Probe the folder's recorded patch, or None without probes or a patch."""
+    patch_path = folder / "change.patch"
+    if task_id not in probes_by_task or not patch_path.is_file():
+        return None
+    return defect_hits(
+        patch_path.read_text(encoding="utf-8", errors="replace"),
+        probes_by_task[task_id],
+    )
+
+
+def _warn(message: str, folder: Path) -> None:
+    """Report one loading note on stderr, naming the run folder."""
+    rel = folder.relative_to(RUNS_DIR.parent).as_posix()
+    print(f"{message}: {rel}", file=sys.stderr)
+
+
+def _run_from_folder(
+    folder: Path, probes_by_task: dict[str, tuple[DefectProbe, ...]]
+) -> Run | None:
+    """Load one run folder's records into a Run, or None when they are unreadable."""
+    result = _read_json(folder / "result.json")
+    manifest = _read_json(folder / "manifest.json")
+    if result is None or manifest is None:
+        return None
+    stamp = result.get("schema")
+    if stamp != RESULT_SCHEMA:
+        _warn(
+            f"warning: result schema {stamp!r} != expected {RESULT_SCHEMA};"
+            " fields this reader does not know may go unrendered",
+            folder,
+        )
+    oracle = _table(result, "oracle")
+    agent = _table(result, "agent")
+    judge = _table(result, "quality_judge")
+    diff = _table(result, "diff")
+    pipeline = _table(result, "pipeline")
+    task = _table(manifest, "task")
+    sut = _table(manifest, "sut")
+    tests_raw = oracle.get("tests")
+    oracle_tests = (
+        {str(name): str(outcome) for name, outcome in tests_raw.items()}
+        if isinstance(tests_raw, dict)
+        else {}
+    )
+    judge_median = _judge_median(judge.get("median"))
+    if judge.get("median") is not None and judge_median is None:
+        _warn(
+            "warning: malformed judge median, row renders unjudged"
+            " while its judge cost still enters Judge spend",
+            folder,
+        )
+    verdict, grading = _folder_grading(folder)
+    task_id = str(task.get("id", "unknown"))
+    route = _str_or_none(pipeline.get("route_decision"))
+    outcome = Outcome(
+        kind=str(task.get("kind", "")),
+        status=str(result.get("status", "error")),
+        oracle_ok=oracle.get("oracle_passed"),
+        route=route,
+    )
+    return Run(
+        folder=folder.relative_to(RUNS_DIR.parent).as_posix(),
+        rep=_int_or_none(manifest.get("rep")) or 0,
+        epoch=str(sut.get("sha", "unknown")),
+        sut_repo=str(sut.get("repo", "")),
+        sut_branch=str(sut.get("branch", "")),
+        version=str(_table(manifest, "version").get("label", folder.parent.name)),
+        model_requested=str(manifest.get("model_requested", "(default)")),
+        task=task_id,
+        task_kind=outcome.kind,
+        task_title=str(task.get("title", "")),
+        started=str(manifest.get("started", "")),
+        status=outcome.status,
+        oracle_ok=_bool_or_none(oracle.get("oracle_passed")),
+        oracle_tests=oracle_tests,
+        suite_green=_bool_or_none(oracle.get("suite_green")),
+        suite_green_base=_bool_or_none(oracle.get("suite_green_base")),
+        files_changed=_int_or_none(diff.get("files_changed")),
+        src_files_changed=_int_or_none(diff.get("src_files_changed")),
+        consultations=_int_or_none(pipeline.get("consultation_requests")) or 0,
+        models=tuple(sorted(str(m) for m in _list(agent.get("models")))),
+        cost=finite(agent.get("total_cost_usd")),
+        accounted_cost=finite(_table(agent, "accounted").get("cost")),
+        judge_cost=finite(judge.get("cost_usd")),
+        wall=finite(result.get("wall_seconds")),
+        judge_median=judge_median,
+        judge_rubric=_str_or_none(judge.get("rubric")),
+        judge_model=_str_or_none(judge.get("model")),
+        grading_spend=grading.spend if grading else 0.0,
+        grading_seconds=grading.seconds if grading else 0.0,
+        grader_verdict=verdict,
+        cc_version=_str_or_none(manifest.get("cc_version")) or "",
+        env_prep=_env_prep(manifest.get("prep")),
+        era_contract=_era_contract(manifest.get("prep")),
+        fingerprint=_str_or_none(task.get("fingerprint")) or "",
+        route_decision=route,
+        known_defects=_known_defects(folder, task_id, probes_by_task),
+        stalled=run_stalled(outcome, folder),
+    )
+
+
 def load_runs() -> list[Run]:
-    runs: list[Run] = []
+    """Load every measured run folder on record."""
     if not RUNS_DIR.is_dir():
-        return runs
+        return []
     probes_by_task = load_defect_probes()
-    # A folder without result.json (a run in flight, or one that died before
-    # measurement) renders nowhere; skipping it silently would contradict the
-    # every-run-persists rule, so the skip is loud.
+    # A folder without result.json renders nowhere; a silent skip would
+    # contradict the every-run-persists rule.
     for manifest_path in sorted(RUNS_DIR.glob("*/*/manifest.json")):
         if not (manifest_path.parent / "result.json").is_file():
-            rel = manifest_path.parent.relative_to(RUNS_DIR.parent).as_posix()
-            print(
-                f"note: run folder without result.json, skipped: {rel}", file=sys.stderr
-            )
-    for result_path in sorted(RUNS_DIR.glob("*/*/result.json")):
-        manifest_path = result_path.parent / "manifest.json"
-        if not manifest_path.is_file():
-            continue
-        try:
-            result = json.loads(result_path.read_text(encoding="utf-8"))
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
-        stamp = result.get("schema")
-        if stamp != RESULT_SCHEMA:
-            rel = result_path.parent.relative_to(RUNS_DIR.parent).as_posix()
-            print(
-                f"warning: result schema {stamp!r} != expected {RESULT_SCHEMA};"
-                f" fields this reader does not know may go unrendered: {rel}",
-                file=sys.stderr,
-            )
-        oracle = result.get("oracle") or {}
-        agent = result.get("agent") or {}
-        judge = result.get("quality_judge") or {}
-        diff = result.get("diff") or {}
-        pipeline = result.get("pipeline") or {}
-        tests_raw = oracle.get("tests")
-        oracle_tests = (
-            {str(name): str(outcome) for name, outcome in tests_raw.items()}
-            if isinstance(tests_raw, dict)
-            else {}
-        )
-        consultations_raw = pipeline.get("consultation_requests")
-        judge_median = _judge_median(judge.get("median"))
-        if judge.get("median") is not None and judge_median is None:
-            rel = result_path.parent.relative_to(RUNS_DIR.parent).as_posix()
-            print(
-                f"warning: malformed judge median, row renders unjudged"
-                f" while its judge cost still enters Judge spend: {rel}",
-                file=sys.stderr,
-            )
-        costs_path = result_path.parent / "agent-costs.json"
-        grading = None
-        verdict = ledger_grader_verdict(result_path.parent)
-        if costs_path.is_file() and verdict:
-            try:
-                loaded = json.loads(costs_path.read_text(encoding="utf-8"))
-            except ValueError:
-                loaded = None
-            grading = grading_figures(loaded if isinstance(loaded, dict) else None)
-        task_id = (manifest.get("task") or {}).get("id", "unknown")
-        patch_path = result_path.parent / "change.patch"
-        known_defects = None
-        if task_id in probes_by_task and patch_path.is_file():
-            known_defects = defect_hits(
-                patch_path.read_text(encoding="utf-8", errors="replace"),
-                probes_by_task[task_id],
-            )
-        runs.append(
-            Run(
-                folder=result_path.parent.relative_to(RUNS_DIR.parent).as_posix(),
-                rep=_int_or_none(manifest.get("rep")) or 0,
-                epoch=(manifest.get("sut") or {}).get("sha", "unknown"),
-                sut_repo=(manifest.get("sut") or {}).get("repo", ""),
-                sut_branch=(manifest.get("sut") or {}).get("branch", ""),
-                version=(manifest.get("version") or {}).get(
-                    "label", result_path.parent.parent.name
-                ),
-                model_requested=manifest.get("model_requested", "(default)"),
-                task=(manifest.get("task") or {}).get("id", "unknown"),
-                task_kind=(manifest.get("task") or {}).get("kind", ""),
-                task_title=(manifest.get("task") or {}).get("title", ""),
-                started=manifest.get("started", ""),
-                status=result.get("status", "error"),
-                oracle_ok=oracle.get("oracle_passed"),
-                oracle_tests=oracle_tests,
-                suite_green=oracle.get("suite_green"),
-                suite_green_base=oracle.get("suite_green_base"),
-                files_changed=_int_or_none(diff.get("files_changed")),
-                src_files_changed=_int_or_none(diff.get("src_files_changed")),
-                consultations=consultations_raw
-                if isinstance(consultations_raw, int)
-                and not isinstance(consultations_raw, bool)
-                else 0,
-                models=tuple(sorted(agent.get("models") or [])),
-                cost=finite(agent.get("total_cost_usd")),
-                accounted_cost=finite((agent.get("accounted") or {}).get("cost")),
-                judge_cost=finite(judge.get("cost_usd")),
-                wall=finite(result.get("wall_seconds")),
-                judge_median=judge_median,
-                judge_rubric=_str_or_none(judge.get("rubric")),
-                judge_model=_str_or_none(judge.get("model")),
-                grading_spend=grading.spend if grading else 0.0,
-                grading_seconds=grading.seconds if grading else 0.0,
-                grader_verdict=verdict,
-                cc_version=_str_or_none(manifest.get("cc_version")) or "",
-                env_prep=_env_prep(manifest.get("prep")),
-                era_contract=_era_contract(manifest.get("prep")),
-                fingerprint=_str_or_none(
-                    (manifest.get("task") or {}).get("fingerprint")
-                )
-                or "",
-                route_decision=_str_or_none(pipeline.get("route_decision")),
-                known_defects=known_defects,
-                stalled=run_stalled(
-                    (manifest.get("task") or {}).get("kind", ""),
-                    result.get("status", "error"),
-                    oracle.get("oracle_passed"),
-                    _str_or_none(pipeline.get("route_decision")),
-                    result_path.parent,
-                ),
-            )
-        )
-    return runs
+            _warn("note: run folder without result.json, skipped", manifest_path.parent)
+    runs = [
+        _run_from_folder(result_path.parent, probes_by_task)
+        for result_path in sorted(RUNS_DIR.glob("*/*/result.json"))
+    ]
+    return [run for run in runs if run is not None]
 
 
-def run_stalled(
-    kind: str,
-    status: str,
-    oracle_ok: object,
-    route: str | None,
-    folder: Path,
-) -> bool:
-    """A complete non-refusal run whose pipeline ended with work still owed.
-    The runner-recorded route decision is authoritative (`dispatch` = work
-    owed). Runs recorded before the field read from the copied ledger: a
-    non-empty ledger with no implementer terminal record ended before
-    implementation — conservative, so a mid-review stall on an old record
-    stays unlabeled rather than guessed. An all-pass oracle is never a
-    stall, whatever the ledger shape."""
-    if kind == KIND_REFUSAL or status != "complete" or oracle_ok is True:
+@dataclass(frozen=True, slots=True)
+class Outcome:
+    """The recorded outcome facts a stall verdict reads."""
+
+    kind: str
+    status: str
+    oracle_ok: object
+    route: str | None
+
+
+def run_stalled(outcome: Outcome, folder: Path) -> bool:
+    """Tell whether a complete non-refusal run ended with pipeline work still owed."""
+    # The runner-recorded route decision is authoritative. Older records
+    # read the copied ledger: a non-empty ledger with no implementer terminal
+    # record ended before implementation, so a mid-review stall on an old
+    # record stays unlabeled rather than guessed.
+    if (
+        outcome.kind == KIND_REFUSAL
+        or outcome.status != "complete"
+        or outcome.oracle_ok is True
+    ):
         return False
-    if route is not None:
-        return route == "dispatch"
+    if outcome.route is not None:
+        return outcome.route == "dispatch"
     records = ledger_records(folder)
     if not records:
         return False
@@ -685,9 +687,7 @@ def run_stalled(
 
 
 def _env_prep(prep: object) -> tuple[str, ...]:
-    """The operator-injected settings-env lines from a manifest's prep
-    array — the prep facts that shape the agent's environment, as opposed
-    to the install mechanics around them."""
+    """Return the operator-injected settings-env lines of a manifest's prep array."""
     if not isinstance(prep, list):
         return ()
     return tuple(
@@ -700,9 +700,7 @@ def _env_prep(prep: object) -> tuple[str, ...]:
 
 
 def _era_contract(prep: object) -> bool:
-    """Whether the manifest's prep array records the era contract — the
-    runner writes one `era contract:` line per file or instruction it
-    applied, and none otherwise."""
+    """Tell whether the manifest's prep array records the era contract."""
     return isinstance(prep, list) and any(
         isinstance(line, str) and line.startswith("era contract:") for line in prep
     )
@@ -712,14 +710,17 @@ _NOTE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 _NOTE_KEYS = frozenset({"date", "text", "task", "version", "model"})
 
 
+class NotesError(ValueError):
+    """A defect in the hand-authored notes file, phrased for the operator."""
+
+
 @dataclass(frozen=True)
 class Note:
-    """One dated operator note from `results/notes.toml` — commentary the
-    trend renders beside the figures it discusses. `task` places the note
-    under that task's table; `version` (with `task`) narrows it to one
-    cell; neither makes it page-level. `model` (with `task`) narrows the
-    note's explaining power to one pin's rows in the settled-moves check;
-    rendering placement is unchanged. Figures never come from notes."""
+    """One dated operator note, optionally scoped to a task, a cell, or a pin."""
+
+    # task places the note under that task's table; version narrows it to a
+    # cell; model narrows its explaining power to one pin's rows. Figures
+    # never come from notes.
 
     date: str
     text: str
@@ -729,99 +730,96 @@ class Note:
 
 
 def _note_date(value: object, where: str) -> str:
-    """The note's date as `YYYY-MM-DD`, from a bare TOML date or a matching
-    string. A datetime is refused — a note carries a day, not a time — and
-    a quoted string must name a real calendar day, the same bar tomllib
-    holds bare dates to."""
+    """Return the note's date as YYYY-MM-DD, refusing a datetime or an impossible day."""
     if type(value) is datetime.date:
         return value.isoformat()
     if isinstance(value, str) and _NOTE_DATE.match(value):
         try:
             datetime.date.fromisoformat(value)
         except ValueError:
-            raise SystemExit(f"{where} needs a real calendar date") from None
+            raise NotesError(f"{where} needs a real calendar date") from None
         return value
-    raise SystemExit(f"{where} needs a calendar date (YYYY-MM-DD)")
+    raise NotesError(f"{where} needs a calendar date (YYYY-MM-DD)")
 
 
 def load_notes() -> tuple[Note, ...]:
-    """The operator notes, validated loudly: the file is hand-authored, so
-    a malformed entry aborts the render instead of silently dropping or
-    misplacing prose."""
+    """Load the operator notes, refusing a malformed entry rather than misplacing prose."""
     if not NOTES.is_file():
         return ()
     try:
         data = tomllib.loads(NOTES.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as error:
-        raise SystemExit(f"{NOTES.name}: {error}") from error
+        raise NotesError(f"{NOTES.name}: {error}") from error
     entries = data.pop("note", [])
     if data:
-        raise SystemExit(f"{NOTES.name}: unknown top-level keys {sorted(data)}")
+        raise NotesError(f"{NOTES.name}: unknown top-level keys {sorted(data)}")
     if not isinstance(entries, list):
-        raise SystemExit(f"{NOTES.name}: `note` must be an array of tables")
-    notes: list[Note] = []
-    for index, entry in enumerate(entries, start=1):
-        where = f"{NOTES.name}: note {index}"
-        if not isinstance(entry, dict):
-            raise SystemExit(f"{where} is not a table")
-        unknown = sorted(set(entry) - _NOTE_KEYS)
-        if unknown:
-            raise SystemExit(f"{where} has unknown keys {unknown}")
-        text = entry.get("text")
-        task = entry.get("task")
-        version = entry.get("version")
-        model = entry.get("model")
-        if not isinstance(text, str) or not text.strip():
-            raise SystemExit(f"{where} needs a non-empty text")
-        if task is not None and not isinstance(task, str):
-            raise SystemExit(f"{where}: task must be a string")
-        if version is not None and not isinstance(version, str):
-            raise SystemExit(f"{where}: version must be a string")
-        if model is not None and not isinstance(model, str):
-            raise SystemExit(f"{where}: model must be a string")
-        if version is not None and task is None:
-            raise SystemExit(f"{where} scopes a version without a task")
-        if model is not None and task is None:
-            raise SystemExit(f"{where} scopes a model without a task")
-        notes.append(
-            Note(
-                date=_note_date(entry.get("date"), where),
-                text=text,
-                task=task,
-                version=version,
-                model=model,
-            )
-        )
-    return tuple(notes)
+        raise NotesError(f"{NOTES.name}: `note` must be an array of tables")
+    return tuple(
+        _note_from_entry(entry, f"{NOTES.name}: note {index}")
+        for index, entry in enumerate(entries, start=1)
+    )
+
+
+def _scope_field(entry: dict[str, object], key: str, where: str) -> str | None:
+    """Return one optional string scope of a note, refusing another type."""
+    value = entry.get(key)
+    if value is not None and not isinstance(value, str):
+        raise NotesError(f"{where}: {key} must be a string")
+    return value
+
+
+def _note_from_entry(entry: object, where: str) -> Note:
+    """Parse one note table, refusing any malformed field by name."""
+    if not isinstance(entry, dict):
+        raise NotesError(f"{where} is not a table")
+    unknown = sorted(set(entry) - _NOTE_KEYS)
+    if unknown:
+        raise NotesError(f"{where} has unknown keys {unknown}")
+    text = entry.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise NotesError(f"{where} needs a non-empty text")
+    task = _scope_field(entry, "task", where)
+    version = _scope_field(entry, "version", where)
+    model = _scope_field(entry, "model", where)
+    if version is not None and task is None:
+        raise NotesError(f"{where} scopes a version without a task")
+    if model is not None and task is None:
+        raise NotesError(f"{where} scopes a model without a task")
+    return Note(
+        date=_note_date(entry.get("date"), where),
+        text=text,
+        task=task,
+        version=version,
+        model=model,
+    )
 
 
 def validate_notes(notes: tuple[Note, ...], runs: list[Run]) -> None:
-    """Every scoped note must name a recorded cell of the committed series —
-    a note that outlives its rows is rot, and rot fails loud."""
+    """Refuse a scoped note that names no recorded task, cell, or pin."""
     tasks = {r.task for r in runs}
     cells = {(r.task, r.version) for r in runs}
     pins = {r.model_requested for r in runs}
     for note in notes:
         if note.task is not None and note.task not in tasks:
-            raise SystemExit(f"{NOTES.name}: no recorded task {note.task!r}")
+            raise NotesError(f"{NOTES.name}: no recorded task {note.task!r}")
         if note.version is not None and (note.task, note.version) not in cells:
-            raise SystemExit(
+            raise NotesError(
                 f"{NOTES.name}: no recorded cell {note.task!r} / {note.version!r}"
             )
         if note.model is not None and note.model not in pins:
-            raise SystemExit(f"{NOTES.name}: no recorded pin {note.model!r}")
+            raise NotesError(f"{NOTES.name}: no recorded pin {note.model!r}")
 
 
 def version_key(label: str) -> tuple[int, tuple[int, ...] | str]:
+    """Return the sort key placing tagged versions numerically before other labels."""
     if label.startswith("v") and all(part.isdigit() for part in label[1:].split(".")):
         return (0, tuple(int(part) for part in label[1:].split(".")))
     return (1, label)
 
 
-def bar_cell(cell_runs: list[Run], provisional: bool = False) -> str:
-    """The Bar cell: `cleared/reps` against the machine-verified bar — a
-    disagreement stays visible in the fraction itself. Per-rep statuses
-    live in the Recorded runs table."""
+def bar_cell(cell_runs: list[Run], *, provisional: bool = False) -> str:
+    """Render the Bar cell: reps cleared over reps run."""
     n = len(cell_runs)
     cleared = sum(1 for r in cell_runs if r.cleared)
     mark = "~" if provisional else ""
@@ -829,15 +827,12 @@ def bar_cell(cell_runs: list[Run], provisional: bool = False) -> str:
 
 
 def _spend_bound(cell_runs: list[Run]) -> str:
-    """`>=` while any rep's spend went unrecorded — the figure is a lower
-    bound, and a bound must never present as a measurement."""
+    """Return the `>=` lower-bound marker when any rep's spend went unrecorded."""
     return ">=" if any(not r.spend_known for r in cell_runs) else ""
 
 
-def cost_cell(cell_runs: list[Run], provisional: bool = False) -> str:
-    """The Cost/pass cell. Single source with the escalation check: the
-    trigger compares the same figure this cell renders. Without a clearing
-    rep there is no unit cost — `—`, the Waste column carries the burn."""
+def cost_cell(cell_runs: list[Run], *, provisional: bool = False) -> str:
+    """Render the Cost/pass cell, the same figure the escalation trigger compares."""
     unit = _unit_cost(cell_runs)
     if unit is None:
         return "—"
@@ -846,9 +841,9 @@ def cost_cell(cell_runs: list[Run], provisional: bool = False) -> str:
 
 
 def burn_cell(cell_runs: list[Run]) -> str:
-    """Median spend per delivery minute over the clearing reps of known
-    spend and recorded wall — a median of per-rep ratios, so one slow rep
-    cannot move the figure through the denominator. `—` without one."""
+    """Render the median spend per delivery minute over the clearing reps."""
+    # A median of per-rep ratios, so one slow rep cannot move the figure
+    # through the denominator.
     rates = [
         r.agent_spend / (r.delivery_wall / 60)
         for r in cell_runs
@@ -860,15 +855,11 @@ def burn_cell(cell_runs: list[Run]) -> str:
 def delta_cell(
     cell_runs: list[Run],
     prev_runs: list[Run] | None,
+    *,
     flagged: bool = False,
     pin_change: bool = False,
 ) -> str:
-    """The cost-per-pass move against the previous measured version's cell:
-    empty for the oldest row, `—` when either side has no unit cost, else
-    the signed percentage — with `!` when the settled pair moved past the
-    threshold and no operator note explains it, or `(model)` when the two
-    rows ran under different root pins, so the move carries the model
-    condition as well as the version's."""
+    """Render the cost-per-pass move against the previous measured version's cell."""
     if prev_runs is None:
         return ""
     cur, prev = _unit_cost(cell_runs), _unit_cost(prev_runs)
@@ -881,18 +872,15 @@ def delta_cell(
 
 
 def waste_cell(cell_runs: list[Run]) -> str:
-    """The Waste cell: the below-bar reps' spend, blank when every rep
-    cleared. A wasted rep whose spend went unrecorded makes the figure a
-    lower bound — an unknown burn must never read as no burn."""
+    """Render the below-bar reps' spend, blank when every rep cleared."""
     wasted = [r for r in cell_runs if not r.cleared]
     if not wasted:
         return ""
     return f"{_spend_bound(wasted)}${sum(r.agent_spend for r in wasted):.2f}"
 
 
-def wall_cell(cell_runs: list[Run], provisional: bool = False) -> str:
-    """The median delivery wall of the clearing reps; a cell with no
-    clearing rep medians its wasted reps instead."""
+def wall_cell(cell_runs: list[Run], *, provisional: bool = False) -> str:
+    """Render the median delivery wall of the clearing reps, or of the wasted reps without one."""
     mark = "~" if provisional else ""
     pool = [r for r in cell_runs if r.cleared] or cell_runs
     walls = [r.delivery_wall for r in pool if r.delivery_wall is not None]
@@ -900,12 +888,7 @@ def wall_cell(cell_runs: list[Run], provisional: bool = False) -> str:
 
 
 def outcome_cell(cell_runs: list[Run]) -> str:
-    """The refusal section's Outcome cell: each rep's fate in Reps order.
-    `refused` is the inverted bar's pass — starred when the run skipped the
-    advisory consultation (Tier B, context only). A rep below the bar names
-    why: `implemented` when the diff touched `src/`, the terminal status
-    when the run never completed, `suite red` on a broken suite, `?` when
-    the src count went unrecorded."""
+    """Render each rep's fate in Reps order for a refusal section."""
 
     def fate(r: Run) -> str:
         if r.cleared:
@@ -922,13 +905,9 @@ def outcome_cell(cell_runs: list[Run]) -> str:
 
 
 def ckpt_cell(cell_runs: list[Run]) -> str:
-    """The Ckpt cell, filled only when a rep stopped short of the full
-    ladder — that is when partial progress carries information a binary bar
-    cannot (README § Checkpoints). Every rep lists in Reps order, each over
-    its own ladder — the spread stays visible, never medianed away, so the
-    stopped rep is identifiable from the cell. Each figure links down to
-    the Checkpoints section of its run page, where the ladder names the
-    missed steps; a folder path failing the link shape renders plain."""
+    """Render each rep's checkpoints over its ladder, blank when every rep hit them all."""
+    # The spread stays visible, never medianed away, so a stopped rep is
+    # identifiable from the cell.
     marks = [r.checkpoints() for r in cell_runs]
     if all(hit == total for hit, total in marks):
         return ""
@@ -941,19 +920,14 @@ def ckpt_cell(cell_runs: list[Run]) -> str:
     return " · ".join(figures)
 
 
-# The rule's cost-per-pass threshold: a move past this share of the earlier
-# cell's figure is not believed until re-run (README § Cost accounting and
-# statistical discipline).
+# A cost-per-pass move past this share of the earlier cell's figure is not
+# believed until re-run.
 ESCALATION_COST_MOVE = 0.30
 
 
 @dataclass(frozen=True)
 class Escalation:
-    """One cell pair tripping the escalation rule, with the follow-up sweep
-    that re-runs both arms adjacent in time. `command` is None when no
-    runnable sweep reproduces the recorded pair. `unit_cost_lost`,
-    `bar_flip`, and `cost_move` back the `_severity` ladder; `cost_move`
-    is the signed fraction, None untripped."""
+    """One cell pair tripping the escalation rule, with its follow-up sweep."""
 
     pin: str
     task: str
@@ -966,19 +940,17 @@ class Escalation:
     cost_move: float | None
 
 
-def _severity(c: Escalation) -> tuple[int, int, float]:
-    """Sort key listing candidates most severe first: a lost unit cost
-    outranks a bar flip, a flip outranks a cost move, a rise outranks a
-    fall, a larger move outranks a smaller. Ties keep the pin → task →
-    version scan order (stable sort)."""
-    tier = 0 if c.unit_cost_lost else 1 if c.bar_flip else 2
-    move = c.cost_move if c.cost_move is not None else 0.0
+def _severity(candidate: Escalation) -> tuple[int, int, float]:
+    """Return the sort key listing candidates most severe first."""
+    # A lost unit cost outranks a bar flip, a flip outranks a cost move, a
+    # rise outranks a fall, a larger move a smaller.
+    tier = 0 if candidate.unit_cost_lost else 1 if candidate.bar_flip else 2
+    move = candidate.cost_move if candidate.cost_move is not None else 0.0
     return (tier, 0 if move > 0 else 1, -abs(move))
 
 
 def _unit_cost(cell_runs: list[Run]) -> float | None:
-    """The cell's cost per pass — whole-cell spend over clearing reps, the
-    figure the trend cell renders — or None without a clearing rep."""
+    """Return the cell's cost per pass, or None without a clearing rep."""
     cleared = sum(1 for r in cell_runs if r.cleared)
     if not cleared:
         return None
@@ -986,45 +958,54 @@ def _unit_cost(cell_runs: list[Run]) -> float | None:
 
 
 def _version_spec(label: str) -> str:
-    """The --version argument reproducing a recorded label: a dev label maps
-    back to `dev`, a tag passes through. `dev` resolves the current working
-    tree — a tree that moved since the run lands reps in a new row instead
-    of the recorded pair."""
+    """Return the --version argument reproducing a recorded label."""
     return "dev" if label.startswith("dev-") else label
 
 
-# Mirrors run_eval.VERSION_LABEL_RE — the shape a runnable spec, task id, or
-# pin must hold before it renders as executable text in a follow-up command.
+# The shape a runnable spec, task id, or pin must hold before it renders as
+# executable text in a follow-up command; mirrors the runner's label rule.
 _SPEC_SAFE = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 
-def _follow_up_command(
-    pin: str,
-    task: str,
-    earlier: str,
-    later: str,
-    kind: str,
-    era_contract: bool = False,
-) -> str | None:
-    """The copy-ready sweep re-running both arms of a tripped pair, or None
-    when no runnable sweep reproduces it: two dev rows collapse to one spec,
-    and a label, task id, or pin outside the spec shape never renders as
-    executable text. The pin rides along so the reps land in the recorded
-    pair's cells; `(default)` is not a flag value and stays implicit. An
-    era-contract pair re-runs under the era contract — the flag is part of
-    the recorded condition."""
-    spec_a, spec_b = _version_spec(earlier), _version_spec(later)
+@dataclass(frozen=True, slots=True)
+class CellPair:
+    """Two adjacent version cells of one task under one pin."""
+
+    pin: str
+    task: str
+    earlier: str
+    later: str
+    cell_a: list[Run]
+    cell_b: list[Run]
+
+    @property
+    def settled(self) -> bool:
+        """Tell whether both arms hold the confirmation depth."""
+        return min(len(self.cell_a), len(self.cell_b)) >= ESCALATION_CONFIRMED_REPS
+
+    @property
+    def touches_dev(self) -> bool:
+        """Tell whether either arm is a dev row."""
+        return self.earlier.startswith("dev-") or self.later.startswith("dev-")
+
+
+def _follow_up_command(pair: CellPair, kind: str, *, era_contract: bool) -> str | None:
+    """Render the sweep re-running both arms of a tripped pair, or None when none reproduces it."""
+    # Two dev rows collapse to one spec; a label, task id, or pin outside the
+    # spec shape never renders as executable text. `(default)` is not a flag
+    # value and stays implicit.
+    spec_a, spec_b = _version_spec(pair.earlier), _version_spec(pair.later)
     if spec_a == spec_b:
         return None
-    model = [] if pin == "(default)" else [pin]
-    if not all(_SPEC_SAFE.match(part) for part in [spec_a, spec_b, task, *model]):
+    model = [] if pair.pin == "(default)" else [pair.pin]
+    if not all(_SPEC_SAFE.match(part) for part in [spec_a, spec_b, pair.task, *model]):
         return None
     command = (
         f"python3 evals/run_eval.py --version {spec_a} --version {spec_b}"
-        f" --task {task} --reps 2"
+        f" --task {pair.task} --reps 2"
     )
     if model:
-        command += f" --model {pin}"
+        command += f" --model {pair.pin}"
     if kind != KIND_REFUSAL:
         command += " --judge"
     if era_contract:
@@ -1032,36 +1013,33 @@ def _follow_up_command(
     return command
 
 
-_AdjacentPair = tuple[str, str, str, str, list[Run], list[Run]]
-
-
-def _adjacent_cells(runs: list[Run]) -> Iterator[_AdjacentPair]:
-    """Each task's adjacent version pairs within one pin, as (pin, task,
-    earlier, later, cell_a, cell_b) — the one pairing both the escalation
-    queue and the settled-moves check walk, so the two sections partition
-    exactly one pair set by depth and a pair can never fall between them.
-    Adjacency is per task: a task unmeasured on an intervening row pairs
-    its two nearest measured cells, matching the rows a reader of the
-    table would compare."""
-    for pin in sorted({r.model_requested for r in runs}):
-        pin_runs = [r for r in runs if r.model_requested == pin]
-        for task in sorted({r.task for r in pin_runs}):
-            task_runs = [r for r in pin_runs if r.task == task]
-            versions = sorted({r.version for r in task_runs}, key=version_key)
-            for earlier, later in zip(versions, versions[1:], strict=False):
-                cell_a = [r for r in task_runs if r.version == earlier]
-                cell_b = [r for r in task_runs if r.version == later]
-                yield pin, task, earlier, later, cell_a, cell_b
+def _adjacent_cells(runs: list[Run]) -> Iterator[CellPair]:
+    """Yield each task's adjacent version pairs within one pin."""
+    # The one pairing both the escalation queue and the settled-moves check
+    # walk, so a pair can never fall between them. A task unmeasured on an
+    # intervening row pairs its two nearest measured cells.
+    for pin in sorted({run.model_requested for run in runs}):
+        pin_runs = [run for run in runs if run.model_requested == pin]
+        for task in sorted({run.task for run in pin_runs}):
+            task_runs = [run for run in pin_runs if run.task == task]
+            versions = sorted({run.version for run in task_runs}, key=version_key)
+            for earlier, later in itertools.pairwise(versions):
+                yield CellPair(
+                    pin,
+                    task,
+                    earlier,
+                    later,
+                    [run for run in task_runs if run.version == earlier],
+                    [run for run in task_runs if run.version == later],
+                )
 
 
 def _priced_move(
     cell_a: list[Run], cell_b: list[Run]
 ) -> tuple[float, float, float] | None:
-    """The pair's over-threshold cost move as (cost_a, cost_b, signed
-    fraction), or None — the one trigger arithmetic shared by the
-    escalation queue and the settled-moves check. Both unit costs must be
-    known and non-zero: a cell whose spend went entirely unrecorded
-    compares as zero — excluded, the figure measures nothing."""
+    """Return the pair's over-threshold cost move, or None when it stays under."""
+    # A cell whose spend went entirely unrecorded compares as zero and is
+    # excluded; the figure measures nothing.
     cost_a, cost_b = _unit_cost(cell_a), _unit_cost(cell_b)
     if cost_a is None or cost_b is None or cost_a <= 0 or cost_b <= 0:
         return None
@@ -1072,88 +1050,77 @@ def _priced_move(
 
 
 def escalation_candidates(runs: list[Run]) -> list[Escalation]:
-    """Cell pairs tripping the escalation rule — pure Tier A arithmetic
-    over `_adjacent_cells`; applying the rule stays with the operator
-    (README § Cost accounting and statistical discipline). A pair whose
-    cells both hold ESCALATION_CONFIRMED_REPS reps is settled and never
-    listed — the settled-moves check owns that half of the partition.
-    Candidates return most severe first (`_severity`), so the list reads
-    as a backfill queue."""
-    out: list[Escalation] = []
-    for pin, task, earlier, later, cell_a, cell_b in _adjacent_cells(runs):
-        if min(len(cell_a), len(cell_b)) >= ESCALATION_CONFIRMED_REPS:
-            continue
-        triggers: list[str] = []
-        cleared_a = sum(1 for r in cell_a if r.cleared)
-        cleared_b = sum(1 for r in cell_b if r.cleared)
-        flipped = (cleared_a == len(cell_a)) != (cleared_b == len(cell_b))
-        if flipped:
-            triggers.append(
-                f"bar verdict flipped ({cleared_a}/{len(cell_a)}"
-                f" → {cleared_b}/{len(cell_b)})"
-            )
-        cost_move: float | None = None
-        priced = _priced_move(cell_a, cell_b)
-        if priced is not None:
-            cost_a, cost_b, cost_move = priced
-            # `>=` mirrors the trend cell: a rep without a recorded spend
-            # makes the cell's figure a lower bound, and the trigger must
-            # not present a bound as a measurement.
-            triggers.append(
-                f"cost per pass {_spend_bound(cell_a)}${cost_a:.2f}"
-                f" → {_spend_bound(cell_b)}${cost_b:.2f} ({cost_move * 100:+.0f}%)"
-            )
-        lost = _unit_cost(cell_a) is not None and _unit_cost(cell_b) is None
-        if lost:
-            triggers.append("unit cost lost (no clearing rep)")
-        if not triggers:
-            continue
-        latest = max(cell_a + cell_b, key=lambda r: r.started)
-        command = _follow_up_command(
-            pin,
-            task,
-            earlier,
-            later,
+    """List the unsettled pairs tripping the escalation rule, most severe first."""
+    candidates = [
+        candidate
+        for pair in _adjacent_cells(runs)
+        if not pair.settled and (candidate := _escalation(pair)) is not None
+    ]
+    return sorted(candidates, key=_severity)
+
+
+def _escalation(pair: CellPair) -> Escalation | None:
+    """Judge one unsettled pair against the triggers, or None when none trips."""
+    cell_a, cell_b = pair.cell_a, pair.cell_b
+    triggers: list[str] = []
+    cleared_a = sum(1 for run in cell_a if run.cleared)
+    cleared_b = sum(1 for run in cell_b if run.cleared)
+    flipped = (cleared_a == len(cell_a)) != (cleared_b == len(cell_b))
+    if flipped:
+        triggers.append(
+            f"bar verdict flipped ({cleared_a}/{len(cell_a)}"
+            f" → {cleared_b}/{len(cell_b)})"
+        )
+    cost_move: float | None = None
+    priced = _priced_move(cell_a, cell_b)
+    if priced is not None:
+        cost_a, cost_b, cost_move = priced
+        # `>=` mirrors the trend cell, so the trigger never presents a
+        # lower bound as a measurement.
+        triggers.append(
+            f"cost per pass {_spend_bound(cell_a)}${cost_a:.2f}"
+            f" → {_spend_bound(cell_b)}${cost_b:.2f} ({cost_move * 100:+.0f}%)"
+        )
+    lost = _unit_cost(cell_a) is not None and _unit_cost(cell_b) is None
+    if lost:
+        triggers.append("unit cost lost (no clearing rep)")
+    if not triggers:
+        return None
+    latest = max(cell_a + cell_b, key=lambda run: run.started)
+    return Escalation(
+        pin=pair.pin,
+        task=pair.task,
+        earlier=pair.earlier,
+        later=pair.later,
+        triggers=tuple(triggers),
+        command=_follow_up_command(
+            pair,
             latest.task_kind,
-            any(r.era_contract for r in cell_a + cell_b),
-        )
-        out.append(
-            Escalation(
-                pin=pin,
-                task=task,
-                earlier=earlier,
-                later=later,
-                triggers=tuple(triggers),
-                command=command,
-                bar_flip=flipped,
-                unit_cost_lost=lost,
-                cost_move=cost_move,
-            )
-        )
-    return sorted(out, key=_severity)
+            era_contract=any(run.era_contract for run in cell_a + cell_b),
+        ),
+        bar_flip=flipped,
+        unit_cost_lost=lost,
+        cost_move=cost_move,
+    )
 
 
 def provisional_cells(runs: list[Run]) -> set[tuple[str, str, str]]:
-    """The (pin, version, task) cells the escalation rule wants deeper: each
-    arm of a tripped, unsettled pair still under the confirmation depth. An
-    arm already at depth stays unmarked — its figures stand; the follow-up
-    command re-runs it anyway, keeping the added reps adjacent in time."""
+    """Return the cells of tripped, unsettled pairs still under the confirmation depth."""
     depth: dict[tuple[str, str, str], int] = {}
     for r in runs:
         key = (r.model_requested, r.version, r.task)
         depth[key] = depth.get(key, 0) + 1
     thin: set[tuple[str, str, str]] = set()
-    for c in escalation_candidates(runs):
-        for version in (c.earlier, c.later):
-            key = (c.pin, version, c.task)
+    for candidate in escalation_candidates(runs):
+        for version in (candidate.earlier, candidate.later):
+            key = (candidate.pin, version, candidate.task)
             if depth.get(key, 0) < ESCALATION_CONFIRMED_REPS:
                 thin.add(key)
     return thin
 
 
 def _has_comparable_pair(runs: list[Run]) -> bool:
-    """Whether any (pin, task) cell spans two version rows — without one,
-    the escalation rule has nothing to compare and the check stays silent."""
+    """Tell whether any (pin, task) cell spans two version rows."""
     by_cell: dict[tuple[str, str], set[str]] = {}
     for r in runs:
         by_cell.setdefault((r.model_requested, r.task), set()).add(r.version)
@@ -1174,9 +1141,7 @@ ESCALATION_LEGEND = (
 
 
 def escalation_section(runs: list[Run]) -> list[str]:
-    """The trend page's escalation check. Omitted entirely while no pin
-    holds two version rows; otherwise an explicit all-clear line keeps
-    silence unambiguous."""
+    """Render the trend page's escalation check, omitted without a comparable pair."""
     if not _has_comparable_pair(runs):
         return []
     lines = ["### Escalation check", "", ESCALATION_LEGEND, ""]
@@ -1189,16 +1154,16 @@ def escalation_section(runs: list[Run]) -> list[str]:
         ]
         return lines
     ambiguous = ambiguous_versions(runs)
-    for c in candidates:
-        collides = c.earlier in ambiguous or c.later in ambiguous
-        pin = pin_note(c.pin) if collides else ""
+    for candidate in candidates:
+        collides = candidate.earlier in ambiguous or candidate.later in ambiguous
+        pin = pin_note(candidate.pin) if collides else ""
         lines.append(
-            f"- `{scrub(c.task)}` · `{scrub(c.earlier)} → {scrub(c.later)}`"
-            f"{pin}: {', '.join(c.triggers)}"
+            f"- `{scrub(candidate.task)}` · `{scrub(candidate.earlier)} → {scrub(candidate.later)}`"
+            f"{pin}: {', '.join(candidate.triggers)}"
         )
         lines.append(
-            f"  `{c.command}`"
-            if c.command
+            f"  `{candidate.command}`"
+            if candidate.command
             else "  (no runnable follow-up command for this pair's recorded labels)"
         )
     lines.append("")
@@ -1207,9 +1172,7 @@ def escalation_section(runs: list[Run]) -> list[str]:
 
 @dataclass(frozen=True)
 class SettledMove:
-    """One settled pair whose cost per pass moved past the threshold with no
-    explaining operator note. `move` is the signed fraction; a bound is the
-    cell's `>=` marker (unrecorded spend), empty when the figure is exact."""
+    """One settled pair whose cost per pass moved past the threshold unexplained."""
 
     pin: str
     task: str
@@ -1222,88 +1185,65 @@ class SettledMove:
     move: float
 
 
-def _pair_noted(
-    pin: str,
-    task: str,
-    earlier: str,
-    later: str,
-    cell_a: list[Run],
-    cell_b: list[Run],
-    notes: tuple[Note, ...],
-) -> bool:
-    """Whether an operator note explains the pair: scoped to the task and
-    either of the pair's versions (a mechanism can live on either end — an
-    inflated earlier cell explains the drop from it), or task-wide (a
-    declared condition boundary for the whole task, like visit-cancel's
-    implementing-era note). Two guards keep an old note from muting a new
-    move: the note must be dated no earlier than the younger cell's first
-    rep — both rows existed when the operator wrote it, so a later
-    version's move against a noted cell needs its own note — and a
-    model-scoped note explains only its own pin's pairs. Backfill reps
-    deepening a cell never age a note out: a settled figure is confirmed,
-    not re-explained. One note can explain both pairs flanking its
-    version — a cost spike at that version moves both sides. Two
-    independent mechanisms need two notes."""
+def _pair_noted(pair: CellPair, notes: tuple[Note, ...]) -> bool:
+    """Tell whether an operator note explains the pair's move."""
+    # A note scoped to the task and either version, or task-wide, explains
+    # the pair; it must be dated no earlier than the younger cell's first
+    # rep, so an old note never mutes a later move, and a model-scoped note
+    # explains only its own pin's pairs.
     firsts = [
         min(days)
-        for cell in (cell_a, cell_b)
-        if (days := [r.started[:10] for r in cell if r.started])
+        for cell in (pair.cell_a, pair.cell_b)
+        if (days := [run.started[:10] for run in cell if run.started])
     ]
     born = max(firsts) if firsts else None
     return any(
-        n.task == task
-        and n.model in (None, pin)
-        and n.version in (None, earlier, later)
-        and (born is None or n.date >= born)
-        for n in notes
+        note.task == pair.task
+        and note.model in (None, pair.pin)
+        and note.version in (None, pair.earlier, pair.later)
+        and (born is None or note.date >= born)
+        for note in notes
     )
 
 
 def settled_moves_check(
     runs: list[Run], notes: tuple[Note, ...]
 ) -> tuple[bool, list[SettledMove]]:
-    """The settled half of the `_adjacent_cells` partition: whether any
-    settled pair exists, and the settled pairs with an over-threshold cost
-    move (`_priced_move`, the escalation queue's trigger arithmetic) and no
-    explaining note (`_pair_noted`). The queue stops listing a pair once
-    both arms reach depth, so without this check a believed-shift-sized
-    move between settled cells never surfaces (the v0.3.3 → v0.3.5
-    specialty-directory +33% sat unlisted at exactly 3 reps per arm). A
-    bounded figure lists with its `>=` marker, exactly as the queue lists
-    it. A pair touching a dev row never lists: a pre-release move is
-    resolved by the release decision, not a committed note. Dev pairs also
-    never count as settled here — the all-clear line speaks only for
-    release rows. Flagged moves return rises before falls, larger moves
-    first."""
-    any_settled = False
-    flagged: list[SettledMove] = []
-    for pin, task, earlier, later, cell_a, cell_b in _adjacent_cells(runs):
-        if min(len(cell_a), len(cell_b)) < ESCALATION_CONFIRMED_REPS:
-            continue
-        if earlier.startswith("dev-") or later.startswith("dev-"):
-            continue
-        any_settled = True
-        if _pair_noted(pin, task, earlier, later, cell_a, cell_b, notes):
-            continue
-        priced = _priced_move(cell_a, cell_b)
-        if priced is None:
-            continue
-        cost_a, cost_b, move = priced
-        flagged.append(
-            SettledMove(
-                pin,
-                task,
-                earlier,
-                later,
-                cost_a,
-                cost_b,
-                _spend_bound(cell_a),
-                _spend_bound(cell_b),
-                move,
-            )
-        )
-    flagged.sort(key=lambda m: (0 if m.move > 0 else 1, -abs(m.move)))
-    return any_settled, flagged
+    """Return whether any settled pair exists and the settled moves no note explains."""
+    # The queue stops listing a pair once both arms reach depth, so without
+    # this check a believed-shift-sized move between settled cells never
+    # surfaces.
+    # A pair touching a dev row never lists and never counts as settled: a
+    # pre-release move is resolved by the release decision, not a note.
+    settled = [
+        pair for pair in _adjacent_cells(runs) if pair.settled and not pair.touches_dev
+    ]
+    flagged = [
+        move
+        for pair in settled
+        if not _pair_noted(pair, notes) and (move := _settled_move(pair)) is not None
+    ]
+    flagged.sort(key=lambda move: (0 if move.move > 0 else 1, -abs(move.move)))
+    return bool(settled), flagged
+
+
+def _settled_move(pair: CellPair) -> SettledMove | None:
+    """Price one settled pair's move, or None when it stays under the threshold."""
+    priced = _priced_move(pair.cell_a, pair.cell_b)
+    if priced is None:
+        return None
+    cost_a, cost_b, move = priced
+    return SettledMove(
+        pair.pin,
+        pair.task,
+        pair.earlier,
+        pair.later,
+        cost_a,
+        cost_b,
+        _spend_bound(pair.cell_a),
+        _spend_bound(pair.cell_b),
+        move,
+    )
 
 
 SETTLED_MOVES_LEGEND = (
@@ -1324,10 +1264,7 @@ SETTLED_MOVES_LEGEND = (
 
 
 def settled_moves_section(runs: list[Run], notes: tuple[Note, ...]) -> list[str]:
-    """The settled-moves check, the escalation queue's sibling: the queue
-    asks for more reps, this section asks for a written mechanism. Omitted
-    while no settled pair exists; an explicit all-clear line keeps silence
-    unambiguous."""
+    """Render the settled-moves check, omitted while no settled pair exists."""
     any_settled, flagged = settled_moves_check(runs, notes)
     if not any_settled:
         return []
@@ -1340,23 +1277,21 @@ def settled_moves_section(runs: list[Run], notes: tuple[Note, ...]) -> list[str]
         ]
         return lines
     ambiguous = ambiguous_versions(runs)
-    for m in flagged:
-        collides = m.earlier in ambiguous or m.later in ambiguous
-        pin = pin_note(m.pin) if collides else ""
+    for move in flagged:
+        collides = move.earlier in ambiguous or move.later in ambiguous
+        pin = pin_note(move.pin) if collides else ""
         lines.append(
-            f"- `{scrub(m.task)}` · `{scrub(m.earlier)} → {scrub(m.later)}`"
-            f"{pin}: cost per pass {m.bound_a}${m.cost_a:.2f}"
-            f" → {m.bound_b}${m.cost_b:.2f}"
-            f" ({m.move * 100:+.0f}%), no explaining note"
+            f"- `{scrub(move.task)}` · `{scrub(move.earlier)} → {scrub(move.later)}`"
+            f"{pin}: cost per pass {move.bound_a}${move.cost_a:.2f}"
+            f" → {move.bound_b}${move.cost_b:.2f}"
+            f" ({move.move * 100:+.0f}%), no explaining note"
         )
     lines.append("")
     return lines
 
 
 def escalation_report(runs: list[Run]) -> str:
-    """The terminal tail of a sweep: the trend section's candidates as
-    copy-ready commands. Empty without a comparable pair; an explicit
-    all-clear otherwise, so silence never reads as a clean check."""
+    """Render the sweep's terminal tail: the escalation candidates as copy-ready commands."""
     if not _has_comparable_pair(runs):
         return ""
     candidates = escalation_candidates(runs)
@@ -1367,31 +1302,28 @@ def escalation_report(runs: list[Run]) -> str:
         "Escalation candidates (operator-applied rule, README § Cost"
         " accounting and statistical discipline):"
     ]
-    for c in candidates:
-        collides = c.earlier in ambiguous or c.later in ambiguous
-        pin = pin_note(c.pin) if collides else ""
+    for candidate in candidates:
+        collides = candidate.earlier in ambiguous or candidate.later in ambiguous
+        pin = pin_note(candidate.pin) if collides else ""
         lines.append(
-            f"  {scrub(c.task)} ({scrub(c.earlier)} → {scrub(c.later)}){pin}:"
-            f" {', '.join(c.triggers)}"
+            f"  {scrub(candidate.task)} ({scrub(candidate.earlier)} → {scrub(candidate.later)}){pin}:"
+            f" {', '.join(candidate.triggers)}"
         )
         lines.append(
-            f"    {c.command}"
-            if c.command
+            f"    {candidate.command}"
+            if candidate.command
             else "    (no runnable follow-up command for this pair's recorded labels)"
         )
     return "\n".join(lines)
 
 
-# The CLI ledger lists `<synthetic>` for locally synthesized turns; it is
-# not a model, and the angle brackets vanish as an HTML tag on GitHub,
-# leaving a stray `+` in the joined label.
+# The CLI ledger lists `<synthetic>` for locally synthesized turns; it is not
+# a model, and the angle brackets vanish as an HTML tag on GitHub.
 SYNTHETIC_MODEL = "<synthetic>"
 
 
 def models_label(models: tuple[str, ...]) -> str:
-    """`—` when the record affirmatively holds no API model — only the
-    ledger's synthetic entry; `?` stays the unknown marker for an empty
-    record. One convention for every view."""
+    """Render a models list, `—` for a record holding only the synthetic entry and `?` for none."""
     real = [m for m in models if m != SYNTHETIC_MODEL]
     if not real:
         return "—" if models else "?"
@@ -1399,12 +1331,9 @@ def models_label(models: tuple[str, ...]) -> str:
 
 
 def rubric_cell(name: str) -> str:
-    """The recorded rubric as a link into `judge/`, resolved from the trend
-    pages under `results/`. A name failing the link shape or naming no file
-    on disk renders as plain text — never a broken or traversing target.
-    Membership is byte-exact against the directory listing: a macOS
-    case-insensitive `is_file()` hit would commit a link that 404s on
-    GitHub's case-sensitive serving."""
+    """Render the rubric as a link into judge/ when a file of exactly that name exists."""
+    # Membership is byte-exact against the directory listing: a
+    # case-insensitive is_file hit would commit a link that 404s on GitHub.
     on_disk = (
         {p.name for p in JUDGE_DIR.iterdir() if p.is_file()}
         if JUDGE_DIR.is_dir()
@@ -1416,18 +1345,14 @@ def rubric_cell(name: str) -> str:
 
 
 def pin_note(pin: str) -> str:
-    """Rendered only on a row whose pin deviates from the record's modal
-    pin — the note marks the exception, never the norm."""
+    """Render the pin note for a row whose pin deviates from the record's norm."""
     if pin == "(default)":
         return " (default pin)"
     return f" (pin {scrub(pin.removeprefix('claude-'))})"
 
 
 def ambiguous_versions(runs: list[Run]) -> set[str]:
-    """Versions the record holds under more than one requested pin. Only
-    such a collision needs the pin beside a version label — every other
-    row's resolved IDs already sit in the Sweep spend table's Models
-    column, and a page-wide pin stamp repeats a known fact as noise."""
+    """Return the versions the record holds under more than one requested pin."""
     pins: dict[str, set[str]] = {}
     for r in runs:
         pins.setdefault(r.version, set()).add(r.model_requested)
@@ -1435,9 +1360,7 @@ def ambiguous_versions(runs: list[Run]) -> set[str]:
 
 
 def sut_line(runs: list[Run]) -> str:
-    """Where the SUT lives, from the newest manifest on record. The exact
-    base SHA stays a per-run manifest fact; the page does not partition by
-    it, but a multi-base record is called out rather than silently mixed."""
+    """Render where the SUT lives, from the newest manifest on record."""
     latest = max(runs, key=lambda r: r.started)
     repo = scrub(latest.sut_repo)
     branch = scrub(latest.sut_branch)
@@ -1463,19 +1386,15 @@ def sut_line(runs: list[Run]) -> str:
 
 
 def _cc_key(value: str) -> tuple[int, ...]:
-    """Numeric sort key for an executing-tool version's leading token, so
-    2.1.9 orders before 2.1.10; a token that does not parse sorts first."""
+    """Return the numeric sort key of an executing-tool version's leading token."""
     try:
-        return tuple(int(part) for part in value.split(" ")[0].split("."))
+        return tuple(int(part) for part in value.split(" ", maxsplit=1)[0].split("."))
     except ValueError:
         return ()
 
 
 def conditions_line(runs: list[Run]) -> str | None:
-    """The mechanical condition callout, the multi-base callout's sibling:
-    the page does not partition by executing-tool version or settings-env
-    prep, but a record spanning either is called out, never silently
-    mixed."""
+    """Render the callout for a record spanning tool versions or prep conditions, or None."""
     clauses: list[str] = []
     # Distinct leading tokens, not distinct raw strings: a suffix-only
     # difference is one version. The raw-string tie-break keeps equal-key
@@ -1487,7 +1406,7 @@ def conditions_line(runs: list[Run]) -> str | None:
     )
     if len(cc) > 1:
         clauses.append(
-            f"{len(cc)} executing Claude Code versions ({scrub(cc[0])}–{scrub(cc[-1])})"
+            f"{len(cc)} executing Claude Code versions ({scrub(cc[0])}–{scrub(cc[-1])})"  # noqa: RUF001
         )
     env = {r.env_prep for r in runs}
     if len(env) > 1:
@@ -1502,13 +1421,12 @@ def conditions_line(runs: list[Run]) -> str | None:
 
 
 def _note_text(note: Note) -> str:
-    """The note as one paragraph, however the TOML author wrapped it."""
+    """Render the note as one paragraph, however the TOML author wrapped it."""
     return scrub(" ".join(note.text.split()))
 
 
 def notes_header_lines(notes: tuple[Note, ...]) -> list[str]:
-    """The page-level notes block: the mechanism line whenever any note is
-    on record, then the unscoped notes as dated bullets."""
+    """Render the page-level notes block with the unscoped notes as dated bullets."""
     if not notes:
         return []
     lines = [
@@ -1526,8 +1444,7 @@ def notes_header_lines(notes: tuple[Note, ...]) -> list[str]:
 
 
 def task_note_lines(notes: tuple[Note, ...], task: str) -> list[str]:
-    """The dated bullets under one task's table; a cell-scoped note leads
-    with its version."""
+    """Render the dated bullets under one task's table."""
     scoped = sorted(
         (n for n in notes if n.task == task),
         key=lambda n: (n.date, n.version or ""),
@@ -1542,8 +1459,7 @@ def task_note_lines(notes: tuple[Note, ...], task: str) -> list[str]:
 
 
 def unmeasured_note(measured: set[str]) -> str | None:
-    """Tasks defined on disk but absent from the recorded series. A vanished
-    column must read as unmeasured, never as silently retired."""
+    """Name the tasks defined on disk but absent from the recorded series, or None."""
     if not TASKS_DIR.is_dir():
         return None
     defined = {path.parent.name for path in TASKS_DIR.glob("*/task.toml")}
@@ -1555,52 +1471,97 @@ def unmeasured_note(measured: set[str]) -> str | None:
 
 
 def _row_spend(total: float, bound: str = "") -> str:
-    """A row spend figure. Crafted records can pass the per-value finiteness
-    gate yet overflow the sum to inf — render unknown, never a broken figure."""
+    """Render a row spend figure, `$?` when a crafted record overflowed the sum."""
     if not math.isfinite(total):
         return "$?"
     return f"{bound}${total:.2f}"
 
 
 def _arm_label(version: str, pin: str, ambiguous: set[str]) -> str:
-    """The row label every table shares: the version, with the pin note
-    beside it only when the record holds this version under more than one
-    pin — the one case the label alone cannot disambiguate."""
+    """Render the row label: the version, with its pin only when the version is ambiguous."""
     return scrub(version) + (pin_note(pin) if version in ambiguous else "")
 
 
+@dataclass(frozen=True, slots=True)
+class _Layout:
+    """The row and column order every trend table shares."""
+
+    tasks: list[str]
+    arms: list[tuple[str, str]]
+    ambiguous: set[str]
+    thin: set[tuple[str, str, str]]
+
+
+def _layout(runs: list[Run]) -> _Layout:
+    """Derive the shared table layout: tasks sorted, arms newest first, pin ascending."""
+    arms = sorted(
+        {(run.version, run.model_requested) for run in runs}, key=lambda a: a[1]
+    )
+    arms.sort(key=lambda a: version_key(a[0]), reverse=True)
+    return _Layout(
+        tasks=sorted({run.task for run in runs}),
+        arms=arms,
+        ambiguous=ambiguous_versions(runs),
+        thin=provisional_cells(runs),
+    )
+
+
+def _task_rows(
+    runs: list[Run], task: str, arms: list[tuple[str, str]]
+) -> list[tuple[str, str, list[Run]]]:
+    """Return one task's measured (version, pin, reps) rows in arm order."""
+    rows = []
+    for version, pin in arms:
+        cell_runs = sorted(
+            (
+                run
+                for run in runs
+                if run.version == version
+                and run.model_requested == pin
+                and run.task == task
+            ),
+            key=lambda run: (run.rep, run.started),
+        )
+        if cell_runs:
+            rows.append((version, pin, cell_runs))
+    return rows
+
+
+def _task_description(runs: list[Run], task: str) -> tuple[str, bool]:
+    """Return the task's heading description and whether it is a refusal task."""
+    latest = max((run for run in runs if run.task == task), key=lambda run: run.started)
+    kind = scrub(latest.task_kind) or "?"
+    title = scrub(latest.task_title) or "?"
+    description = f"{kind}: {title}"
+    refusal = latest.task_kind == KIND_REFUSAL
+    if refusal:
+        description += (
+            " — the expected outcome is a refusal: consult and change"
+            " nothing. The bar inverts to complete, suite green, no"
+            " `src/` change; whether the run consulted stays an advisory"
+            " checkpoint, never part of the bar (README § Refusal tasks)."
+        )
+    return description, refusal
+
+
 def _trend_lines(
-    runs: list[Run],
-    tasks: list[str],
-    arms: list[tuple[str, str]],
-    ambiguous: set[str],
-    thin: set[tuple[str, str, str]],
-    notes: tuple[Note, ...] = (),
+    runs: list[Run], layout: _Layout, notes: tuple[Note, ...] = ()
 ) -> list[str]:
-    """The trend: one subsection per task — the task id as its heading,
-    the kind and title from the newest manifest naming it — then a table
-    of the measured versions, newest first, so the trend reads straight
-    down. Each concern is a column; the reps link their run pages in the
-    order every multi-value cell on the page lists figures."""
+    """Render one subsection per task: its heading, then its versions newest first."""
     lines: list[str] = []
+    tasks, arms, ambiguous, thin = (
+        layout.tasks,
+        layout.arms,
+        layout.ambiguous,
+        layout.thin,
+    )
     for task in tasks:
-        latest = max((r for r in runs if r.task == task), key=lambda r: r.started)
-        kind = scrub(latest.task_kind) or "?"
-        title = scrub(latest.task_title) or "?"
-        description = f"{kind}: {title}"
-        refusal = latest.task_kind == KIND_REFUSAL
-        if refusal:
-            description += (
-                " — the expected outcome is a refusal: consult and change"
-                " nothing. The bar inverts to complete, suite green, no"
-                " `src/` change; whether the run consulted stays an advisory"
-                " checkpoint, never part of the bar (README § Refusal tasks)."
-            )
+        description, refusal = _task_description(runs, task)
         outcome_head = "Outcome | " if refusal else ""
         unexplained = {
-            (m.pin, m.later)
-            for m in settled_moves_check(runs, notes)[1]
-            if m.task == task
+            (move.pin, move.later)
+            for move in settled_moves_check(runs, notes)[1]
+            if move.task == task
         }
         # A clarifying prompt edit keeps the task id, so one section's runs
         # may span fingerprints. The span is called out like the page-level
@@ -1627,25 +1588,12 @@ def _trend_lines(
             " | Waste | Wall |",
             "|---" * (10 if refusal else 9) + "|",
         ]
-        rows: list[tuple[str, str, list[Run]]] = []
-        for version, pin in arms:
-            cell_runs = sorted(
-                (
-                    r
-                    for r in runs
-                    if r.version == version
-                    and r.model_requested == pin
-                    and r.task == task
-                ),
-                key=lambda r: (r.rep, r.started),
-            )
-            if cell_runs:
-                rows.append((version, pin, cell_runs))
+        rows = _task_rows(runs, task, arms)
         for n, (version, pin, cell_runs) in enumerate(rows):
             provisional = (pin, version, task) in thin
             # The previous measured version — the row below. Across a pin
             # change the Δ cell carries the caveat; the `!` rule stays within
-            # a pin, as the pairing doctrine (README § Cost accounting) holds.
+            # a pin, as the pairing doctrine holds.
             older = rows[n + 1][2] if n + 1 < len(rows) else None
             pin_change = n + 1 < len(rows) and rows[n + 1][1] != pin
             row = [
@@ -1653,14 +1601,19 @@ def _trend_lines(
                 ", ".join(
                     rep_link(r) + (" (stalled)" if r.stalled else "") for r in cell_runs
                 ),
-                bar_cell(cell_runs, provisional),
+                bar_cell(cell_runs, provisional=provisional),
                 *([outcome_cell(cell_runs)] if refusal else []),
                 ckpt_cell(cell_runs),
-                cost_cell(cell_runs, provisional),
-                delta_cell(cell_runs, older, (pin, version) in unexplained, pin_change),
+                cost_cell(cell_runs, provisional=provisional),
+                delta_cell(
+                    cell_runs,
+                    older,
+                    flagged=(pin, version) in unexplained,
+                    pin_change=pin_change,
+                ),
                 burn_cell(cell_runs),
                 waste_cell(cell_runs),
-                wall_cell(cell_runs, provisional),
+                wall_cell(cell_runs, provisional=provisional),
             ]
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
@@ -1669,9 +1622,7 @@ def _trend_lines(
 
 
 def _arm_agent_spend(arm_runs: list[Run], tasks: list[str]) -> tuple[str, int]:
-    """The arm's per-sweep agent spend — each measured task's per-rep mean,
-    summed — and the count of tasks it measures. A rep with unrecorded
-    spend leaves the figure a lower bound."""
+    """Return the arm's per-sweep agent spend and the count of tasks it measures."""
     total = 0.0
     bound = ""
     measured = 0
@@ -1687,17 +1638,16 @@ def _arm_agent_spend(arm_runs: list[Run], tasks: list[str]) -> tuple[str, int]:
 
 
 def headline_section(runs: list[Run]) -> list[str]:
-    """The result in one grid: cost per pass per task down the versions.
-    Every cell restates a figure the per-task tables carry — the grid
-    exists so the trend reads across tasks at once instead of five tables
-    apart. It carries no sum: a total of per-task figures holds less than
-    the figures and hides which task moved; the Sweep spend table prices
-    a whole sweep for budgeting."""
-    tasks = sorted({r.task for r in runs})
-    arms = sorted({(r.version, r.model_requested) for r in runs}, key=lambda a: a[1])
-    arms.sort(key=lambda a: version_key(a[0]), reverse=True)
-    ambiguous = ambiguous_versions(runs)
-    thin = provisional_cells(runs)
+    """Render the at-a-glance grid: cost per pass per task down the versions."""
+    # The grid carries no sum: a total of per-task figures hides which task
+    # moved; the Sweep spend table prices a whole sweep.
+    layout = _layout(runs)
+    tasks, arms, ambiguous, thin = (
+        layout.tasks,
+        layout.arms,
+        layout.ambiguous,
+        layout.thin,
+    )
     width = len(tasks) + 1
     lines = [
         "### At a glance",
@@ -1717,7 +1667,9 @@ def headline_section(runs: list[Run]) -> list[str]:
         for task in tasks:
             cell_runs = [r for r in arm_runs if r.task == task]
             provisional = (pin, version, task) in thin
-            cells.append(cost_cell(cell_runs, provisional) if cell_runs else "")
+            cells.append(
+                cost_cell(cell_runs, provisional=provisional) if cell_runs else ""
+            )
         lines.append(
             "| " + " | ".join([_arm_label(version, pin, ambiguous), *cells]) + " |"
         )
@@ -1725,10 +1677,9 @@ def headline_section(runs: list[Run]) -> list[str]:
     return lines
 
 
-def _sweep_lines(
-    runs: list[Run], tasks: list[str], arms: list[tuple[str, str]], ambiguous: set[str]
-) -> list[str]:
-    """The per-version table: resolved models and the sweep spend columns."""
+def _sweep_lines(runs: list[Run], layout: _Layout) -> list[str]:
+    """Render the per-version table: resolved models and the sweep spend columns."""
+    tasks, arms, ambiguous = layout.tasks, layout.arms, layout.ambiguous
     lines = [
         "| Version | Tasks | Models | Agent spend | Grading spend | Judge spend |",
         "|---" * 6 + "|",
@@ -1769,26 +1720,30 @@ def _sweep_lines(
 
 
 def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
-    tasks = sorted({r.task for r in runs})
-    # Newest version first; pin ascending within a version (stable two-pass).
-    arms = sorted({(r.version, r.model_requested) for r in runs}, key=lambda a: a[1])
-    arms.sort(key=lambda a: version_key(a[0]), reverse=True)
-    ambiguous = ambiguous_versions(runs)
-    thin = provisional_cells(runs)
+    """Render the trend tables, the sweep spend, the judge medians, and the defect probes."""
+    layout = _layout(runs)
     bullets = list(_TREND_BULLETS)
     if _has_comparable_pair(runs):
         bullets.append(_PROVISIONAL_BULLET)
     lines: list[str] = ["### Trend by task", "", *bullets, ""]
-    lines += _trend_lines(runs, tasks, arms, ambiguous, thin, notes)
+    lines += _trend_lines(runs, layout, notes)
     lines += ["### Sweep spend", "", *_SWEEP_BULLETS, ""]
-    lines += _sweep_lines(runs, tasks, arms, ambiguous)
-    judged = [r for r in runs if r.judge_median]
+    lines += _sweep_lines(runs, layout)
+    lines += _judge_section(runs)
+    lines += defect_section(runs)
+    return lines
+
+
+def _judge_section(runs: list[Run]) -> list[str]:
+    """Render the advisory judge medians per task and their provenance rows."""
+    judged = [run for run in runs if run.judge_median]
+    lines: list[str] = []
     if judged:
         lines.append("### Advisory judge medians")
         lines.append("")
         lines.append(
             "Tier C context, never a claim: a blind judge scores each run's"
-            " sanitized patch 1–5 per facet, and each score is the median of"
+            " sanitized patch 1–5 per facet, and each score is the median of"  # noqa: RUF001
             " independent samples against the pinned rubric and model. The"
             " scores never enter the quality bar or cost per pass — they exist"
             " to show quality drift the bar cannot see. A multi-rep cell lists"
@@ -1843,16 +1798,11 @@ def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
                 f" | {judge_model} | {rubric} |"
             )
         lines.append("")
-    lines += defect_section(runs)
     return lines
 
 
 def defect_section(runs: list[Run]) -> list[str]:
-    """Named-defect probes per task: one table per task that declares a
-    `[[defect]]` probe, one row per version, every rep's result in Reps
-    order (`hit` · `clear`). Tier B — deterministic over the recorded diff
-    of every run on record, so a probe added today reads across the whole
-    series; never a claim and never part of the bar."""
+    """Render one named-defect probe table per task that declares a probe."""
     probed = [r for r in runs if r.known_defects is not None]
     if not probed:
         return []
@@ -1895,9 +1845,7 @@ def defect_section(runs: list[Run]) -> list[str]:
 
 
 def _run_defect_lines(manifest: dict[str, object], patch: str | None) -> list[str]:
-    """The run page's named-defect probe table: one row per probe the task
-    declares, computed from this run's recorded diff. Empty when the task
-    declares none or the run kept no patch."""
+    """Render the run page's probe table, empty without probes or a patch."""
     task = manifest.get("task")
     task_id = task.get("id") if isinstance(task, dict) else None
     probes = load_defect_probes().get(str(task_id), ()) if task_id else ()
@@ -1923,6 +1871,7 @@ def _run_defect_lines(manifest: dict[str, object], patch: str | None) -> list[st
 
 
 def _defect_cell(r: Run, probe_id: str) -> str:
+    """Render one rep's result for one probe."""
     hits = r.known_defects or {}
     if probe_id not in hits:
         return "—"
@@ -1930,12 +1879,7 @@ def _defect_cell(r: Run, probe_id: str) -> str:
 
 
 def grader_concordance_section(runs: list[Run]) -> list[str]:
-    """Tier B context for the auto_grade default: whether the change
-    grader's verdict tracks anything the bench measures. The verdict is the
-    system under test's self-assessment (README § Cost accounting) — never
-    evidence and never part of the bar. The table exists so a future
-    auto_grade default decision can cite a measured concordance instead of
-    cost alone, the demotion bar the maintainer's improvement doctrine sets."""
+    """Render whether the change grader's verdict tracks the bar or the judge."""
     graded = [r for r in runs if r.grader_verdict]
     if not graded:
         return []
@@ -1981,10 +1925,7 @@ def grader_concordance_section(runs: list[Run]) -> list[str]:
 
 
 def _judged_coverage(members: list[Run], judged_rows: list[Run]) -> str:
-    """A provenance row's coverage, at the coarsest attributable grain: a
-    version whose judged reps all share the row lists alone; a version
-    split across rows lists per cell; a cell split mid-provenance names
-    its reps — the visible series break the README pins."""
+    """Render a provenance row's coverage at the coarsest attributable grain."""
     ids = {id(r) for r in members}
     items: list[str] = []
     done: set[tuple[str, str | None]] = set()
@@ -2010,17 +1951,13 @@ def _judged_coverage(members: list[Run], judged_rows: list[Run]) -> str:
 
 
 def _facet_score(r: Run, facet: str) -> str:
-    """One rep's facet score inside a medians cell. :g drops the spurious
-    .0 an even-sample median carries (statistics.median averages the two
-    middle samples) while a genuine half-step still renders as 3.5."""
+    """Render one rep's facet score, dropping the spurious .0 of an even-sample median."""
     median = r.judge_median or {}
     return f"{median[facet]:g}" if facet in median else "?"
 
 
 def rep_link(r: Run) -> str:
-    """The rep label, linked down to its run folder when the recorded path
-    holds the link shape — the audit trail from any rep cell to the
-    folder's records."""
+    """Render the rep label, linked to its run folder when the path holds the link shape."""
     label = scrub(f"r{r.rep}")
     if r.folder and _LINK_SAFE.match(r.folder):
         return f"[{label}]({r.folder}/README.md)"
@@ -2028,15 +1965,7 @@ def rep_link(r: Run) -> str:
 
 
 def roster_section(runs: list[Run]) -> list[str]:
-    """Per-rep drill-down under the trend: one table row per trend cell,
-    its reps linked in the Reps column and every figure column listing the
-    reps' values in that order — bar verdict, delivery spend, delivery
-    wall — so a cell's spread reads on one line. Each rep links down to
-    its run folder, whose README.md presents the run. Collapsed by
-    default, keeping the trend table the page's headline; at the bench's
-    rep depths (README § Cost accounting and statistical discipline) the
-    raw values beat any summary statistic. A folder path failing the link
-    shape renders as plain text."""
+    """Render the collapsed per-rep table behind every trend cell."""
     plural = "s" if len(runs) != 1 else ""
     lines = [
         "### Recorded runs",
@@ -2102,8 +2031,10 @@ def render(
     runs: list[Run],
     note: str | None = None,
     operator_notes: tuple[Note, ...] = (),
+    *,
     include_figure: bool = True,
 ) -> str:
+    """Render the trend page for a series of runs."""
     lines = ["# Harness Eval Trend", "", INTRO, ""]
     if note:
         lines += [note, ""]
@@ -2140,9 +2071,7 @@ def render(
     return "\n".join(lines)
 
 
-# The run page's artifact roster, in render order, each with its one-line
-# reading. Only files present in the folder render; the page itself is
-# excluded from the roster it links.
+# The run page's artifact roster in render order; only present files render.
 RUN_PAGE_ARTIFACTS: tuple[tuple[str, str], ...] = (
     ("change.patch", "the agent's diff against the baseline commit"),
     ("handoff.jsonl", "the pipeline's handoff ledger, one record per line"),
@@ -2155,10 +2084,11 @@ RUN_PAGE_ARTIFACTS: tuple[tuple[str, str], ...] = (
 
 _GREEN = "✔"
 _RED = "✘"
+SHOWN_SUITE_FAILURES = 20
+SUITE_FAILURE_CHARS = 160
+SHA_CHARS = 12
 
-# Embed bound for the diff and board sections: past this, the page links the
-# artifact instead of inlining it — the page presents, the artifact is the
-# record.
+# Past this many lines the page links the diff or board instead of inlining it.
 EMBED_MAX_LINES = 400
 # Control bytes have no place in an embedded diff; newline and tab stay —
 # unlike the cell scrub, the fence must preserve line structure. Direction
@@ -2168,20 +2098,21 @@ _FENCE_UNSAFE = re.compile(
     r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]+"
 )
 _BACKTICK_RUN = re.compile(r"`+")
+# A markdown fence is three or more backticks; a line indented four or more
+# is a code line, never a fence.
+FENCE_MIN_BACKTICKS = 3
+CODE_INDENT = 4
+SECONDS_PER_MINUTE = 60
 
 
-# A ledger past this is not a real one. Single source: run_eval imports the
-# cap, so the collector and every reader hold the same bound.
+# A ledger past this is not a real one; the runner imports the same cap.
 MAX_LEDGER_BYTES = 5 * 1024 * 1024
 
 
 def ledger_records(out_dir: Path) -> list[dict[str, object]]:
-    """Parsed records from the folder's committed handoff.jsonl — the one
-    ledger reader both sides of the eval seam share (run_eval imports it).
-    Missing or oversized ledgers read as empty, undecodable bytes degrade,
-    and a malformed or non-object line is skipped (deeply nested JSON
-    recurses); the size cap holds even against a file written into the run
-    folder by another path."""
+    """Parse the folder's handoff ledger, reading a missing or oversized file as empty."""
+    # A malformed or non-object line is skipped, and the size cap holds
+    # even against a file written into the folder by another path.
     ledger = out_dir / "handoff.jsonl"
     if not ledger.is_file() or ledger.stat().st_size > MAX_LEDGER_BYTES:
         return []
@@ -2200,21 +2131,11 @@ HANDOFF_VIEW = EVALS.parent / "harness" / "core" / "scripts" / "handoff.py"
 
 
 def render_pipeline(out_dir: Path) -> str | None:
-    """The pipeline board for the page, rendered from the folder's committed
-    ledger by the *current* harness renderer.
-
-    Same rule as `run_eval.load_accounting`: one current implementation reads
-    every version's records, so pages stay comparable across the series and a
-    rendering improvement reaches runs already recorded. The ledger is the
-    only board source — the folder commits no pre-rendered copy, and a render
-    failure here loses the page's Pipeline section, which the derived-view
-    gate reports as drift instead of silently falling back to a stale render.
-
-    `--verbose` is the point — the default board gists finding descriptions,
-    facet notes, and omits the grader's rationale, which is right for a
-    72-column terminal and wrong for a permanent page. No `--layout` is passed:
-    the reviewer matrix then derives from the records themselves rather than
-    from a config file this folder never captured."""
+    """Render the pipeline board from the folder's ledger with the current renderer, or None."""
+    # One current implementation reads every version's records, so pages
+    # stay comparable across the series. --verbose keeps the finding text
+    # the terminal board gists; no --layout, so the reviewer matrix derives
+    # from the records rather than a config the folder never captured.
     ledger = out_dir / "handoff.jsonl"
     if (
         not HANDOFF_VIEW.is_file()
@@ -2244,45 +2165,33 @@ def render_pipeline(out_dir: Path) -> str | None:
     return proc.stdout if proc.returncode == 0 and proc.stdout.strip() else None
 
 
-def approved_section(out_dir: Path) -> list[str]:
-    """What each reviewer positively verified, collapsed.
+class Approval(NamedTuple):
+    """One reviewer's approved aspects, as its review-feedback record lists them."""
 
-    The board is attention-first by design: it renders findings, never
-    approved aspects. That is right for a live terminal and lossy for a
-    permanent record — the approvals are the bulk of the ledger's prose and
-    the only record of what was actually checked. They ride in a closed
-    <details> so the page above stays a scan."""
-    rounds: list[tuple[str, list[str]]] = []
+    author: str
+    aspects: tuple[str, ...]
+
+
+def reviewer_approvals(out_dir: Path) -> tuple[Approval, ...]:
+    """Read what each reviewer approved from the folder's ledger."""
+    # The board renders findings only; the approvals are the only record of
+    # what was actually checked.
+    approvals: list[Approval] = []
     for record in ledger_records(out_dir):
         if record.get("type") != "review-feedback":
             continue
         aspects = record.get("approved_aspects")
         if not isinstance(aspects, list):
             continue
-        kept = [a.strip() for a in aspects if isinstance(a, str) and a.strip()]
+        kept = tuple(a.strip() for a in aspects if isinstance(a, str) and a.strip())
         author = record.get("author")
         if kept:
-            rounds.append((str(author) if author else "?", kept))
-    if not rounds:
-        return []
-    lines = [
-        "",
-        "<details>",
-        "<summary>What the reviewers approved (from"
-        " <code>handoff.jsonl</code>)</summary>",
-        "",
-    ]
-    for author, kept in rounds:
-        lines += [f"**{html_safe(author)}**", ""]
-        lines += [f"- {html_safe(a)}" for a in kept]
-        lines.append("")
-    lines.append("</details>")
-    return lines
+            approvals.append(Approval(str(author) if author else "?", kept))
+    return tuple(approvals)
 
 
 def html_safe(text: str) -> str:
-    """`scrub` plus the renderer's raw-HTML rule: a literal `<` in
-    agent-authored prose could close the surrounding details block."""
+    """Scrub a string and escape the `<` that could close a surrounding details block."""
     return scrub(text).replace("<", "\\<")
 
 
@@ -2291,16 +2200,10 @@ _SUITE_FAIL_RE = re.compile(r"^(\S.* > .*\S) FAILED$", re.MULTILINE)
 
 
 def failed_suite_tests(out_dir: Path) -> list[str]:
-    """The post-agent suite's failing test names, from the run log's
-    `=== suite run (post-agent) ===` section.
-
-    Presentation only, and attribution aid rather than measured fact: the
-    section is a gradle output tail, and test stdout — agent-authored code —
-    prints into it at column 0, so a name here can be fabricated or the list
-    truncated. The red suite mark itself comes from the gradle exit code and
-    stays trustworthy. Scoped to the last marker occurrence (earlier
-    sections quote agent output that could embed the marker string); a
-    missing log or section degrades to omission, never a guess."""
+    """List the failing test names of the post-agent suite section of the run log."""
+    # Presentation only: agent-authored test stdout prints into the gradle
+    # tail at column 0, so a name here can be fabricated. The section is
+    # the last marker occurrence, since earlier ones may quote agent output.
     log = out_dir / "run.log"
     if not log.is_file():
         return []
@@ -2320,12 +2223,10 @@ def failed_suite_tests(out_dir: Path) -> list[str]:
     ]
 
 
-# The grade's vocabulary — the reading depth the human owes the change —
-# and the words older ledgers carry for it. The reader maps those words
-# here, at the parse boundary, so every derived view speaks one vocabulary
-# while the run folders stay as recorded
-# (docs/adr/2026-09-06-the-grade-names-the-reading-depth.md). A word
-# outside the vocabulary is not a grade: fail-closed, like a missing record.
+# The grade's vocabulary, the reading depth the human owes the change, and
+# the words older ledgers carry for it. The reader maps those words at the
+# parse boundary, so every derived view speaks one vocabulary while the run
+# folders stay as recorded. A word outside the vocabulary is not a grade.
 GRADE_SKIM = "skim"
 GRADE_SCRUTINIZE = "scrutinize"
 GRADE_ORDER = {GRADE_SKIM: 0, GRADE_SCRUTINIZE: 1}
@@ -2333,17 +2234,10 @@ LEGACY_GRADES = {"clear": GRADE_SKIM, "concern": GRADE_SCRUTINIZE}
 
 
 def ledger_grader_verdict(out_dir: Path) -> str | None:
-    """The change grader's verdict from the folder's committed ledger — the
-    last `grader-verdict` record's verdict string, None when the grader never
-    recorded one. An older word maps to its current name; a word outside the
-    vocabulary reads as no verdict, the same fail-closed rule as a missing
-    record.
-
-    The ledger is the authority: the page's review-attention row, the grading
-    table, and every netting all key on this. A grading cost row without a
-    backing verdict record does not count as grading — fail-closed toward
-    whole-run figures, so a stray or fabricated transcript cannot quietly
-    shrink a delivery cell."""
+    """Return the ledger's last grader verdict in the current vocabulary, or None."""
+    # The ledger is the authority: a grading cost row without a backing
+    # verdict record does not count as grading, so a stray transcript
+    # cannot shrink a delivery cell.
     verdict: str | None = None
     for record in ledger_records(out_dir):
         if record.get("type") != "grader-verdict":
@@ -2366,15 +2260,9 @@ class GradingShare(NamedTuple):
 
 
 def grading_figures(costs: dict[str, object] | None) -> GradingShare | None:
-    """The change grader's share, from its accounted per-agent row. None when
-    no grader row with a finite cost exists.
-
-    The change grade is optional support for the human merge decision
-    (`auto_grade`), so the headline figures net it out — delivery spend and
-    wall — and this share renders as its own table. The wall subtraction is
-    direct (the grader runs serially as the terminal hop); the spend netting
-    is proportional (`Run.agent_spend` documents why). Callers gate every use
-    on `ledger_grader_verdict` — a cost row alone proves nothing."""
+    """Return the change grader's accounted share, or None without a grader row of finite cost."""
+    # The wall subtraction is direct, since the grader runs serially as the
+    # terminal hop; the spend netting is proportional.
     if not isinstance(costs, dict):
         return None
     per_agent = costs.get("per_agent")
@@ -2411,35 +2299,28 @@ def grading_figures(costs: dict[str, object] | None) -> GradingShare | None:
 
 
 def board_section(board: str) -> list[str]:
-    """The board render, inline and open as markdown — the pipeline's review
-    rounds are the page's story, not an appendix. Control bytes out, line
-    structure kept. An unbalanced code fence in agent-influenced finding text
-    would swallow every section after the board; the walk below tracks real
-    fence state — a closer is backticks-only and at least as long as its
-    opener — and closes any block left open. Parity counting is not enough:
-    a four-backtick opener paired with a three-backtick line counts even
-    while the block stays open."""
+    """Render the board inline, closing any code fence agent-influenced text left open."""
+    # A closer is backticks-only and at least as long as its opener; parity
+    # counting would pair a four-backtick opener with a three-backtick line.
     clean = _FENCE_UNSAFE.sub(" ", board).rstrip("\n")
     open_len = 0
     for line in clean.splitlines():
         stripped = line.lstrip()
-        if len(line) - len(stripped) > 3:
-            continue  # indented four or more: a code line, never a fence
-        run = len(stripped) - len(stripped.lstrip("`"))
-        if not open_len and run >= 3:
-            open_len = run
-        elif open_len and run >= open_len and not stripped.strip("` "):
+        if len(line) - len(stripped) >= CODE_INDENT:
+            continue
+        backticks = len(stripped) - len(stripped.lstrip("`"))
+        if not open_len and backticks >= FENCE_MIN_BACKTICKS:
+            open_len = backticks
+        elif open_len and backticks >= open_len and not stripped.strip("` "):
             open_len = 0
-    return [clean, "`" * max(3, open_len)] if open_len else [clean]
+    return [clean, "`" * max(FENCE_MIN_BACKTICKS, open_len)] if open_len else [clean]
 
 
 def diff_fence(patch: str) -> list[str]:
-    """The patch as a collapsible GitHub-colored diff block. The fence is one
-    backtick longer than any run inside the agent-authored patch, so patch
-    content can never close it."""
+    """Render the patch as a collapsible diff block no patch content can close."""
     clean = _FENCE_UNSAFE.sub(" ", patch).rstrip("\n")
-    runs = _BACKTICK_RUN.findall(clean)
-    fence = "`" * max(3, max((len(r) for r in runs), default=0) + 1)
+    longest = max((len(run) for run in _BACKTICK_RUN.findall(clean)), default=0)
+    fence = "`" * max(FENCE_MIN_BACKTICKS, longest + 1)
     return [
         "<details>",
         "<summary>Diff (rendered from <code>change.patch</code>)</summary>",
@@ -2453,17 +2334,19 @@ def diff_fence(patch: str) -> list[str]:
 
 
 def _mark(value: object) -> str:
+    """Render a boolean fact as a check, a cross, or `?` when unrecorded."""
     if value is None:
         return "?"
     return _GREEN if value else _RED
 
 
 def _fmt_wall(seconds: object) -> str:
+    """Render seconds as minutes and seconds."""
     value = finite(seconds)
     if value is None:
         return "?"
-    if value >= 60:
-        return f"{int(value // 60)}m {int(value % 60)}s"
+    if value >= SECONDS_PER_MINUTE:
+        return f"{int(value // SECONDS_PER_MINUTE)}m {int(value % SECONDS_PER_MINUTE)}s"
     return f"{int(value)}s"
 
 
@@ -2481,6 +2364,7 @@ class AgentEntry:
 
 
 def _agent_entries(per_agent: list[object]) -> list[AgentEntry]:
+    """Parse the accounted per-agent rows, skipping any that is not an object."""
     entries: list[AgentEntry] = []
     for entry in per_agent:
         if not isinstance(entry, dict):
@@ -2507,24 +2391,21 @@ def _agent_entries(per_agent: list[object]) -> list[AgentEntry]:
 
 
 def _models_cell(models: tuple[str, ...]) -> str:
-    """`models_label`, with a per-agent reading of an empty record: a ledger
-    row exists, so no model affirmatively means no API call — `—`, not the
-    trend column's unknown `?`."""
+    """Render an agent's models, `—` when its ledger row records no API call."""
     return models_label(models) if models else "—"
 
 
 def _sum_cell(values: list[float | None], fmt: Callable[[float], str]) -> str:
-    """A total is honest only when every part is known — a partial sum would
-    understate the heaviest rows silently."""
+    """Render a total only when every part is known, else `?`."""
     if any(value is None for value in values):
         return "?"
     return fmt(sum(v for v in values if v is not None))
 
 
 def _hit_cell(group: list[AgentEntry]) -> str:
-    """The aggregate hit rate re-derives from summed tokens — averaging the
-    per-transcript percentages would weight a tiny transcript like a huge
-    one. Same honesty rule as _sum_cell: any unknown part yields '?'."""
+    """Render the cache-hit rate re-derived from summed tokens, `?` on any unknown part."""
+    # Averaging per-transcript percentages would weight a tiny transcript
+    # like a huge one.
     reads = [e.cache_read for e in group]
     totals = [e.total_input for e in group]
     if any(v is None for v in reads + totals):
@@ -2540,11 +2421,11 @@ def _agent_totals_rows(entries: list[AgentEntry]) -> list[str]:
     # An effort variant's transcripts fold into their base role, mirroring
     # accounting.VARIANT_SUFFIX: the tier is an implementation detail of the
     # role, and the deciding cost comparison needs one implementer row.
+    """Render the per-agent-type totals, spend-heaviest first."""
     groups: dict[str, list[AgentEntry]] = {}
     for entry in entries:
         agent_type = entry.agent_type
-        if agent_type.endswith("-routine"):
-            agent_type = agent_type[: -len("-routine")]
+        agent_type = agent_type.removesuffix("-routine")
         groups.setdefault(agent_type, []).append(entry)
     rows: list[tuple[float, str]] = []
     for agent_type, group in groups.items():
@@ -2566,11 +2447,7 @@ def _agent_totals_rows(entries: list[AgentEntry]) -> list[str]:
 
 
 def agents_section(costs: dict[str, object]) -> list[str]:
-    """Who ran: totals per agent type, spend-heaviest first — the roster,
-    its models, and where the money and wall-clock went. Spend is the
-    accounted (transcript-derived) figure, so rows are comparable even when
-    the CLI self-report differs. The per-transcript breakdown collapses into
-    a details block: dispatch-level variance is drill-down, not headline."""
+    """Render the agent roster with its totals and the per-transcript breakdown."""
     per_agent = costs.get("per_agent")
     if not isinstance(per_agent, list):
         return []
@@ -2618,106 +2495,152 @@ def agents_section(costs: dict[str, object]) -> list[str]:
 
 
 def _quote(text: str) -> list[str]:
-    """A blockquote, neutralized line by line. The whole-string cell scrub
-    would collapse newlines and strip indentation; the prompt's line
-    structure is part of the frozen contract and stays."""
+    """Render a blockquote neutralized line by line, keeping the prompt's line structure."""
     return ["> " + _CELL_UNSAFE.sub(" ", line).rstrip() for line in text.splitlines()]
 
 
 def _score_cell(value: object) -> str:
-    """A judge score for prose: `:g` drops the spurious `.0` an even-sample
-    median carries while a half-step keeps its fraction; a non-numeric
-    record renders neutralized rather than raising."""
+    """Render a judge score for prose, neutralizing a non-numeric record."""
     number = finite(value)
     if number is not None:
         return f"{number:g}"
     return scrub(str(value)) or "?"
 
 
-def render_run_page(
-    manifest: dict[str, object],
-    result: dict[str, object],
-    artifacts: list[str],
-    patch: str | None = None,
-    board: str | None = None,
-    costs: dict[str, object] | None = None,
-    approved: list[str] | None = None,
-    suite_failures: list[str] | None = None,
-    grade: str | None = None,
-    stalled: bool = False,
-) -> str:
-    """One run folder as prose: prompt, verdict, figures, the change, the
-    pipeline board, the agent roster, artifact links. Purely derived from
-    the folder's records, its file roster, and the patch and board texts."""
+@dataclass(frozen=True, slots=True)
+class RunFolder:
+    """One run folder's records and texts, the whole input of its page."""
 
-    def section(record: dict[str, object], key: str) -> dict[str, object]:
-        value = record.get(key)
-        return value if isinstance(value, dict) else {}
+    manifest: dict[str, object]
+    result: dict[str, object]
+    artifacts: list[str]
+    patch: str | None = None
+    board: str | None = None
+    costs: dict[str, object] | None = None
+    approved: tuple[Approval, ...] = ()
+    suite_failures: list[str] | None = None
+    grade: str | None = None
+    stalled: bool = False
 
-    task = section(manifest, "task")
-    version = section(manifest, "version")
-    sut = section(manifest, "sut")
-    agent = section(result, "agent")
-    accounted = section(agent, "accounted")
-    oracle = section(result, "oracle")
-    pipeline = section(result, "pipeline")
-    judge = section(result, "quality_judge")
-    diff = section(result, "diff")
 
-    task_id = scrub(str(task.get("id", "unknown")))
-    label = scrub(str(version.get("label", "?")))
-    raw_status = str(result.get("status", "error"))
-    status = scrub(raw_status)
+@dataclass(frozen=True, slots=True)
+class _PageFacts:
+    """The parsed record sections and derived facts every page section reads."""
+
+    task: dict[str, object]
+    version: dict[str, object]
+    sut: dict[str, object]
+    agent: dict[str, object]
+    accounted: dict[str, object]
+    oracle: dict[str, object]
+    pipeline: dict[str, object]
+    judge: dict[str, object]
+    diff: dict[str, object]
+    tests: dict[str, object]
+    kind: str
+    label: str
+    consultations: int | None
+    src_changed: int | None
+    ladder: list[tuple[str, bool]]
+
+
+def _page_facts(folder: RunFolder) -> _PageFacts:
+    """Parse the folder's records into the facts the page sections read."""
+    manifest, result = folder.manifest, folder.result
+    task = _table(manifest, "task")
+    agent = _table(result, "agent")
+    oracle = _table(result, "oracle")
+    pipeline = _table(result, "pipeline")
+    diff = _table(result, "diff")
+    tests = _table(oracle, "tests")
     kind = str(task.get("kind", ""))
-    tests = section(oracle, "tests")
     consultations = _int_or_none(pipeline.get("consultation_requests"))
     src_changed = _int_or_none(diff.get("src_files_changed"))
-    suite_green = oracle.get("suite_green")
     ladder = checkpoint_ladder(
-        kind,
-        raw_status,
-        _int_or_none(diff.get("files_changed")),
-        src_changed,
-        suite_green if isinstance(suite_green, bool) else None,
-        {str(name): str(outcome) for name, outcome in tests.items()},
-        consultations or 0,
+        LadderFacts(
+            kind,
+            str(result.get("status", "error")),
+            _int_or_none(diff.get("files_changed")),
+            src_changed,
+            _bool_or_none(oracle.get("suite_green")),
+            {str(name): str(outcome) for name, outcome in tests.items()},
+            consultations or 0,
+        )
     )
-    ckpt_hit = sum(1 for _name, hit in ladder if hit)
-    # The counts pass the int gate like every other number on the page — a
-    # string here would inject rows into the verdict table.
-    o_passed = _int_or_none(oracle.get("passed"))
-    o_total = _int_or_none(oracle.get("total"))
-    oracle_row = (
-        "| oracle | — (refusal task: graded by the recorded diff) |"
-        if kind == KIND_REFUSAL
-        else f"| oracle | {_mark(oracle.get('oracle_passed'))} "
-        f"{'?' if o_passed is None else o_passed}"
-        f"/{'?' if o_total is None else o_total} passed |"
+    return _PageFacts(
+        task=task,
+        version=_table(manifest, "version"),
+        sut=_table(manifest, "sut"),
+        agent=agent,
+        accounted=_table(agent, "accounted"),
+        oracle=oracle,
+        pipeline=pipeline,
+        judge=_table(result, "quality_judge"),
+        diff=diff,
+        tests=tests,
+        kind=kind,
+        label=scrub(str(_table(manifest, "version").get("label", "?"))),
+        consultations=consultations,
+        src_changed=src_changed,
+        ladder=ladder,
     )
-    lines = [
-        f"# {task_id} r{scrub(str(manifest.get('rep', '?')))} — {label}",
+
+
+def _header_lines(folder: RunFolder, facts: _PageFacts) -> list[str]:
+    """Render the title, the one-line summary, and the frozen prompt."""
+    manifest, task = folder.manifest, facts.task
+    task_id = scrub(str(task.get("id", "unknown")))
+    status = scrub(str(folder.result.get("status", "error")))
+    return [
+        f"# {task_id} r{scrub(str(manifest.get('rep', '?')))} — {facts.label}",
         "",
         f"{scrub(str(task.get('title', '?')))} ({scrub(str(task.get('kind', '?')))})"
         f" · started {scrub(str(manifest.get('started', '?')))}"
         f" · exec `{scrub(str(manifest.get('exec_mode', '?')))}`"
         f" · status **{status}**"
-        + (" · **stalled mid-pipeline** (README § Checkpoints)" if stalled else ""),
+        + (
+            " · **stalled mid-pipeline** (README § Checkpoints)"
+            if folder.stalled
+            else ""
+        ),
         "",
         "## Prompt",
         "",
         *_quote(str(manifest.get("prompt", ""))),
         "",
+    ]
+
+
+def _oracle_row(facts: _PageFacts) -> str:
+    """Render the verdict table's oracle row."""
+    if facts.kind == KIND_REFUSAL:
+        return "| oracle | — (refusal task: graded by the recorded diff) |"
+    # The counts pass the int gate like every other number on the page.
+    passed = _int_or_none(facts.oracle.get("passed"))
+    total = _int_or_none(facts.oracle.get("total"))
+    return (
+        f"| oracle | {_mark(facts.oracle.get('oracle_passed'))} "
+        f"{'?' if passed is None else passed}"
+        f"/{'?' if total is None else total} passed |"
+    )
+
+
+def _verdict_lines(folder: RunFolder, facts: _PageFacts) -> list[str]:
+    """Render the verdict table with its grade note, test list, and suite failures."""
+    oracle, grade = facts.oracle, folder.grade
+    lines = [
         "## Verdict",
         "",
         "| check | result |",
         "|---|---|",
-        oracle_row,
+        _oracle_row(facts),
         f"| suite (post-agent) | {_mark(oracle.get('suite_green'))} |",
         f"| suite (pristine baseline) | {_mark(oracle.get('suite_green_base'))} |",
-        f"| checkpoints | {ckpt_hit}/{len(ladder)} |",
+        f"| checkpoints | {sum(1 for _name, hit in facts.ladder if hit)}/{len(facts.ladder)} |",
         f"| reading depth (pipeline grade) | {scrub(grade) if grade else '—'} |",
     ]
-    if kind == KIND_REFUSAL:
+    if facts.kind == KIND_REFUSAL:
+        src_changed, consultations = facts.src_changed, facts.consultations
         lines += [
             f"| src files changed | {src_changed if src_changed is not None else '?'} |",
             "| consultation-request records (Tier B) |"
@@ -2731,120 +2654,149 @@ def render_run_page(
             " change grader (read from the ledger's `grader-verdict`"
             " record), never part of the bar.",
         ]
-    if tests:
+    if facts.tests:
         lines += [""] + [
             f"- {_mark(outcome == 'passed')} `{scrub(str(name))}` — "
             f"{scrub(str(outcome))}"
-            for name, outcome in sorted(tests.items())
+            for name, outcome in sorted(facts.tests.items())
         ]
-    if suite_failures:
-        shown = suite_failures[:20]
+    if folder.suite_failures:
+        shown = folder.suite_failures[:SHOWN_SUITE_FAILURES]
         lines += ["", "Post-agent suite failures (from the build log):", ""]
-        lines += [f"- `{scrub(name)[:160]}`" for name in shown]
-        if len(suite_failures) > len(shown):
+        lines += [f"- `{scrub(name)[:SUITE_FAILURE_CHARS]}`" for name in shown]
+        if len(folder.suite_failures) > len(shown):
             lines.append(
-                f"- … {len(suite_failures) - len(shown)} more in [`run.log`](run.log)"
+                f"- … {len(folder.suite_failures) - len(shown)} more in [`run.log`](run.log)"
             )
-    # The trend's Ckpt figures link here: the heading is the `#checkpoints`
-    # anchor, so the section stays the ladder's one linkable home.
-    lines += [
+    return lines
+
+
+def _checkpoint_lines(facts: _PageFacts) -> list[str]:
+    """Render the ladder under the heading the trend's Ckpt figures link to."""
+    return [
         "",
         "## Checkpoints",
         "",
         "The kind's graded ladder, derived from the recorded facts —"
         " context only, outside the quality bar (bench README § Checkpoints).",
         "",
+        *(f"- {_mark(hit)} `{scrub(name)}`" for name, hit in facts.ladder),
     ]
-    lines += [f"- {_mark(hit)} `{scrub(name)}`" for name, hit in ladder]
-    if judge:
-        median = section(judge, "median")
-        spread = section(judge, "spread")
-        judge_cost = finite(judge.get("cost_usd"))
-        judge_spend = f"${judge_cost:.2f}" if judge_cost is not None else "$?"
-        raw_samples = judge.get("samples")
-        parsed = [
-            s
-            for s in (raw_samples if isinstance(raw_samples, list) else [])
-            if isinstance(s, dict)
-        ]
-        # Rationale-bearing samples keep their position in the parsed list,
-        # so a sample number on the page indexes `result.json` directly.
-        samples = [
-            (number, s)
-            for number, s in enumerate(parsed, 1)
-            if str(s.get("rationale", "")).strip()
-        ]
-        # The median's basis is the parsed sample count — the runner records
-        # `samples_requested` as asked-for, not delivered.
-        requested = _int_or_none(judge.get("samples_requested"))
-        basis = len(parsed) if parsed else requested
-        count = f"{basis if basis is not None else '?'} sample(s)"
-        if parsed and requested is not None and requested != len(parsed):
-            count += f" ({requested} requested)"
+
+
+def _judge_samples(
+    judge: dict[str, object],
+) -> tuple[list[dict[str, object]], list[tuple[int, dict[str, object]]]]:
+    """Return the parsed samples and the rationale-bearing ones numbered by position."""
+    # Rationale-bearing samples keep their position in the parsed list, so a
+    # sample number on the page indexes result.json directly.
+    parsed = [
+        sample for sample in _list(judge.get("samples")) if isinstance(sample, dict)
+    ]
+    numbered = [
+        (number, sample)
+        for number, sample in enumerate(parsed, 1)
+        if str(sample.get("rationale", "")).strip()
+    ]
+    return parsed, numbered
+
+
+def _sample_lines(samples: list[tuple[int, dict[str, object]]]) -> list[str]:
+    """Render the per-sample rationales inside a collapsed block."""
+    lines = [
+        "",
+        "<details>",
+        "<summary>Per-sample rationales (judge-authored, untrusted text)</summary>",
+    ]
+    for number, sample in samples:
+        scores = " · ".join(
+            f"{facet.replace('_', '-')} {_score_cell(sample.get(facet, '?'))}"
+            for facet in JUDGE_FACETS
+        )
+        # The blockquote marker denies column-0 block syntax: a rationale
+        # opening with `~~~` or `#` would otherwise start a fence or heading.
         lines += [
             "",
-            "## Judge (advisory)",
+            f"**Sample {number}** — {scores}",
             "",
-            "| " + " | ".join(f.replace("_", "-") for f in JUDGE_FACETS) + " |",
-            "|---" * len(JUDGE_FACETS) + "|",
-            "| "
-            + " | ".join(
-                f"{_score_cell(median.get(f, '?'))} (±{_score_cell(spread.get(f, '?'))})"
-                for f in JUDGE_FACETS
-            )
-            + " |",
-            "",
-            f"Median (spread) over {count}"
-            f" · rubric `{scrub(str(judge.get('rubric', '?')))}`"
-            f" · `{scrub(str(judge.get('model', '?')))}`"
-            f" · {judge_spend}. Advisory context, never part"
-            " of the quality bar"
-            + ("; rationales below." if samples else "; rationales: `result.json`."),
+            "> " + html_safe(str(sample.get("rationale", ""))),
         ]
-        if samples:
-            lines += [
-                "",
-                "<details>",
-                "<summary>Per-sample rationales (judge-authored,"
-                " untrusted text)</summary>",
-            ]
-            for number, sample in samples:
-                scores = " · ".join(
-                    f"{f.replace('_', '-')} {_score_cell(sample.get(f, '?'))}"
-                    for f in JUDGE_FACETS
-                )
-                lines += [
-                    "",
-                    f"**Sample {number}** — {scores}",
-                    "",
-                    # The blockquote marker denies column-0 block syntax: a
-                    # rationale opening with `~~~` or `#` would otherwise
-                    # start a fence or heading (scrub strips backticks, not
-                    # tildes or hashes).
-                    "> " + html_safe(str(sample.get("rationale", ""))),
-                ]
-            lines += ["", "</details>"]
-    cost = agent.get("total_cost_usd")
-    wall = result.get("wall_seconds")
-    hit = accounted.get("hit_pct")
-    grading = grading_figures(costs) if grade else None
+    lines += ["", "</details>"]
+    return lines
+
+
+def _judge_lines(judge: dict[str, object]) -> list[str]:
+    """Render the advisory judge section, empty when the judge did not run."""
+    if not judge:
+        return []
+    median = _table(judge, "median")
+    spread = _table(judge, "spread")
+    judge_cost = finite(judge.get("cost_usd"))
+    judge_spend = f"${judge_cost:.2f}" if judge_cost is not None else "$?"
+    parsed, samples = _judge_samples(judge)
+    # The median's basis is the parsed sample count; the runner records
+    # samples_requested as asked-for, not delivered.
+    requested = _int_or_none(judge.get("samples_requested"))
+    basis = len(parsed) if parsed else requested
+    count = f"{basis if basis is not None else '?'} sample(s)"
+    if parsed and requested is not None and requested != len(parsed):
+        count += f" ({requested} requested)"
+    lines = [
+        "",
+        "## Judge (advisory)",
+        "",
+        "| " + " | ".join(facet.replace("_", "-") for facet in JUDGE_FACETS) + " |",
+        "|---" * len(JUDGE_FACETS) + "|",
+        "| "
+        + " | ".join(
+            f"{_score_cell(median.get(facet, '?'))} (±{_score_cell(spread.get(facet, '?'))})"
+            for facet in JUDGE_FACETS
+        )
+        + " |",
+        "",
+        f"Median (spread) over {count}"
+        f" · rubric `{scrub(str(judge.get('rubric', '?')))}`"
+        f" · `{scrub(str(judge.get('model', '?')))}`"
+        f" · {judge_spend}. Advisory context, never part"
+        " of the quality bar"
+        + ("; rationales below." if samples else "; rationales: `result.json`."),
+    ]
+    if samples:
+        lines += _sample_lines(samples)
+    return lines
+
+
+def _delivery(
+    folder: RunFolder, facts: _PageFacts, grading: GradingShare | None
+) -> tuple[float | None, float | None]:
+    """Return the delivery spend and wall with the grader's share netted out."""
+    # Proportional netting, the same rule as Run.agent_spend: the two cost
+    # sources price the run differently, so a cross-basis subtraction would
+    # over-net.
+    cost = facts.agent.get("total_cost_usd")
+    wall = folder.result.get("wall_seconds")
     delivery_wall = (
         max(wall - (grading.seconds if grading else 0.0), 0.0)
         if isinstance(wall, (int, float))
         else None
     )
-    # Proportional netting, the same rule as `Run.agent_spend`: the grader's
-    # accounted fraction applied to the self-report — the two sources price
-    # the run differently, so a cross-basis subtraction would over-net.
-    accounted_total = finite(accounted.get("cost"))
+    accounted_total = finite(facts.accounted.get("cost"))
     delivery_spend: float | None = None
     if isinstance(cost, (int, float)):
         delivery_spend = float(cost)
         if grading and accounted_total:
             fraction = min(grading.spend / accounted_total, 1.0)
             delivery_spend = float(cost) * (1.0 - fraction)
-    lines += _run_defect_lines(manifest, patch)
-    lines += ["", "## Figures", ""]
+    return delivery_spend, delivery_wall
+
+
+def _figure_lines(folder: RunFolder, facts: _PageFacts) -> list[str]:
+    """Render the delivery figures and, when graded, the grader's own share."""
+    grading = grading_figures(folder.costs) if folder.grade else None
+    delivery_spend, delivery_wall = _delivery(folder, facts, grading)
+    hit = facts.accounted.get("hit_pct")
+    diff = facts.diff
+    lines = ["", "## Figures", ""]
     if grading:
         lines += [
             "Delivery — the change grader's share below excluded from spend and wall:",
@@ -2857,12 +2809,14 @@ def render_run_page(
         + " | ".join(
             [
                 f"${delivery_spend:.2f}" if delivery_spend is not None else "?",
-                f"{delivery_wall / 60:.0f}m" if delivery_wall is not None else "?",
-                scrub(str(agent.get("num_turns", "?"))),
+                f"{delivery_wall / SECONDS_PER_MINUTE:.0f}m"
+                if delivery_wall is not None
+                else "?",
+                scrub(str(facts.agent.get("num_turns", "?"))),
                 f"{hit}%" if finite(hit) is not None else "?",
                 f"{scrub(str(diff.get('files_changed', '?')))} file(s)"
                 f" +{scrub(str(diff.get('insertions', '?')))}"
-                f"/−{scrub(str(diff.get('deletions', '?')))}",
+                f"/−{scrub(str(diff.get('deletions', '?')))}",  # noqa: RUF001
             ]
         )
         + " |",
@@ -2877,51 +2831,82 @@ def render_run_page(
             "|---|---|---|",
             f"| {grading.spend_cell} | {grading.wall_cell} | {grading.hit_cell} |",
         ]
-    if patch and patch.strip():
-        lines += ["", "## Change", ""]
-        if patch.count("\n") <= EMBED_MAX_LINES:
-            lines += diff_fence(patch)
-        else:
-            lines.append(
-                f"Patch over {EMBED_MAX_LINES} lines — too large to"
-                " embed; see [`change.patch`](change.patch)."
-            )
-    if board and board.strip():
-        lines += ["", "## Pipeline", ""]
-        if board.count("\n") <= EMBED_MAX_LINES:
-            lines += board_section(board)
-        else:
-            lines.append(
-                f"Board over {EMBED_MAX_LINES} lines — too large to"
-                " embed; render it from [`handoff.jsonl`](handoff.jsonl) with"
-                " `scripts/handoff.py view --markdown --verbose`."
-            )
-        lines += approved or []
-    if costs:
-        lines += agents_section(costs)
-    lines += [
+    return lines
+
+
+def _change_lines(patch: str | None) -> list[str]:
+    """Render the diff, linked instead of embedded past the embed bound."""
+    if not patch or not patch.strip():
+        return []
+    lines = ["", "## Change", ""]
+    if patch.count("\n") <= EMBED_MAX_LINES:
+        lines += diff_fence(patch)
+    else:
+        lines.append(
+            f"Patch over {EMBED_MAX_LINES} lines — too large to"
+            " embed; see [`change.patch`](change.patch)."
+        )
+    return lines
+
+
+def approved_lines(approvals: tuple[Approval, ...]) -> list[str]:
+    """Render the approvals collapsed beneath the board, each string escaped for it."""
+    if not approvals:
+        return []
+    lines = [
+        "",
+        "<details>",
+        "<summary>What the reviewers approved (from"
+        " <code>handoff.jsonl</code>)</summary>",
+        "",
+    ]
+    for author, aspects in approvals:
+        lines += [f"**{html_safe(author)}**", ""]
+        lines += [f"- {html_safe(aspect)}" for aspect in aspects]
+        lines.append("")
+    lines.append("</details>")
+    return lines
+
+
+def _pipeline_lines(board: str | None, approved: tuple[Approval, ...]) -> list[str]:
+    """Render the board and the approvals, linked instead of embedded past the bound."""
+    if not board or not board.strip():
+        return []
+    lines = ["", "## Pipeline", ""]
+    if board.count("\n") <= EMBED_MAX_LINES:
+        lines += board_section(board)
+    else:
+        lines.append(
+            f"Board over {EMBED_MAX_LINES} lines — too large to"
+            " embed; render it from [`handoff.jsonl`](handoff.jsonl) with"
+            " `scripts/handoff.py view --markdown --verbose`."
+        )
+    return lines + approved_lines(approved)
+
+
+def _provenance_lines(folder: RunFolder, facts: _PageFacts) -> list[str]:
+    """Render the artifact roster and the provenance block that close the page."""
+    manifest, version, sut, task = folder.manifest, facts.version, facts.sut, facts.task
+    present = set(folder.artifacts)
+    models = _list(facts.agent.get("models"))
+    return [
         "",
         "## Artifacts",
         "",
-    ]
-    present = set(artifacts)
-    lines += [
-        f"- [`{name}`]({name}) — {reading}"
-        for name, reading in RUN_PAGE_ARTIFACTS
-        if name in present
-    ]
-    models = agent.get("models")
-    model_list = models if isinstance(models, list) else []
-    lines += [
+        *(
+            f"- [`{name}`]({name}) — {reading}"
+            for name, reading in RUN_PAGE_ARTIFACTS
+            if name in present
+        ),
         "",
         "## Provenance",
         "",
         f"- plugin `{scrub(str(version.get('plugin', '?')))}` at"
-        f" `{label}` ({scrub(str(version.get('kind', '?')))})",
+        f" `{facts.label}` ({scrub(str(version.get('kind', '?')))})",
         f"- model requested `{scrub(str(manifest.get('model_requested', '?')))}`;"
-        f" models used: {models_label(tuple(sorted(str(m) for m in model_list)))}",
+        f" models used: {models_label(tuple(sorted(str(m) for m in models)))}",
         f"- SUT `{scrub(str(sut.get('repo', '?')))}` at"
-        f" `{scrub(str(sut.get('sha', '?'))[:12])}`"
+        f" `{scrub(str(sut.get('sha', '?'))[:SHA_CHARS])}`"
         f" (branch `{scrub(str(sut.get('branch', '?')))}`)",
         f"- task fingerprint `{scrub(str(task.get('fingerprint', '?')))}`"
         f" · `{scrub(str(manifest.get('cc_version', '?')))}`",
@@ -2929,66 +2914,72 @@ def render_run_page(
         "Generated by `evals/summarize.py` from this folder's records —"
         " regenerate rather than edit.",
     ]
+
+
+def render_run_page(folder: RunFolder) -> str:
+    """Render one run folder as prose, derived from its records and texts alone."""
+    facts = _page_facts(folder)
+    lines = [
+        *_header_lines(folder, facts),
+        *_verdict_lines(folder, facts),
+        *_checkpoint_lines(facts),
+        *_judge_lines(facts.judge),
+        *_run_defect_lines(folder.manifest, folder.patch),
+        *_figure_lines(folder, facts),
+        *_change_lines(folder.patch),
+        *_pipeline_lines(folder.board, folder.approved),
+        *(agents_section(folder.costs) if folder.costs else []),
+        *_provenance_lines(folder, facts),
+    ]
     return "\n".join(lines) + "\n"
 
 
+def _run_folder(out_dir: Path) -> RunFolder | None:
+    """Load one run folder's records and texts, or None when the records are unreadable."""
+    result = _read_json(out_dir / "result.json")
+    manifest = _read_json(out_dir / "manifest.json")
+    if result is None or manifest is None:
+        return None
+    patch_path = out_dir / "change.patch"
+    pipeline = _table(result, "pipeline")
+    outcome = Outcome(
+        kind=str(_table(manifest, "task").get("kind", "")),
+        status=str(result.get("status", "error")),
+        oracle_ok=_table(result, "oracle").get("oracle_passed"),
+        route=_str_or_none(pipeline.get("route_decision")),
+    )
+    return RunFolder(
+        manifest=manifest,
+        result=result,
+        artifacts=sorted(
+            p.name for p in out_dir.iterdir() if p.is_file() and p.name != "README.md"
+        ),
+        patch=patch_path.read_text(encoding="utf-8", errors="replace")
+        if patch_path.is_file()
+        else None,
+        board=render_pipeline(out_dir),
+        costs=_read_json(out_dir / "agent-costs.json"),
+        approved=reviewer_approvals(out_dir),
+        suite_failures=failed_suite_tests(out_dir),
+        grade=ledger_grader_verdict(out_dir),
+        stalled=run_stalled(outcome, out_dir),
+    )
+
+
 def render_run_pages() -> dict[Path, str]:
-    """Every run folder's page, keyed by its README.md path."""
+    """Render every run folder's page, keyed by its README.md path."""
     pages: dict[Path, str] = {}
     for result_path in sorted(RUNS_DIR.glob("*/*/result.json")):
-        out_dir = result_path.parent
-        manifest_path = out_dir / "manifest.json"
-        if not manifest_path.is_file():
-            continue
-        try:
-            result = json.loads(result_path.read_text(encoding="utf-8"))
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except ValueError:
-            continue
-        artifacts = sorted(
-            p.name for p in out_dir.iterdir() if p.is_file() and p.name != "README.md"
-        )
-
-        patch_path = out_dir / "change.patch"
-        costs_path = out_dir / "agent-costs.json"
-        costs: dict[str, object] | None = None
-        if costs_path.is_file():
-            try:
-                loaded = json.loads(costs_path.read_text(encoding="utf-8"))
-                costs = loaded if isinstance(loaded, dict) else None
-            except ValueError:
-                costs = None
-        pages[out_dir / "README.md"] = render_run_page(
-            manifest,
-            result,
-            artifacts,
-            patch_path.read_text(encoding="utf-8", errors="replace")
-            if patch_path.is_file()
-            else None,
-            render_pipeline(out_dir),
-            costs,
-            approved_section(out_dir),
-            failed_suite_tests(out_dir),
-            ledger_grader_verdict(out_dir),
-            run_stalled(
-                str((manifest.get("task") or {}).get("kind", "")),
-                str(result.get("status", "error")),
-                (result.get("oracle") or {}).get("oracle_passed"),
-                _str_or_none((result.get("pipeline") or {}).get("route_decision")),
-                out_dir,
-            ),
-        )
+        folder = _run_folder(result_path.parent)
+        if folder is not None:
+            pages[result_path.parent / "README.md"] = render_run_page(folder)
     return pages
 
 
 def trend_views(runs: list[Run], notes: tuple[Note, ...] = ()) -> dict[Path, str]:
-    """The trend split by commit destiny: `TREND.md` (committed) carries the
-    tagged series only; when any `dev-*` run is on disk, `TREND-dev.md`
-    (gitignored) carries the full table — the pre-release comparison the
-    maintainer loop reads. Dev runs are local measurements of an untagged
-    working tree: a committed row would link folders git never holds.
-    Operator notes validate against the tagged series — the committed
-    record is the record notes may discuss."""
+    """Render the trend views: the committed tagged page and data, plus the dev page when a dev run exists."""
+    # A committed row would link folders git never holds, so dev runs stay
+    # on the gitignored page; notes validate against the tagged series.
     tagged = [r for r in runs if not r.version.startswith("dev-")]
     validate_notes(notes, tagged)
     views = {
@@ -3003,13 +2994,7 @@ def trend_views(runs: list[Run], notes: tuple[Note, ...] = ()) -> dict[Path, str
 
 
 def trend_data_json(tagged: list[Run]) -> str:
-    """The tagged series as one machine-readable derived view — per-rep
-    records, the stable contract for the eval-trend figure and any other
-    consumer, regenerated and drift-gated with the pages. Rows are
-    recorded facts; every aggregate is a consumer-side computation, so no
-    aggregation policy is baked into the contract. The schema with
-    per-field meanings is evals/trend-data.schema.json; its spec_version
-    is decoupled from the harness version."""
+    """Render the tagged series as per-rep records, the machine-readable contract of the figure."""
     versions = sorted({r.version for r in tagged}, key=version_key)
     order = {v: i for i, v in enumerate(versions)}
     rows = sorted(
@@ -3049,13 +3034,7 @@ FIGURE_SOURCE = EVALS.parent / "docs" / "images" / "eval-trend.drawio"
 def figure_freshness_notice(
     runs: list[Run], source: Path = FIGURE_SOURCE
 ) -> str | None:
-    """A nudge, never a gate: the eval-trend figure is a dated snapshot
-    (update-diagrams skill owns the redraw), so it may lag the tables by
-    design. This compares its stamped version against the latest measured
-    release: every generate run ends with one status line — current, or the
-    redraw command — so silence never has to mean anything there. Two paths
-    stay silent by design: `--check` is drift-only, and with no tagged run
-    on record there is no release to compare."""
+    """Compare the figure's stamped version against the latest measured release, as a nudge."""
     tags = {r.version for r in runs if not r.version.startswith("dev-")}
     if not tags:
         return None
@@ -3083,31 +3062,48 @@ def figure_freshness_notice(
     )
 
 
+def _drifted_views(views: dict[Path, str]) -> list[str]:
+    """List every committed view that differs from its fresh render, orphans included."""
+    drifted = [
+        path.relative_to(EVALS).as_posix()
+        for path, text in views.items()
+        if (path.read_text(encoding="utf-8") if path.is_file() else "") != text
+    ]
+    # An orphaned page renders from nothing, so the drift compare would skip
+    # it; a TREND-dev.md with no dev run folder behind it is the same orphan.
+    drifted += [
+        f"{page.relative_to(EVALS).as_posix()} (orphaned)"
+        for page in sorted(RUNS_DIR.glob("*/*/README.md"))
+        if page not in views
+    ]
+    if TREND_DEV not in views and TREND_DEV.is_file():
+        drifted.append(f"{TREND_DEV.relative_to(EVALS).as_posix()} (orphaned)")
+    return drifted
+
+
+def _write_views(views: dict[Path, str]) -> None:
+    """Write every derived view, removing a dev trend page no dev run backs."""
+    TREND.parent.mkdir(parents=True, exist_ok=True)
+    for path, text in views.items():
+        path.write_text(text, encoding="utf-8")
+    if TREND_DEV not in views:
+        TREND_DEV.unlink(missing_ok=True)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Regenerate the derived views, or with --check report any drift from them."""
     flags = (argv if argv is not None else sys.argv)[1:]
     runs = load_runs()
-    views: dict[Path, str] = {
-        **trend_views(runs, load_notes()),
-        **render_run_pages(),
-    }
-    trend_text = views[TREND]
+    try:
+        views: dict[Path, str] = {
+            **trend_views(runs, load_notes()),
+            **render_run_pages(),
+        }
+    except NotesError as error:
+        print(error, file=sys.stderr)
+        return 1
     if "--check" in flags:
-        drifted = [
-            path.relative_to(EVALS).as_posix()
-            for path, text in views.items()
-            if (path.read_text(encoding="utf-8") if path.is_file() else "") != text
-        ]
-        # An orphaned page — a README.md in a folder whose records are gone
-        # or unparsable — renders from nothing, so drift compare would skip it.
-        drifted += [
-            f"{page.relative_to(EVALS).as_posix()} (orphaned)"
-            for page in sorted(RUNS_DIR.glob("*/*/README.md"))
-            if page not in views
-        ]
-        # A TREND-dev.md with no dev run folder behind it is the same kind
-        # of orphan: a view whose records are gone.
-        if TREND_DEV not in views and TREND_DEV.is_file():
-            drifted.append(f"{TREND_DEV.relative_to(EVALS).as_posix()} (orphaned)")
+        drifted = _drifted_views(views)
         if drifted:
             print(
                 f"derived view(s) drifted from the run folders:"
@@ -3117,12 +3113,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"{len(views)} derived view(s) match the run folders")
         return 0
-    TREND.parent.mkdir(parents=True, exist_ok=True)
-    for path, text in views.items():
-        path.write_text(text, encoding="utf-8")
-    if TREND_DEV not in views:
-        TREND_DEV.unlink(missing_ok=True)
-    print(trend_text)
+    _write_views(views)
+    print(views[TREND])
     notice = figure_freshness_notice(runs)
     if notice:
         print(notice, file=sys.stderr)
@@ -3130,4 +3122,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

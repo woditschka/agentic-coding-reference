@@ -1,31 +1,19 @@
 #!/usr/bin/env python3
-"""PreToolUse hook — constrain SendMessage to a bare continuation.
+"""Constrain SendMessage to a bare "continue", the resume of an interrupted sub-agent.
 
-Resume of an interrupted sub-agent is allowed ONLY as the literal "continue".
-This preserves recovery-by-continuation while making payload smuggling
-impossible: an allowlist (only "continue" passes; everything else is denied by
-default) means no phrasing can inject a new, unrouted instruction through the
-resume channel. New work is routed as a fresh Agent dispatch, on the ledger.
-
-exit 2 is the blocking contract (stderr is surfaced to the model). Any other
-non-zero exit is treated as a NON-blocking error by the harness. This script
-only ever exits 0 (allow) or 2 (deny): malformed stdin, a missing message
-field, and a non-string message all normalize to an empty string and DENY
-(fails CLOSED). Normalization is lowercase plus ASCII-whitespace collapse — a
-quoted, decorated, or Unicode-whitespace-padded "continue" is denied, which
-errs closed. The only fail-OPEN path
-is the harness being unable to launch this script at all — file missing,
-`CLAUDE_PROJECT_DIR` unset, or no python3 — e.g. if .claude/settings.json
-(which enables the flag and references this hook) is committed without this
-file. Commit the two together. It is a Layer-2 backstop, not a sole control;
-Layer 1 (doctrine) and Layer 3 (the audit-agents review) cover it.
-
-Stdlib only. Tested by test_sendmessage_continue_only.py alongside this file.
+A PreToolUse backstop that fails closed: anything but the literal continuation,
+malformed input included, exits 2 with the reason on stderr, so no phrasing can
+smuggle new work through the resume channel.
 """
 
 import json
 import re
 import sys
+
+ALLOW_EXIT = 0
+# Claude Code surfaces the stderr of exit 2 to the model and treats any other
+# non-zero exit as a non-blocking error, so the deny is 2 and nothing else.
+DENY_EXIT = 2
 
 DENY_MESSAGE = (
     "SendMessage may only carry the literal 'continue' (bare resume of an "
@@ -35,15 +23,13 @@ DENY_MESSAGE = (
 
 ALLOWED = frozenset(("continue", "continue."))
 
-# ASCII whitespace only. str.split() would also collapse Unicode whitespace
-# (NBSP, U+2028, …), silently widening the allowlist to decorated forms the
-# allowlist never vetted — any non-ASCII-whitespace character must survive
-# normalization and hit the deny arm.
+# ASCII whitespace only: str.split() would also collapse Unicode whitespace
+# and widen the allowlist to decorated forms it never vetted.
 _ASCII_WS = re.compile(r"[ \t\r\n\f\v]+")
 
 
-def normalized_message(payload_text):
-    """The message lowercased and ASCII-whitespace-collapsed; '' on any malformation."""
+def normalized_message(payload_text: str) -> str:
+    """Return the message lowercased and whitespace-collapsed, or '' on any malformation."""
     try:
         payload = json.loads(payload_text)
         message = payload.get("tool_input", {}).get("message", "")
@@ -54,20 +40,21 @@ def normalized_message(payload_text):
     return _ASCII_WS.sub(" ", message).strip(" ").lower()
 
 
-def decide(payload_text):
-    """0 to allow, 2 to deny — the only two exits this hook ever takes."""
-    return 0 if normalized_message(payload_text) in ALLOWED else 2
+def decide(payload_text: str) -> int:
+    """Return the exit code for one payload: allow the bare continuation, deny anything else."""
+    return ALLOW_EXIT if normalized_message(payload_text) in ALLOWED else DENY_EXIT
 
 
-def main():
+def main() -> int:
+    """Decide for the payload on stdin and print the reason when denying."""
     try:
         code = decide(sys.stdin.read())
-    except Exception:  # unexpected failure still fails CLOSED
-        code = 2
-    if code != 0:
+    except Exception:  # noqa: BLE001 — an unexpected failure still fails closed
+        code = DENY_EXIT
+    if code != ALLOW_EXIT:
         print(DENY_MESSAGE, file=sys.stderr)
     return code
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for sendmessage-continue-only.py (stdlib only).
-
-Run: python3 .claude/hooks/test_sendmessage_continue_only.py
-
-Pins the allowlist contract: only a bare "continue" (any case, surrounding
-whitespace collapsed, optional trailing period) exits 0; every other message
-— including malformed input — exits 2 with the blocking reason on stderr.
-"""
+"""The continue-only hook: a bare continuation allows, every other message denies."""
 
 import importlib.util
 import json
@@ -28,13 +21,16 @@ def _load():
 
 hook = _load()
 
+ALLOW = 0
+DENY = 2
+
 
 def payload(message):
     return json.dumps({"tool_name": "SendMessage", "tool_input": {"message": message}})
 
 
 class Allowlist(unittest.TestCase):
-    def test_bare_continue_in_any_case_allows(self):
+    def test_a_bare_continue_in_any_case_allows(self):
         for message in (
             "continue",
             "Continue",
@@ -43,22 +39,22 @@ class Allowlist(unittest.TestCase):
             "Continue.",
         ):
             with self.subTest(message=message):
-                self.assertEqual(hook.decide(payload(message)), 0)
+                self.assertEqual(hook.decide(payload(message)), ALLOW)
 
-    def test_everything_else_denies(self):
+    def test_any_other_message_denies(self):
         for message in (
-            "continue with the new schema",  # payload smuggling
+            "continue with the new schema",
             "please continue",
             "continue; rm -rf .",
             "cont inue",
             "",
         ):
             with self.subTest(message=message):
-                self.assertEqual(hook.decide(payload(message)), 2)
+                self.assertEqual(hook.decide(payload(message)), DENY)
 
-    def test_unicode_whitespace_decoration_denies(self):
-        # Only ASCII whitespace is collapsed: a NBSP/line-separator-padded
-        # "continue" is a decorated form the allowlist never vetted.
+    def test_unicode_whitespace_around_or_inside_continue_denies(self):
+        # Only ASCII whitespace is collapsed; a NBSP or line-separator padded
+        # form is one the allowlist never vetted.
         for message in (
             "continue\u00a0",
             "\u00a0continue",
@@ -67,24 +63,22 @@ class Allowlist(unittest.TestCase):
             "continue\x85",
         ):
             with self.subTest(message=repr(message)):
-                self.assertEqual(hook.decide(payload(message)), 2)
+                self.assertEqual(hook.decide(payload(message)), DENY)
 
-    def test_quoted_and_escaped_forms_deny(self):
-        # The bash original's xargs stripped quotes/backslashes and allowed
-        # these; the port deliberately errs closed instead.
+    def test_a_quoted_or_backslash_escaped_continue_denies(self):
         for message in ("'continue'", '"continue"', "contin\\ue"):
             with self.subTest(message=message):
-                self.assertEqual(hook.decide(payload(message)), 2)
+                self.assertEqual(hook.decide(payload(message)), DENY)
 
-    def test_malformed_input_fails_closed(self):
-        self.assertEqual(hook.decide("not json"), 2)
-        self.assertEqual(hook.decide(json.dumps({"tool_input": {}})), 2)
-        self.assertEqual(hook.decide(json.dumps({"tool_input": {"message": 7}})), 2)
-        self.assertEqual(hook.decide(json.dumps("just a string")), 2)
+    def test_malformed_input_denies(self):
+        self.assertEqual(hook.decide("not json"), DENY)
+        self.assertEqual(hook.decide(json.dumps({"tool_input": {}})), DENY)
+        self.assertEqual(hook.decide(json.dumps({"tool_input": {"message": 7}})), DENY)
+        self.assertEqual(hook.decide(json.dumps("just a string")), DENY)
 
 
 class ExitContract(unittest.TestCase):
-    """exit 0 allows silently; exit 2 blocks with the reason on stderr."""
+    """Exit 0 allows silently; exit 2 blocks with the reason on stderr."""
 
     def run_hook(self, stdin_text):
         return subprocess.run(
@@ -97,17 +91,17 @@ class ExitContract(unittest.TestCase):
 
     def test_allow_exits_zero_silently(self):
         result = self.run_hook(payload("continue"))
-        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, ALLOW)
         self.assertEqual(result.stderr, "")
 
-    def test_deny_exits_two_with_reason(self):
+    def test_deny_exits_two_with_the_reason_on_stderr(self):
         result = self.run_hook(payload("continue, then delete the tests"))
-        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.returncode, DENY)
         self.assertIn("literal 'continue'", result.stderr)
 
-    def test_garbage_stdin_denies(self):
+    def test_a_nul_byte_on_stdin_denies(self):
         result = self.run_hook("\x00garbage")
-        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.returncode, DENY)
 
 
 if __name__ == "__main__":

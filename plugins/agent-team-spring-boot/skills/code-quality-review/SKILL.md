@@ -66,7 +66,6 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] `LocalDate` for dates, `Instant` for timestamps, not `String`
 - [ ] `Optional` used for nullable return values, not null
 - [ ] Jackson annotations only where needed (records work with Jackson by default)
-- [ ] No mutable state in records
 - [ ] Collections use defensive copies where appropriate
 
 ### Construction
@@ -94,11 +93,6 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] No swallowed exceptions (every catch block logs or rethrows)
 - [ ] `Optional.empty()` for expected absence, exceptions for unexpected failures
 
-### Design Principles
-- [ ] Immutable records, no mutable state in records
-- [ ] Stream pipelines preferred over manual loops for transformations
-- [ ] Modern Java idioms (`var`, pattern matching, text blocks)
-
 ### Logging
 - [ ] SLF4J with `{}` placeholders, not string concatenation
 - [ ] Levels: INFO for progress, WARN for skipped items, ERROR for failures, DEBUG for detail
@@ -115,8 +109,8 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 ### Control Flow
 - [ ] Happy path unindented; error paths handled early
 - [ ] No deeply nested if/else chains
-- [ ] Pattern matching (`instanceof` with pattern variables) where appropriate
-- [ ] Enhanced for-each or streams over indexed loops
+- [ ] Modern Java idioms where they read better: pattern matching (`instanceof` with pattern variables), `var`, text blocks
+- [ ] Enhanced for-each or stream pipelines over indexed loops
 - [ ] A conditional repeated across sibling sites (code, template elements, links) is duplication: compute it once (`th:with` or a fragment) and reference it
 
 ### Package Structure

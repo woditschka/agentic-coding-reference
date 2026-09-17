@@ -1,43 +1,13 @@
 #!/usr/bin/env python3
-"""Refresh the harness-managed chapters of a consumer's CLAUDE.md in place.
+"""Refresh the harness-managed chapters of a consumer's CLAUDE.md in place, and stamp the release date.
 
     refresh-chapters.py <claude-md> <harness-root> [version-date]
 
-CLAUDE.md is project-owned — scaffolded once, never overwritten. But several of
-its chapters are stack-agnostic harness doctrine: Agent Usage, Memory, Writing
-Standards, the Scratch Directory, Documentation Updates. They are single-sourced
-in one file, harness/claude-md/managed-chapters.md, whose chapters are the
-managed set — add a chapter by adding a `## ` section, remove one by deleting
-it. That file mirrors the shipped CLAUDE.md: its chapters, in this order,
-are what materializes. Each chapter is identified by its `## ` heading and
-replaced in the target in place: from that heading to the next `## ` heading (or
-end of file). Only the managed chapters are rewritten; every other chapter is
-the project's, including the per-stack `## Stack-specific skills` chapter and all
-build/toolchain/convention chapters. Chapters stay interleaved in the project's
-own order — each is found and replaced independently by its heading.
-
-Heading detection is fence-aware: a `## ` line inside a ```fenced``` block is
-illustrative text, not a chapter boundary, and is never matched or treated as a
-boundary — matching the doctor's check_required_chapters. Without this a
-consumer that quotes a managed heading inside an example fence would be
-corrupted by the replace.
-
-A heading that is absent in the target (a greenfield or legacy file with a
-renamed/missing chapter) is reported and left untouched for the /init fill
-(greenfield) or the /materialize migration (legacy).
-
-This tree is source-only: not under core/ or stacks/, so materialize never
-copies it into a target as runtime.
-
-Besides the chapters, this also stamps the harness release date as CLAUDE.md's
-first line (see stamp_date) — a greppable token that lands in every session's
-context for downstream version attribution.
-
-All replacements compose in memory; the target is written once, by a temp file
-in its own directory and an atomic same-filesystem rename. A malformed source
-or a mid-run failure therefore never leaves a half-refreshed target.
-
-Stdlib only. Tested by test_refresh_chapters.py.
+Each chapter of harness/claude-md/managed-chapters.md is found in the target
+by its `## ` heading outside code fences and replaced through the next such
+heading; every other chapter is the project's, and an absent heading is
+reported and left for init or the materialize migration. Source-only, never
+materialized as runtime; stdlib only.
 """
 
 import os
@@ -47,18 +17,27 @@ import tempfile
 from pathlib import Path
 
 USAGE = "usage: refresh-chapters.py <claude-md> <harness-root> [version-date]"
+ARG_COUNTS = (3, 4)
+USAGE_EXIT = 2
+FAILURE_EXIT = 1
+# The bound keeps a symlink cycle from hanging the refresh.
+MAX_SYMLINK_CHAIN = 10
 
 # The harness-reserved stamp-line prefix: the upsert removes any line matching
-# this, so a consumer must not author their own comment with that prefix.
+# it, so a consumer must not author a comment with that prefix.
 STAMP_LINE = re.compile(r"^[ \t]*<!--[ \t]*harness:")
 
 
-def _is_fence(line):
+class RefreshError(Exception):
+    """A source or target defect the refresh reports on stderr and exits on."""
+
+
+def _is_fence(line: str) -> bool:
     return line.lstrip(" \t").startswith("```")
 
 
-def chapter_titles(lines):
-    """Each real (non-fenced) `## ` heading, in order."""
+def chapter_titles(lines: list[str]) -> list[str]:
+    """Return each `## ` heading outside a code fence, in order."""
     titles, fence = [], False
     for line in lines:
         if _is_fence(line):
@@ -69,8 +48,8 @@ def chapter_titles(lines):
     return titles
 
 
-def heading_present(lines, title):
-    """Is the title present as a real (non-fenced) heading line?"""
+def heading_present(lines: list[str], title: str) -> bool:
+    """Report whether the title is present as a heading outside a code fence."""
     fence = False
     for line in lines:
         if _is_fence(line):
@@ -81,10 +60,8 @@ def heading_present(lines, title):
     return False
 
 
-def extract_chapter(lines, title):
-    """The chapter named title: its heading line through the line before the
-    next real `## ` heading (or end of file), fence-aware. Trailing blank
-    lines are trimmed so replace_chapter controls the single separating blank."""
+def extract_chapter(lines: list[str], title: str) -> list[str]:
+    """Return the chapter from its heading through the line before the next heading, trailing blanks trimmed."""
     out, started, fence = [], False, False
     for line in lines:
         if _is_fence(line):
@@ -105,11 +82,8 @@ def extract_chapter(lines, title):
     return out
 
 
-def replace_chapter(lines, chapter, title):
-    """The target lines with the heading-bounded chapter replaced by `chapter`.
-    Assumes the title is present as a real heading. Fence-aware: the title is
-    matched and the chapter boundary (next `## `) is recognized only outside
-    fenced blocks."""
+def replace_chapter(lines: list[str], chapter: list[str], title: str) -> list[str]:
+    """Return the lines with the heading-bounded chapter replaced, fence-aware."""
     out, fence, skip, done = [], False, False, False
     for line in lines:
         if _is_fence(line):
@@ -133,83 +107,76 @@ def replace_chapter(lines, chapter, title):
     return out
 
 
-def stamp_date(lines, version_date):
-    """The lines with the harness release date stamped as the first line.
-
-    A single greppable token — `<!-- harness: <YYYY-MM-DD> -->` — lands in the
-    system-prompt context of EVERY session, because CLAUDE.md is the one file
-    injected into all of them. The date is the release date of the materialized
-    version (single-sourced from VERSION-DATE): orderable, and a one-to-one
-    stand-in for the version. Unlike a wall-clock stamp it stays stable across
-    re-materialize, so the samples' faithfulness check holds. Upsert: drop any
-    existing stamp line (leading whitespace tolerated, matching the doctor's
-    detector), then prepend the current one — an upgrade replaces it in place
-    and never duplicates or accumulates it."""
-    kept = [l for l in lines if not STAMP_LINE.match(l)]
-    return [f"<!-- harness: {version_date} -->"] + kept
+def stamp_date(lines: list[str], version_date: str) -> list[str]:
+    """Return the lines with the release date stamped as the first line, replacing any prior stamp."""
+    # The stamp lands in the context of every session, since CLAUDE.md is the
+    # one file injected into all of them; the release date stays stable across
+    # re-materialize where a wall-clock stamp would not.
+    kept = [line for line in lines if not STAMP_LINE.match(line)]
+    return [f"<!-- harness: {version_date} -->", *kept]
 
 
-def resolve_symlink(path):
-    """The backing file of a (possibly chained) symlink, so the write-and-rename
-    updates the real file and preserves the link instead of clobbering the
-    symlink with a regular file. Chains longer than 10 links fail loud (the
-    same bound handoff.py puts on $ref chains) so a symlink cycle cannot hang
-    the refresh."""
-    orig = Path(path)
-    path = orig
-    for _ in range(11):
+def resolve_symlink(path: Path) -> Path:
+    """Return the backing file of a possibly chained symlink, so the rename updates the real file."""
+    orig = path
+    for _ in range(MAX_SYMLINK_CHAIN + 1):
         if not path.is_symlink():
             return path
-        link = Path(os.readlink(path))
+        link = path.readlink()
         path = link if link.is_absolute() else path.parent / link
     raise SystemExit(
-        f"refresh-chapters: symlink chain at {orig} exceeds 10 links — cycle?"
+        f"refresh-chapters: symlink chain at {orig} exceeds {MAX_SYMLINK_CHAIN} links — cycle?"
     )
 
 
-def atomic_write(path, text):
-    """Write via a temp file in the target's own directory, then an atomic
-    same-filesystem rename — never a cross-device copy that an interruption
-    could leave half-written."""
+def atomic_write(path: Path, text: str) -> None:
+    """Write through a temp file in the target's directory and an atomic same-filesystem rename."""
     fd, tmp = tempfile.mkstemp(prefix=".claude-md.", dir=str(path.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
-        os.replace(tmp, path)
+        Path(tmp).replace(path)
     except BaseException:
-        os.unlink(tmp)
+        Path(tmp).unlink()
         raise
 
 
-def apply(claude_md, root, version_date=""):
-    """Refresh every managed chapter, stamp the date, print the report line.
+def _managed_titles(src: Path, src_lines: list[str]) -> list[str]:
+    # A duplicate would replace the same target chapter twice, so the source
+    # is validated before any write.
+    titles = chapter_titles(src_lines)
+    if not titles:
+        raise RefreshError(f"{src} has no '## ' chapters")
+    seen: set[str] = set()
+    for title in titles:
+        if title in seen:
+            raise RefreshError(f"{src} has a duplicate '{title}' chapter")
+        seen.add(title)
+    return titles
 
-    Returns the exit code. Nothing is written until every replacement has
-    composed cleanly in memory."""
-    claude = Path(claude_md)
-    src = Path(root) / "claude-md" / "managed-chapters.md"
+
+def _release_date(root: Path, version_date: str) -> str:
+    # An explicit argument wins; otherwise VERSION-DATE at the harness or
+    # plugin root, the directory that holds claude-md/.
+    stamp_file = root / "VERSION-DATE"
+    if not version_date and stamp_file.is_file():
+        return "".join(stamp_file.read_text(encoding="utf-8").split())
+    return version_date
+
+
+def _refresh(claude: Path, root: Path, version_date: str) -> int:
+    src = root / "claude-md" / "managed-chapters.md"
     if not claude.is_file():
-        print(f"refresh: no CLAUDE.md at {claude}", file=sys.stderr)
-        return 1
+        raise RefreshError(f"no CLAUDE.md at {claude}")
     if not src.is_file():
-        print(f"refresh: missing chapter source {src}", file=sys.stderr)
-        return 1
-
+        raise RefreshError(f"missing chapter source {src}")
     src_lines = src.read_text(encoding="utf-8").splitlines()
     if not src_lines or not src_lines[0].startswith("## "):
-        print(f"refresh: {src} must start with a '## ' heading", file=sys.stderr)
-        return 1
-
+        raise RefreshError(f"{src} must start with a '## ' heading")
     claude = resolve_symlink(claude)
-
-    # CRLF guard. Heading matching is exact, so a CRLF target (`## Memory\r`)
-    # would match no managed heading and silently refresh nothing — and the
-    # marketplace setup runs no doctor to catch it. Refuse loudly instead.
-    # Normalizing here would either still miss the match or mix line endings
-    # on write; the consumer normalizes to LF (the harness convention) and
-    # re-runs.
-    # read_bytes, not read_text: universal-newline translation would hide the
-    # very CRLF this guard exists to refuse.
+    # read_bytes, not read_text: newline translation would hide the CRLF.
+    # Heading matching is exact, so a CRLF target would match nothing and
+    # silently refresh nothing; it is refused instead.
     raw = claude.read_bytes().decode("utf-8")
     if "\r" in raw:
         print(
@@ -218,23 +185,7 @@ def apply(claude_md, root, version_date=""):
         )
         print("0 refreshed (CRLF — normalize to LF)")
         return 0
-
-    # Pre-flight, before any write: the managed set is the source's `## `
-    # headings. It must be non-empty and duplicate-free. A duplicate would
-    # replace the same target chapter twice; validating here (not mid-loop)
-    # means a malformed source fails loud and never half-refreshes the target.
-    titles = chapter_titles(src_lines)
-    if not titles:
-        print(f"refresh: {src} has no '## ' chapters", file=sys.stderr)
-        return 1
-    seen = set()
-    for title in titles:
-        if title in seen:
-            print(f"refresh: {src} has a duplicate '{title}' chapter", file=sys.stderr)
-            return 1
-        seen.add(title)
-
-    # Apply: replace each chapter present in the target, report the absent ones.
+    titles = _managed_titles(src, src_lines)
     lines = raw.splitlines()
     refreshed, absent = 0, []
     for title in titles:
@@ -243,27 +194,14 @@ def apply(claude_md, root, version_date=""):
             refreshed += 1
         else:
             absent.append(title)
-
-    # Resolve the harness release date and stamp it as CLAUDE.md's first line.
-    # An explicit argument wins; otherwise the VERSION-DATE file at the
-    # harness/plugin root — the same dir that holds claude-md/. So materialize
-    # and init (root = harness/) and the marketplace setup (root = the plugin,
-    # which bundles VERSION-DATE) all resolve it without passing it. A bare
-    # direct call with no VERSION-DATE leaves the stamp untouched rather than
-    # failing the refresh.
+    version_date = _release_date(root, version_date)
     stamp_note = ", date not stamped (no VERSION-DATE)"
-    stamp_file = Path(root) / "VERSION-DATE"
-    if not version_date and stamp_file.is_file():
-        version_date = "".join(stamp_file.read_text(encoding="utf-8").split())
     if version_date:
         lines = stamp_date(lines, version_date)
         stamp_note = f", date {version_date} stamped"
-
-    # Nothing replaced and nothing to stamp is a no-op: leave the target's
-    # bytes (and mtime) alone.
+    # Nothing replaced and nothing to stamp leaves the target's bytes alone.
     if refreshed or version_date:
         atomic_write(claude, "\n".join(lines) + "\n")
-
     if absent:
         print(
             f"{refreshed} refreshed, {len(absent)} absent: {' '.join(absent)}{stamp_note}"
@@ -273,12 +211,22 @@ def apply(claude_md, root, version_date=""):
     return 0
 
 
-def main(argv):
-    if len(argv) not in (3, 4):
+def apply(claude_md: str | Path, root: str | Path, version_date: str = "") -> int:
+    """Refresh every managed chapter, stamp the date, print the report line, and return the exit code."""
+    try:
+        return _refresh(Path(claude_md), Path(root), version_date)
+    except RefreshError as exc:
+        print(f"refresh: {exc}", file=sys.stderr)
+        return FAILURE_EXIT
+
+
+def main(argv: list[str]) -> int:
+    """Refresh from the command line and return the exit code."""
+    if len(argv) not in ARG_COUNTS:
         print(USAGE, file=sys.stderr)
-        return 2
+        return USAGE_EXIT
     return apply(*argv[1:])
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

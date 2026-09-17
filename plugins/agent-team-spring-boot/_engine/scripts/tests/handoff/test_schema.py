@@ -48,6 +48,8 @@ from tests.support import (
 
 A_DECLARED_EXTRA_REVIEWER = "perf-reviewer"
 SOME_LINE_POINTER = 3
+RETRY_MIN = TEST_SCHEMA["properties"]["retry"]["minimum"]
+RETRY_MAX = TEST_SCHEMA["properties"]["retry"]["maximum"]
 NESTING_PAST_THE_INTERPRETER_LIMIT = 1_000_000
 AN_OVERSIZED_NOTE = "x" * 1_000_000
 
@@ -212,7 +214,7 @@ class OnlyMissingLog(unittest.TestCase):
     def test_the_missing_message_alone_reads_as_only_missing(self):
         self.assertTrue(only_missing_log(["no handoff log at x"]))
 
-    def test_any_other_error_does_not(self):
+    def test_any_other_error_does_not_read_as_only_missing(self):
         self.assertFalse(
             only_missing_log(["no handoff log at x", "line 1: invalid JSON"])
         )
@@ -247,10 +249,20 @@ class RecordValidation(unittest.TestCase):
         self.assertIn("is not an ISO 8601 date-time", error)
 
     def test_an_integer_below_the_minimum_is_a_violation(self):
-        self.assertEqual(self.errors(a_record(retry=0)), ["$.retry: 0 below minimum 1"])
+        below = RETRY_MIN - 1
+
+        self.assertEqual(
+            self.errors(a_record(retry=below)),
+            [f"$.retry: {below} below minimum {RETRY_MIN}"],
+        )
 
     def test_an_integer_above_the_maximum_is_a_violation(self):
-        self.assertEqual(self.errors(a_record(retry=4)), ["$.retry: 4 above maximum 3"])
+        above = RETRY_MAX + 1
+
+        self.assertEqual(
+            self.errors(a_record(retry=above)),
+            [f"$.retry: {above} above maximum {RETRY_MAX}"],
+        )
 
     def test_an_empty_array_fails_min_items(self):
         self.assertEqual(
@@ -371,7 +383,7 @@ class ReferenceResolution(unittest.TestCase):
         self.assertIn("$ref chain too deep", str(caught.exception))
 
 
-class SchemaDirectory:
+class SchemaDirectoryCase(unittest.TestCase):
     """A schema directory holding the test schema, written per test."""
 
     def setUp(self):
@@ -384,7 +396,7 @@ class SchemaDirectory:
         (self.schemas / f"{record_type}.schema.json").write_text(text)
 
 
-class SchemaLoading(SchemaDirectory, unittest.TestCase):
+class SchemaLoading(SchemaDirectoryCase):
     def load(self, record_type, layout=None):
         return load_schema(str(self.schemas), record_type, layout)
 
@@ -424,7 +436,7 @@ class SchemaLoading(SchemaDirectory, unittest.TestCase):
         self.assertEqual(schema["properties"]["tname"]["pattern"], "^Test")
 
 
-class LogSchemaErrors(SchemaDirectory, unittest.TestCase):
+class LogSchemaErrors(SchemaDirectoryCase):
     def errors_of(self, *raws, layout=None):
         entries = [LogEntry(no, raw) for no, raw in enumerate(raws, 1)]
         return log_schema_errors(entries, str(self.schemas), layout or {})
@@ -447,7 +459,7 @@ class LogSchemaErrors(SchemaDirectory, unittest.TestCase):
         )
 
     def test_a_violation_carries_its_line(self):
-        errors = self.errors_of(a_record(), a_record(retry=9))
+        errors = self.errors_of(a_record(), a_record(retry=RETRY_MAX + 1))
 
         self.assertEqual(len(errors), 1)
         self.assertTrue(errors[0].startswith("line 2: "))
@@ -591,7 +603,7 @@ class RealSchemas(unittest.TestCase):
     def test_canonical_order_follows_the_dispatch_start_schema(self):
         schema = load_schema(str(_REPO_SCHEMAS), "dispatch-start")
         shuffled = {
-            "responding_to": [0],
+            "responding_to": [SOME_LINE_POINTER],
             "author": "feature-implementer",
             "ts": SOME_TS,
             "req_id": SOME_REQ_ID,
@@ -620,7 +632,7 @@ class Sanitizing(unittest.TestCase):
         self.assertEqual(sanitize("a\r\nb\tc"), "a b c")
 
 
-class TheClock(unittest.TestCase):
+class Clock(unittest.TestCase):
     def test_the_stamp_is_utc(self):
         parsed = datetime.datetime.fromisoformat(ts_now())
 

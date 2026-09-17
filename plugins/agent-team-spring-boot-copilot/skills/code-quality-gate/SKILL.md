@@ -65,7 +65,7 @@ Formats all Java files with google-java-format. Run before `checkJavaFormat`.
 
 ## IDE Static Analysis (optional)
 
-When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat` stays authoritative, and a client without an oracle relies on the Gradle checks above. Procedure, error/warning classification, and the stale-index caveat live in the `intellij-idea` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__idea__*` tools this run (see `intellij-idea` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
+When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat` stays authoritative, and a client without an oracle relies on the Gradle checks above. Procedure, error/warning classification, and the stale-index caveat live in the `intellij-idea` skill. Report this pre-check honestly: claim it only if the IntelliJ MCP tool `get_file_problems` actually ran this run (see `intellij-idea` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
 
 ## Configuration Sync
 
@@ -83,7 +83,7 @@ A feature is complete when:
 - [ ] All TDD cycles finished
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] All tests pass (`./gradlew test`)
-- [ ] IDE static-analysis pre-check clean on touched files — check this box only if the `mcp__idea__*` tools were actually invoked this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
+- [ ] IDE static-analysis pre-check clean on touched files — check this box only if the IntelliJ MCP tool `get_file_problems` actually ran this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
 - [ ] Code formatted (`./gradlew formatJava`)
 - [ ] Format check passes (`./gradlew checkJavaFormat`)
 - [ ] Project builds (`./gradlew build`)

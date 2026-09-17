@@ -16,7 +16,11 @@ from handoff import (
 NOON_UTC = "2026-07-06T12:00:00+00:00"
 NOON_BARE = "2026-07-06T12:00:00"
 NOON_Z = "2026-07-06T12:00:00Z"
-NOON_PLUS_TWO = "2026-07-06T12:00:00+02:00"
+A_NON_STRING = 12
+SOME_MOMENT = 5.0
+A_LATER_MOMENT = 10.0
+UNDER_A_MINUTE = 45
+SOME_MINUTES = 15
 
 
 class IsoParsing(unittest.TestCase):
@@ -44,7 +48,7 @@ class SecondsOf(unittest.TestCase):
         self.assertEqual(seconds_of(NOON_Z), parse_iso_seconds(NOON_Z))
 
     def test_a_non_string_is_none(self):
-        self.assertIsNone(seconds_of(12))
+        self.assertIsNone(seconds_of(A_NON_STRING))
 
 
 class ClockFace(unittest.TestCase):
@@ -63,22 +67,26 @@ class ClockFace(unittest.TestCase):
 
 class Elapsed(unittest.TestCase):
     def test_under_a_minute_reads_in_seconds(self):
-        self.assertEqual(elapsed(0, 45), "45s")
+        self.assertEqual(elapsed(0, UNDER_A_MINUTE), f"{UNDER_A_MINUTE}s")
 
     def test_under_an_hour_reads_in_whole_minutes(self):
-        self.assertEqual(elapsed(0, 15 * SECONDS_PER_MINUTE + 30), "15m")
+        self.assertEqual(
+            elapsed(0, SOME_MINUTES * SECONDS_PER_MINUTE + UNDER_A_MINUTE),
+            f"{SOME_MINUTES}m",
+        )
 
     def test_an_hour_or_more_reads_in_hours_and_minutes(self):
         self.assertEqual(
-            format_duration(SECONDS_PER_HOUR + 2 * SECONDS_PER_MINUTE), "1h 2m"
+            format_duration(SECONDS_PER_HOUR + SOME_MINUTES * SECONDS_PER_MINUTE),
+            f"1h {SOME_MINUTES}m",
         )
 
     def test_an_end_before_its_start_is_untimed(self):
-        self.assertIsNone(elapsed(10, 5))
+        self.assertIsNone(elapsed(A_LATER_MOMENT, SOME_MOMENT))
 
     def test_a_missing_moment_is_untimed(self):
-        self.assertIsNone(elapsed(None, 5))
-        self.assertIsNone(elapsed(5, None))
+        self.assertIsNone(elapsed(None, SOME_MOMENT))
+        self.assertIsNone(elapsed(SOME_MOMENT, None))
 
 
 if __name__ == "__main__":

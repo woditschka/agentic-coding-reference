@@ -15,6 +15,9 @@ from handoff import (
 TEXT_AT_THE_LIMIT = "x" * GIST_LIMIT
 TEXT_PAST_THE_LIMIT = "x" * (GIST_LIMIT + 1)
 SOME_LIMIT = 5
+SOME_TEXT = "abcdefgh"
+A_NON_STRING = 7
+A_LOCATION_PAST_THE_LIMIT = "a" * (LOCATION_LIMIT + 1)
 
 
 class Gist(unittest.TestCase):
@@ -28,7 +31,7 @@ class Gist(unittest.TestCase):
         self.assertEqual(gist("  a \n\t b  "), "a b")
 
     def test_a_custom_limit_applies(self):
-        self.assertEqual(gist("abcdefgh", SOME_LIMIT), "abcd…")
+        self.assertEqual(gist(SOME_TEXT, SOME_LIMIT), SOME_TEXT[: SOME_LIMIT - 1] + "…")
 
     def test_a_non_string_is_empty(self):
         self.assertEqual(gist(None), "")
@@ -48,7 +51,7 @@ class FullOrGist(unittest.TestCase):
         )
 
     def test_verbose_with_a_non_string_is_empty(self):
-        self.assertEqual(full_or_gist(7, verbose=True), "")
+        self.assertEqual(full_or_gist(A_NON_STRING, verbose=True), "")
 
 
 class Plural(unittest.TestCase):
@@ -70,10 +73,12 @@ class ShortLocation(unittest.TestCase):
         self.assertEqual(short_location("limiter.py:42 (allow)"), "limiter.py:42")
 
     def test_the_limit_clips(self):
-        self.assertEqual(short_location("a" * 50), "a" * LOCATION_LIMIT)
+        self.assertEqual(
+            short_location(A_LOCATION_PAST_THE_LIMIT), "a" * LOCATION_LIMIT
+        )
 
     def test_a_non_string_is_empty(self):
-        self.assertEqual(short_location(7), "")
+        self.assertEqual(short_location(A_NON_STRING), "")
 
 
 if __name__ == "__main__":

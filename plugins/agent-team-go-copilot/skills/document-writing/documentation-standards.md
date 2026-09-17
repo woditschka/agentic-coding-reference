@@ -207,7 +207,7 @@ Value object carrying everything a handler needs to serve one request: the
 authenticated principal, the deadline, the cancellation signal, and the
 resolved configuration. See the request-context source file.
 
-**Implements:** REQ-RC-001, REQ-AUTH-002
+**Implements:** REQ-XX-001, REQ-XX-002
 ```
 
 ## Cross-Reference Rules

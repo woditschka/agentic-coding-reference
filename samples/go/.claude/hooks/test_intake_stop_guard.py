@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for intake-stop-guard.py (stdlib only).
-
-Run: python3 .claude/hooks/test_intake_stop_guard.py
-
-Pins the narrow-block contract: exit 2 only when route decides `dispatch`
-with rule `intake-ready` on a live pipeline; every malfunction — malformed
-stdin, missing log or script, route failing or emitting non-JSON — and
-every other route decision exits 0 (this Stop backstop fails OPEN, unlike
-the deny-by-default PreToolUse guards). `stop_hook_active` always allows,
-so a block never traps a session.
-"""
+"""The intake stop guard: the intake-ready dispatch blocks once, and every malfunction allows."""
 
 import importlib.util
 import json
@@ -32,8 +22,13 @@ def _load():
 
 hook = _load()
 
+ALLOW = 0
+BLOCK = 2
+SOME_TIMEOUT = 30
+
 STOP = json.dumps({"hook_event_name": "Stop", "stop_hook_active": False})
 STOP_ACTIVE = json.dumps({"hook_event_name": "Stop", "stop_hook_active": True})
+INTAKE_READY_DISPATCH = {"decision": "dispatch", "rule": "intake-ready"}
 
 
 class _Proc:
@@ -54,7 +49,7 @@ def runner_for(decision=None, returncode=0, stdout=None, raises=None):
 
 
 class _Project:
-    """A temp project dir with an optional handoff log and handoff script."""
+    """A temp project dir with a handoff log and a handoff script."""
 
     def __enter__(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -70,79 +65,76 @@ class _Project:
 
 
 class Blocks(unittest.TestCase):
-    def test_intake_ready_dispatch_blocks(self):
+    def test_the_intake_ready_dispatch_blocks(self):
         with _Project() as proj:
-            runner = runner_for({"decision": "dispatch", "rule": "intake-ready"})
-            self.assertEqual(hook.decide(STOP, proj, runner), 2)
+            runner = runner_for(INTAKE_READY_DISPATCH)
+            self.assertEqual(hook.decide(STOP, proj, runner), BLOCK)
 
-    def test_stop_hook_active_always_allows(self):
+    def test_an_active_stop_hook_always_allows(self):
         with _Project() as proj:
-            runner = runner_for({"decision": "dispatch", "rule": "intake-ready"})
-            self.assertEqual(hook.decide(STOP_ACTIVE, proj, runner), 0)
+            runner = runner_for(INTAKE_READY_DISPATCH)
+            self.assertEqual(hook.decide(STOP_ACTIVE, proj, runner), ALLOW)
 
 
 class Allows(unittest.TestCase):
-    def test_other_dispatch_rules_allow(self):
+    def test_every_other_dispatch_rule_allows(self):
         with _Project() as proj:
             for rule in ("build-pass-review", "consultation-dispatch", "gate-failure"):
                 runner = runner_for({"decision": "dispatch", "rule": rule})
-                self.assertEqual(hook.decide(STOP, proj, runner), 0)
+                self.assertEqual(hook.decide(STOP, proj, runner), ALLOW)
 
-    def test_non_dispatch_decisions_allow(self):
+    def test_a_non_dispatch_decision_allows(self):
         with _Project() as proj:
             for decision in ("blocked", "escalate"):
                 runner = runner_for({"decision": decision, "rule": "intake-ready"})
-                self.assertEqual(hook.decide(STOP, proj, runner), 0)
+                self.assertEqual(hook.decide(STOP, proj, runner), ALLOW)
 
-    def test_missing_log_or_script_allows(self):
+    def test_a_project_without_the_log_or_the_script_allows(self):
         with tempfile.TemporaryDirectory() as bare:
-            runner = runner_for({"decision": "dispatch", "rule": "intake-ready"})
-            self.assertEqual(hook.decide(STOP, bare, runner), 0)
+            runner = runner_for(INTAKE_READY_DISPATCH)
+            self.assertEqual(hook.decide(STOP, bare, runner), ALLOW)
 
-    def test_empty_project_dir_allows(self):
-        runner = runner_for({"decision": "dispatch", "rule": "intake-ready"})
-        self.assertEqual(hook.decide(STOP, "", runner), 0)
+    def test_an_empty_project_dir_allows(self):
+        runner = runner_for(INTAKE_READY_DISPATCH)
+        self.assertEqual(hook.decide(STOP, "", runner), ALLOW)
 
 
 class FailsOpen(unittest.TestCase):
     def test_malformed_stdin_allows(self):
         with _Project() as proj:
-            runner = runner_for({"decision": "dispatch", "rule": "intake-ready"})
-            self.assertEqual(hook.decide("not json", proj, runner), 0)
+            runner = runner_for(INTAKE_READY_DISPATCH)
+            self.assertEqual(hook.decide("not json", proj, runner), ALLOW)
 
-    def test_route_nonzero_exit_allows(self):
+    def test_a_nonzero_route_exit_allows(self):
         with _Project() as proj:
-            runner = runner_for(
-                {"decision": "dispatch", "rule": "intake-ready"}, returncode=1
-            )
-            self.assertEqual(hook.decide(STOP, proj, runner), 0)
+            runner = runner_for(INTAKE_READY_DISPATCH, returncode=1)
+            self.assertEqual(hook.decide(STOP, proj, runner), ALLOW)
 
-    def test_route_non_json_output_allows(self):
+    def test_non_json_route_output_allows(self):
         with _Project() as proj:
             runner = runner_for(stdout="route exploded")
-            self.assertEqual(hook.decide(STOP, proj, runner), 0)
+            self.assertEqual(hook.decide(STOP, proj, runner), ALLOW)
 
-    def test_route_raising_allows(self):
+    def test_a_raising_route_allows(self):
         with _Project() as proj:
             runner = runner_for(
-                raises=subprocess.TimeoutExpired(cmd="route", timeout=30)
+                raises=subprocess.TimeoutExpired(cmd="route", timeout=SOME_TIMEOUT)
             )
-            self.assertEqual(hook.decide(STOP, proj, runner), 0)
+            self.assertEqual(hook.decide(STOP, proj, runner), ALLOW)
 
 
 class EndToEnd(unittest.TestCase):
-    def test_block_prints_reason_on_stderr(self):
-        # No .scratch in the env's project dir: the hook allows and prints
-        # nothing; the blocking path is covered above via decide().
+    def test_an_unset_project_dir_allows_silently(self):
         proc = subprocess.run(
             [sys.executable or "python3", str(_HOOK)],
             input=STOP,
             capture_output=True,
             text=True,
             env={"CLAUDE_PROJECT_DIR": ""},
-            timeout=30,
+            timeout=SOME_TIMEOUT,
+            check=False,
         )
-        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.returncode, ALLOW)
         self.assertEqual(proc.stderr, "")
 
 

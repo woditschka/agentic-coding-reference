@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""The routing core: one test per rule of the Handoff Conditions table, the gates, the
-recovery ladders, the consultation roundtrip, and the cross-cutting routing invariants.
-
-handoff.routing, exercised in process through `route`; the command line is
-`tests/test_handoff.py`'s. `unroutable-state` is the exhaustive-match fallback of the
-substantive row and is unreachable through the substantive selection, so no test names it.
-"""
+"""The routing core in process: one test per rule of the Handoff Conditions table, the gates, the recovery ladders, the consultation roundtrip, and the cross-cutting invariants."""
 
 import dataclasses
 import unittest
@@ -19,6 +13,7 @@ from handoff import (
     PLANNER,
     PRODUCT,
     RECORD_TYPES,
+    RETRY_CAP,
     REVIEW_ROUND_CAP,
     ROUTINE_IMPLEMENTER,
     Decision,
@@ -49,6 +44,17 @@ OTHER_REQ_ID = "REQ-B-001"
 SOME_ERRORS = ["a gate error"]
 SOME_DELTA = ("NG-5",)
 SOME_QUESTION = "Is REQ-XX-001's scope one behavior?"
+FIRST_LINE = 1
+NO_SUCH_LINE = 99
+FIRST_ROUND = 1
+BELOW_THE_CAP = REVIEW_ROUND_CAP - 1
+CAPPED_ROUND = REVIEW_ROUND_CAP
+PAST_THE_CAP = REVIEW_ROUND_CAP + 1
+SOME_ROUNDS_PAST_THE_CAP = 3
+DISSENTS_TO_CHURN = 3
+TRUNCATION_RUN = 3
+FIRST_RETRY = 1
+FIRST_CONTINUATION = 1
 
 EXTRA_REVIEWER_LAYOUT = {"harness": {"extra_reviewers": [EXTRA_REVIEWER]}}
 GRADING_OFF = {"harness": {"auto_grade": False}}
@@ -114,6 +120,15 @@ def review_pass(dissenter=A_REVIEWER, severity="fixable"):
     ]
 
 
+def review_passes(count, severity="fixable"):
+    return [record for _ in range(count) for record in review_pass(severity=severity)]
+
+
+def line_of(records, record):
+    """The one-based ledger line the record lands on."""
+    return records.index(record) + 1
+
+
 def truncation_pass(dissenter=A_REVIEWER):
     """One full review pass whose only dissent is a truncation checkpoint."""
     others = [r for r in FULL_ROSTER if r != dissenter]
@@ -136,7 +151,9 @@ def a_plan(**fields):
 
 
 def implementer_start():
-    return a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[1])
+    return a_slice_record(
+        "dispatch-start", author=IMPLEMENTER, responding_to=[FIRST_LINE]
+    )
 
 
 def an_intake(**fields):
@@ -163,7 +180,9 @@ def a_response(author=DESIGNER, in_response_to=2, **fields):
 
 class DecisionJson(unittest.TestCase):
     def test_a_dispatch_lists_its_keys_in_contract_order(self):
-        decision = dispatch([IMPLEMENTER], "a-rule", "why", THIS_REQ_ID, round=1)
+        decision = dispatch(
+            [IMPLEMENTER], "a-rule", "why", THIS_REQ_ID, round=FIRST_ROUND
+        )
 
         payload = decision.as_json()
 
@@ -174,7 +193,12 @@ class DecisionJson(unittest.TestCase):
 
     def test_a_bounce_carries_its_errors_first_inside_the_context(self):
         decision = dispatch(
-            [IMPLEMENTER], "a-rule", "why", THIS_REQ_ID, errors=SOME_ERRORS, round=1
+            [IMPLEMENTER],
+            "a-rule",
+            "why",
+            THIS_REQ_ID,
+            errors=SOME_ERRORS,
+            round=FIRST_ROUND,
         )
 
         payload = decision.as_json()
@@ -403,7 +427,9 @@ class DesignGate(unittest.TestCase):
     def test_a_dangling_supersedes_pointer_fails_the_gate(self):
         decision = route(
             a_slice_record("prd-entry"),
-            a_slice_record("design-block", verdict="covered", supersedes_record_at=99),
+            a_slice_record(
+                "design-block", verdict="covered", supersedes_record_at=NO_SUCH_LINE
+            ),
         )
 
         self.assertEqual(decision.next, (DESIGNER,))
@@ -413,8 +439,10 @@ class DesignGate(unittest.TestCase):
     def test_a_valid_supersedes_pointer_passes_the_gate(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", retry=1),
-            a_slice_record("design-block", verdict="minor", supersedes_record_at=1),
+            a_slice_record("build-failure", retry=FIRST_RETRY),
+            a_slice_record(
+                "design-block", verdict="minor", supersedes_record_at=FIRST_LINE
+            ),
         )
 
         self.assertEqual(decision.next, (IMPLEMENTER,))
@@ -458,7 +486,7 @@ class BuildPassRow(unittest.TestCase):
         decision = route(a_slice_record("build-pass"))
 
         self.assertEqual(decision.rule, "reviews-needed")
-        self.assertEqual(decision.context["round"], 1)
+        self.assertEqual(decision.context["round"], FIRST_ROUND)
         self.assertNotIn("finding_bar", decision.context)
         self.assertEqual(decision.context["prompt_note"], "Review round 1.")
 
@@ -475,7 +503,7 @@ class BuildPassRow(unittest.TestCase):
     def test_a_build_pass_after_a_build_failure_gates_reviews(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", retry=1),
+            a_slice_record("build-failure", retry=FIRST_RETRY),
             a_slice_record("build-pass"),
         )
 
@@ -544,7 +572,9 @@ class FindingsDispatch(unittest.TestCase):
 
         decision = route(
             a_slice_record("build-pass"),
-            *approvals(FULL_ROSTER[:2]),
+            *approvals(
+                r for r in FULL_ROSTER if r not in (A_REVIEWER, ANOTHER_REVIEWER)
+            ),
             dissent(ANOTHER_REVIEWER, [escalate_finding], verdict="approved"),
             dissent(findings=[prd_finding]),
         )
@@ -703,7 +733,7 @@ class FeedbackGate(unittest.TestCase):
         self.assertEqual(decision.next, (A_REVIEWER,))
         self.assertEqual(decision.rule, "review-record-invalid")
         self.assertEqual(decision.context["errors"], SOME_ERRORS)
-        self.assertEqual(decision.context["round"], 1)
+        self.assertEqual(decision.context["round"], FIRST_ROUND)
 
     def test_a_clarify_finding_without_a_target_bounces_the_reviewer(self):
         finding = {"tag": "clarify", "location": "src/widget:1", "description": "d"}
@@ -793,31 +823,32 @@ class ReviewRoundConvergence(unittest.TestCase):
     """The review ladder: the round counter, the critical-only gate from round
     REVIEW_ROUND_CAP, and the blocked stop past REVIEW_ROUND_CAP fix rounds."""
 
-    def test_second_round_non_critical_dissent_still_processes(self):
-        decision = route(*review_pass(), *review_pass())
+    def test_a_non_critical_dissent_below_the_cap_still_processes(self):
+        decision = route(*review_passes(BELOW_THE_CAP))
 
         self.assertEqual(decision.rule, "process-findings")
-        self.assertEqual(decision.context["round"], 2)
+        self.assertEqual(decision.context["round"], BELOW_THE_CAP)
 
-    def test_round_three_non_critical_dissent_bounces_the_reviewer(self):
-        decision = route(*review_pass(), *review_pass(), *review_pass())
+    def test_a_non_critical_dissent_on_the_capped_round_bounces_the_reviewer(self):
+        decision = route(*review_passes(CAPPED_ROUND))
 
         self.assertEqual(decision.rule, "review-record-invalid")
         self.assertEqual(decision.next, (A_REVIEWER,))
-        self.assertIn("critical-only round (round 3)", decision.context["errors"][0])
+        self.assertIn(
+            f"critical-only round (round {CAPPED_ROUND})", decision.context["errors"][0]
+        )
 
-    def test_round_three_critical_dissent_processes_findings(self):
+    def test_a_critical_dissent_on_the_capped_round_processes_findings(self):
         decision = route(
-            *review_pass(), *review_pass(), *review_pass(severity="critical")
+            *review_passes(BELOW_THE_CAP), *review_pass(severity="critical")
         )
 
         self.assertEqual(decision.rule, "process-findings")
-        self.assertEqual(decision.context["round"], 3)
+        self.assertEqual(decision.context["round"], CAPPED_ROUND)
 
-    def test_round_four_dissent_blocks_as_non_convergence(self):
+    def test_a_dissent_past_the_cap_blocks_as_non_convergence(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             *review_pass(severity="critical"),
             *review_pass(severity="critical"),
         )
@@ -825,53 +856,55 @@ class ReviewRoundConvergence(unittest.TestCase):
         self.assertEqual(decision.kind, "blocked")
         self.assertEqual(decision.rule, "review-non-convergence")
         self.assertEqual(decision.context["cause"], "round-cap")
-        self.assertEqual(decision.context["round"], 4)
+        self.assertEqual(decision.context["round"], PAST_THE_CAP)
         self.assertEqual(decision.context["dissenters"], [A_REVIEWER])
 
     def test_a_superseding_design_block_resets_the_round(self):
         design = a_slice_record("design-block", verdict="new", author=DESIGNER)
         superseding = a_slice_record(
-            "design-block", verdict="new", author=DESIGNER, supersedes_record_at=1
+            "design-block",
+            verdict="new",
+            author=DESIGNER,
+            supersedes_record_at=FIRST_LINE,
         )
 
         decision = route(
             design,
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             *review_pass(severity="critical"),
             superseding,
             *review_pass(),
         )
 
         self.assertEqual(decision.rule, "process-findings")
-        self.assertEqual(decision.context["round"], 1)
+        self.assertEqual(decision.context["round"], FIRST_ROUND)
 
     def test_reviews_needed_names_the_round_and_the_critical_only_bar(self):
-        decision = route(*review_pass(), *review_pass(), a_slice_record("build-pass"))
+        decision = route(*review_passes(BELOW_THE_CAP), a_slice_record("build-pass"))
 
         self.assertEqual(decision.rule, "reviews-needed")
-        self.assertEqual(decision.context["round"], 3)
+        self.assertEqual(decision.context["round"], CAPPED_ROUND)
         self.assertEqual(decision.context["finding_bar"], "critical-only")
         self.assertTrue(
-            decision.context["prompt_note"].startswith("Review round 3: critical-only.")
+            decision.context["prompt_note"].startswith(
+                f"Review round {CAPPED_ROUND}: critical-only."
+            )
         )
 
     def test_clarify_only_dissent_stays_legal_on_capped_rounds(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             a_slice_record("build-pass"),
             *approvals(OTHER_REVIEWERS),
             dissent(findings=[CLARIFY]),
         )
 
         self.assertEqual(decision.rule, "process-findings")
-        self.assertEqual(decision.context["round"], 3)
+        self.assertEqual(decision.context["round"], CAPPED_ROUND)
 
     def test_escalate_only_dissent_stays_legal_on_capped_rounds(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             a_slice_record("build-pass"),
             *approvals(OTHER_REVIEWERS),
             dissent(findings=[ESCALATE]),
@@ -882,8 +915,7 @@ class ReviewRoundConvergence(unittest.TestCase):
 
     def test_a_second_below_bar_record_blocks_as_bounce_repeat(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             a_slice_record("build-pass"),
             *approvals(OTHER_REVIEWERS),
             dissent(),
@@ -894,15 +926,13 @@ class ReviewRoundConvergence(unittest.TestCase):
         self.assertEqual(decision.rule, "review-non-convergence")
         self.assertEqual(decision.context["cause"], "bounce-repeat")
 
-    def test_a_third_dissent_in_one_pass_blocks_as_pass_churn(self):
+    def test_dissents_to_the_churn_count_in_one_pass_block_as_pass_churn(self):
         critical = (autofix("critical"),)
 
         decision = route(
             a_slice_record("build-pass"),
             *approvals(OTHER_REVIEWERS),
-            dissent(findings=critical),
-            dissent(findings=critical),
-            dissent(findings=critical),
+            *[dissent(findings=critical) for _ in range(DISSENTS_TO_CHURN)],
         )
 
         self.assertEqual(decision.kind, "blocked")
@@ -910,8 +940,10 @@ class ReviewRoundConvergence(unittest.TestCase):
         self.assertEqual(decision.context["cause"], "pass-churn")
         self.assertEqual(decision.context["dissenters"], [A_REVIEWER])
 
-    def test_three_truncation_only_passes_block_as_a_truncation_run(self):
-        decision = route(*truncation_pass(), *truncation_pass(), *truncation_pass())
+    def test_a_run_of_truncation_only_passes_blocks_as_a_truncation_run(self):
+        decision = route(
+            *[record for _ in range(TRUNCATION_RUN) for record in truncation_pass()]
+        )
 
         self.assertEqual(decision.kind, "blocked")
         self.assertEqual(decision.rule, "review-non-convergence")
@@ -923,45 +955,43 @@ class ReviewRoundConvergence(unittest.TestCase):
         decision = route(*forged, *forged, *review_pass())
 
         self.assertEqual(decision.rule, "process-findings")
-        self.assertEqual(decision.context["round"], 1)
+        self.assertEqual(decision.context["round"], FIRST_ROUND)
 
     def test_empty_findings_dissent_keeps_its_own_diagnosis_on_capped_rounds(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             a_slice_record("build-pass"),
             *approvals(OTHER_REVIEWERS),
             dissent(findings=[]),
         )
 
         self.assertEqual(decision.rule, "reviewer-empty-findings")
-        self.assertEqual(decision.context["round"], 3)
+        self.assertEqual(decision.context["round"], CAPPED_ROUND)
 
-    def extra_pass(self, severity="fixable"):
+    def extra_passes(self, count, severity="fixable"):
         return [
-            a_slice_record("build-pass"),
-            *approvals(),
-            dissent(EXTRA_REVIEWER, (autofix(severity),)),
+            record
+            for _ in range(count)
+            for record in (
+                a_slice_record("build-pass"),
+                *approvals(),
+                dissent(EXTRA_REVIEWER, (autofix(severity),)),
+            )
         ]
 
     def test_an_extra_reviewer_rides_the_same_ladder(self):
-        decision = route(
-            *self.extra_pass(),
-            *self.extra_pass(),
-            *self.extra_pass(),
-            layout=EXTRA_REVIEWER_LAYOUT,
-        )
+        decision = route(*self.extra_passes(CAPPED_ROUND), layout=EXTRA_REVIEWER_LAYOUT)
 
         self.assertEqual(decision.rule, "review-record-invalid")
         self.assertEqual(decision.next, (EXTRA_REVIEWER,))
-        self.assertIn("critical-only round (round 3)", decision.context["errors"][0])
+        self.assertIn(
+            f"critical-only round (round {CAPPED_ROUND})", decision.context["errors"][0]
+        )
 
     def test_an_extra_reviewer_dissent_trips_the_cap(self):
         decision = route(
-            *self.extra_pass(),
-            *self.extra_pass(),
-            *self.extra_pass("critical"),
-            *self.extra_pass("critical"),
+            *self.extra_passes(BELOW_THE_CAP),
+            *self.extra_passes(PAST_THE_CAP - BELOW_THE_CAP, "critical"),
             layout=EXTRA_REVIEWER_LAYOUT,
         )
 
@@ -971,8 +1001,7 @@ class ReviewRoundConvergence(unittest.TestCase):
 
     def test_a_narrowed_fix_pass_still_gates_critical_only(self):
         decision = route(
-            *review_pass(),
-            *review_pass(),
+            *review_passes(BELOW_THE_CAP),
             a_slice_record("build-pass"),
             a_plan(risk="low", roster=[A_REVIEWER], scope="fix-delta"),
             dissent(),
@@ -980,7 +1009,9 @@ class ReviewRoundConvergence(unittest.TestCase):
 
         self.assertEqual(decision.rule, "review-record-invalid")
         self.assertEqual(decision.next, (A_REVIEWER,))
-        self.assertIn("critical-only round (round 3)", decision.context["errors"][0])
+        self.assertIn(
+            f"critical-only round (round {CAPPED_ROUND})", decision.context["errors"][0]
+        )
 
 
 class ReviewPlan(unittest.TestCase):
@@ -1139,7 +1170,10 @@ class OutstandingDissent(unittest.TestCase):
             a_slice_record("design-block", author=DESIGNER, verdict="minor"),
             *self.first_pass_with_dissent(),
             a_slice_record(
-                "design-block", author=DESIGNER, verdict="minor", supersedes_record_at=1
+                "design-block",
+                author=DESIGNER,
+                verdict="minor",
+                supersedes_record_at=FIRST_LINE,
             ),
             *self.narrowed_fix_pass(),
         )
@@ -1152,7 +1186,10 @@ class OutstandingDissent(unittest.TestCase):
         decision = route(
             *self.first_pass_with_dissent(),
             a_slice_record(
-                "design-block", author=DESIGNER, verdict="minor", supersedes_record_at=1
+                "design-block",
+                author=DESIGNER,
+                verdict="minor",
+                supersedes_record_at=FIRST_LINE,
             ),
             *self.narrowed_fix_pass(),
         )
@@ -1278,47 +1315,55 @@ class BuildFailureRecovery(unittest.TestCase):
     def test_a_failure_below_the_cap_re_dispatches_the_implementer(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", author=IMPLEMENTER, retry=1),
+            a_slice_record("build-failure", author=IMPLEMENTER, retry=FIRST_RETRY),
         )
 
         self.assertEqual(decision.next, (IMPLEMENTER,))
         self.assertEqual(decision.rule, "build-retry")
-        self.assertEqual(decision.context["retry"], 1)
+        self.assertEqual(decision.context["retry"], FIRST_RETRY)
 
     def test_a_partial_failure_carries_the_partial_flag(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", retry=1, partial=True),
+            a_slice_record("build-failure", retry=FIRST_RETRY, partial=True),
         )
 
         self.assertEqual(decision.rule, "build-retry")
         self.assertTrue(decision.context["partial"])
 
-    def test_three_failures_re_triage_with_the_designer(self):
+    def test_failures_up_to_the_retry_cap_re_triage_with_the_designer(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            *[a_slice_record("build-failure", retry=i) for i in (1, 2, 3)],
+            *[
+                a_slice_record("build-failure", retry=i)
+                for i in range(1, RETRY_CAP + 1)
+            ],
         )
 
         self.assertEqual(decision.next, (DESIGNER,))
         self.assertEqual(decision.rule, "build-non-convergence")
-        self.assertEqual(decision.context["failures"], 3)
+        self.assertEqual(decision.context["failures"], RETRY_CAP)
 
     def test_a_superseding_design_block_resets_the_retry_counter(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            *[a_slice_record("build-failure", retry=i) for i in (1, 2, 3)],
-            a_slice_record("design-block", verdict="minor", supersedes_record_at=1),
-            a_slice_record("build-failure", retry=1),
+            *[
+                a_slice_record("build-failure", retry=i)
+                for i in range(1, RETRY_CAP + 1)
+            ],
+            a_slice_record(
+                "design-block", verdict="minor", supersedes_record_at=FIRST_LINE
+            ),
+            a_slice_record("build-failure", retry=FIRST_RETRY),
         )
 
         self.assertEqual(decision.next, (IMPLEMENTER,))
-        self.assertEqual(decision.context["retry"], 1)
+        self.assertEqual(decision.context["retry"], FIRST_RETRY)
 
     def test_an_invalid_build_failure_bounces_the_implementer(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", retry=1),
+            a_slice_record("build-failure", retry=FIRST_RETRY),
             gate=FakeGate(build_failure=SOME_ERRORS),
         )
 
@@ -1327,7 +1372,7 @@ class BuildFailureRecovery(unittest.TestCase):
         self.assertEqual(decision.context["errors"], SOME_ERRORS)
 
     def test_a_failure_without_a_design_block_escalates(self):
-        decision = route(a_slice_record("build-failure", retry=1))
+        decision = route(a_slice_record("build-failure", retry=FIRST_RETRY))
 
         self.assertEqual(decision.kind, "escalate")
         self.assertEqual(decision.rule, "failure-without-design")
@@ -1335,7 +1380,7 @@ class BuildFailureRecovery(unittest.TestCase):
     def abort(self, reason):
         return route(
             a_slice_record("design-block", verdict="covered"),
-            a_slice_record("build-failure", retry=1, abort_reason=reason),
+            a_slice_record("build-failure", retry=FIRST_RETRY, abort_reason=reason),
         )
 
     def test_a_wrong_shape_abort_dispatches_the_product_expert(self):
@@ -1379,7 +1424,7 @@ class TruncationRecovery(unittest.TestCase):
 
         self.assertEqual(decision.next, (IMPLEMENTER,))
         self.assertEqual(decision.rule, "truncation-continue")
-        self.assertEqual(decision.context["continuation"], 1)
+        self.assertEqual(decision.context["continuation"], FIRST_CONTINUATION)
 
     def test_a_continuation_runs_the_base_pin(self):
         # Recovery always runs base: a truncated routine dispatch continues
@@ -1406,7 +1451,7 @@ class TruncationRecovery(unittest.TestCase):
         )
 
         self.assertEqual(decision.rule, "truncation-continue")
-        self.assertEqual(decision.context["continuation"], 1)
+        self.assertEqual(decision.context["continuation"], FIRST_CONTINUATION)
 
     def test_a_trailing_prd_autofix_does_not_mask_the_truncation(self):
         decision = route(
@@ -1416,7 +1461,7 @@ class TruncationRecovery(unittest.TestCase):
         )
 
         self.assertEqual(decision.rule, "truncation-continue")
-        self.assertEqual(decision.context["continuation"], 1)
+        self.assertEqual(decision.context["continuation"], FIRST_CONTINUATION)
 
     def test_a_grader_verdict_completes_its_own_dispatch_start(self):
         decision = route(
@@ -1432,28 +1477,36 @@ class TruncationRecovery(unittest.TestCase):
         self.assertEqual(decision.kind, "blocked")
         self.assertEqual(decision.rule, "feature-complete")
 
-    def test_three_consecutive_truncations_re_triage(self):
+    def test_consecutive_truncations_up_to_the_retry_cap_re_triage(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
-            *[a_slice_record("dispatch-start", author=IMPLEMENTER) for _ in range(3)],
+            *[
+                a_slice_record("dispatch-start", author=IMPLEMENTER)
+                for _ in range(RETRY_CAP)
+            ],
         )
 
         self.assertEqual(decision.next, (DESIGNER,))
         self.assertEqual(decision.rule, "truncation-non-convergence")
-        self.assertEqual(decision.context["continuations"], 3)
+        self.assertEqual(decision.context["continuations"], RETRY_CAP)
 
     def test_an_implementer_record_resets_the_truncation_run(self):
-        decision = route(
+        request = a_request()
+        run = [
             a_slice_record("design-block", verdict="covered"),
             a_slice_record("dispatch-start", author=IMPLEMENTER),
             a_slice_record("dispatch-start", author=IMPLEMENTER),
-            a_request(),
-            a_response(in_response_to=4),
+            request,
+        ]
+
+        decision = route(
+            *run,
+            a_response(in_response_to=line_of(run, request)),
             a_slice_record("dispatch-start", author=IMPLEMENTER),
         )
 
         self.assertEqual(decision.rule, "truncation-continue")
-        self.assertEqual(decision.context["continuation"], 1)
+        self.assertEqual(decision.context["continuation"], FIRST_CONTINUATION)
 
     def test_an_implementer_start_without_a_design_block_escalates(self):
         decision = route(a_slice_record("dispatch-start", author=IMPLEMENTER))
@@ -1535,9 +1588,10 @@ class Consultations(unittest.TestCase):
         self.assertEqual(decision.rule, "consultation-invalid")
 
     def test_a_response_to_a_human_authored_request_fails_closed(self):
-        decision = route(
-            a_slice_record("prd-entry"), a_request(HUMAN, HUMAN), a_response(HUMAN, 2)
-        )
+        request = a_request(HUMAN, HUMAN)
+        asked = [a_slice_record("prd-entry"), request]
+
+        decision = route(*asked, a_response(HUMAN, line_of(asked, request)))
 
         self.assertEqual(decision.kind, "blocked")
         self.assertEqual(decision.rule, "consultation-invalid")
@@ -1579,11 +1633,16 @@ class Consultations(unittest.TestCase):
         self.assertEqual(decision.next, (DESIGNER,))
 
     def test_an_answered_human_request_does_not_hold_the_pause(self):
-        decision = route(
+        request = a_request(DESIGNER, HUMAN)
+        asked = [
             a_slice_record("prd-entry"),
             a_slice_record("dispatch-start", author=DESIGNER),
-            a_request(DESIGNER, HUMAN),
-            a_response(HUMAN, 3),
+            request,
+        ]
+
+        decision = route(
+            *asked,
+            a_response(HUMAN, line_of(asked, request)),
             a_slice_record("dispatch-start", author=DESIGNER),
             a_slice_record("design-block", author=DESIGNER, verdict="covered"),
         )
@@ -1602,18 +1661,20 @@ class Consultations(unittest.TestCase):
         self.assertEqual(decision.rule, "human-consultation")
 
     def test_a_human_response_returns_to_the_requester(self):
-        decision = route(
+        request = a_request(DESIGNER, HUMAN)
+        asked = [
             a_slice_record("prd-entry"),
             a_slice_record("dispatch-start", author=DESIGNER),
-            a_request(DESIGNER, HUMAN),
-            a_response(HUMAN, 3),
-        )
+            request,
+        ]
+
+        decision = route(*asked, a_response(HUMAN, line_of(asked, request)))
 
         self.assertEqual(decision.next, (DESIGNER,))
         self.assertEqual(decision.rule, "consultation-return")
 
     def test_a_response_from_the_wrong_author_bounces_the_responder(self):
-        decision = route(a_request(), a_response(A_REVIEWER, 1))
+        decision = route(a_request(), a_response(A_REVIEWER, FIRST_LINE))
 
         self.assertEqual(decision.kind, "dispatch")
         self.assertEqual(decision.next, (DESIGNER,))
@@ -1622,7 +1683,8 @@ class Consultations(unittest.TestCase):
 
     def test_a_response_with_a_dangling_pointer_blocks(self):
         decision = route(
-            a_slice_record("design-block", verdict="covered"), a_response(DESIGNER, 9)
+            a_slice_record("design-block", verdict="covered"),
+            a_response(DESIGNER, NO_SUCH_LINE),
         )
 
         self.assertEqual(decision.kind, "blocked")
@@ -1660,7 +1722,7 @@ class Consultations(unittest.TestCase):
     def test_a_stale_response_is_validated_off_the_last_position(self):
         decision = route(
             a_request(),
-            a_response(A_REVIEWER, 1),
+            a_response(A_REVIEWER, FIRST_LINE),
             a_slice_record(
                 "design-doc-autofix", author=ROOT, file="docs/system-design.md"
             ),
@@ -1673,7 +1735,7 @@ class Consultations(unittest.TestCase):
     def test_a_response_failing_its_schema_gate_bounces_the_responder(self):
         decision = route(
             a_request(),
-            a_response(DESIGNER, 1),
+            a_response(DESIGNER, FIRST_LINE),
             gate=FakeGate(consultation_response=SOME_ERRORS),
         )
 
@@ -1707,7 +1769,9 @@ class RoutingInvariants(unittest.TestCase):
             decision = route(
                 a_slice_record("build-pass"),
                 *approvals(),
-                a_slice_record("grader-verdict", verdict=verdict, responding_to=[1]),
+                a_slice_record(
+                    "grader-verdict", verdict=verdict, responding_to=[FIRST_LINE]
+                ),
             )
             context = {k: v for k, v in decision.context.items() if k != "verdict"}
             decisions[verdict] = dataclasses.replace(decision, context=context)
@@ -1745,11 +1809,11 @@ class RoutingInvariants(unittest.TestCase):
         self.assertEqual(later_approval.rule, "grade")
 
     def test_the_round_cap_blocks_for_any_round_past_the_cap(self):
-        for rounds in range(REVIEW_ROUND_CAP + 1, REVIEW_ROUND_CAP + 4):
+        for rounds in range(PAST_THE_CAP, PAST_THE_CAP + SOME_ROUNDS_PAST_THE_CAP):
             with self.subTest(rounds=rounds):
                 records = []
                 for n in range(rounds):
-                    severity = "critical" if n + 1 >= REVIEW_ROUND_CAP else "fixable"
+                    severity = "critical" if n + 1 >= CAPPED_ROUND else "fixable"
                     records += review_pass(severity=severity)
 
                 decision = route(*records)

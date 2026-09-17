@@ -32,7 +32,7 @@ A_LONG_TITLE = (
     "Owner search: a page before the first lists the first page rather "
     "than failing outright"
 )
-A_HOSTILE_TEXT = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
+TEXT_WITH_CONTROL_BYTES = "Innocent\x1b]0;title\x07\x1b[8m hidden\x00\ttail"
 A_GRADE = {
     "type": "grader-verdict",
     "req_id": "REQ-A-001",
@@ -56,8 +56,22 @@ A_GRADE = {
 }
 A_DIRTY_LINE = "line 2: invalid JSON (Expecting value)"
 A_TERMINAL_WIDTH = 80
+A_NON_STRING = 7
+A_DANGLING_NO = 99
+TIMED_STEPS_IN_FIXTURE = 4
+DISPATCH_MINUTE = 6
+CLEAN_BUILD_MINUTE = 10
+ABORT_MINUTE = 11
 DESIGNER = "system-design-expert"
 PRODUCT = "product-requirements-expert"
+
+
+def at(minute):
+    return f"2026-07-06T10:{minute:02d}:00Z"
+
+
+def duration(start_minute, end_minute):
+    return f"◷ {end_minute - start_minute}m"
 
 
 def text_view(*raws, errors=(), **options):
@@ -85,8 +99,8 @@ def markdown_view(*raws, errors=(), **options):
     return "\n".join(lines) + "\n"
 
 
-def a_design(ts="2026-07-06T10:00:00Z"):
-    return vrec("design-block", DESIGNER, ts, verdict="covered")
+def a_design(ts=None):
+    return vrec("design-block", DESIGNER, ts or at(0), verdict="covered")
 
 
 def a_dispatch(author, ts, responding_to=(0,)):
@@ -123,33 +137,31 @@ def a_session_with_response(pointer):
 def a_fix_round():
     return (
         a_design(),
-        a_dispatch(IMPLEMENTER, "2026-07-06T10:05:00Z", (1,)),
-        a_pass("2026-07-06T10:10:00Z"),
-        a_dissent(
-            "code-quality-reviewer", "2026-07-06T10:20:00Z", "blocked", "limiter.py:42"
-        ),
-        a_dissent("doc-reviewer", "2026-07-06T10:21:00Z"),
-        a_dispatch("security-reviewer", "2026-07-06T10:30:00Z", (3,)),
-        a_dispatch(IMPLEMENTER, "2026-07-06T10:31:00Z", (4,)),
-        a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (5,)),
-        a_pass("2026-07-06T10:40:00Z"),
+        a_dispatch(IMPLEMENTER, at(5), (1,)),
+        a_pass(at(10)),
+        a_dissent("code-quality-reviewer", at(20), "blocked", "limiter.py:42"),
+        a_dissent("doc-reviewer", at(21)),
+        a_dispatch("security-reviewer", at(30), (3,)),
+        a_dispatch(IMPLEMENTER, at(31), (4,)),
+        a_dispatch(PRODUCT, at(32), (5,)),
+        a_pass(at(40)),
     )
 
 
-def a_hostile_log():
+def a_log_with_control_bytes():
     return (
-        a_slice_record("prd-entry", title=A_HOSTILE_TEXT),
-        a_slice_record("build-pass", gate_checks_run=[A_HOSTILE_TEXT]),
+        a_slice_record("prd-entry", title=TEXT_WITH_CONTROL_BYTES),
+        a_slice_record("build-pass", gate_checks_run=[TEXT_WITH_CONTROL_BYTES]),
         a_slice_record(
             "review-feedback",
-            author="evil\x1b[2Jer-reviewer",
+            author="doc\x1b[2J-reviewer",
             verdict="changes_requested",
             findings=[
                 {
                     "tag": "autofix",
-                    "location": A_HOSTILE_TEXT,
-                    "description": A_HOSTILE_TEXT,
-                    "fix": A_HOSTILE_TEXT,
+                    "location": TEXT_WITH_CONTROL_BYTES,
+                    "description": TEXT_WITH_CONTROL_BYTES,
+                    "fix": TEXT_WITH_CONTROL_BYTES,
                 }
             ],
         ),
@@ -213,12 +225,13 @@ class TerminalTimeline(unittest.TestCase):
 
     def test_a_fresh_implement_session_ends_in_its_clean_build(self):
         out = text_view(
-            a_design("2026-07-06T10:05:00Z"),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
-            a_pass("2026-07-06T10:10:00Z"),
+            a_design(at(DISPATCH_MINUTE - 1)),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE), (1,)),
+            a_pass(at(CLEAN_BUILD_MINUTE)),
         )
+        session_time = duration(DISPATCH_MINUTE, CLEAN_BUILD_MINUTE)
 
-        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
+        self.assertIn(f"◆ implement  (implementer)  {session_time}", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
         self.assertEqual(out.count("◆ implement"), 1)
         self.assertGreater(out.index("└ ▲ build"), out.index("◆ implement"))
@@ -226,46 +239,50 @@ class TerminalTimeline(unittest.TestCase):
 
     def test_a_retry_nests_under_one_implement_session(self):
         out = text_view(
-            a_design("2026-07-06T10:05:00Z"),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
+            a_design(at(DISPATCH_MINUTE - 1)),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE), (1,)),
             vrec(
                 "build-failure",
                 IMPLEMENTER,
-                "2026-07-06T10:08:00Z",
+                at(DISPATCH_MINUTE + 1),
                 retry=1,
                 failed_check="test",
             ),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:09:00Z", (3,)),
-            a_pass("2026-07-06T10:10:00Z"),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE + 2), (3,)),
+            a_pass(at(CLEAN_BUILD_MINUTE)),
         )
+        session_time = duration(DISPATCH_MINUTE, CLEAN_BUILD_MINUTE)
 
         self.assertEqual(out.count("◆ implement"), 1)
-        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
+        self.assertIn(f"◆ implement  (implementer)  {session_time}", out)
         self.assertIn("  ├ ▲ build  ✗ test failed  retry 1", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
 
     def test_an_abort_closes_the_session_with_its_duration_and_cost(self):
         out = text_view(
             a_design(),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE), (1,)),
             vrec(
                 "build-failure",
                 IMPLEMENTER,
-                "2026-07-06T10:11:00Z",
+                at(ABORT_MINUTE),
                 abort_reason="design-mismatch",
             ),
             vrec(
                 "consultation-request",
                 IMPLEMENTER,
-                "2026-07-06T10:12:00Z",
+                at(ABORT_MINUTE + 1),
                 target=DESIGNER,
                 question="Re-triage?",
             ),
             req_id=SOME_REQ_ID,
             cost_lookup=FakeCostLookup(),
         )
+        session_time = duration(DISPATCH_MINUTE, ABORT_MINUTE)
 
-        self.assertIn("◆ implement  (implementer)  ◷ 5m" + SOME_COST_TEXT, out)
+        self.assertIn(
+            f"◆ implement  (implementer)  {session_time}{SOME_COST_TEXT}", out
+        )
         self.assertIn("  └ ▲ build  ✗ aborted: design-mismatch", out)
         self.assertIn("↳ consult  implementer → design", out)
         self.assertNotIn("└ ↳ consult", out)
@@ -273,11 +290,11 @@ class TerminalTimeline(unittest.TestCase):
     def test_an_open_session_stays_untimed(self):
         out = text_view(
             a_design(),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE), (1,)),
             vrec(
                 "build-failure",
                 IMPLEMENTER,
-                "2026-07-06T10:11:00Z",
+                at(ABORT_MINUTE),
                 retry=1,
                 failed_check="test",
             ),
@@ -301,14 +318,14 @@ class TerminalTimeline(unittest.TestCase):
     def test_a_doc_fix_carries_no_duration(self):
         out = text_view(
             a_design(),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:00:00Z", (1,)),
-            a_pass("2026-07-06T10:05:00Z"),
-            a_dissent("doc-reviewer", "2026-07-06T10:10:00Z"),
-            a_dispatch(PRODUCT, "2026-07-06T10:11:00Z", (4,)),
+            a_dispatch(IMPLEMENTER, at(0), (1,)),
+            a_pass(at(5)),
+            a_dissent("doc-reviewer", at(10)),
+            a_dispatch(PRODUCT, at(11), (4,)),
             vrec(
                 "review-feedback",
                 "doc-reviewer",
-                "2026-07-06T10:25:00Z",
+                at(25),
                 verdict="approved",
                 findings=[],
             ),
@@ -319,17 +336,17 @@ class TerminalTimeline(unittest.TestCase):
     def test_a_sibling_consult_renders_flat_with_its_own_author(self):
         out = text_view(
             a_design(),
-            a_dissent("doc-reviewer", "2026-07-06T10:20:00Z"),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:31:00Z", (2,)),
-            a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (2,)),
+            a_dissent("doc-reviewer", at(20)),
+            a_dispatch(IMPLEMENTER, at(31), (2,)),
+            a_dispatch(PRODUCT, at(32), (2,)),
             vrec(
                 "consultation-request",
                 PRODUCT,
-                "2026-07-06T10:33:00Z",
+                at(33),
                 target=DESIGNER,
                 question="Fixed burst size?",
             ),
-            a_pass("2026-07-06T10:40:00Z"),
+            a_pass(at(40)),
         )
 
         self.assertIn("↳ consult  prd-expert → design", out)
@@ -339,38 +356,38 @@ class TerminalTimeline(unittest.TestCase):
     def test_an_autofix_inside_a_session_hoists_below_it(self):
         out = text_view(
             a_design(),
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE), (1,)),
             vrec(
                 "prd-autofix",
                 "claude",
-                "2026-07-06T10:08:00Z",
+                at(DISPATCH_MINUTE + 1),
                 file="docs/prd.md",
                 category="writing-standards",
             ),
-            a_pass("2026-07-06T10:10:00Z"),
+            a_pass(at(CLEAN_BUILD_MINUTE)),
         )
+        session_time = duration(DISPATCH_MINUTE, CLEAN_BUILD_MINUTE)
 
-        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
+        self.assertIn(f"◆ implement  (implementer)  {session_time}", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
         self.assertIn("✚ prd-autofix  docs/prd.md  writing-standards  (claude)", out)
         self.assertNotIn("── ▲ build-pass", out)
 
     def test_a_re_engaged_review_carries_no_duration(self):
         out = text_view(
-            a_dispatch("code-quality-reviewer", "2026-07-06T10:00:00Z"),
-            a_dissent(
-                "code-quality-reviewer", "2026-07-06T10:05:00Z", "blocked", "a.py:1"
-            ),
+            a_dispatch("code-quality-reviewer", at(DISPATCH_MINUTE)),
+            a_dissent("code-quality-reviewer", at(ABORT_MINUTE), "blocked", "a.py:1"),
             vrec(
                 "review-feedback",
                 "code-quality-reviewer",
-                "2026-07-06T10:35:00Z",
+                at(CLEAN_BUILD_MINUTE + 25),
                 verdict="approved",
                 findings=[],
             ),
         )
+        review_time = duration(DISPATCH_MINUTE, ABORT_MINUTE)
 
-        self.assertIn("changes_requested  (1 finding)  ◷ 5m", out)
+        self.assertIn(f"changes_requested  (1 finding)  {review_time}", out)
         self.assertNotIn("approved  ◷", out)
 
     def test_consecutive_gates_are_told_apart_by_their_clock_face(self):
@@ -396,7 +413,10 @@ class TerminalTimeline(unittest.TestCase):
                 "build-failure", author=IMPLEMENTER, abort_reason="design-mismatch"
             ),
             a_slice_record(
-                "consultation-response", author=DESIGNER, in_response_to=99, answer="a"
+                "consultation-response",
+                author=DESIGNER,
+                in_response_to=A_DANGLING_NO,
+                answer="a",
             ),
             a_slice_record(
                 "review-feedback",
@@ -424,7 +444,7 @@ class TerminalTimeline(unittest.TestCase):
                 "review-feedback",
                 author="code-quality-reviewer",
                 verdict="changes_requested",
-                findings=["not-a-dict", {"location": 7}],
+                findings=["not-a-dict", {"location": A_NON_STRING}],
             ),
             a_slice_record(
                 "review-feedback",
@@ -470,7 +490,7 @@ class TerminalTimeline(unittest.TestCase):
                 "review-feedback",
                 author="code-quality-reviewer",
                 verdict="changes_requested",
-                findings=7,
+                findings=A_NON_STRING,
             ),
             a_slice_record("build-pass", author=IMPLEMENTER),
         )
@@ -522,7 +542,10 @@ class TerminalHeaderAndGrade(unittest.TestCase):
         stray = dict(
             A_GRADE,
             facets={
-                "reviewer_hedging": {"verdict": "x" * 40 + "\x1b[31m", "note": "n"}
+                "reviewer_hedging": {
+                    "verdict": "x" * (FACET_WIDTH + 1) + "\x1b[31m",
+                    "note": "n",
+                }
             },
         )
 
@@ -688,20 +711,20 @@ class TerminalAlignment(unittest.TestCase):
 
 
 class TerminalSafety(unittest.TestCase):
-    def test_log_content_cannot_inject_terminal_escapes(self):
+    def test_control_bytes_in_log_content_never_reach_the_terminal(self):
         for verbose in (False, True):
-            out = text_view(*a_hostile_log(), verbose=verbose)
+            out = text_view(*a_log_with_control_bytes(), verbose=verbose)
 
             self.assertNotIn("\x1b", out)
             self.assertNotIn("\x00", out)
             self.assertIn("Innocent", out)
 
-    def test_a_hostile_req_id_cannot_inject_via_the_in_log_line(self):
-        hostile_id = "\x1b]0;pwned\x07\x1b[2Jgood"
+    def test_a_req_id_with_escape_sequences_renders_stripped_in_the_in_log_line(self):
+        req_id_with_escapes = "\x1b]0;title\x07\x1b[2Jgood"
         out, code = text_view_with_code(
             {
                 "type": "prd-entry",
-                "req_id": hostile_id,
+                "req_id": req_id_with_escapes,
                 "ts": SOME_TS,
                 "author": "tester",
                 "title": "x",
@@ -727,7 +750,7 @@ class TerminalCostOverlay(unittest.TestCase):
             *timed_fixture(), req_id=SOME_REQ_ID, cost_lookup=FakeCostLookup()
         )
 
-        self.assertEqual(out.count(SOME_COST_TEXT.strip()), 5)
+        self.assertEqual(out.count(SOME_COST_TEXT.strip()), TIMED_STEPS_IN_FIXTURE + 1)
         self.assertIn("◆ implement  (implementer)  ◷ 15m" + SOME_COST_TEXT, out)
         self.assertIn("(prd-expert)  ◷ 3m" + SOME_COST_TEXT, out)
         self.assertIn("│ ◷ 26m" + SOME_COST_TEXT, out)
@@ -750,25 +773,30 @@ class TerminalCostOverlay(unittest.TestCase):
 
     def test_cost_rides_the_session_parent_not_its_build_children(self):
         out = text_view(
-            a_dispatch(IMPLEMENTER, "2026-07-06T10:00:00Z"),
+            a_dispatch(IMPLEMENTER, at(DISPATCH_MINUTE)),
             vrec(
                 "build-failure",
                 IMPLEMENTER,
-                "2026-07-06T10:02:00Z",
+                at(DISPATCH_MINUTE + 1),
                 retry=1,
                 failed_check="test",
             ),
-            a_pass("2026-07-06T10:05:00Z"),
+            a_pass(at(CLEAN_BUILD_MINUTE)),
             req_id=SOME_REQ_ID,
             cost_lookup=FakeCostLookup(),
         )
+        session_time = duration(DISPATCH_MINUTE, CLEAN_BUILD_MINUTE)
 
         build_lines = [line for line in out.splitlines() if "▲ build" in line]
         self.assertTrue(all(SOME_COST_TEXT.strip() not in line for line in build_lines))
-        self.assertIn("◆ implement  (implementer)  ◷ 5m" + SOME_COST_TEXT, out)
+        self.assertIn(
+            f"◆ implement  (implementer)  {session_time}{SOME_COST_TEXT}", out
+        )
 
 
 class TerminalEffortTier(unittest.TestCase):
+    DISPATCH_NO = 2
+
     def a_slice(self):
         return (
             a_slice_record(
@@ -779,7 +807,9 @@ class TerminalEffortTier(unittest.TestCase):
         )
 
     def test_a_routine_window_annotates_the_session_opener(self):
-        out = text_view(*self.a_slice(), window_tiers={2: ROUTINE_IMPLEMENTER})
+        out = text_view(
+            *self.a_slice(), window_tiers={self.DISPATCH_NO: ROUTINE_IMPLEMENTER}
+        )
 
         self.assertIn("(implementer · routine)", out)
 
@@ -792,7 +822,7 @@ class TerminalEffortTier(unittest.TestCase):
     def test_a_tier_mismatch_is_flagged_on_the_opener(self):
         out = text_view(
             *self.a_slice(),
-            window_tiers={2: ROUTINE_IMPLEMENTER},
+            window_tiers={self.DISPATCH_NO: ROUTINE_IMPLEMENTER},
             cost_lookup=FakeCostLookup(figures=None, tiers=(IMPLEMENTER,)),
         )
 
@@ -809,7 +839,7 @@ class TerminalEffortTier(unittest.TestCase):
     def test_an_agreeing_transcript_stays_quiet(self):
         out = text_view(
             *self.a_slice(),
-            window_tiers={2: ROUTINE_IMPLEMENTER},
+            window_tiers={self.DISPATCH_NO: ROUTINE_IMPLEMENTER},
             cost_lookup=FakeCostLookup(figures=None, tiers=(ROUTINE_IMPLEMENTER,)),
         )
 
@@ -916,7 +946,7 @@ class MarkdownBoard(unittest.TestCase):
             vrec(
                 "prd-autofix",
                 "claude",
-                "2026-07-06T10:08:00Z",
+                at(8),
                 file="docs/prd.md",
                 category="writing-standards",
             )
@@ -928,8 +958,8 @@ class MarkdownBoard(unittest.TestCase):
 
     def test_a_fix_anchor_bolds_the_kind_and_the_fixer(self):
         out = markdown_view(
-            a_dissent("doc-reviewer", "2026-07-06T10:20:00Z"),
-            a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (1,)),
+            a_dissent("doc-reviewer", at(20)),
+            a_dispatch(PRODUCT, at(32), (1,)),
         )
 
         self.assertIn("- ↻ **fix prd-expert** ← doc · (1 finding)\n", out)
@@ -950,25 +980,26 @@ class MarkdownBoard(unittest.TestCase):
 
     def test_an_abort_closed_session_carries_its_tail_and_an_open_one_stays_bare(self):
         closed = markdown_view(
-            vrec("dispatch-start", IMPLEMENTER, "2026-07-06T10:06:00Z"),
+            vrec("dispatch-start", IMPLEMENTER, at(DISPATCH_MINUTE)),
             vrec(
                 "build-failure",
                 IMPLEMENTER,
-                "2026-07-06T10:11:00Z",
+                at(ABORT_MINUTE),
                 abort_reason="design-mismatch",
             ),
             req_id=SOME_REQ_ID,
             cost_lookup=FakeCostLookup(),
         )
         still_open = markdown_view(
-            vrec("dispatch-start", IMPLEMENTER, "2026-07-06T10:06:00Z"),
-            vrec("build-failure", IMPLEMENTER, "2026-07-06T10:11:00Z", retry=1),
+            vrec("dispatch-start", IMPLEMENTER, at(DISPATCH_MINUTE)),
+            vrec("build-failure", IMPLEMENTER, at(ABORT_MINUTE), retry=1),
             req_id=SOME_REQ_ID,
             cost_lookup=FakeCostLookup(),
         )
+        session_time = duration(DISPATCH_MINUTE, ABORT_MINUTE)
 
         self.assertIn(
-            "- ◆ **implement** (implementer) · ***◷ 5m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*",
+            f"- ◆ **implement** (implementer) · ***{session_time}** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*",
             closed,
         )
         self.assertIn("- ◆ **implement** (implementer)\n", still_open)
@@ -992,7 +1023,8 @@ class MarkdownBoard(unittest.TestCase):
 
         self.assertIn("— \\# fake heading", out)
         self.assertIn("| **weird\\|name** | ✎ (1) |", out)
-        self.assertIn("`aʼb.py:7`", out)
+        # The renderer swaps a backtick inside a span for the modifier apostrophe.
+        self.assertIn("`aʼb.py:7`", out)  # noqa: RUF001
         self.assertIn("uses \\<script> here", out)
 
     def test_the_header_takes_the_whole_title_under_verbose(self):
@@ -1063,7 +1095,7 @@ class MarkdownBoard(unittest.TestCase):
 
     def test_control_bytes_never_reach_the_document(self):
         for verbose in (False, True):
-            out = markdown_view(*a_hostile_log(), verbose=verbose)
+            out = markdown_view(*a_log_with_control_bytes(), verbose=verbose)
 
             self.assertNotIn("\x1b", out)
             self.assertNotIn("\x00", out)

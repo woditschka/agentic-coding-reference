@@ -137,6 +137,24 @@ Reachability is rated from the attacker path — the input, the boundary it cros
 - Missing rate limiting
 - Verbose logging in the production default
 
+## Detection Patterns
+
+Grep the production roots declared in `scripts/layout.toml` for the shapes below, in this stack's spelling. A hit is a candidate, never a verdict: read each in context and rate it per § Severity Classification.
+
+| Pattern | What It Detects |
+|---|---|
+| `exec\|system\|spawn\|popen\|Runtime` | Process or shell execution — an argument that is not a literal carries injection risk |
+| `SELECT\|INSERT\|UPDATE\|DELETE` beside a concatenation or interpolation marker | Query assembled from strings instead of bound parameters |
+| `deserial\|unmarshal\|readObject\|pickle\|yaml.*load` | Untrusted input deserialized into arbitrary types |
+| `innerHTML\|raw\|unescape\|safe` | Escaping bypassed on the way to an output sink |
+| `token\|password\|secret\|api[_-]?key` | Hard-coded credentials (the starting set, not the list — § Credential and Sensitive Data Handling) |
+| `verify=False\|InsecureSkipVerify\|rejectUnauthorized\|trustAll` | Transport-security verification disabled |
+| `\.\./\|path.*join\|readFile\|openFile` | Path assembled from input — check for normalization and a containment test |
+| `random\|rand\(` | Non-cryptographic randomness in a security-relevant value |
+| `/tmp/` | System tmp usage (should use `.scratch/tmp/`) |
+
+- [ ] **Stack-specific checks:** {{FILL: this stack's dangerous-call spellings and their grep patterns}}
+
 ## Supply Chain Verification
 
 ### Automated Checks

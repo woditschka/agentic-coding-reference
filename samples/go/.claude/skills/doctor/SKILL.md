@@ -27,7 +27,7 @@ The doctor's engine, manifest, and tests live in the project-side `scripts/` dir
 |------|------|
 | `scripts/doctor.py` | The engine. Stdlib only, Python 3.11+. Project-side, like every harness engine. |
 | `scripts/doctor-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
-| `scripts/tests/test_doctor.py` | Characterization tests. Also prove a freshly materialized project passes. |
+| `scripts/tests/test_doctor.py` | The suite: one class per check subject, and an anchor test proving a freshly materialized project passes. |
 | `templates/` | One template per roster file (in this skill). Defaults are complete house-style documents; stubs are structure-only. |
 
 ## Running

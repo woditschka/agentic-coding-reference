@@ -1,9 +1,4 @@
-"""Rendered-tree parity and content-invariant checks (ADR 2026-07-18
-check-sync-decomposition): the steps that compare re-rendered trees against
-the committed ones or hold cross-file content invariants — agent-body parity,
-the accounting vendored copy, materialization faithfulness, the sample layout
-and roster invariants, the placeholder and handbook gates, verdict enums, the
-stack-agnostic core, root links, and the parity gates."""
+"""Hold the rendered trees to their sources and the cross-file content invariants."""
 
 import json
 import re
@@ -11,18 +6,25 @@ import subprocess
 import sys
 import tomllib
 from collections import Counter
+from collections.abc import Iterator
+from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
+from typing import Any
 
 import registry
 import retired_paths
 from registry import STACKS, TOOLS
 
-from verify_harness.battery import Battery, check_render_faithful
+from verify_harness.battery import Battery, RenderCheck, check_render_faithful
 from verify_harness.text import (
     FENCE,
+    FENCE_PAIR,
     HERE,
+    LOCAL_SKILL_LINK,
     ROOT,
-    _fence_state,
+    SIBLING_SKILL_LINK,
+    fence_state,
     frontmatter_block,
     frontmatter_scalar,
     frontmatter_top_keys,
@@ -38,8 +40,8 @@ from verify_harness.text import (
     tag_findings,
 )
 
-# The PROJECT_NAME / PROJECT_DESCRIPTION template tokens, built by
-# concatenation so this package never matches itself.
+# The template tokens are built by concatenation so this package never
+# matches itself.
 PH_TOKENS = tuple("{{" + t + "}}" for t in ("PROJECT_NAME", "PROJECT_DESCRIPTION"))
 PH_ALLOW = re.compile(
     r"^(\.claude/skills/(init|harvest)/SKILL\.md$"
@@ -54,8 +56,8 @@ PH_ALLOW = re.compile(
     r"|samples/[a-z-]+/CLAUDE\.md$"
     r"|samples/[a-z-]+/docs/(prd|system-design)\.md$"
     r"|samples/go/Makefile$"
-    # The eval runner's era contract fills the init skeletons' tokens per
-    # arm (ADR 2026-08-22); the runner and its tests name them literally.
+    # The eval runner fills the init skeletons' tokens per arm; it and its
+    # tests name them literally.
     r"|evals/run_eval\.py$"
     r"|evals/tests/test_run_eval\.py$)"
 )
@@ -64,6 +66,7 @@ CORE_STACK_TOKENS = re.compile(
     r"\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b"
     r"|golangci|spotless|JUnit|com/example"
 )
+SHOWN_STACK_TOKEN_HITS = 10
 
 DESIGN_BLOCK_VERDICTS = {
     "covered",
@@ -74,45 +77,21 @@ DESIGN_BLOCK_VERDICTS = {
     "conflicting",
 }
 REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
+GATE_VERBS_KEY = "gate.verbs"
 
-# Mirror surfaces and their file suffixes — the same registry.TOOLS-derived
-# data the renderer uses (the parsing logic stays independent on purpose).
+CLAUDE_AGENTS = TOOLS["claude"]["agents_dir"]
+COPILOT_AGENTS = TOOLS["copilot"]["agents_dir"]
+OPENCODE_AGENTS = TOOLS["opencode"]["agents_dir"]
+# The checker parses the mirror surfaces on its own so one parsing bug
+# cannot pass both it and the renderer.
 MIRROR_SURFACES = registry.mirror_surfaces()
+AGENT_SURFACES = ((CLAUDE_AGENTS, TOOLS["claude"]["suffix"]), *MIRROR_SURFACES)
+LAYERS = (HERE / "core", *(HERE / "stacks" / stack for stack in STACKS))
 
-
-def _frontmatter_description(text: str) -> str | None:
-    """The description value from an agent file's frontmatter, plain or
-    folded scalar, or None when absent. Parse-only and deliberately local —
-    the renderer keeps frontmatter opaque, so this checker-side reader is
-    the only place the field is interpreted."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return None
-    collected: list[str] | None = None
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if collected is not None:
-            if not line.strip() or line.startswith((" ", "\t")):
-                collected.append(line.strip())
-                continue
-            break
-        if line.startswith("description:"):
-            value = line[len("description:") :].strip()
-            if value in (">", ">-", "|", "|-"):
-                collected = []
-            else:
-                return value
-    return " ".join(collected) if collected is not None else None
-
-
-# Claude Code's bundled skill and command names (code.claude.com/docs
-# commands roster). Bare-name skill resolution walks enterprise > personal >
-# project > bundled; a plugin-delivered skill is reachable by its bare name
-# only when nothing above claims it. A preloaded frontmatter name on this
-# list therefore loads the bundled skill instead of the harness one — and
-# does so silently (transcript-proven across 49 eval runs; ADR 2026-08-11
-# bundled-skill-name-collision). update-research refreshes this pin.
+# Claude Code's bundled skill and command names. Bare-name skill resolution
+# walks enterprise > personal > project > bundled, so a preloaded frontmatter
+# name on this list loads the bundled skill instead of the harness one, and
+# does so silently. update-research refreshes this pin.
 CLAUDE_CODE_BUNDLED_SKILLS = frozenset(
     {
         "batch",
@@ -136,265 +115,13 @@ CLAUDE_CODE_BUNDLED_SKILLS = frozenset(
     }
 )
 
-
-_VARIANT_OF = re.compile(r"^variant-of:[ \t]*([A-Za-z0-9_-]+)[ \t]*$")
-
-
-def _frontmatter_variant_of(text: str) -> str | None:
-    """The `variant-of:` target inside the frontmatter block, or None."""
-    lines = text.splitlines()
-    if not lines or lines[0].rstrip() != "---":
-        return None
-    for line in lines[1:]:
-        if line.rstrip() == "---":
-            return None
-        match = _VARIANT_OF.match(line)
-        if match:
-            return match.group(1)
-    return None
-
-
-def _frontmatter_skills(text_: str) -> list[str]:
-    """The block-list values of the frontmatter `skills:` key, or [] when
-    the key is absent. Parse-only and local, like _frontmatter_description —
-    every agent surface (including the hand-owned mirror frontmatter) writes
-    the list in plain block form."""
-    lines = text_.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return []
-    names: list[str] | None = None
-    for line in lines[1:]:
-        if line.strip() == "---":
-            break
-        if names is not None:
-            item = line.strip()
-            if item.startswith("- "):
-                names.append(item[2:].strip().strip("'\""))
-                continue
-            break
-        if line.rstrip() == "skills:":
-            names = []
-    return names or []
-
-
-def check_bundled_skill_collision(b: Battery) -> None:
-    """2g. Bundled-skill-name collision. No `skills:` frontmatter entry on
-    any shipped agent surface — .claude or a hand-owned mirror — may name a
-    Claude Code bundled skill: on the plugin channel the bundled skill wins
-    the bare name, and the substitution is silent. Preloads only; a
-    root-invoked shipped skill sharing a *command* name (doctor, init) is
-    reached by typed prefix and stays out of scope. The pinned roster above
-    is the comparison's other side; update-research refreshes it."""
-    b.note("bundled-skill-name collision (frontmatter preloads)")
-    surfaces = ((".claude/agents", ".md"),) + tuple(MIRROR_SURFACES)
-    layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
-    scanned = 0
-    collisions: list[str] = []
-    for layer in layers:
-        for agents_dir, suffix in surfaces:
-            base = layer / agents_dir
-            if not base.is_dir():
-                continue
-            for path in sorted(base.glob(f"*{suffix}")):
-                names = _frontmatter_skills(path.read_text(encoding="utf-8"))
-                if not names:
-                    continue
-                scanned += 1
-                for name in names:
-                    if name in CLAUDE_CODE_BUNDLED_SKILLS:
-                        rel = path.relative_to(HERE)
-                        collisions.append(
-                            f"{rel}: skills entry {name!r} collides with a "
-                            "Claude Code bundled skill — the bundled copy "
-                            "wins the bare name on the plugin channel"
-                        )
-    if scanned == 0:
-        b.fail("bundled-skill collision check scanned zero skills lists")
-        return
-    if collisions:
-        b.fail("bundled-skill-name collision:\n  " + "\n  ".join(collisions))
-    else:
-        print(f"  {scanned} skills lists carry no bundled-skill name")
-
-
-def check_agent_body_parity(b: Battery) -> None:
-    """2b. Agent body parity — every agent's three per-tool source copies must
-    carry byte-identical bodies; only the frontmatter differs. One documented
-    exception is normalized away: skill links are location-correct per
-    directory (../skills/ from .claude/agents/, ../../.claude/skills/ from the
-    other three). The mirror bodies are rendered from the .claude base by
-    render-agent-mirrors.py (via propagate-harness); this step gates a forgotten
-    render or a hand-edited mirror. Faithfulness (step 3) cannot see either: a
-    drifted mirror sits identically in source and sample. A drifted copy ships
-    a weaker agent to that tool's users.
-
-    The frontmatter `description` is also gated, whitespace-folded: every
-    tool routes on it, no pair diverges by intent, and the one shipped drift
-    on record (java feature-implementer, 2026-07-16 through v0.2.0) rode
-    exactly this then-ungated field. Other frontmatter keys encode per-tool
-    decisions and stay hand-owned, judgment-covered by /audit-agents.
-
-    A base carrying `variant-of: <name>` (the effort-tier variant, ADR
-    2026-09-01) is additionally gated against its named base: bodies must be
-    byte-identical (render-agent-mirrors renders them; this catches a
-    hand-edited variant), the target must exist, chains are refused, the
-    variant must be named <target>-routine, its model pin must equal the
-    target's, and its effort pin must differ from the target's — the variant
-    varies effort, and only effort."""
-    b.note("agent body parity (per-tool copies)")
-    ok = True
-
-    def fail(msg: str) -> None:
-        nonlocal ok
-        b.fail(msg)
-        ok = False
-
-    layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
-    for layer in layers:
-        bases = 0
-        for base in sorted((layer / ".claude/agents").glob("*.md")):
-            name = base.stem
-            # Sanctioned doc files (registry.AGENT_DOC_STEMS) are not
-            # agent bases; anything else is checked as an agent.
-            if name in registry.AGENT_DOC_STEMS:
-                continue
-            bases += 1
-            base_body = strip_frontmatter(read_text(base))
-            if not any(l.strip() for l in base_body):
-                fail(f"empty body (or missing frontmatter fence) in {rel(base)}")
-            variant_target = _frontmatter_variant_of(read_text(base))
-            if variant_target is not None:
-                target = layer / ".claude/agents" / f"{variant_target}.md"
-                if not target.is_file():
-                    fail(
-                        f"{rel(base)} names variant-of {variant_target}, "
-                        "which has no base in this layer"
-                    )
-                elif _frontmatter_variant_of(read_text(target)) is not None:
-                    fail(f"{rel(base)} chains variant-of onto variant {variant_target}")
-                elif name != f"{variant_target}-routine":
-                    fail(
-                        f"{rel(base)} carries variant-of {variant_target} but is "
-                        f"not named {variant_target}-routine — the only sanctioned "
-                        "variant shape"
-                    )
-                elif base_body != strip_frontmatter(read_text(target)):
-                    fail(
-                        f"variant body drift: {rel(base)} != {rel(target)} "
-                        "— run render-agent-mirrors, never hand-edit a variant"
-                    )
-                elif frontmatter_scalar(read_text(base), "model") != frontmatter_scalar(
-                    read_text(target), "model"
-                ):
-                    # The variant varies effort only; a diverging model pin
-                    # would ship model-tier routing silently.
-                    fail(
-                        f"variant model pin drift: {rel(base)} != {rel(target)} "
-                        "— an effort variant keeps its base's model"
-                    )
-                else:
-                    # The variant's whole point is a LOWER effort pin; a
-                    # variant shipping its base's effort is a silent no-op
-                    # that every other gate would pass. Copilot and OpenCode
-                    # carry no effort knob and run the variant at base
-                    # strength by design.
-                    base_effort = frontmatter_scalar(read_text(base), "effort")
-                    target_effort = frontmatter_scalar(read_text(target), "effort")
-                    if not base_effort or base_effort == target_effort:
-                        fail(
-                            f"variant effort pin missing or equal to its "
-                            f"base's in {rel(base)} — a no-op variant"
-                        )
-            # Each link form is asserted, not just normalized: the claude copy
-            # uses the local form, siblings the rewritten one. Without this, a
-            # sibling whose link was never rewritten is byte-equal to the base
-            # and would pass while shipping a link broken from its directory.
-            if any("../../.claude/skills/" in l for l in base_body):
-                fail(
-                    f"sibling link form (../../.claude/skills/) in {rel(base)} "
-                    "— the claude copy uses ../skills/"
-                )
-            for mirror_dir, suffix in MIRROR_SURFACES:
-                mirror = layer / mirror_dir / f"{name}{suffix}"
-                if not mirror.is_file():
-                    fail(f"missing per-tool agent copy {rel(mirror)}")
-                    continue
-                mirror_body = strip_frontmatter(read_text(mirror))
-                if any(
-                    "../skills/" in l.replace("../../.claude/skills/", "")
-                    for l in mirror_body
-                ):
-                    fail(
-                        f"un-rewritten skill link (../skills/) in {rel(mirror)} "
-                        "— broken from this directory"
-                    )
-                if norm_links(mirror_body) != base_body:
-                    fail(
-                        f"agent body drift (frontmatter aside): {rel(mirror)} != {rel(base)}"
-                    )
-                base_desc = _frontmatter_description(read_text(base))
-                mirror_desc = _frontmatter_description(read_text(mirror))
-                if base_desc is None:
-                    fail(f"no frontmatter description parsed in {rel(base)}")
-                elif mirror_desc is None:
-                    fail(f"no frontmatter description parsed in {rel(mirror)}")
-                elif " ".join(base_desc.split()) != " ".join(mirror_desc.split()):
-                    fail(
-                        f"agent description drift: {rel(mirror)} != {rel(base)} "
-                        "— mirror descriptions restate the base verbatim"
-                    )
-        if bases == 0:
-            fail(
-                f"no agent bases under {rel(layer)}/.claude/agents/ "
-                "— roster empty or path renamed"
-            )
-        # Reverse sweep: an agent file present only in a sibling dir has no
-        # base above and would otherwise never be compared — it would ship to
-        # that tool unchecked. It also enforces each tool's file suffix.
-        for mirror_dir, suffix in MIRROR_SURFACES:
-            d = layer / mirror_dir
-            if not d.is_dir():
-                continue
-            for f in sorted(p for p in d.iterdir() if p.is_file()):
-                if f.stem in registry.AGENT_DOC_STEMS:
-                    # Doc stems are sanctioned in .claude/agents/ only. Here
-                    # the tool loads every matching file as an agent, and the
-                    # renderer's prune never deletes a doc — so a stray doc
-                    # would ship live and ungated unless it fails here.
-                    fail(
-                        f"{rel(f)} — doc file in a tool agents dir; docs "
-                        "live in .claude/agents/ only"
-                    )
-                    continue
-                if not f.name.endswith(suffix) or f.name == suffix:
-                    kind = (
-                        "copilot agents must be <name>.agent.md"
-                        if mirror_dir == ".github/agents"
-                        else "unexpected non-.md file in a tool agents dir"
-                    )
-                    fail(f"{rel(f)} — {kind}")
-                    continue
-                name = f.name[: -len(suffix)]
-                if not (layer / ".claude/agents" / f"{name}.md").is_file():
-                    fail(
-                        f"{rel(f)} has no .claude/agents/{name}.md base "
-                        "— sibling-only agent, never parity-checked"
-                    )
-    if ok:
-        print("  all per-tool bodies and descriptions identical")
-
-
 # Per-surface frontmatter vocabularies, pinned from each tool's agent
-# documentation (restated in docs/cross-tool-strategy.md § Agents /
-# Subagents). update-research finds upstream drift; a pin advances with the
-# harness release that ships the corresponding frontmatter change.
-# toolCallBudget is the harness's own cross-tool metadata key (skill prose
-# references it) and is valid on every surface. variant-of is the harness's
-# render key on the .claude surface only (ADR 2026-09-01): render-agent-mirrors
-# fills the marked base's body from its target; the mirrors carry no such key.
+# documentation and restated in docs/cross-tool-strategy.md. toolCallBudget is
+# the harness's own cross-tool key and is valid on every surface; variant-of
+# is its render key on the .claude surface only.
 HARNESS_FRONTMATTER_KEYS = frozenset({"toolCallBudget"})
 FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
-    ".claude/agents": frozenset(
+    CLAUDE_AGENTS: frozenset(
         {
             "name",
             "description",
@@ -410,10 +137,10 @@ FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
             "variant-of",
         }
     ),
-    ".github/agents": frozenset(
+    COPILOT_AGENTS: frozenset(
         {"name", "description", "tools", "model", "hooks", "mcp-servers", "handoffs"}
     ),
-    ".opencode/agents": frozenset(
+    OPENCODE_AGENTS: frozenset(
         {
             "description",
             "mode",
@@ -429,8 +156,6 @@ FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
         }
     ),
 }
-# OpenCode permission subkeys: the documented set, plus wildcard patterns
-# (matched against tool names). Values resolve to exactly three verbs.
 OPENCODE_PERMISSION_KEYS = frozenset(
     {
         "read",
@@ -450,774 +175,12 @@ OPENCODE_PERMISSION_KEYS = frozenset(
 )
 OPENCODE_PERMISSION_VALUES = frozenset({"allow", "ask", "deny"})
 
+ADOPTION_TRIO = ("init", "materialize", "harvest")
+ADOPTION_CHAPTER = "## Adopt in a Project"
+VERBATIM_OWNED_FILES = frozenset({"scripts/backlog.sh", "scripts/stack.sh"})
 
-def check_frontmatter_vocabulary(b: Battery) -> None:
-    """2e. Per-tool frontmatter vocabulary. Every agent file's top-level
-    frontmatter keys must sit inside the pinned vocabulary for its surface,
-    and an OpenCode `permission` map must use documented subkeys (or wildcard
-    patterns) with allow/ask/deny values in block form — a flow-style or
-    scalar `permission` fails rather than bypassing the subkey walk, and a
-    surface that scans zero files fails rather than passing green. Byte
-    parity (2b) and the judgment passes both miss this class: a key can be
-    internally consistent across all twenty copies yet out of schema
-    upstream. The shipped `permissions:`/`fetch`/`max_steps` drift (through
-    2026-08-10) rode exactly that gap, leaving the OpenCode grants inert.
-    Frontmatter is hand-owned per tool, so faithfulness cannot see it
-    either."""
-    b.note("frontmatter vocabulary (per-tool)")
-    ok = True
-
-    def fail(msg: str) -> None:
-        nonlocal ok
-        b.fail(msg)
-        ok = False
-
-    surfaces = ((".claude/agents", ".md"),) + tuple(MIRROR_SURFACES)
-    layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
-    # A skill's `compatibility:` list names tools; a retired tool's name
-    # surviving there is exactly the drift a token grep misses.
-    for layer in layers:
-        for skill in sorted((layer / ".claude/skills").glob("*/SKILL.md")):
-            text = read_text(skill)
-            block = re.search(r"^compatibility:\n((?:  - .+\n)+)", text, re.M)
-            if not block:
-                continue
-            for name in re.findall(r"^  - (.+)$", block.group(1), re.M):
-                if name.strip() not in registry.COMPATIBILITY_NAMES:
-                    fail(
-                        f"unknown compatibility name `{name.strip()}` in {rel(skill)} — "
-                        f"the registry knows {', '.join(sorted(registry.COMPATIBILITY_NAMES))}"
-                    )
-    for layer in layers:
-        for agents_dir, suffix in surfaces:
-            vocab = FRONTMATTER_VOCABULARY[agents_dir] | HARNESS_FRONTMATTER_KEYS
-            d = layer / agents_dir
-            scanned = 0
-            for f in sorted(d.glob(f"*{suffix}")) if d.is_dir() else []:
-                # Doc stems are sanctioned in .claude/agents/ only; in a
-                # mirror dir the reverse parity sweep fails them as strays.
-                if (
-                    agents_dir == ".claude/agents"
-                    and f.stem in registry.AGENT_DOC_STEMS
-                ):
-                    continue
-                scanned += 1
-                content = read_text(f)
-                keys = frontmatter_top_keys(content)
-                if not keys:
-                    fail(f"no frontmatter keys parsed in {rel(f)}")
-                    continue
-                for key in keys:
-                    if key not in vocab:
-                        fail(
-                            f"out-of-vocabulary frontmatter key `{key}` in "
-                            f"{rel(f)} — not in the {agents_dir} pin "
-                            "(docs/cross-tool-strategy.md § Agents / Subagents)"
-                        )
-                if agents_dir != ".opencode/agents":
-                    continue
-                if frontmatter_scalar(content, "permission"):
-                    fail(
-                        f"flow-style or scalar `permission` in {rel(f)} — "
-                        "the gate reads only the block form"
-                    )
-                for sub, value in frontmatter_block(content, "permission"):
-                    if sub not in OPENCODE_PERMISSION_KEYS and "*" not in sub:
-                        fail(
-                            f"unknown OpenCode permission key `{sub}` in "
-                            f"{rel(f)} — documented keys or a wildcard "
-                            "pattern only"
-                        )
-                    # An empty value opens a nested per-command map; the
-                    # subkey stays vocabulary-checked above.
-                    if value and value not in OPENCODE_PERMISSION_VALUES:
-                        fail(
-                            f"OpenCode permission `{sub}: {value!r}` in "
-                            f"{rel(f)} — value must be allow/ask/deny"
-                        )
-            if scanned == 0:
-                fail(
-                    f"no agent frontmatter scanned under {rel(d)} — "
-                    "renamed directory or suffix"
-                )
-    if ok:
-        print("  all agent frontmatter keys inside the per-tool pins")
-
-
-def check_accounting_sync(b: Battery) -> None:
-    """2d. accounting vendored-copy sync. The module is authored once and
-    copied to the other location; the two must stay byte-identical so the
-    statusline and the handoff board price from the same code. Canonical home:
-    tools/harness-stats/accounting.py (install.sh puts it beside the
-    statusline). Vendored copy: harness/core/scripts/accounting.py, which the
-    board imports and which materializes into every sample (step 3 covers the
-    sample copies; only this canonical↔vendored pair is unguarded otherwise).
-    There is no build step — the copy is manual, this gate is automatic."""
-    b.note("accounting vendored-copy sync")
-    canon = ROOT / "tools/harness-stats/accounting.py"
-    vendored = HERE / "core/scripts/accounting.py"
-    try:
-        if canon.read_bytes() == vendored.read_bytes():
-            print("  canonical == vendored")
-        else:
-            b.fail(
-                f"{rel(canon)} != {rel(vendored)} — decide which copy "
-                f"holds the intended edit (canonical home: {rel(canon)}), "
-                f"then cp it over the other"
-            )
-    except OSError as exc:
-        b.fail(f"could not compare the accounting copies: {exc}")
-
-
-def check_spec_version_sync(b: Battery) -> None:
-    """2f. spec-version sync. The harness–project API doc is the consumer-
-    facing statement of the contract the doctor enforces; its header and the
-    adoption guide's restatement must equal doctor-expectations.toml's
-    spec_version. The 0.2.0 bump (ADR 2026-08-02) shipped with both docs
-    still saying 0.1.0 — this gate closes that channel."""
-    b.note("spec-version sync (docs vs doctor-expectations)")
-    expectations = HERE / "core/scripts/doctor-expectations.toml"
-    spec_version = tomllib.loads(read_text(expectations))["spec_version"]
-    surfaces = {
-        ROOT / "docs/harness-project-api.md": f"**Version:** {spec_version} ",
-        ROOT / "docs/adoption-guide.md": f"spec {spec_version} ",
-    }
-    ok = True
-    for path, needle in surfaces.items():
-        if needle not in read_text(path):
-            ok = False
-            b.fail(
-                f"{rel(path)} does not state spec {spec_version} — the "
-                f"doc drifted from {rel(expectations)} spec_version; "
-                "update the doc's version statement"
-            )
-    if ok:
-        print(f"  both docs state spec {spec_version}")
-
-
-def check_faithfulness(b: Battery) -> None:
-    """3. Materialization faithfulness — dirty-tree-safe. Snapshot the working
-    tree, re-materialize, and flag only what the re-materialize *changes*
-    (forgotten materialize or a drifted hand-edit), plus any orphan extra."""
-    b.note("materialization faithfulness")
-    if b.quick:
-        b.skip("--quick: harness/ and samples/ proven untouched by the guard")
-        return
-
-    def on_result(result: subprocess.CompletedProcess[str]) -> None:
-        output = result.stdout + result.stderr
-        if result.returncode != 0:
-            # The header-documented abort exception: the sample checks that
-            # follow read the tree this materialize-samples run produces.
-            print("FAIL: harness/materialize-samples.sh failed:", file=sys.stderr)
-            print(output, file=sys.stderr)
-            raise SystemExit(1)
-        extras = re.findall(r"extras: (\d+) file", output)
-        for n in extras:
-            if n != "0":
-                b.fail(
-                    f"materialize reported {n} orphan extra(s) — a committed "
-                    "file /harness no longer produces. git rm it."
-                )
-        # Committed orphans are invisible to the porcelain diff (materialize-
-        # samples never deletes them) — the extras count is their only guard. No
-        # extras line parsed means the output format changed; fail loud
-        # rather than pass an unchecked tree.
-        if not extras:
-            b.fail(
-                "no 'extras:' line parsed from materialize-samples output — output "
-                "format changed; orphan detection is not running."
-            )
-            print(output, file=sys.stderr)
-
-    if check_render_faithful(
-        b,
-        ("samples/",),
-        ["bash", str(HERE / "materialize-samples.sh")],
-        "re-materialize changed the samples — a /harness edit was not "
-        "materialized, or a sample was hand-edited:",
-        "Fix: review the change, then commit the re-materialized samples "
-        "with the /harness edit.",
-        on_result,
-    ):
-        print("  samples == materialize(/harness)")
-
-
-def check_layout_invariants(b: Battery) -> None:
-    """3b. Sample layout invariants — the cross-tool compatibility rules from
-    docs/cross-tool-strategy.md as a gate: CLAUDE.md is the single rules file,
-    skills live in .claude/skills/ only, every tool surface is present."""
-    b.note("sample layout invariants (cross-tool rules, copy channel)")
-    ok = True
-
-    def fail(msg: str) -> None:
-        nonlocal ok
-        b.fail(msg)
-        ok = False
-
-    # Derived from the registry.TOOLS table: skills may exist only under
-    # .claude/skills/ (no per-tool sibling), and every tool's agents dir must
-    # be present in a sample.
-    mirror_skill_dirs = tuple(
-        row["agents_dir"].rsplit("/", 1)[0] + "/skills"
-        for tool, row in TOOLS.items()
-        if tool != "claude"
-    )
-    agent_dirs = tuple(row["agents_dir"] for row in TOOLS.values())
-    for s in STACKS:
-        sample = ROOT / "samples" / s
-        for p in ("AGENTS.md", ".github/copilot-instructions.md", *mirror_skill_dirs):
-            if (sample / p).exists():
-                fail(
-                    f"samples/{s}/{p} exists — CLAUDE.md is the single rules "
-                    "file and skills live in .claude/skills/ only"
-                )
-        for p in ("CLAUDE.md", *agent_dirs, ".claude/skills"):
-            if not (sample / p).exists():
-                fail(
-                    f"samples/{s}/{p} missing — required by the cross-tool "
-                    "compatibility rules"
-                )
-        # Copy-channel rule: declared in layout.toml, no silent extension
-        # creep, the runtime git-tracked, the ledger ignored but never the
-        # runtime.
-        lt = sample / "scripts/layout.toml"
-        lt_text = read_text(lt) if lt.is_file() else ""
-        if not re.search(r'channel *= *"copy"', lt_text):
-            fail(f'samples/{s}/scripts/layout.toml does not declare channel = "copy"')
-        if not re.search(r"extensions *= *\[\]", lt_text):
-            fail(
-                f"samples/{s}/scripts/layout.toml extensions is not [] — the "
-                "samples declare none; a non-empty list weakens orphan detection"
-            )
-        tracked = subprocess.run(
-            ["git", "ls-files", f"samples/{s}/.claude/skills"],
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            check=False,
-        ).stdout
-        if not tracked.strip():
-            fail(f"samples/{s} runtime is untracked — the copy channel commits it")
-        gitignore = sample / ".gitignore"
-        gi_text = read_text(gitignore) if gitignore.is_file() else ""
-        if not re.search(r"^\.scratch/", gi_text, re.M):
-            fail(f"samples/{s}/.gitignore does not ignore .scratch/")
-        if ".claude/skills" in gi_text:
-            fail(
-                f"samples/{s}/.gitignore ignores the runtime — the copy "
-                "channel commits it"
-            )
-    if ok:
-        print("  cross-tool rules and channel invariants hold")
-
-
-def check_roster_sync(b: Battery) -> None:
-    """3c. Project-owned roster sync. Faithfulness (step 3) covers only the
-    runtime; the project-owned committed files drift silently when the shipped
-    roster changes. Gates: skills table both directions (scoped to its two
-    chapters), agents README roster, init skeleton coverage, brief roster, ADR
-    placement, and the ROOT skill table (CLAUDE.md "Root-Level Skills") plus
-    the adoption trio's mentions in docs/adoption-guide.md. Row *descriptions*
-    stay judgment (/audit-harness Layer 2 check 5)."""
-    b.note(
-        "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
-    )
-    ok = True
-
-    def fail(msg: str) -> None:
-        nonlocal ok
-        b.fail(msg)
-        ok = False
-
-    # Hook registration integrity, both directions: every hook the settings
-    # skeleton registers must ship in core/.claude/hooks (a registered-but-
-    # missing script exits 2 on PreToolUse and blocks the matched tool for
-    # every consumer), and every shipped hook script must be registered (a
-    # delivered-but-unregistered hook never runs).
-    skeleton = read_text(HERE / "init/core/.claude/settings.json")
-    registered = set(re.findall(r"\.claude/hooks/([A-Za-z0-9_-]+\.py)", skeleton))
-    shipped_hooks = {
-        f.name
-        for f in (HERE / "core/.claude/hooks").glob("*.py")
-        if not f.name.startswith("test_")
-    }
-    for name in sorted(registered - shipped_hooks):
-        fail(
-            f"init settings skeleton registers .claude/hooks/{name}, which "
-            "core does not ship — a missing hook script blocks its tool"
-        )
-    for name in sorted(shipped_hooks - registered):
-        fail(
-            f"core ships .claude/hooks/{name} but the init settings skeleton "
-            "never registers it — a delivered-but-unregistered hook never runs"
-        )
-
-    for s in STACKS:
-        claude_md = read_text(ROOT / "samples" / s / "CLAUDE.md")
-        agents_readme = read_text(ROOT / "samples" / s / ".claude/agents/README.md")
-        # Presence is judged against the parsed '## Skills' rows, not a
-        # whole-file substring — a row under the wrong heading, or the name
-        # embedded mid-cell elsewhere, must not satisfy the roster.
-        readme_rows = set(section_rows(agents_readme, r"^## Skills"))
-        if not readme_rows:
-            fail(
-                f"samples/{s}/.claude/agents/README.md: no rows parsed under "
-                "'## Skills' — roster empty or heading renamed"
-            )
-        shipped = set()
-        for skills_root in (
-            HERE / "core/.claude/skills",
-            HERE / "stacks" / s / ".claude/skills",
-        ):
-            if not skills_root.is_dir():
-                continue
-            for d in sorted(p for p in skills_root.iterdir() if p.is_dir()):
-                shipped.add(d.name)
-                if f"| `{d.name}`" not in claude_md:
-                    fail(
-                        f"samples/{s}/CLAUDE.md skills table has no row for "
-                        f"shipped skill '{d.name}'"
-                    )
-                if d.name not in readme_rows:
-                    fail(
-                        f"samples/{s}/.claude/agents/README.md Skills table "
-                        f"has no row for shipped skill '{d.name}'"
-                    )
-        # Vacuous-pass backstop, same reason as step 2b's bases counter: a
-        # renamed skills root would otherwise let this loop check nothing.
-        if not shipped:
-            fail(
-                f"no shipped skills found for stack {s} — roster empty or path renamed"
-            )
-        for row in section_rows(claude_md, r"^## (Agent Usage|Stack-specific skills)"):
-            if row not in shipped:
-                fail(
-                    f"samples/{s}/CLAUDE.md skills table row '{row}' names no "
-                    "shipped skill — ghost row"
-                )
-        for row in readme_rows:
-            if row not in shipped:
-                fail(
-                    f"samples/{s}/.claude/agents/README.md Skills row "
-                    f"'{row}' names no shipped skill — ghost row"
-                )
-        for agents_root in (
-            HERE / "core/.claude/agents",
-            HERE / "stacks" / s / ".claude/agents",
-        ):
-            if not agents_root.is_dir():
-                continue
-            for f in sorted(agents_root.glob("*.md")):
-                if f.stem in registry.AGENT_DOC_STEMS:
-                    continue
-                if f"**{f.stem}**" not in agents_readme:
-                    fail(
-                        f"samples/{s}/.claude/agents/README.md has no roster "
-                        f"row for shipped agent '{f.stem}'"
-                    )
-        # Presence for every project-owned file; byte-identity for the two the
-        # samples never customize. The ADR calls backlog.sh byte-identical across
-        # stacks, and materialize skips both as project-owned, so without this
-        # rule a skeleton edit leaves the committed samples on an earlier draft.
-        verbatim = {"scripts/backlog.sh", "scripts/stack.sh"}
-        owned = [
-            ("CLAUDE.md", HERE / "init/stacks" / s / "CLAUDE.md"),
-            (".claude/settings.json", HERE / "init/core/.claude/settings.json"),
-            ("scripts/layout.toml", HERE / "init/stacks" / s / "scripts/layout.toml"),
-            ("scripts/backlog.sh", HERE / "init/core/scripts/backlog.sh"),
-            (".gitignore", HERE / "init/core/gitignore-runtime.txt"),
-        ]
-        stack_sh = HERE / "init/stacks" / s / "scripts/stack.sh"
-        if stack_sh.is_file():
-            owned.append(("scripts/stack.sh", stack_sh))
-        for target, source in owned:
-            sample_file = ROOT / "samples" / s / target
-            if not sample_file.is_file():
-                fail(f"samples/{s}/{target} missing (project-owned committed file)")
-                continue
-            if not source.is_file():
-                fail(f"{rel(source)} missing — no init skeleton source for {target}")
-                continue
-            if target in verbatim and sample_file.read_bytes() != source.read_bytes():
-                fail(
-                    f"samples/{s}/{target} differs from its init skeleton "
-                    f"{rel(source)} — copy the skeleton over it"
-                )
-        for t in sorted((HERE / "core/.claude/skills/doctor/templates").glob("*.md")):
-            brief = (
-                "docs/adr/README.md" if t.name == "adr-README.md" else f"docs/{t.name}"
-            )
-            if not (ROOT / "samples" / s / brief).is_file():
-                fail(
-                    f"samples/{s}/{brief} missing — the doctor template "
-                    f"{t.name} has no sample brief"
-                )
-        # ADR placement: a sample's decision log starts empty — README.md only.
-        adr_dir = ROOT / "samples" / s / "docs/adr"
-        entries = sorted(p.name for p in adr_dir.iterdir()) if adr_dir.is_dir() else []
-        if entries != ["README.md"]:
-            fail(
-                f"samples/{s}/docs/adr must contain only README.md — no "
-                "harness ADR is materialized"
-            )
-
-    # Root skill table. Same drift mode as the samples' tables: a skill added
-    # or retired at the root must reach the root CLAUDE.md table the same
-    # session; the CLAUDE.md table is the single gated home (the README carries
-    # no table by design — it links out instead, unenforced). The adoption trio
-    # (init, materialize, harvest) is additionally mention-guarded in the
-    # adoption guide's "Adopt in a Project" chapter.
-    root_claude = read_text(ROOT / "CLAUDE.md")
-    root_rows = section_rows(root_claude, r"^## Root-Level Skills$")
-    adoption = read_text(ROOT / "docs/adoption-guide.md")
-    adopt_section = []
-    in_section = False
-    for line in adoption.splitlines():
-        if line.startswith("## "):
-            in_section = line == "## Adopt in a Project"
-        if in_section:
-            adopt_section.append(line)
-    adopt_text = "\n".join(adopt_section)
-
-    root_shipped = set()
-    for d in sorted(p for p in (ROOT / ".claude/skills").iterdir() if p.is_dir()):
-        root_shipped.add(d.name)
-        if d.name not in root_rows:
-            fail(
-                f"root CLAUDE.md Root-Level Skills table has no row for skill '{d.name}'"
-            )
-        # The trio's documented home; the chapter names them as user-typed
-        # commands (`/init`) or bare (`init`) — accept both.
-        if (
-            d.name in ("init", "materialize", "harvest")
-            and f"`{d.name}`" not in adopt_text
-            and f"`/{d.name}`" not in adopt_text
-        ):
-            fail(
-                "docs/adoption-guide.md Adopt in a Project chapter "
-                f"never mentions '{d.name}'"
-            )
-    if not root_shipped:
-        fail(
-            "no root skills found under .claude/skills/ — roster empty or path renamed"
-        )
-    for row in root_rows:
-        if row not in root_shipped:
-            fail(f"CLAUDE.md table row '{row}' names no root skill — ghost row")
-    if ok:
-        print("  tables and skeleton coverage in sync")
-
-
-def check_placeholder_gate(b: Battery) -> None:
-    """3d. Placeholder gate — the PROJECT_NAME / PROJECT_DESCRIPTION template
-    tokens may appear only in the documented template locations. The go and
-    java samples stay deliberately in template state (they double as readable
-    demos); the generic sample ships init-filled — the allowlist permits both.
-    The allowlist is per-file; token *placement* inside an allowed brief stays
-    judgment. A hit anywhere else is a leak into runtime content."""
-    b.note("placeholder gate (template tokens outside documented locations)")
-    ok = True
-    for path in sorted(ROOT.rglob("*")):
-        if not path.is_file():
-            continue
-        relpath = path.relative_to(ROOT).as_posix()
-        if relpath.startswith(".git/") or "__pycache__" in path.parts:
-            continue
-        # evals/.runs is gitignored sweep scratch — workspace clones, gradle
-        # homes, transcripts, and pruned marketplace sources holding whole
-        # repo copies; their tokens belong to sources the gate already scans.
-        if relpath.startswith("evals/.runs/"):
-            continue
-        if is_binary(path):
-            continue
-        text = read_text(path)
-        if any(tok in text for tok in PH_TOKENS) and not PH_ALLOW.match(relpath):
-            b.fail(
-                f"template placeholder leaked into {relpath} — outside the "
-                "documented template locations"
-            )
-            ok = False
-    # Canary against a vacuous pass: the init skeletons must carry the token —
-    # if the token format ever changes, this fails instead of the gate
-    # scanning for a string nothing contains.
-    for s in STACKS:
-        skeleton = HERE / "init/stacks" / s / "CLAUDE.md"
-        if not skeleton.is_file() or PH_TOKENS[0] not in read_text(skeleton):
-            b.fail(
-                f"{PH_TOKENS[0]} not found in harness/init/stacks/{s}/CLAUDE.md "
-                "— token format changed; the placeholder gate is scanning for nothing"
-            )
-            ok = False
-    if ok:
-        print("  placeholders only in documented template locations")
-
-
-def check_handbook_delta(b: Battery) -> None:
-    """3e. Handbook delta + sample self-containment. The root handbook and its
-    installed core copy differ only by the pinned delta (the installed copy is
-    a deliberate trim plus adjusted links) recorded in
-    harness/handbook-delta.expected — any other divergence is content drift. Sample docs must stand alone: no reference to
-    another sample or to the monorepo samples/ tree."""
-    b.note("handbook delta (root vs core copy) + sample self-containment")
-    ok = True
-    core_hb = HERE / "core/.claude/skills/handoff-routing/agentic-harness.md"
-    # diff -U0, filtered to changed lines. The pass/fail compare is on the
-    # multiset of those lines, not the raw diff text: `diff -U0` hunk grouping
-    # and order are not stable across implementations (Apple/FreeBSD diff and
-    # GNU diff group -U0 hunks differently for the same logical delta), so a
-    # raw string compare fails on whichever platform did not generate the
-    # pinned file. The delta's meaning is the multiset of added/removed lines
-    # — order-independent — so comparing counts makes the check portable while
-    # still catching real content drift: any changed line changes the multiset.
-    result = subprocess.run(
-        ["diff", "-U0", "docs/agentic-harness.md", str(core_hb)],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-    )
-    actual = "\n".join(
-        l
-        for l in result.stdout.splitlines()
-        if l.startswith(("-", "+")) and not l.startswith(("---", "+++"))
-    )
-    expected_file = HERE / "handbook-delta.expected"
-    if not expected_file.is_file():
-        b.fail(
-            "harness/handbook-delta.expected missing — the pinned handbook "
-            "delta has no reference"
-        )
-        ok = False
-    else:
-        expected = "\n".join(
-            l for l in read_text(expected_file).splitlines() if not l.startswith("#")
-        )
-        actual_counts = Counter(actual.splitlines())
-        expected_counts = Counter(expected.splitlines())
-        if actual_counts != expected_counts:
-            b.fail(
-                "docs/agentic-harness.md vs its core copy diverged beyond "
-                "harness/handbook-delta.expected:"
-            )
-            for line in sorted((expected_counts - actual_counts).elements()):
-                print(f"    - {line}", file=sys.stderr)
-            for line in sorted((actual_counts - expected_counts).elements()):
-                print(f"    + {line}", file=sys.stderr)
-            print(
-                "Fix: reconcile the two copies (owner: docs/agentic-harness.md). "
-                "Regenerating the\nexpected delta is an explicit decision — a diff "
-                "touching it needs the same review as content drift.",
-                file=sys.stderr,
-            )
-            ok = False
-
-    # Self-containment: each pattern scans the docs of the samples that must
-    # not mention it. Derived from STACKS, so a new stack joins the sweep
-    # without touching this check. A hyphenated stack name is distinctive
-    # enough to match bare; a short one (go, generic) matches only as a path
-    # segment, else ordinary prose would false-positive. Limit: a hyphenated
-    # name that is a substring of another stack's, or that names a common
-    # technology, would over- or under-match — such a stack needs its own
-    # pattern here.
-    hits = set()
-    sweeps = [
-        (
-            re.compile(r"\b" + re.escape(s) + ("" if "-" in s else "/")),
-            tuple(o for o in STACKS if o != s),
-        )
-        for s in STACKS
-    ]
-    sweeps.append((re.compile(r"samples/"), tuple(STACKS)))
-    for pattern, samples in sweeps:
-        for s in samples:
-            docs = ROOT / "samples" / s / "docs"
-            if not docs.is_dir():
-                continue
-            for f in sorted(p for p in docs.rglob("*") if p.is_file()):
-                if pattern.search(read_text(f)):
-                    hits.add(f.relative_to(ROOT).as_posix())
-    for h in sorted(hits):
-        b.fail(
-            f"{h} references another sample or the samples/ tree — sample "
-            "docs must be self-contained"
-        )
-        ok = False
-    if ok:
-        print("  delta pinned, samples self-contained")
-
-
-def check_verdict_enums(b: Battery) -> None:
-    """3f. Verdict-enum sync — the schema enums the routing contract depends
-    on. Two gates. The core verdict enums are pinned to a literal copy of the
-    canonical names, so a schema edit cannot silently widen or narrow a
-    verdict space. Per stack, build-failure's `failed_check` enum must equal
-    build-pass's `gate_checks_run` items enum — one quality gate, one verb
-    vocabulary, two schemas. A one-sided rename would ship and fail loudly
-    only at the consumer's first append. Prose drift in the skills that
-    document the sets stays judgment (/audit-harness Layer 2)."""
-    b.note("verdict-enum sync (design-block, review-feedback, build stages)")
-
-    def verdicts(name: str) -> set[str]:
-        schema = json.loads(read_text(HERE / "core/schemas/scratch" / name))
-        return set(schema["properties"]["verdict"]["enum"])
-
-    problems = []
-    try:
-        db = verdicts("design-block.schema.json")
-        rf = verdicts("review-feedback.schema.json")
-        if db != DESIGN_BLOCK_VERDICTS:
-            problems.append(f"design-block verdict enum is {sorted(db)}")
-        if rf != REVIEW_FEEDBACK_VERDICTS:
-            problems.append(f"review-feedback verdict enum is {sorted(rf)}")
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        # TypeError: valid JSON of the wrong shape (non-dict properties,
-        # non-iterable enum) must aggregate, never abort the battery.
-        problems.append(f"could not read verdict enums: {exc}")
-    # The build-record vocabulary is by-construction single-source: one core
-    # schema pair defers to layout.toml [gate] verbs via enumFrom. The gate
-    # here checks the construction — both core nodes defer to the same key —
-    # and each stack skeleton's declaration, so a gate stays non-vacuous.
-    scratch = HERE / "core" / "schemas/scratch"
-    try:
-        bf = json.loads(read_text(scratch / "build-failure.schema.json"))
-        bp = json.loads(read_text(scratch / "build-pass.schema.json"))
-        failed_src = bf["properties"]["failed_check"].get("enumFrom")
-        ran_src = bp["properties"]["gate_checks_run"]["items"].get("enumFrom")
-        if failed_src != "gate.verbs" or ran_src != "gate.verbs":
-            problems.append(
-                "core build-record schemas must both defer to layout "
-                f"gate.verbs via enumFrom (got {failed_src!r} and {ran_src!r})"
-            )
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
-        problems.append(f"could not read core build-record schemas: {exc}")
-    for s in STACKS:
-        skeleton = HERE / "init" / "stacks" / s / "scripts" / "layout.toml"
-        try:
-            gate = tomllib.loads(read_text(skeleton)).get("gate", {})
-        except (OSError, tomllib.TOMLDecodeError) as exc:
-            problems.append(f"{s}: could not read skeleton layout.toml: {exc}")
-            continue
-        verbs = gate.get("verbs")
-        command = gate.get("command")
-        if (
-            not isinstance(verbs, list)
-            or not verbs
-            or not all(isinstance(v, str) for v in verbs)
-        ):
-            problems.append(
-                f"{s}: skeleton layout.toml [gate] verbs missing or empty — "
-                "the build-record vocabulary check would be vacuous"
-            )
-        if not isinstance(command, str) or not command.strip():
-            problems.append(f"{s}: skeleton layout.toml [gate] command missing")
-    if problems:
-        b.fail(f"verdict-enum sync: {'; '.join(problems)}")
-    else:
-        print("  verdict and gate-stage enums in sync")
-
-
-def check_stack_agnostic_core(b: Battery) -> None:
-    """3g. Stack-agnostic core — no stack-specific fact in harness/core/ (the
-    invariant from harness/README.md). The token list is the canonical set of
-    stack facts; a hit means the fact belongs in stacks/<stack>/, a brief, or
-    scripts/layout.toml."""
-    b.note("stack-agnostic core (no stack token in harness/core)")
-    core = HERE / "core"
-    if not core.is_dir():
-        b.fail(f"{core} missing — cannot scan for stack tokens")
-        return
-    hits = []
-    try:
-        for f in sorted(p for p in core.rglob("*") if p.is_file()):
-            if "__pycache__" in f.parts:
-                continue
-            for i, line in enumerate(read_text(f).splitlines(), 1):
-                if CORE_STACK_TOKENS.search(line):
-                    hits.append(f"{rel(f)}:{i}:{line}")
-    except OSError as exc:
-        # A broken scan is a FAIL, not a pass — an unreadable directory must
-        # not report "no stack token" without having looked.
-        b.fail(f"could not scan harness/core/ for stack tokens: {exc}")
-        return
-    if hits:
-        b.fail("stack-specific tokens in harness/core/ — move to stacks/<stack>/:")
-        for h in hits[:10]:
-            print(f"    {h}", file=sys.stderr)
-    else:
-        print("  core carries no stack token")
-
-
-def check_root_links(b: Battery) -> None:
-    """3h. Root link integrity — every markdown link target in the root-level
-    files (README, CLAUDE.md, docs/, root skills, tools/, evals/,
-    harness/README.md) must resolve, including the #fragment: a fragment must name a heading slug
-    or <a id> anchor in the target file. Fenced code blocks are skipped (they
-    carry illustrative paths). Bare path tokens outside link syntax stay
-    judgment work (/audit-harness Layer 2, check 5). Generated run pages
-    under evals/results/runs/ are excluded — see the exclusion comment
-    below."""
-    b.note("root link integrity (markdown links + anchors resolve)")
-    files = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "harness/README.md"]
-    for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
-        files.extend(ROOT.glob(pattern))
-    # The eval bench is a maintainer surface like tools/; its scratch (.runs)
-    # is gitignored and excluded. Run pages under results/runs/ embed
-    # agent-authored findings whose links name SUT files — another repo's
-    # tree — so no link on them is checked. Links to the pages from
-    # still-scoped sources (the trend roster) remain checked, and the
-    # derived-view gate re-renders every page, catching renderer drift.
-    run_pages = ROOT / "evals" / "results" / "runs"
-    files.extend(
-        f
-        for f in ROOT.glob("evals/**/*.md")
-        if ".runs" not in f.parts and run_pages not in f.parents
-    )
-    link = re.compile(r"\]\(([^)\s]+)\)")
-    anchor_cache: dict[Path, set[str]] = {}
-
-    def anchors_of(path: Path) -> set[str]:
-        key = path.resolve()
-        if key not in anchor_cache:
-            anchor_cache[key] = heading_anchors(read_text(path))
-        return anchor_cache[key]
-
-    bad = []
-    for f in sorted(set(files)):
-        if not f.is_file():
-            continue
-        fence = None
-        for i, line in enumerate(read_text(f).splitlines(), 1):
-            fence = _fence_state(line, fence)
-            if fence is not None:
-                continue
-            for target in link.findall(line):
-                if target.startswith(("http://", "https://", "mailto:")):
-                    continue
-                if "{{" in target or "<" in target:
-                    continue
-                path_part, _, frag = target.partition("#")
-                dest = f if not path_part else (f.parent / path_part)
-                if path_part and not dest.exists():
-                    bad.append(f"{rel(f)}:{i} -> {target}")
-                    continue
-                if (
-                    frag
-                    and dest.is_file()
-                    and dest.suffix == ".md"
-                    and frag not in anchors_of(dest)
-                ):
-                    bad.append(f"{rel(f)}:{i} -> {target} (no anchor '{frag}')")
-    if bad:
-        b.fail("broken markdown links or anchors in root-level files:")
-        for line in bad:
-            print(f"    {line}", file=sys.stderr)
-    else:
-        print("  links and anchors resolve")
-
-
-# 3i inputs (ADR 2026-07-12-parity-gates-for-hand-owned-parallels): the
-# hand-owned parallel file pairs gated on rosters and vocabulary, never prose.
+# The hand-owned parallel file pairs, gated on rosters and vocabulary, never
+# prose.
 IDE_SKILL_PAIRS = (
     (
         "stacks/go/.claude/skills/goland/SKILL.md",
@@ -1232,45 +195,39 @@ IDE_SKILL_PAIRS = (
         "stacks/java-spring-boot/.claude/skills/intellij-idea-doctor/SKILL.md",
     ),
 )
-# Product-prose H2 pairs pinned as expected divergence, scoped per pair —
-# a pin never licenses the same divergence in another file. Renaming either
-# heading fails the gate until its pin is updated — an explicit decision.
+# Product-prose H2 pairs pinned as expected divergence, scoped per pair; a
+# pin never licenses the same divergence in another file.
 IDE_HEADING_DELTA = {
     IDE_SKILL_PAIRS[0]: {
         ("The Go toolchain stays canonical", "Gradle Stays Canonical")
     },
 }
-# 3i inputs, same ADR: the per-stack agent bodies and skill parallels are
-# hand-owned three-way copies whose contract-bearing level is the H2 roster;
-# prose below the headings stays free to diverge per stack. A heading only
-# some stacks legitimately carry is pinned in STACK_PARALLEL_PINNED with the
-# exact carrier set and excluded from the cross-compare; the gate then checks
-# presence per stack against that set, so a carrier dropping a pinned heading
-# still fails. Adding a pin is an explicit decision, same as IDE_HEADING_DELTA.
-# Membership is a fact, so the roster derives: any .claude/**/*.md present
-# in all three stacks is stack-parallel by construction, and a new three-way
-# file joins the gate without a registration edit. Pins stay hand-declared
-# (STACK_PARALLEL_PINNED) — a pin is a decision. A deliberately non-parallel
-# three-way file would need an explicit exclusion set; that set is empty.
+STACK_PARALLEL_FLOOR = 10
 
 
 def _stack_parallel_files() -> tuple[str, ...]:
+    """Derive the roster of .claude markdown files every stack carries."""
     per_stack = [
         {
-            p.relative_to(HERE / "stacks" / s).as_posix()
-            for p in (HERE / "stacks" / s / ".claude").rglob("*.md")
+            path.relative_to(HERE / "stacks" / stack).as_posix()
+            for path in (HERE / "stacks" / stack / ".claude").rglob("*.md")
         }
-        for s in STACKS
+        for stack in STACKS
     ]
     common = set.intersection(*per_stack)
-    if len(common) < 10:
-        raise SystemExit(
+    if len(common) < STACK_PARALLEL_FLOOR:
+        raise RuntimeError(
             f"derived stack-parallel roster holds {len(common)} three-way "
-            "files — below the 10-file floor; stacks tree broken?"
+            f"files — below the {STACK_PARALLEL_FLOOR}-file floor; stacks tree broken?"
         )
     return tuple(sorted(common))
 
 
+# Any .claude/**/*.md present in all three stacks is stack-parallel by
+# construction; a new three-way file joins the gate without registration.
+# The contract-bearing level is the H2 roster; prose below the headings
+# diverges per stack freely. A heading only some stacks carry is pinned with
+# its exact carrier set, so a carrier dropping it still fails.
 STACK_PARALLEL_FILES = _stack_parallel_files()
 STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     # The agents README names its stack's IDE oracle in the MCP heading;
@@ -1279,20 +236,17 @@ STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
         "MCP Tools (GoLand oracle)": ("go",),
         "MCP Tools (IntelliJ oracle)": ("java-spring-boot",),
     },
-    # go/java bind an IDE oracle; only java binds a config surface
-    # (application.yml / @ConfigurationProperties); generic binds neither.
+    # go/java bind an IDE oracle; only java binds a config surface; generic
+    # binds neither.
     ".claude/skills/code-quality-gate/SKILL.md": {
         "IDE Static Analysis (optional)": ("go", "java-spring-boot"),
         "Configuration Sync": ("java-spring-boot",),
     },
-    # Each stack names its own checks slot (Go-/Java-/Stack-Specific); java
-    # additionally carries a grep-pattern table no sibling has; go/java bind
-    # an IDE oracle, generic binds none.
+    # Each stack names its own checks slot.
     ".claude/skills/security-checks/SKILL.md": {
         "Go-Specific Security Checks": ("go",),
         "Java-Specific Security Checks": ("java-spring-boot",),
         "Stack-Specific Security Checks": ("generic",),
-        "Detection Patterns": ("java-spring-boot",),
         "IDE-Assisted Checks (optional)": ("go", "java-spring-boot"),
     },
     ".claude/skills/code-quality-review/SKILL.md": {
@@ -1300,300 +254,1446 @@ STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     },
 }
 
+_VARIANT_OF = re.compile(r"^variant-of:[ \t]*([A-Za-z0-9_-]+)[ \t]*$")
+_FOLDED_SCALAR_MARKERS = (">", ">-", "|", "|-")
 
-def check_parity_gates(b: Battery) -> None:
-    """3i. Parity gates for hand-owned parallel files (ADR
-    2026-07-12-parity-gates-for-hand-owned-parallels). Four gates: the IDE
-    skill pairs share one H2 roster (one pinned product-prose pair); the
-    stack-parallel agent bodies and skill trios share one H2 roster per file
-    (stack-specific headings pinned); feedback tags used in stack skills
-    belong to review-workflow's canonical set; the severity headings match
-    across the security-checks copies. Prose stays free to diverge per
-    stack — only rosters and vocabulary are gated."""
-    b.note(
-        "parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)"
-    )
-    ok = True
 
-    def body(path: Path) -> list[str] | None:
-        # Frontmatter is stripped only when the file opens with a fence — a
-        # frontmatter-less companion whose own prose carries "---" rules must
-        # not be truncated at the second rule. A missing input aggregates as
-        # a FAIL row (None here), never aborts the battery mid-run.
-        try:
-            text = read_text(path)
-        except OSError:
+def _frontmatter_description(text: str) -> str | None:
+    """Return the frontmatter description, folded when block-style, or None when absent."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    collected: list[str] | None = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if collected is not None:
+            if not line.strip() or line.startswith((" ", "\t")):
+                collected.append(line.strip())
+                continue
+            break
+        if line.startswith("description:"):
+            value = line[len("description:") :].strip()
+            if value in _FOLDED_SCALAR_MARKERS:
+                collected = []
+            else:
+                return value
+    return " ".join(collected) if collected is not None else None
+
+
+def _frontmatter_variant_of(text: str) -> str | None:
+    """Return the `variant-of:` target inside the frontmatter block, or None."""
+    lines = text.splitlines()
+    if not lines or lines[0].rstrip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.rstrip() == "---":
             return None
-        lines = text.splitlines()
-        if lines and FENCE.match(lines[0]):
-            return strip_frontmatter(text)
-        return lines
+        match = _VARIANT_OF.match(line)
+        if match:
+            return match.group(1)
+    return None
 
-    for pair in IDE_SKILL_PAIRS:
-        go_rel, java_rel = pair
-        go_body, java_body = body(HERE / go_rel), body(HERE / java_rel)
-        if go_body is None or java_body is None:
-            b.fail(
-                "parity gates: missing input file — "
-                f"{go_rel if go_body is None else java_rel}"
-            )
-            ok = False
+
+def _frontmatter_skills(text: str) -> list[str]:
+    """Return the block-list values of the frontmatter `skills:` key, or [] when absent."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return []
+    names: list[str] | None = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if names is not None:
+            item = line.strip()
+            if item.startswith("- "):
+                names.append(item[2:].strip().strip("'\""))
+                continue
+            break
+        if line.rstrip() == "skills:":
+            names = []
+    return names or []
+
+
+@dataclass(frozen=True, slots=True)
+class _AgentFile:
+    """One agent surface file with its text read once."""
+
+    path: Path
+    text: str
+
+    @classmethod
+    def load(cls, path: Path) -> "_AgentFile":
+        """Read the agent file at path."""
+        return cls(path, read_text(path))
+
+    @property
+    def body(self) -> list[str]:
+        """Return the lines below the frontmatter."""
+        return strip_frontmatter(self.text)
+
+    def scalar(self, key: str) -> str:
+        """Return the frontmatter scalar under key, or an empty string."""
+        return frontmatter_scalar(self.text, key)
+
+
+def _surface_files(layer: Path, agents_dir: str, suffix: str) -> list[Path]:
+    """List the agent files of one surface in one layer, docs excluded."""
+    directory = layer / agents_dir
+    if not directory.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(directory.glob(f"*{suffix}"))
+        if path.stem not in registry.AGENT_DOC_STEMS
+    ]
+
+
+def _agent_files() -> Iterator[Path]:
+    """Yield every agent file on every surface of every layer."""
+    for layer in LAYERS:
+        for agents_dir, suffix in AGENT_SURFACES:
+            yield from _surface_files(layer, agents_dir, suffix)
+
+
+def check_bundled_skill_collision(b: Battery) -> None:
+    """Refuse a `skills:` preload that names a Claude Code bundled skill."""
+    b.note("bundled-skill-name collision (frontmatter preloads)")
+    scanned = 0
+    collisions: list[str] = []
+    for path in _agent_files():
+        names = _frontmatter_skills(read_text(path))
+        if not names:
             continue
-        a = h2_headings(go_body)
-        c = h2_headings(java_body)
-        if not a or not c:
-            b.fail(f"parity gates: empty H2 roster in {go_rel} or {java_rel}")
-            ok = False
-            continue
-        pinned = IDE_HEADING_DELTA.get(pair, set())
-        drift = [
-            f"{x!r} vs {y!r}"
-            for x, y in zip(a, c, strict=False)
-            if x != y and (x, y) not in pinned
+        scanned += 1
+        collisions.extend(
+            f"{rel(path)}: skills entry {name!r} collides with a "
+            "Claude Code bundled skill — the bundled copy wins the bare name "
+            "on the plugin channel"
+            for name in names
+            if name in CLAUDE_CODE_BUNDLED_SKILLS
+        )
+    if scanned == 0:
+        b.fail("bundled-skill collision check scanned zero skills lists")
+        return
+    b.report(collisions, f"{scanned} skills lists carry no bundled-skill name")
+
+
+def _variant_drift(variant: _AgentFile, target: _AgentFile) -> str | None:
+    """Return the first rule an effort variant breaks against its target, or None."""
+    target_name = target.path.stem
+    effort = variant.scalar("effort")
+    rules = (
+        (
+            _frontmatter_variant_of(target.text) is not None,
+            f"{rel(variant.path)} chains variant-of onto variant {target_name}",
+        ),
+        (
+            variant.path.stem != f"{target_name}-routine",
+            f"{rel(variant.path)} carries variant-of {target_name} but is not "
+            f"named {target_name}-routine — the only sanctioned variant shape",
+        ),
+        (
+            variant.body != target.body,
+            f"variant body drift: {rel(variant.path)} != {rel(target.path)} "
+            "— run render-agent-mirrors, never hand-edit a variant",
+        ),
+        (
+            variant.scalar("model") != target.scalar("model"),
+            f"variant model pin drift: {rel(variant.path)} != {rel(target.path)} "
+            "— an effort variant keeps its base's model",
+        ),
+        # A variant shipping its base's effort is a no-op every other gate
+        # would pass.
+        (
+            not effort or effort == target.scalar("effort"),
+            f"variant effort pin missing or equal to its base's in "
+            f"{rel(variant.path)} — a no-op variant",
+        ),
+    )
+    return next((message for broken, message in rules if broken), None)
+
+
+def _variant_problems(layer: Path, base: _AgentFile) -> list[str]:
+    """Gate a base carrying `variant-of:` against the target it names."""
+    target_name = _frontmatter_variant_of(base.text)
+    if target_name is None:
+        return []
+    target_path = layer / CLAUDE_AGENTS / f"{target_name}.md"
+    if not target_path.is_file():
+        return [
+            f"{rel(base.path)} names variant-of {target_name}, "
+            "which has no base in this layer"
         ]
-        if len(a) != len(c) or drift:
-            b.fail(
-                f"IDE section-roster drift, {go_rel} vs {java_rel}: "
-                + ("; ".join(drift) or f"{len(a)} vs {len(c)} H2 headings")
-            )
-            ok = False
+    drift = _variant_drift(base, _AgentFile.load(target_path))
+    return [drift] if drift else []
 
-    for rel_path in STACK_PARALLEL_FILES:
-        pins = STACK_PARALLEL_PINNED.get(rel_path, {})
-        rosters, headings = {}, {}
-        for s in STACKS:
-            lines = body(HERE / "stacks" / s / rel_path)
-            if lines is None:
-                b.fail(f"parity gates: missing input file — stacks/{s}/{rel_path}")
-                ok = False
-                continue
-            headings[s] = h2_headings(lines)
-            roster = [h for h in headings[s] if h not in pins]
-            if not roster:
-                b.fail(f"parity gates: empty H2 roster in stacks/{s}/{rel_path}")
-                ok = False
-                continue
-            rosters[s] = roster
-        # A pin is exact, not an exclusion: presence per stack must equal the
-        # declared carrier set, so a carrier dropping a pinned heading fails
-        # instead of hiding behind the pin.
-        for heading, carriers in pins.items():
-            for s, hs in sorted(headings.items()):
-                count = hs.count(heading)
-                if (count > 0) != (s in carriers):
-                    verb = "lacks" if s in carriers else "carries"
-                    b.fail(
-                        f"pinned stack-parallel heading '{heading}' "
-                        f"({rel_path}): stacks/{s} {verb} it, the pin "
-                        f"names {sorted(carriers)} — sync the file or "
-                        "update the pin"
-                    )
-                    ok = False
-                elif count > 1:
-                    # Pinned headings sit outside the ordered roster compare,
-                    # so a duplicate would otherwise pass silently.
-                    b.fail(
-                        f"pinned stack-parallel heading '{heading}' "
-                        f"({rel_path}): stacks/{s} carries it {count} "
-                        "times — deduplicate"
-                    )
-                    ok = False
-        if len(rosters) < 2:
+
+def _description_drift(base: _AgentFile, mirror: _AgentFile) -> list[str]:
+    """Compare the whitespace-folded frontmatter descriptions of a base and a mirror."""
+    base_description = _frontmatter_description(base.text)
+    mirror_description = _frontmatter_description(mirror.text)
+    if base_description is None:
+        return [f"no frontmatter description parsed in {rel(base.path)}"]
+    if mirror_description is None:
+        return [f"no frontmatter description parsed in {rel(mirror.path)}"]
+    if " ".join(base_description.split()) != " ".join(mirror_description.split()):
+        return [
+            f"agent description drift: {rel(mirror.path)} != {rel(base.path)} "
+            "— mirror descriptions restate the base verbatim"
+        ]
+    return []
+
+
+def _mirror_problems(base: _AgentFile, mirror_path: Path) -> list[str]:
+    """Compare one rendered mirror against its base body and description."""
+    if not mirror_path.is_file():
+        return [f"missing per-tool agent copy {rel(mirror_path)}"]
+    mirror = _AgentFile.load(mirror_path)
+    problems = []
+    # Each link form is asserted, not just normalized: a sibling whose link
+    # was never rewritten is byte-equal to the base and would otherwise pass
+    # while shipping a link broken from its directory.
+    if any(
+        LOCAL_SKILL_LINK in line.replace(SIBLING_SKILL_LINK, "") for line in mirror.body
+    ):
+        problems.append(
+            f"un-rewritten skill link ({LOCAL_SKILL_LINK}) in {rel(mirror_path)} "
+            "— broken from this directory"
+        )
+    if norm_links(mirror.body) != base.body:
+        problems.append(
+            f"agent body drift (frontmatter aside): {rel(mirror_path)} != {rel(base.path)}"
+        )
+    problems.extend(_description_drift(base, mirror))
+    return problems
+
+
+def _agent_base_problems(layer: Path, base: _AgentFile) -> list[str]:
+    """Gate one .claude base: its body, its variant target, and its mirrors."""
+    problems = []
+    if not any(line.strip() for line in base.body):
+        problems.append(
+            f"empty body (or missing frontmatter fence) in {rel(base.path)}"
+        )
+    problems.extend(_variant_problems(layer, base))
+    if any(SIBLING_SKILL_LINK in line for line in base.body):
+        problems.append(
+            f"sibling link form ({SIBLING_SKILL_LINK}) in {rel(base.path)} "
+            f"— the claude copy uses {LOCAL_SKILL_LINK}"
+        )
+    for mirror_dir, suffix in MIRROR_SURFACES:
+        mirror_path = layer / mirror_dir / f"{base.path.stem}{suffix}"
+        problems.extend(_mirror_problems(base, mirror_path))
+    return problems
+
+
+def _stray_mirror_problem(
+    layer: Path, mirror_dir: str, suffix: str, file: Path
+) -> str | None:
+    """Name why a file in a mirror directory has no base, or None when it has one."""
+    if file.stem in registry.AGENT_DOC_STEMS:
+        # The tool loads every matching file as an agent and the renderer's
+        # prune never deletes a doc, so a stray doc would ship live.
+        return (
+            f"{rel(file)} — doc file in a tool agents dir; docs "
+            f"live in {CLAUDE_AGENTS}/ only"
+        )
+    if not file.name.endswith(suffix) or file.name == suffix:
+        kind = (
+            "copilot agents must be <name>.agent.md"
+            if mirror_dir == COPILOT_AGENTS
+            else "unexpected non-.md file in a tool agents dir"
+        )
+        return f"{rel(file)} — {kind}"
+    name = file.name[: -len(suffix)]
+    if not (layer / CLAUDE_AGENTS / f"{name}.md").is_file():
+        return (
+            f"{rel(file)} has no {CLAUDE_AGENTS}/{name}.md base "
+            "— sibling-only agent, never parity-checked"
+        )
+    return None
+
+
+def _stray_mirror_problems(layer: Path) -> list[str]:
+    """Sweep the mirror directories for files no base would ever compare."""
+    problems = []
+    for mirror_dir, suffix in MIRROR_SURFACES:
+        directory = layer / mirror_dir
+        if not directory.is_dir():
             continue
-        baseline = next(s for s in STACKS if s in rosters)
-        for s, r in sorted(rosters.items()):
-            if r != rosters[baseline]:
-                b.fail(
-                    f"stack-parallel H2 roster drift, stacks/{s}/{rel_path}: "
-                    f"{r} vs {baseline}'s {rosters[baseline]} — an edit "
-                    "landed one-sided; sync all three or pin the heading"
-                )
-                ok = False
+        for file in sorted(path for path in directory.iterdir() if path.is_file()):
+            problem = _stray_mirror_problem(layer, mirror_dir, suffix, file)
+            if problem:
+                problems.append(problem)
+    return problems
 
+
+def check_agent_body_parity(b: Battery) -> None:
+    """Hold every agent's per-tool copies to the body and description of its .claude base."""
+    b.note("agent body parity (per-tool copies)")
+    problems: list[str] = []
+    for layer in LAYERS:
+        bases = _surface_files(layer, CLAUDE_AGENTS, ".md")
+        if not bases:
+            problems.append(
+                f"no agent bases under {rel(layer)}/{CLAUDE_AGENTS}/ "
+                "— roster empty or path renamed"
+            )
+        for path in bases:
+            problems.extend(_agent_base_problems(layer, _AgentFile.load(path)))
+        problems.extend(_stray_mirror_problems(layer))
+    b.report(problems, "all per-tool bodies and descriptions identical")
+
+
+def _compatibility_problems(layer: Path) -> list[str]:
+    """Check every skill's `compatibility:` list against the registry's tool names."""
+    problems: list[str] = []
+    known = ", ".join(sorted(registry.COMPATIBILITY_NAMES))
+    for skill in sorted((layer / ".claude/skills").glob("*/SKILL.md")):
+        block = re.search(
+            r"^compatibility:\n((?:  - .+\n)+)", read_text(skill), re.MULTILINE
+        )
+        if not block:
+            continue
+        problems.extend(
+            f"unknown compatibility name `{name.strip()}` in {rel(skill)} — "
+            f"the registry knows {known}"
+            for name in re.findall(r"^  - (.+)$", block.group(1), re.MULTILINE)
+            if name.strip() not in registry.COMPATIBILITY_NAMES
+        )
+    return problems
+
+
+def _opencode_permission_problems(file: Path, content: str) -> list[str]:
+    """Check an OpenCode agent's block-form `permission` map."""
+    problems = []
+    if frontmatter_scalar(content, "permission"):
+        problems.append(
+            f"flow-style or scalar `permission` in {rel(file)} — "
+            "the gate reads only the block form"
+        )
+    for key, value in frontmatter_block(content, "permission"):
+        if key not in OPENCODE_PERMISSION_KEYS and "*" not in key:
+            problems.append(
+                f"unknown OpenCode permission key `{key}` in {rel(file)} — "
+                "documented keys or a wildcard pattern only"
+            )
+        # An empty value opens a nested per-command map.
+        if value and value not in OPENCODE_PERMISSION_VALUES:
+            problems.append(
+                f"OpenCode permission `{key}: {value!r}` in {rel(file)} — "
+                "value must be allow/ask/deny"
+            )
+    return problems
+
+
+def _frontmatter_problems(file: Path, agents_dir: str) -> list[str]:
+    """Check one agent file's top-level keys against its surface's pin."""
+    content = read_text(file)
+    keys = frontmatter_top_keys(content)
+    if not keys:
+        return [f"no frontmatter keys parsed in {rel(file)}"]
+    vocabulary = FRONTMATTER_VOCABULARY[agents_dir] | HARNESS_FRONTMATTER_KEYS
+    problems = [
+        f"out-of-vocabulary frontmatter key `{key}` in {rel(file)} — not in "
+        f"the {agents_dir} pin (docs/cross-tool-strategy.md § Agents / Subagents)"
+        for key in keys
+        if key not in vocabulary
+    ]
+    if agents_dir == OPENCODE_AGENTS:
+        problems.extend(_opencode_permission_problems(file, content))
+    return problems
+
+
+def check_frontmatter_vocabulary(b: Battery) -> None:
+    """Hold every agent file's frontmatter keys inside its tool's pinned vocabulary."""
+    b.note("frontmatter vocabulary (per-tool)")
+    problems: list[str] = []
+    for layer in LAYERS:
+        problems.extend(_compatibility_problems(layer))
+    for layer in LAYERS:
+        for agents_dir, suffix in AGENT_SURFACES:
+            files = _surface_files(layer, agents_dir, suffix)
+            if not files:
+                problems.append(
+                    f"no agent frontmatter scanned under {rel(layer / agents_dir)} — "
+                    "renamed directory or suffix"
+                )
+            for file in files:
+                problems.extend(_frontmatter_problems(file, agents_dir))
+    b.report(problems, "all agent frontmatter keys inside the per-tool pins")
+
+
+def check_accounting_sync(b: Battery) -> None:
+    """Hold the vendored accounting module byte-identical to its canonical home."""
+    b.note("accounting vendored-copy sync")
+    canonical = ROOT / "tools/harness-stats/accounting.py"
+    vendored = HERE / "core/scripts/accounting.py"
     try:
-        rw_text = read_text(HERE / "core/.claude/skills/review-workflow/SKILL.md")
-    except OSError:
-        rw_text = ""
-    canon = set(section_rows(rw_text, r"^## Feedback Tags"))
-    if not canon:
+        identical = canonical.read_bytes() == vendored.read_bytes()
+    except OSError as exc:
+        b.fail(f"could not compare the accounting copies: {exc}")
+        return
+    if identical:
+        b.record_pass("canonical == vendored")
+    else:
         b.fail(
+            f"{rel(canonical)} != {rel(vendored)} — decide which copy "
+            f"holds the intended edit (canonical home: {rel(canonical)}), "
+            "then cp it over the other"
+        )
+
+
+def check_spec_version_sync(b: Battery) -> None:
+    """Hold the docs' stated spec version equal to the doctor expectations."""
+    b.note("spec-version sync (docs vs doctor-expectations)")
+    expectations = HERE / "core/scripts/doctor-expectations.toml"
+    spec_version = tomllib.loads(read_text(expectations))["spec_version"]
+    surfaces = {
+        ROOT / "docs/harness-project-api.md": f"**Version:** {spec_version} ",
+        ROOT / "docs/adoption-guide.md": f"spec {spec_version} ",
+    }
+    problems = [
+        f"{rel(path)} does not state spec {spec_version} — the doc drifted "
+        f"from {rel(expectations)} spec_version; update the doc's version statement"
+        for path, needle in surfaces.items()
+        if needle not in read_text(path)
+    ]
+    b.report(problems, f"both docs state spec {spec_version}")
+
+
+def check_faithfulness(b: Battery) -> None:
+    """Re-materialize the samples and flag only what the render changes."""
+    b.note("materialization faithfulness")
+    if b.quick:
+        b.skip("--quick: harness/ and samples/ proven untouched by the guard")
+        return
+
+    def on_result(result: subprocess.CompletedProcess[str]) -> None:
+        output = result.stdout + result.stderr
+        if result.returncode != 0:
+            # Abort: the sample checks that follow would read the tree this
+            # run left half-written.
+            b.fail(f"harness/materialize-samples.sh failed:\n{output}")
+            raise SystemExit(1)
+        # Committed orphans are invisible to the porcelain diff, so the
+        # extras count is their only guard; a missing line means the output
+        # format changed and orphan detection is not running.
+        extras = re.findall(r"extras: (\d+) file", output)
+        for count in extras:
+            if count != "0":
+                b.fail(
+                    f"materialize reported {count} orphan extra(s) — a committed "
+                    "file /harness no longer produces. git rm it."
+                )
+        if not extras:
+            b.fail(
+                "no 'extras:' line parsed from materialize-samples output — output "
+                f"format changed; orphan detection is not running.\n{output}"
+            )
+
+    render = RenderCheck(
+        paths=("samples/",),
+        command=("bash", str(HERE / "materialize-samples.sh")),
+        changed_message=(
+            "re-materialize changed the samples — a /harness edit was not "
+            "materialized, or a sample was hand-edited:"
+        ),
+        fix_message=(
+            "Fix: review the change, then commit the re-materialized samples "
+            "with the /harness edit."
+        ),
+    )
+    if check_render_faithful(b, render, on_result):
+        b.record_pass("samples == materialize(/harness)")
+
+
+def _surface_presence_problems(stack: str) -> list[str]:
+    """Check one sample against the cross-tool layout rules."""
+    sample = ROOT / "samples" / stack
+    mirror_skill_dirs = tuple(
+        row["agents_dir"].rsplit("/", 1)[0] + "/skills"
+        for tool, row in TOOLS.items()
+        if tool != "claude"
+    )
+    agent_dirs = tuple(row["agents_dir"] for row in TOOLS.values())
+    forbidden = ("AGENTS.md", ".github/copilot-instructions.md", *mirror_skill_dirs)
+    required = ("CLAUDE.md", *agent_dirs, ".claude/skills")
+    problems = [
+        f"samples/{stack}/{path} exists — CLAUDE.md is the single rules "
+        "file and skills live in .claude/skills/ only"
+        for path in forbidden
+        if (sample / path).exists()
+    ]
+    problems.extend(
+        f"samples/{stack}/{path} missing — required by the cross-tool "
+        "compatibility rules"
+        for path in required
+        if not (sample / path).exists()
+    )
+    return problems
+
+
+def _tracked_files(path: str) -> str:
+    """Return git's listing of the tracked files under path."""
+    return subprocess.run(
+        ["git", "ls-files", path],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    ).stdout
+
+
+def _copy_channel_problems(stack: str) -> list[str]:
+    """Check one sample's copy-channel declaration, tracking, and gitignore."""
+    sample = ROOT / "samples" / stack
+    layout = sample / "scripts/layout.toml"
+    layout_text = read_text(layout) if layout.is_file() else ""
+    gitignore = sample / ".gitignore"
+    gitignore_text = read_text(gitignore) if gitignore.is_file() else ""
+    rules = (
+        (
+            not re.search(r'channel *= *"copy"', layout_text),
+            f'samples/{stack}/scripts/layout.toml does not declare channel = "copy"',
+        ),
+        (
+            not re.search(r"extensions *= *\[\]", layout_text),
+            f"samples/{stack}/scripts/layout.toml extensions is not [] — the "
+            "samples declare none; a non-empty list weakens orphan detection",
+        ),
+        (
+            not _tracked_files(f"samples/{stack}/.claude/skills").strip(),
+            f"samples/{stack} runtime is untracked — the copy channel commits it",
+        ),
+        (
+            not re.search(r"^\.scratch/", gitignore_text, re.MULTILINE),
+            f"samples/{stack}/.gitignore does not ignore .scratch/",
+        ),
+        (
+            ".claude/skills" in gitignore_text,
+            f"samples/{stack}/.gitignore ignores the runtime — the copy "
+            "channel commits it",
+        ),
+    )
+    return [message for broken, message in rules if broken]
+
+
+def check_layout_invariants(b: Battery) -> None:
+    """Hold every sample to the cross-tool layout rules and the copy channel."""
+    b.note("sample layout invariants (cross-tool rules, copy channel)")
+    problems: list[str] = []
+    for stack in STACKS:
+        problems.extend(_surface_presence_problems(stack))
+        problems.extend(_copy_channel_problems(stack))
+    b.report(problems, "cross-tool rules and channel invariants hold")
+
+
+def _hook_registration_problems() -> list[str]:
+    """Match the hooks the settings skeleton registers against the hooks core ships."""
+    skeleton = read_text(HERE / "init/core/.claude/settings.json")
+    registered = set(re.findall(r"\.claude/hooks/([A-Za-z0-9_-]+\.py)", skeleton))
+    shipped = {
+        path.name
+        for path in (HERE / "core/.claude/hooks").glob("*.py")
+        if not path.name.startswith("test_")
+    }
+    problems = [
+        f"init settings skeleton registers .claude/hooks/{name}, which "
+        "core does not ship — a missing hook script blocks its tool"
+        for name in sorted(registered - shipped)
+    ]
+    problems.extend(
+        f"core ships .claude/hooks/{name} but the init settings skeleton "
+        "never registers it — a delivered-but-unregistered hook never runs"
+        for name in sorted(shipped - registered)
+    )
+    return problems
+
+
+def _shipped_skills(stack: str) -> list[str]:
+    """List the skill names core and the stack ship, in directory order."""
+    roots = (HERE / "core/.claude/skills", HERE / "stacks" / stack / ".claude/skills")
+    return [
+        path.name
+        for root in roots
+        if root.is_dir()
+        for path in sorted(path for path in root.iterdir() if path.is_dir())
+    ]
+
+
+def _skills_table_problems(stack: str, claude_md: str, agents_readme: str) -> list[str]:
+    """Hold the sample's two skills tables equal to the shipped skill roster, both ways."""
+    sample = f"samples/{stack}"
+    # Presence is judged against the parsed rows, not a whole-file substring,
+    # so a row under the wrong heading never satisfies the roster.
+    readme_rows = set(section_rows(agents_readme, r"^## Skills"))
+    shipped = _shipped_skills(stack)
+    problems = []
+    if not readme_rows:
+        problems.append(
+            f"{sample}/.claude/agents/README.md: no rows parsed under "
+            "'## Skills' — roster empty or heading renamed"
+        )
+    for name in shipped:
+        if f"| `{name}`" not in claude_md:
+            problems.append(
+                f"{sample}/CLAUDE.md skills table has no row for shipped skill '{name}'"
+            )
+        if name not in readme_rows:
+            problems.append(
+                f"{sample}/.claude/agents/README.md Skills table "
+                f"has no row for shipped skill '{name}'"
+            )
+    if not shipped:
+        problems.append(
+            f"no shipped skills found for stack {stack} — roster empty or path renamed"
+        )
+    problems.extend(
+        f"{sample}/CLAUDE.md skills table row '{row}' names no shipped skill — ghost row"
+        for row in section_rows(claude_md, r"^## (Agent Usage|Stack-specific skills)")
+        if row not in shipped
+    )
+    problems.extend(
+        f"{sample}/.claude/agents/README.md Skills row '{row}' names no "
+        "shipped skill — ghost row"
+        for row in readme_rows
+        if row not in shipped
+    )
+    return problems
+
+
+def _agents_readme_problems(stack: str, agents_readme: str) -> list[str]:
+    """Hold the sample's agents README roster to the shipped agents."""
+    roots = (HERE / "core/.claude/agents", HERE / "stacks" / stack / ".claude/agents")
+    return [
+        f"samples/{stack}/.claude/agents/README.md has no roster "
+        f"row for shipped agent '{path.stem}'"
+        for root in roots
+        if root.is_dir()
+        for path in sorted(root.glob("*.md"))
+        if path.stem not in registry.AGENT_DOC_STEMS
+        and f"**{path.stem}**" not in agents_readme
+    ]
+
+
+def _owned_file_problems(stack: str) -> list[str]:
+    """Check presence of every project-owned file and byte-identity of the verbatim ones."""
+    owned = [
+        ("CLAUDE.md", HERE / "init/stacks" / stack / "CLAUDE.md"),
+        (".claude/settings.json", HERE / "init/core/.claude/settings.json"),
+        ("scripts/layout.toml", HERE / "init/stacks" / stack / "scripts/layout.toml"),
+        ("scripts/backlog.sh", HERE / "init/core/scripts/backlog.sh"),
+        (".gitignore", HERE / "init/core/gitignore-runtime.txt"),
+    ]
+    stack_sh = HERE / "init/stacks" / stack / "scripts/stack.sh"
+    if stack_sh.is_file():
+        owned.append(("scripts/stack.sh", stack_sh))
+    problems = []
+    for target, source in owned:
+        sample_file = ROOT / "samples" / stack / target
+        if not sample_file.is_file():
+            problems.append(
+                f"samples/{stack}/{target} missing (project-owned committed file)"
+            )
+        elif not source.is_file():
+            problems.append(
+                f"{rel(source)} missing — no init skeleton source for {target}"
+            )
+        elif (
+            target in VERBATIM_OWNED_FILES
+            and sample_file.read_bytes() != source.read_bytes()
+        ):
+            problems.append(
+                f"samples/{stack}/{target} differs from its init skeleton "
+                f"{rel(source)} — copy the skeleton over it"
+            )
+    return problems
+
+
+def _brief_problems(stack: str) -> list[str]:
+    """Check that every doctor template has its brief in the sample."""
+    templates = sorted((HERE / "core/.claude/skills/doctor/templates").glob("*.md"))
+    problems = []
+    for template in templates:
+        brief = (
+            "docs/adr/README.md"
+            if template.name == "adr-README.md"
+            else f"docs/{template.name}"
+        )
+        if not (ROOT / "samples" / stack / brief).is_file():
+            problems.append(
+                f"samples/{stack}/{brief} missing — the doctor template "
+                f"{template.name} has no sample brief"
+            )
+    return problems
+
+
+def _adr_placement_problems(stack: str) -> list[str]:
+    """Check that the sample's decision log holds only its README."""
+    adr_dir = ROOT / "samples" / stack / "docs/adr"
+    entries = (
+        sorted(path.name for path in adr_dir.iterdir()) if adr_dir.is_dir() else []
+    )
+    if entries == ["README.md"]:
+        return []
+    return [
+        f"samples/{stack}/docs/adr must contain only README.md — no "
+        "harness ADR is materialized"
+    ]
+
+
+def _stack_roster_problems(stack: str) -> list[str]:
+    """Gate one sample's project-owned rosters against the shipped runtime."""
+    claude_md = read_text(ROOT / "samples" / stack / "CLAUDE.md")
+    agents_readme = read_text(ROOT / "samples" / stack / ".claude/agents/README.md")
+    return [
+        *_skills_table_problems(stack, claude_md, agents_readme),
+        *_agents_readme_problems(stack, agents_readme),
+        *_owned_file_problems(stack),
+        *_brief_problems(stack),
+        *_adr_placement_problems(stack),
+    ]
+
+
+def _chapter(text: str, heading: str) -> str:
+    """Return the lines of one H2 chapter, heading included."""
+    lines = []
+    inside = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            inside = line == heading
+        if inside:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _root_skill_table_problems() -> list[str]:
+    """Hold the root CLAUDE.md skill table and the adoption chapter to the root skills."""
+    root_rows = section_rows(read_text(ROOT / "CLAUDE.md"), r"^## Root-Level Skills$")
+    adoption = _chapter(read_text(ROOT / "docs/adoption-guide.md"), ADOPTION_CHAPTER)
+    root_skills = sorted(
+        path.name for path in (ROOT / ".claude/skills").iterdir() if path.is_dir()
+    )
+    problems = [
+        f"root CLAUDE.md Root-Level Skills table has no row for skill '{name}'"
+        for name in root_skills
+        if name not in root_rows
+    ]
+    # The chapter names the trio as typed commands (`/init`) or bare (`init`).
+    problems.extend(
+        f"docs/adoption-guide.md Adopt in a Project chapter never mentions '{name}'"
+        for name in root_skills
+        if name in ADOPTION_TRIO
+        and f"`{name}`" not in adoption
+        and f"`/{name}`" not in adoption
+    )
+    if not root_skills:
+        problems.append(
+            "no root skills found under .claude/skills/ — roster empty or path renamed"
+        )
+    problems.extend(
+        f"CLAUDE.md table row '{row}' names no root skill — ghost row"
+        for row in root_rows
+        if row not in root_skills
+    )
+    return problems
+
+
+def check_roster_sync(b: Battery) -> None:
+    """Hold the project-owned rosters and skeleton copies in sync with the shipped runtime."""
+    b.note(
+        "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
+    )
+    problems = _hook_registration_problems()
+    for stack in STACKS:
+        problems.extend(_stack_roster_problems(stack))
+    problems.extend(_root_skill_table_problems())
+    b.report(problems, "tables and skeleton coverage in sync")
+
+
+def _placeholder_leaks() -> list[str]:
+    """Find template tokens outside the documented template locations."""
+    problems = []
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        relpath = path.relative_to(ROOT).as_posix()
+        # evals/.runs holds whole repo copies whose tokens belong to sources
+        # the gate already scans.
+        if relpath.startswith((".git/", "evals/.runs/")) or "__pycache__" in path.parts:
+            continue
+        if is_binary(path):
+            continue
+        text = read_text(path)
+        if any(token in text for token in PH_TOKENS) and not PH_ALLOW.match(relpath):
+            problems.append(
+                f"template placeholder leaked into {relpath} — outside the "
+                "documented template locations"
+            )
+    return problems
+
+
+def _placeholder_canary_problems() -> list[str]:
+    """Confirm the init skeletons still carry the token the gate scans for."""
+    problems = []
+    for stack in STACKS:
+        skeleton = HERE / "init/stacks" / stack / "CLAUDE.md"
+        if not skeleton.is_file() or PH_TOKENS[0] not in read_text(skeleton):
+            problems.append(
+                f"{PH_TOKENS[0]} not found in harness/init/stacks/{stack}/CLAUDE.md "
+                "— token format changed; the placeholder gate is scanning for nothing"
+            )
+    return problems
+
+
+def check_placeholder_gate(b: Battery) -> None:
+    """Confine the template tokens to the documented template locations."""
+    b.note("placeholder gate (template tokens outside documented locations)")
+    problems = [*_placeholder_leaks(), *_placeholder_canary_problems()]
+    b.report(problems, "placeholders only in documented template locations")
+
+
+def _handbook_delta() -> Counter[str]:
+    """Count the changed lines between the root handbook and its core copy."""
+    core_copy = HERE / "core/.claude/skills/handoff-routing/agentic-harness.md"
+    result = subprocess.run(
+        ["diff", "-U0", "docs/agentic-harness.md", str(core_copy)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    return Counter(
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith(("-", "+")) and not line.startswith(("---", "+++"))
+    )
+
+
+def _handbook_delta_problems() -> list[str]:
+    """Compare the handbook delta against its pinned multiset of changed lines."""
+    expected_file = HERE / "handbook-delta.expected"
+    if not expected_file.is_file():
+        return [
+            "harness/handbook-delta.expected missing — the pinned handbook "
+            "delta has no reference"
+        ]
+    # The compare is on the multiset of changed lines, not the diff text:
+    # Apple and GNU diff group -U0 hunks differently for the same delta.
+    expected = Counter(
+        line
+        for line in read_text(expected_file).splitlines()
+        if not line.startswith("#")
+    )
+    actual = _handbook_delta()
+    if actual == expected:
+        return []
+    detail = [
+        *(f"    - {line}" for line in sorted((expected - actual).elements())),
+        *(f"    + {line}" for line in sorted((actual - expected).elements())),
+        "Fix: reconcile the two copies (owner: docs/agentic-harness.md). "
+        "Regenerating the\nexpected delta is an explicit decision — a diff "
+        "touching it needs the same review as content drift.",
+    ]
+    return [
+        "docs/agentic-harness.md vs its core copy diverged beyond "
+        "harness/handbook-delta.expected:\n" + "\n".join(detail)
+    ]
+
+
+def _self_containment_problems() -> list[str]:
+    """Find sample docs that reference another sample or the samples/ tree."""
+    # A hyphenated stack name is distinctive enough to match bare; a short
+    # one matches only as a path segment, else ordinary prose would match.
+    sweeps = [
+        (
+            re.compile(r"\b" + re.escape(stack) + ("" if "-" in stack else "/")),
+            tuple(other for other in STACKS if other != stack),
+        )
+        for stack in STACKS
+    ]
+    sweeps.append((re.compile(r"samples/"), tuple(STACKS)))
+    hits: set[str] = set()
+    for pattern, stacks in sweeps:
+        for stack in stacks:
+            docs = ROOT / "samples" / stack / "docs"
+            if not docs.is_dir():
+                continue
+            hits.update(
+                path.relative_to(ROOT).as_posix()
+                for path in sorted(docs.rglob("*"))
+                if path.is_file() and pattern.search(read_text(path))
+            )
+    return [
+        f"{hit} references another sample or the samples/ tree — sample "
+        "docs must be self-contained"
+        for hit in sorted(hits)
+    ]
+
+
+def check_handbook_delta(b: Battery) -> None:
+    """Pin the handbook's core-copy delta and keep the sample docs self-contained."""
+    b.note("handbook delta (root vs core copy) + sample self-containment")
+    problems = [*_handbook_delta_problems(), *_self_containment_problems()]
+    b.report(problems, "delta pinned, samples self-contained")
+
+
+def _schema(name: str) -> Any:  # noqa: ANN401
+    """Load one core scratch schema, the parse boundary of the enum gates."""
+    return json.loads(read_text(HERE / "core/schemas/scratch" / name))
+
+
+def _verdict_enum(name: str) -> set[str]:
+    """Return the verdict enum of one core scratch schema."""
+    return set(_schema(name)["properties"]["verdict"]["enum"])
+
+
+def _verdict_enum_problems() -> list[str]:
+    """Pin the design-block and review-feedback verdict enums to their canonical names."""
+    problems = []
+    try:
+        design_block = _verdict_enum("design-block.schema.json")
+        review_feedback = _verdict_enum("review-feedback.schema.json")
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        # TypeError: valid JSON of the wrong shape aggregates, never aborts.
+        return [f"could not read verdict enums: {exc}"]
+    if design_block != DESIGN_BLOCK_VERDICTS:
+        problems.append(f"design-block verdict enum is {sorted(design_block)}")
+    if review_feedback != REVIEW_FEEDBACK_VERDICTS:
+        problems.append(f"review-feedback verdict enum is {sorted(review_feedback)}")
+    return problems
+
+
+def _build_record_problems() -> list[str]:
+    """Check that both core build-record schemas defer to the layout's gate verbs."""
+    try:
+        failure = _schema("build-failure.schema.json")["properties"]
+        passing = _schema("build-pass.schema.json")["properties"]
+        failed_source = failure["failed_check"].get("enumFrom")
+        ran_source = passing["gate_checks_run"]["items"].get("enumFrom")
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        return [f"could not read core build-record schemas: {exc}"]
+    if failed_source == GATE_VERBS_KEY and ran_source == GATE_VERBS_KEY:
+        return []
+    return [
+        "core build-record schemas must both defer to layout "
+        f"{GATE_VERBS_KEY} via enumFrom (got {failed_source!r} and {ran_source!r})"
+    ]
+
+
+def _gate_skeleton_problems(stack: str) -> list[str]:
+    """Check that a stack's layout skeleton declares non-empty gate verbs and a command."""
+    skeleton = HERE / "init" / "stacks" / stack / "scripts" / "layout.toml"
+    try:
+        gate = tomllib.loads(read_text(skeleton)).get("gate", {})
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return [f"{stack}: could not read skeleton layout.toml: {exc}"]
+    verbs = gate.get("verbs")
+    command = gate.get("command")
+    problems = []
+    if (
+        not isinstance(verbs, list)
+        or not verbs
+        or not all(isinstance(v, str) for v in verbs)
+    ):
+        problems.append(
+            f"{stack}: skeleton layout.toml [gate] verbs missing or empty — "
+            "the build-record vocabulary check would be vacuous"
+        )
+    if not isinstance(command, str) or not command.strip():
+        problems.append(f"{stack}: skeleton layout.toml [gate] command missing")
+    return problems
+
+
+def check_verdict_enums(b: Battery) -> None:
+    """Pin the schema enums the routing contract depends on."""
+    b.note("verdict-enum sync (design-block, review-feedback, build stages)")
+    problems = [*_verdict_enum_problems(), *_build_record_problems()]
+    for stack in STACKS:
+        problems.extend(_gate_skeleton_problems(stack))
+    b.report(problems, "verdict and gate-stage enums in sync")
+
+
+def check_stack_agnostic_core(b: Battery) -> None:
+    """Refuse any stack-specific token under harness/core."""
+    b.note("stack-agnostic core (no stack token in harness/core)")
+    core = HERE / "core"
+    if not core.is_dir():
+        b.fail(f"{core} missing — cannot scan for stack tokens")
+        return
+    try:
+        hits = [
+            f"{rel(path)}:{number}:{line}"
+            for path in sorted(core.rglob("*"))
+            if path.is_file() and "__pycache__" not in path.parts
+            for number, line in enumerate(read_text(path).splitlines(), 1)
+            if CORE_STACK_TOKENS.search(line)
+        ]
+    except OSError as exc:
+        # An unreadable directory must not report "no stack token" without
+        # having looked.
+        b.fail(f"could not scan harness/core/ for stack tokens: {exc}")
+        return
+    if hits:
+        shown = "\n".join(f"    {hit}" for hit in hits[:SHOWN_STACK_TOKEN_HITS])
+        b.fail(
+            f"stack-specific tokens in harness/core/ — move to stacks/<stack>/:\n{shown}"
+        )
+    else:
+        b.record_pass("core carries no stack token")
+
+
+_LINK = re.compile(r"\]\(([^)\s]+)\)")
+_EXTERNAL_LINK_SCHEMES = ("http://", "https://", "mailto:")
+
+
+def _link_sources() -> list[Path]:
+    """List the root-level markdown files whose links are checked."""
+    files = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "harness/README.md"]
+    for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
+        files.extend(ROOT.glob(pattern))
+    # Run pages under evals/results/runs/ embed agent-authored findings whose
+    # links name another repo's tree; links to the pages remain checked.
+    run_pages = ROOT / "evals" / "results" / "runs"
+    files.extend(
+        path
+        for path in ROOT.glob("evals/**/*.md")
+        if ".runs" not in path.parts and run_pages not in path.parents
+    )
+    return sorted(set(files))
+
+
+@cache
+def _anchors_of(path: Path) -> set[str]:
+    """Return the heading slugs and explicit anchors of one markdown file."""
+    return heading_anchors(read_text(path))
+
+
+def _link_problem(source: Path, target: str) -> str | None:
+    """Name why a link target does not resolve from source, or None when it does."""
+    if target.startswith(_EXTERNAL_LINK_SCHEMES) or "{{" in target or "<" in target:
+        return None
+    path_part, _, fragment = target.partition("#")
+    destination = source.parent / path_part if path_part else source
+    if path_part and not destination.exists():
+        return f"-> {target}"
+    if (
+        fragment
+        and destination.is_file()
+        and destination.suffix == ".md"
+        and fragment not in _anchors_of(destination.resolve())
+    ):
+        return f"-> {target} (no anchor '{fragment}')"
+    return None
+
+
+def _broken_links(source: Path) -> list[str]:
+    """List the unresolved links of one markdown file, fenced blocks skipped."""
+    problems = []
+    fence = None
+    for number, line in enumerate(read_text(source).splitlines(), 1):
+        fence = fence_state(line, fence)
+        if fence is not None:
+            continue
+        for target in _LINK.findall(line):
+            problem = _link_problem(source, target)
+            if problem:
+                problems.append(f"{rel(source)}:{number} {problem}")
+    return problems
+
+
+def check_root_links(b: Battery) -> None:
+    """Resolve every markdown link and anchor in the root-level files."""
+    b.note("root link integrity (markdown links + anchors resolve)")
+    broken = [
+        problem
+        for source in _link_sources()
+        if source.is_file()
+        for problem in _broken_links(source)
+    ]
+    if broken:
+        shown = "\n".join(f"    {line}" for line in broken)
+        b.fail(f"broken markdown links or anchors in root-level files:\n{shown}")
+    else:
+        b.record_pass("links and anchors resolve")
+
+
+def _body(path: Path) -> list[str] | None:
+    """Return a file's lines below its frontmatter, or None when it is unreadable."""
+    # Frontmatter is stripped only when the file opens with a fence, so a
+    # frontmatter-less file whose prose carries "---" rules stays whole.
+    try:
+        text = read_text(path)
+    except OSError:
+        return None
+    lines = text.splitlines()
+    if lines and FENCE.match(lines[0]):
+        return strip_frontmatter(text)
+    return lines
+
+
+def _ide_pair_problems(pair: tuple[str, str]) -> list[str]:
+    """Compare the H2 rosters of one go/java IDE skill pair, pinned pairs aside."""
+    go_rel, java_rel = pair
+    go_body, java_body = _body(HERE / go_rel), _body(HERE / java_rel)
+    if go_body is None or java_body is None:
+        missing = go_rel if go_body is None else java_rel
+        return [f"parity gates: missing input file — {missing}"]
+    go_headings, java_headings = h2_headings(go_body), h2_headings(java_body)
+    if not go_headings or not java_headings:
+        return [f"parity gates: empty H2 roster in {go_rel} or {java_rel}"]
+    pinned = IDE_HEADING_DELTA.get(pair, set())
+    drift = [
+        f"{go_heading!r} vs {java_heading!r}"
+        for go_heading, java_heading in zip(go_headings, java_headings, strict=False)
+        if go_heading != java_heading and (go_heading, java_heading) not in pinned
+    ]
+    if len(go_headings) == len(java_headings) and not drift:
+        return []
+    detail = "; ".join(drift) or (
+        f"{len(go_headings)} vs {len(java_headings)} H2 headings"
+    )
+    return [f"IDE section-roster drift, {go_rel} vs {java_rel}: {detail}"]
+
+
+def _pin_problems(
+    rel_path: str, pins: dict[str, tuple[str, ...]], headings: dict[str, list[str]]
+) -> list[str]:
+    """Hold each pinned heading's presence per stack equal to its carrier set."""
+    problems = []
+    for heading, carriers in pins.items():
+        for stack, stack_headings in sorted(headings.items()):
+            count = stack_headings.count(heading)
+            if (count > 0) != (stack in carriers):
+                verb = "lacks" if stack in carriers else "carries"
+                problems.append(
+                    f"pinned stack-parallel heading '{heading}' ({rel_path}): "
+                    f"stacks/{stack} {verb} it, the pin names {sorted(carriers)} "
+                    "— sync the file or update the pin"
+                )
+            elif count > 1:
+                # Pinned headings sit outside the ordered roster compare.
+                problems.append(
+                    f"pinned stack-parallel heading '{heading}' ({rel_path}): "
+                    f"stacks/{stack} carries it {count} times — deduplicate"
+                )
+    return problems
+
+
+def _stack_parallel_problems(rel_path: str) -> list[str]:
+    """Compare one three-way file's H2 rosters across the stacks."""
+    pins = STACK_PARALLEL_PINNED.get(rel_path, {})
+    problems = []
+    headings: dict[str, list[str]] = {}
+    rosters: dict[str, list[str]] = {}
+    for stack in STACKS:
+        lines = _body(HERE / "stacks" / stack / rel_path)
+        if lines is None:
+            problems.append(
+                f"parity gates: missing input file — stacks/{stack}/{rel_path}"
+            )
+            continue
+        headings[stack] = h2_headings(lines)
+        roster = [heading for heading in headings[stack] if heading not in pins]
+        if not roster:
+            problems.append(
+                f"parity gates: empty H2 roster in stacks/{stack}/{rel_path}"
+            )
+            continue
+        rosters[stack] = roster
+    problems.extend(_pin_problems(rel_path, pins, headings))
+    if len(rosters) > 1:
+        baseline = next(stack for stack in STACKS if stack in rosters)
+        problems.extend(
+            f"stack-parallel H2 roster drift, stacks/{stack}/{rel_path}: "
+            f"{roster} vs {baseline}'s {rosters[baseline]} — an edit "
+            "landed one-sided; sync all three or pin the heading"
+            for stack, roster in sorted(rosters.items())
+            if roster != rosters[baseline]
+        )
+    return problems
+
+
+def _tag_vocabulary_problems() -> list[str]:
+    """Hold the feedback tags in the stack skills to review-workflow's canonical set."""
+    try:
+        review_workflow = read_text(
+            HERE / "core/.claude/skills/review-workflow/SKILL.md"
+        )
+    except OSError:
+        review_workflow = ""
+    canon = set(section_rows(review_workflow, r"^## Feedback Tags"))
+    if not canon:
+        return [
             "parity gates: no canonical tags parsed from review-workflow "
             "§ Feedback Tags — the vocabulary gate would be vacuous"
-        )
-        ok = False
+        ]
+    problems: list[str] = []
     total_judged = 0
-    for f in sorted((HERE / "stacks").glob("*/.claude/skills/**/*.md")):
-        judged, problems = tag_findings(read_text(f), canon)
+    for path in sorted((HERE / "stacks").glob("*/.claude/skills/**/*.md")):
+        judged, findings = tag_findings(read_text(path), canon)
         total_judged += judged
-        for problem in problems:
-            b.fail(f"{rel(f)}: {problem}")
-            ok = False
-    if canon and total_judged == 0:
-        # Anti-vacuity floor on the scan's own input: the stack skills carry
-        # tags today, so a zero-judged sweep means the glob or the carriers
-        # drifted and the gate is checking nothing.
-        b.fail(
+        problems.extend(f"{rel(path)}: {finding}" for finding in findings)
+    if total_judged == 0:
+        # The stack skills carry tags, so a zero-judged sweep means the glob
+        # or the carriers drifted.
+        problems.append(
             "parity gates: zero feedback tags reached judgment across "
             "the stack skills — the vocabulary gate scanned nothing"
         )
-        ok = False
+    return problems
 
-    rosters = {}
-    for s in STACKS:
-        sec_rel = f"stacks/{s}/.claude/skills/security-checks/SKILL.md"
-        sec_body = body(HERE / sec_rel)
-        if sec_body is None:
-            b.fail(f"parity gates: missing input file — {sec_rel}")
-            ok = False
+
+def _severity_problems() -> list[str]:
+    """Compare the severity headings across the security-checks copies."""
+    problems = []
+    rosters: dict[str, list[str]] = {}
+    for stack in STACKS:
+        security_rel = f"stacks/{stack}/.claude/skills/security-checks/SKILL.md"
+        body = _body(HERE / security_rel)
+        if body is None:
+            problems.append(f"parity gates: missing input file — {security_rel}")
         else:
-            rosters[s] = severity_headings(sec_body)
-    if rosters:
-        baseline_stack = next(s for s in STACKS if s in rosters)
-        if not rosters[baseline_stack]:
-            b.fail(
-                "parity gates: no H3 headings under '## Severity "
-                "Classification' — the severity gate would be vacuous"
-            )
-            ok = False
-        for s, r in rosters.items():
-            if r != rosters[baseline_stack]:
-                b.fail(
-                    f"severity-heading drift, stacks/{s}/security-checks: "
-                    f"{r} vs {baseline_stack}'s {rosters[baseline_stack]}"
-                )
-                ok = False
-    if ok:
-        print("  rosters and vocabularies match")
+            rosters[stack] = severity_headings(body)
+    if not rosters:
+        return problems
+    baseline = next(stack for stack in STACKS if stack in rosters)
+    if not rosters[baseline]:
+        problems.append(
+            "parity gates: no H3 headings under '## Severity "
+            "Classification' — the severity gate would be vacuous"
+        )
+    problems.extend(
+        f"severity-heading drift, stacks/{stack}/security-checks: "
+        f"{roster} vs {baseline}'s {rosters[baseline]}"
+        for stack, roster in rosters.items()
+        if roster != rosters[baseline]
+    )
+    return problems
+
+
+def check_parity_gates(b: Battery) -> None:
+    """Gate the hand-owned parallel files on their rosters and vocabulary, never prose."""
+    b.note(
+        "parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)"
+    )
+    problems: list[str] = []
+    for pair in IDE_SKILL_PAIRS:
+        problems.extend(_ide_pair_problems(pair))
+    for rel_path in STACK_PARALLEL_FILES:
+        problems.extend(_stack_parallel_problems(rel_path))
+    problems.extend(_tag_vocabulary_problems())
+    problems.extend(_severity_problems())
+    b.report(problems, "rosters and vocabularies match")
+
+
+def _check_rendered(b: Battery, script: str, drift: str, passed: str) -> None:
+    """Run a renderer's --check mode and report its drift."""
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "harness" / script), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode:
+        detail = "\n".join(
+            f"    {line}" for line in (proc.stdout + proc.stderr).strip().splitlines()
+        )
+        b.fail(f"{drift}\n{detail}")
+    else:
+        b.record_pass(passed)
+
+
+# A decision-record citation carries a date; the schema's `2026-01-01-...md`
+# placeholder does not. A requirement id whose letters are XX or YY is the
+# documented placeholder form.
+DECISION_RECORD_CITATION = re.compile(r"docs/adr/\d{4}-\d{2}-\d{2}-(?!\.\.\.)[^\s)`]+")
+REQUIREMENT_CITATION = re.compile(r"\bREQ-(?!XX-|YY-)[A-Z]+-\d{3}\b")
+RUNTIME_NUMBER = re.compile(
+    r"\b(?:toolCallBudget|maxTurns)\b[^\n\d]{0,20}\d+|\b\d+ tool calls\b"
+)
+PROSE_SUFFIXES = (".md", ".json")
+
+
+def _shipped_prose_files() -> list[Path]:
+    """List the markdown and schema files every layer ships to a consumer."""
+    return [
+        path
+        for layer in LAYERS
+        for root in (layer / ".claude", layer / "schemas")
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix in PROSE_SUFFIXES
+    ]
+
+
+def _prose_lines(path: Path) -> Iterator[tuple[int, str]]:
+    """Yield the numbered lines of a file outside its frontmatter block."""
+    lines = read_text(path).splitlines()
+    fences_left = FENCE_PAIR if lines and FENCE.match(lines[0]) else 0
+    for number, line in enumerate(lines, 1):
+        if fences_left and FENCE.match(line):
+            fences_left -= 1
+            continue
+        if fences_left:
+            continue
+        yield number, line
+
+
+def _citation_problems(files: list[Path]) -> list[str]:
+    """Find decision-record and requirement citations in shipped prose."""
+    kinds = (
+        (DECISION_RECORD_CITATION, "decision record"),
+        (REQUIREMENT_CITATION, "requirement id"),
+    )
+    return [
+        f"{rel(path)}:{number}: cites a {kind} ({match.group()}) — shipped "
+        "prose stays self-contained"
+        for path in files
+        for number, line in _prose_lines(path)
+        for pattern, kind in kinds
+        if (match := pattern.search(line))
+    ]
+
+
+def check_prose_self_containment(b: Battery) -> None:
+    """Refuse a decision-record or requirement citation in the shipped prose."""
+    b.note(
+        "shipped prose self-containment (no decision-record or requirement citation)"
+    )
+    files = _shipped_prose_files()
+    if not files:
+        b.fail("no shipped prose found under the layers — roster empty or path renamed")
+        return
+    b.report(
+        _citation_problems(files),
+        f"{len(files)} shipped prose files cite no decision record or requirement",
+    )
+
+
+def _runtime_number_problems(files: list[Path]) -> list[str]:
+    """Find a numeric budget or turn cap in shipped prose outside frontmatter."""
+    return [
+        f"{rel(path)}:{number}: names a runtime number ({match.group().strip()}) — "
+        "budgets live in agent frontmatter, prose names the key"
+        for path in files
+        if path.suffix == ".md"
+        for number, line in _prose_lines(path)
+        if (match := RUNTIME_NUMBER.search(line))
+    ]
+
+
+def check_runtime_number_free_prose(b: Battery) -> None:
+    """Refuse a numeric tool-call budget or turn cap in the shipped prose."""
+    b.note("runtime-number-free prose (budgets in frontmatter only)")
+    files = _shipped_prose_files()
+    if not files:
+        b.fail("no shipped prose found under the layers — roster empty or path renamed")
+        return
+    b.report(
+        _runtime_number_problems(files),
+        f"{len(files)} shipped prose files name no runtime number",
+    )
 
 
 def check_route_rules(b: Battery) -> None:
-    """Step 3j: the committed route-rule inventory matches the routing source."""
+    """Hold the committed route-rule inventory equal to the routing source."""
     b.note("route-rule inventory sync (generated from the routing source)")
-    proc = subprocess.run(
-        [sys.executable, str(ROOT / "harness" / "render-route-rules.py"), "--check"],
-        capture_output=True,
-        text=True,
-        check=False,
+    _check_rendered(
+        b,
+        "render-route-rules.py",
+        "route-rules.md drifted from the routing source",
+        "route-rules.md matches the routing source",
     )
-    if proc.returncode:
-        b.fail("route-rules.md drifted from the routing source")
-        for line in (proc.stdout + proc.stderr).strip().splitlines():
-            print(f"    {line}", file=sys.stderr)
-    else:
-        print("  route-rules.md matches the routing source")
 
 
 def check_gitignore_block(b: Battery) -> None:
-    """Step 3m: the consumer .gitignore runtime block matches the doctor roster.
-
-    The block is generated (harness/render-gitignore-block.py, the route-rule
-    inventory's pattern), so a shipped file is registered once, in
-    doctor.RUNTIME_PATHS. Cheap (one module read), runs in --quick."""
+    """Hold the consumer .gitignore runtime block equal to the doctor roster."""
     b.note("gitignore-block sync (generated from the doctor roster)")
-    proc = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "harness" / "render-gitignore-block.py"),
-            "--check",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+    _check_rendered(
+        b,
+        "render-gitignore-block.py",
+        "init/core/gitignore-runtime.txt drifted from doctor.RUNTIME_PATHS",
+        "block matches the doctor roster",
     )
-    if proc.returncode:
-        b.fail("init/core/gitignore-runtime.txt drifted from doctor.RUNTIME_PATHS")
-        for line in (proc.stdout + proc.stderr).strip().splitlines():
-            print(f"    {line}", file=sys.stderr)
-    else:
-        print("  block matches the doctor roster")
 
 
 def check_adr_index(b: Battery) -> None:
-    """Step 3l: the ADR index table matches the ADR files' status lines.
-    The index is generated (harness/render-adr-index.py — the route-rule
-    inventory's pattern); the hand-mirrored table it replaced shipped three
-    live drifts at 94 rows. Cheap (one directory read), runs in --quick."""
+    """Hold the ADR index table equal to the ADR files' status lines."""
     b.note("adr-index sync (generated from the ADR files)")
+    _check_rendered(
+        b,
+        "render-adr-index.py",
+        "docs/adr/README.md § Index drifted from the ADR files",
+        "index matches the ADR files",
+    )
+
+
+def _latest_release_tag() -> str | None:
+    """Return the nearest reachable v* tag, or None when there is none."""
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "harness" / "render-adr-index.py"), "--check"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode:
-        b.fail("docs/adr/README.md § Index drifted from the ADR files")
-        for line in (proc.stdout + proc.stderr).strip().splitlines():
-            print(f"    {line}", file=sys.stderr)
-    else:
-        print("  index matches the ADR files")
-
-
-def check_retired_paths(b: Battery) -> None:
-    """Step 3k: the retired-paths manifest is well-formed and current in both
-    directions. Backward: every consumer-relative runtime path the last v*
-    tag produced that the source no longer does must be covered — a deletion
-    the manifest misses would leave consumers to git archaeology, the exact
-    judgment the manifest retires (the fix is mechanical:
-    `harness/retired_paths.py update <tag> <label>`). Forward: no entry may
-    be produced again — setup.sh prunes manifest paths, so a reintroduced
-    path must leave the list before it ships. Cheap (two git reads plus a
-    tree walk), so it runs in --quick too."""
-    b.note("retired-paths manifest (deletions covered; no live entry)")
-    entries, problems = retired_paths.parse_manifest(
-        retired_paths.MANIFEST.read_text(encoding="utf-8")
-        if retired_paths.MANIFEST.is_file()
-        else ""
-    )
-    if not retired_paths.MANIFEST.is_file():
-        b.fail("harness/retired-paths.txt missing")
-        return
-    if problems:
-        for p in problems:
-            b.fail(f"retired-paths.txt: {p}")
-        return
-    produced = retired_paths.produced_paths(None)
-    live = sorted(
-        e
-        for e in entries
-        if (e in produced)
-        or (e.endswith("/") and any(p.startswith(e) for p in produced))
-    )
-    for e in live:
-        b.fail(
-            f"retired-paths.txt entry '{e}' is produced by the current source — "
-            "a reintroduced path must be removed from the manifest (setup.sh "
-            "prunes listed paths)"
-        )
-    tag_proc = subprocess.run(
         ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
         capture_output=True,
         text=True,
         cwd=ROOT,
         check=False,
     )
-    if tag_proc.returncode != 0:
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def _live_manifest_entries(entries: list[str], produced: set[str]) -> list[str]:
+    """List the manifest entries the current source produces again."""
+    return sorted(
+        entry
+        for entry in entries
+        if entry in produced
+        or (entry.endswith("/") and any(path.startswith(entry) for path in produced))
+    )
+
+
+def check_retired_paths(b: Battery) -> None:
+    """Hold the retired-paths manifest current in both directions."""
+    b.note("retired-paths manifest (deletions covered; no live entry)")
+    if not retired_paths.MANIFEST.is_file():
+        b.fail("harness/retired-paths.txt missing")
+        return
+    entries, problems = retired_paths.parse_manifest(
+        retired_paths.MANIFEST.read_text(encoding="utf-8")
+    )
+    if problems:
+        for problem in problems:
+            b.fail(f"retired-paths.txt: {problem}")
+        return
+    live = _live_manifest_entries(entries, retired_paths.produced_paths(None))
+    for entry in live:
+        b.fail(
+            f"retired-paths.txt entry '{entry}' is produced by the current source — "
+            "a reintroduced path must be removed from the manifest (setup.sh "
+            "prunes listed paths)"
+        )
+    tag = _latest_release_tag()
+    if tag is None:
         if b.strict:
             b.fail(
                 "no v* tag reachable — deletion coverage cannot run. The "
                 "push-time gates need tags (CI: checkout fetch-depth: 0)"
             )
         else:
-            print("  note: no v* tag reachable — deletion coverage not checked")
+            b.skip("no v* tag reachable — deletion coverage not checked")
         return
-    tag = tag_proc.stdout.strip()
     missing = sorted(
-        p
-        for p in retired_paths.retired_since(tag)
-        if not retired_paths.covered(p, entries)
+        path
+        for path in retired_paths.retired_since(tag)
+        if not retired_paths.covered(path, entries)
     )
-    for p in missing:
+    for path in missing:
         b.fail(
-            f"runtime path '{p}' was produced at {tag} but is gone from the "
+            f"runtime path '{path}' was produced at {tag} but is gone from the "
             "source and missing from harness/retired-paths.txt — record it: "
             f"python3 harness/retired_paths.py update {tag} <label>"
         )
     if not live and not missing:
-        print(
-            f"  {len(entries)} entries; deletions since {tag} covered; "
-            "no entry produced"
+        b.record_pass(
+            f"{len(entries)} entries; deletions since {tag} covered; no entry produced"
         )

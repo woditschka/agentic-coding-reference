@@ -60,8 +60,8 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 2. Read the security profile per § Security Context.
 3. Identify security-relevant code paths (input handling, credentials, network).
-4. Run `go test -race` to check for data races.
-5. Work the remaining `security-checks` checklist sections.
+4. Use the detection patterns from the `security-checks` skill to grep for dangerous code.
+5. Work the `security-checks` skill checklist, including supply chain verification and the Go-specific sections, whose Concurrency Safety item runs `go test -race`.
 6. Search the diff for hardcoded secrets per `security-checks` § Credential and Sensitive Data Handling.
 7. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
 8. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

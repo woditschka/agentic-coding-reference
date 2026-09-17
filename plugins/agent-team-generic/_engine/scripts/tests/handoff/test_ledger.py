@@ -33,6 +33,11 @@ from tests.support import a_record, entries
 REVIEWER = ROSTER_FLOOR[0]
 OTHER_REVIEWER = ROSTER_FLOOR[1]
 OFF_ROSTER_AUTHOR = "someone-new"
+AN_AGENT_TARGET = "system-design-expert"
+ANOTHER_SLICE = "REQ-B-002"
+A_LINE_BEYOND_THE_LOG = 9
+A_FIRST_SLICE = "REQ-A-001"
+A_RESOLVED_SLICE = "REQ-C-003"
 A_FINDING = {"tag": "autofix", "location": "src/widget.py:1", "description": "d"}
 A_CHECKPOINT = {"tag": "truncation", "location": "src/", "description": "checkpoint"}
 NO_CYCLE_START = 0
@@ -123,7 +128,9 @@ class CycleStart(unittest.TestCase):
         self.assertEqual(cycle_start(log), 4)
 
     def test_a_forward_pointer_does_not_start_a_cycle(self):
-        log = entries(a_design_block(supersedes_record_at=5), a_design_block())
+        log = entries(
+            a_design_block(supersedes_record_at=A_LINE_BEYOND_THE_LOG), a_design_block()
+        )
 
         self.assertEqual(cycle_start(log), NO_CYCLE_START)
 
@@ -350,7 +357,7 @@ class EntryAt(unittest.TestCase):
         self.assertIsNone(entry_at(self.by_no, True))
 
     def test_a_missing_or_non_numeric_pointer_finds_nothing(self):
-        self.assertIsNone(entry_at(self.by_no, 9))
+        self.assertIsNone(entry_at(self.by_no, A_LINE_BEYOND_THE_LOG))
         self.assertIsNone(entry_at(self.by_no, "1"))
 
 
@@ -360,8 +367,8 @@ class PendingHumanRequest(unittest.TestCase):
 
         self.assertEqual(pending_human_request(log).no, 1)
 
-    def test_a_request_to_an_agent_is_not(self):
-        log = entries(a_request(target="system-design-expert"))
+    def test_a_request_to_an_agent_is_not_pending(self):
+        log = entries(a_request(target=AN_AGENT_TARGET))
 
         self.assertIsNone(pending_human_request(log))
 
@@ -371,9 +378,7 @@ class PendingHumanRequest(unittest.TestCase):
         self.assertIsNone(pending_human_request(log))
 
     def test_only_the_latest_request_per_slice_counts(self):
-        log = entries(
-            a_request(), a_response(), a_request(target="system-design-expert")
-        )
+        log = entries(a_request(), a_response(), a_request(target=AN_AGENT_TARGET))
 
         self.assertIsNone(pending_human_request(log))
 
@@ -383,7 +388,7 @@ class PendingHumanRequest(unittest.TestCase):
         self.assertEqual(pending_human_request(log).no, 1)
 
     def test_the_earliest_pending_request_across_slices_wins(self):
-        log = entries(a_request(req_id="REQ-B-002"), a_request())
+        log = entries(a_request(req_id=ANOTHER_SLICE), a_request())
 
         self.assertEqual(pending_human_request(log).no, 1)
 
@@ -411,7 +416,7 @@ class UnstartedSubstantive(unittest.TestCase):
 
     def test_a_start_on_another_slice_does_not_count(self):
         log = entries(
-            a_start(), a_record("build-pass", author=IMPLEMENTER, req_id="REQ-B-002")
+            a_start(), a_record("build-pass", author=IMPLEMENTER, req_id=ANOTHER_SLICE)
         )
 
         self.assertEqual([entry.no for entry in unstarted_substantive(log)], [2])
@@ -440,13 +445,13 @@ class UnstartedSubstantive(unittest.TestCase):
 class UnresolvedRefactor(unittest.TestCase):
     def test_slices_whose_latest_verdict_is_refactor_first_are_listed_sorted(self):
         log = entries(
-            a_design_block(verdict="refactor-first", req_id="REQ-B-002"),
-            a_design_block(verdict="refactor-first", req_id="REQ-A-001"),
-            a_design_block(verdict="refactor-first", req_id="REQ-C-003"),
-            a_design_block(verdict="covered", req_id="REQ-C-003"),
+            a_design_block(verdict="refactor-first", req_id=ANOTHER_SLICE),
+            a_design_block(verdict="refactor-first", req_id=A_FIRST_SLICE),
+            a_design_block(verdict="refactor-first", req_id=A_RESOLVED_SLICE),
+            a_design_block(verdict="covered", req_id=A_RESOLVED_SLICE),
         )
 
-        self.assertEqual(unresolved_refactor(log), ["REQ-A-001", "REQ-B-002"])
+        self.assertEqual(unresolved_refactor(log), [A_FIRST_SLICE, ANOTHER_SLICE])
 
     def test_no_refactor_verdicts_list_nothing(self):
         self.assertEqual(unresolved_refactor(entries(a_design_block())), [])

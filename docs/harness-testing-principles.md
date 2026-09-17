@@ -17,7 +17,7 @@ Sections follow: the pyramid and its measure, the mocking policy, the naming sch
 
 The layers are the code's levels of abstraction, and the transported brief's Test Pyramid, Seams, Coverage, and Cost sections state the rules; this document names where each lands here. The units are the pure engines over records and text: ledger arithmetic, schema checks, the effort-tier derivation, the board's fix-source resolution, feature classification over a diff. The integration layer holds the parse boundaries and the process boundaries: reading a ledger from disk, running `git`, spawning a script. Tests at every layer are sociable, real collaborators below; the integration layer asserts the wiring, one representative decision per branch, never a collaborator's case table. The code side of the same rule is the Single Level of Abstraction Principle in [`harness-code-standards.md`](harness-code-standards.md#single-level-of-abstraction).
 
-A suite reaches its units through the `handoff` package surface, never a submodule path, so a module split or merge changes one re-export and moves no test. The contract nets are what let the suites move under a refactor: they compare every command's output between a baseline checkout and the tree, and they never name a module. The measure of the suites is the coverage table below, never their count.
+A suite reaches its units through the seam it tests. `handoff` is the one package that declares a surface, so its suites import that surface and a module split or merge there changes one re-export and moves no test. The `grading` and `changeset` suites import the submodule under test. The contract nets are what let the suites move under a refactor: they compare every command's output between a baseline checkout and the tree, and they never name a module. The measure of the suites is the coverage table below, never their count.
 
 ## Coverage
 
@@ -26,10 +26,10 @@ The shipped runtime is standard-library only, so no coverage tool runs. Coverage
 | Target | Measure | Current |
 |---|---|---|
 | 100% of reachable route rules | every rule name in the generated route-rule inventory appears in a test name or assertion | 51 of 52; `unroutable-state` is the exhaustive match's fallback and unreachable by construction |
-| 100% of battery checks | every check function has a producer test that drives it on a synthetic tree | tracked per module pass |
-| 100% of decoders | every reader of agent-written input has a test per input shape in [Adversarial Inputs](#adversarial-inputs) | tracked per module pass |
+| 100% of battery checks | every check function has a producer test that drives it on a synthetic tree | the lint, confinement, import-boundary, retired-paths, toolchain-pin, prose, and tools/eval sub-suite checks |
+| 100% of decoders | every reader of agent-written input has a test per input shape in [Adversarial Inputs](#adversarial-inputs) | every decoder the design's threat-model table names has its own suite; no gate counts shapes |
 
-A rule the inventory lists and no test names is untested, whatever the line count says. The module passes close the gap one package at a time.
+A rule the inventory lists and no test names is untested, whatever the line count says. The remaining check functions, the rendered-parity, content-invariant, and sample steps, run against the real tree on every battery invocation; nothing drives them on a synthetic one.
 
 ## Mocking Policy
 
@@ -49,12 +49,13 @@ A failure report reads as a broken specification. The class names the subject or
 
 | Element | Convention | Example |
 |---|---|---|
-| Module | `test_<seam family>.py`; the suite imports the package surface, never a submodule path | `tests/handoff/test_routing.py` |
-| Class | the subject or scenario, no `Test` affix | `ReviewAfterBuildPass`, `WriteGate` |
-| Method | `test_` plus the outcome in plain words | `test_a_second_silent_dispatch_start_blocks_as_stalled` |
-| Rule test | the method name contains the route rule or check name it pins | `test_reviewer_stalled_after_two_silent_starts` |
+| Module | `test_<seam family>.py`; the suite imports the seam it tests, through the package surface where the package declares one | `tests/handoff/test_routing.py` |
+| Class | the subject or scenario as a bare noun phrase: no article, no `Test` affix | `ReviewRoundConvergence`, `WriteGate` |
+| Shared fixture base | `<Subject>Case`: the world and the assertion helpers several classes share; it carries no test | `HandoffCase`, `DoctorCase` |
+| Method | `test_` plus the outcome in plain words | `test_two_silent_starts_block_as_stalled` |
+| Rule test | the method states the outcome and its body asserts the route rule or check name it pins | `test_an_unknown_abort_reason_escalates`, asserting `abort-unknown` |
 
-A two-word method name (`test_ordering`, `test_invalid`) names a topic, not an outcome, and is renamed when its module is passed. Files under the older `Test`-prefixed school are debt to leave until their module pass, never a pattern to copy.
+A suite groups its tests by the subject a class names: one class per check, rule family, or scenario, so a report reads by subject. No `Test`-prefixed class and no topic-shaped method name (`test_ordering`, `test_invalid`) remains under `harness/`, `tools/`, or `evals/`; every class is a bare noun phrase and every method names an outcome.
 
 ## Test Data
 
@@ -62,7 +63,7 @@ The three-tier convention applies with Python spelling:
 
 | Tier | Form | Example |
 |---|---|---|
-| Meaningful | an uppercase module constant named for its role | `ROUND_CAP_REACHED = REVIEW_ROUND_CAP` |
+| Meaningful | an uppercase module constant named for its role | `CAPPED_ROUND = REVIEW_ROUND_CAP` |
 | Irrelevant | a `SOME_` or `ANY_` constant, or a named default function | `SOME_REQ_ID`, `a_build_pass()` |
 | Mystery | a bare literal in a test body | eliminated |
 
@@ -115,9 +116,11 @@ Every decoder of agent-written input has one test per applicable shape, named af
 | Stack slices | `harness/stacks/<stack>/scripts/tests/grading/` | same, against the stack's real layout | 4 |
 | Hooks | `harness/core/.claude/hooks/test_<hook>.py` | runs the hook as a subprocess on stdin JSON | 4 |
 | Producer | `harness/tests/`, one file per script | `_loader.load` by path, since the scripts keep hyphenated names | 6 |
-| Tools | `tools/<tool>/tests/` | direct import | 6b |
+| Tools | `tools/claude-dev/tests/` | direct import | 6b |
 | Eval bench | `evals/tests/` | direct import | 6bc |
 | End-to-end | `harness/tests/test-*.sh` | installs a channel into a throwaway tree | 6c, 8, 9 |
+
+`tools/harness-stats/` ships no suite of its own, though it owns the canonical `accounting.py`. That module is covered by the vendored copy's suite, `harness/core/scripts/tests/test_accounting.py`, and battery step 2d holds the two copies byte-identical.
 
 Install-time verification in a consumer runs the exact installed module list, never discovery; the battery's steps run discovery. Both are described in [`harness-system-design.md`](harness-system-design.md#the-battery).
 

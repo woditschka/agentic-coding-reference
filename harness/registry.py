@@ -1,54 +1,33 @@
 #!/usr/bin/env python3
-"""Shared rosters and helpers for the harness/*.py tooling. Import it, never
-run it. Producer-side only: nothing here ships to a sample or a plugin.
+"""Hold the rosters of stacks, tools, and channels, and the helpers every producer script shares.
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import registry
-
-The rosters are the single source for stack/tool enumeration: every script
-that loops over stacks or tools reads these tuples. registry.sh holds only
-shell helpers — the bash orchestrators shell out for STACKS too.
-Adding a stack touches the STACKS roster here, a
-STACK_MARKERS row below (without it detect_stack silently falls back to
-generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
-skeletons, a BUILD_BINDINGS row in verify_harness/checks/suites.py, the
-STACK_LABELS/PLUGIN_STACK_TOKENS rows in package-marketplace.py, and the
-install_sim list in test-marketplace.sh. Conditional rows: PH_ALLOW in
-verify_harness/checks/sync.py when the stack keeps template tokens in a
-committed file, and the stack's distinctive build tokens in that module's
-CORE_STACK_TOKENS and
-test-generic-stack.sh's leak regex, so the stack-agnostic guards see it.
-Adding a tool is one TOOLS row — every
-producer-side tool→directory mapping (materialize surfaces, marketplace agent
-sources, verify-harness parity list, render-agent-mirrors mirror list) derives
-from it — plus two authored steps: the per-agent mirror frontmatters, and the
-shipped doctor roster (doctor RUNTIME_PATHS + the .gitignore skeleton).
-test_materialize.py gates the registry↔roster coverage.
+Producer-side only, imported and never run: every script that loops over
+stacks or tools reads these tuples, and the bash orchestrators shell out for
+them. Adding a stack or a tool starts here; harness/README.md lists the
+other surfaces each addition touches.
 """
 
 import os
+import re
 import tomllib
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
+# The exit codes every producer script shares: a usage error and a failure.
+USAGE_EXIT = 2
+FAILURE_EXIT = 1
+
 # --- rosters --------------------------------------------------------------
 STACKS = ("go", "java-spring-boot", "generic")
 
 
-# One row per AI tool — the single source for every tool→directory mapping.
-# A TypedDict, not a frozen dataclass: TOOLS is a static config table every
-# producer script reads by subscript (row["agents_dir"]), not a record routed
-# through match/assert_never (the ADR 2026-07-17 dataclass rule targets those).
-# TypedDict keeps the subscript syntax every caller uses while giving mypy
-# precise per-key types.
-#   agents_dir  the tool's agent directory (relative to a layer/project root)
-#   suffix      the tool's agent-file suffix inside agents_dir
-#   surfaces    runtime path prefixes installed only when the tool is selected
-#   plugin      True when the tool is a marketplace plugin target
-#   label       human-readable name for plugin descriptions
+# A TypedDict rather than a record: TOOLS is a static table every producer
+# script reads by subscript, never a value routed through a match.
 class ToolSpec(TypedDict):
+    """One AI tool: its agent directory and file suffix, the surfaces it alone installs, and its labels."""
+
     agents_dir: str
     suffix: str
     surfaces: tuple[str, ...]
@@ -125,10 +104,9 @@ ENGINE_SLIVER = ("scripts", "schemas/scratch", ".claude/templates")
 
 
 def mirror_surfaces() -> tuple[tuple[str, str], ...]:
-    """(agents_dir, suffix) per non-claude tool: the mirror surfaces the
-    renderer (render-agent-mirrors.py) writes and verify-harness's parity step
-    gates. Shared DATA only — checker and renderer keep their own parsing
-    logic on purpose, so one parsing bug cannot pass both."""
+    """Return the (agents_dir, suffix) pair of every tool but Claude: the mirror surfaces."""
+    # Shared data only: the checker and the renderer keep their own parsing,
+    # so one parsing bug cannot pass both.
     return tuple(
         (row["agents_dir"], row["suffix"])
         for tool, row in TOOLS.items()
@@ -137,12 +115,11 @@ def mirror_surfaces() -> tuple[tuple[str, str], ...]:
 
 
 def marketplace_excludes() -> tuple[str, ...]:
-    """The tool-discovered surface prefixes a marketplace-channel materialize
-    skips (the plugin delivers them): skills, the claude hooks, and every
-    tool's agents dir — the complement of ENGINE_SLIVER plus tool config
-    inside the runtime."""
-    return (".claude/skills/", ".claude/hooks/") + tuple(
-        row["agents_dir"] + "/" for row in TOOLS.values()
+    """Return the tool-discovered surface prefixes the marketplace plugin delivers instead of an install."""
+    return (
+        ".claude/skills/",
+        ".claude/hooks/",
+        *(row["agents_dir"] + "/" for row in TOOLS.values()),
     )
 
 
@@ -156,10 +133,7 @@ STACK_MARKERS = (
 
 
 def detect_stack(target: str | Path) -> str:
-    """The stack a target's build marker selects; the one code home for the
-    detection that materialize-samples.sh runs and the /init and /materialize skills
-    document. No recognized marker falls back to generic. The interactive
-    skills ask the user on a multi-marker target; this function never asks."""
+    """Return the stack a target's build marker selects, generic when none is recognized."""
     target = Path(target)
     return next(
         (
@@ -172,10 +146,7 @@ def detect_stack(target: str | Path) -> str:
 
 
 def runtime_files(root: Path) -> Iterator[str]:
-    """Relative paths of every runtime file under root — regular files only
-    (symlinks excluded, `find -type f` parity), tool-cache dirs excluded by
-    path segment (a mypy/ruff/pytest run from inside a scripts dir drops a
-    cache there, and a cache must never ship as runtime)."""
+    """Yield the relative path of every regular runtime file under root, caches and symlinks excluded."""
     cache_dirs = {"__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
     for path in sorted(root.rglob("*")):
         if path.is_symlink() or not path.is_file() or path.suffix == ".pyc":
@@ -187,7 +158,7 @@ def runtime_files(root: Path) -> Iterator[str]:
 
 
 def read_stamp(path: str | Path, caller: str) -> str:
-    """A VERSION/VERSION-DATE stamp, whitespace-stripped; loud on absence."""
+    """Read a VERSION or VERSION-DATE stamp, whitespace-stripped, and exit loud on absence."""
     path = Path(path)
     if not path.is_file():
         raise SystemExit(f"{caller}: missing {path}")
@@ -197,31 +168,20 @@ def read_stamp(path: str | Path, caller: str) -> str:
     return value
 
 
-# --- layout.toml [harness] reader -----------------------------------------
-# One parse+validate of scripts/layout.toml's [harness] table, shared by every
-# producer script that reads it (init.py, materialize.py). Before this, the two
-# scripts each interpreted the table separately — read_layout via tomllib, init
-# via its own tomllib read plus two regex scans — and the extensions grammars
-# had already diverged. See docs/adr/2026-07-18-materialize-previewable-plan.md.
-# The reader is producer-side only: the consumer-shipped doctor keeps its own
-# reader (it cannot import this module), and verify-harness keeps its checker
-# regexes; the shared vocabulary is parity-gated, not rendered.
+# The one reader of the [harness] table for every producer script. The
+# consumer-shipped doctor keeps its own, since it cannot import this module.
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class LayoutError(Exception):
-    """A scripts/layout.toml [harness] table that fails to parse or validate.
-    The message names the defect without a caller prefix; each caller adds its
-    own and picks its exit convention — materialize raises SystemExit, init
-    prints and returns 1."""
+    """A scripts/layout.toml [harness] table that fails to parse or validate; the message carries no caller prefix."""
 
 
 @dataclass(frozen=True)
 class HarnessLayout:
-    """The parsed [harness] table. `channel` is resolved (the declared value or
-    the "copy" default); `channel_declared` records whether an explicit
-    non-empty channel was present — the distinction init's never-flip conflict
-    check needs. `tools` is the declared list or None (absent → the caller
-    auto-detects). `extensions` is the declared tuple or ()."""
+    """The parsed [harness] table: the channel in force, whether it was declared, the tools, the extensions."""
+
+    # tools is None when absent, so the caller auto-detects.
 
     channel: str
     channel_declared: bool
@@ -230,33 +190,25 @@ class HarnessLayout:
 
 
 def unsafe_extension_path(ext_path: str) -> bool:
-    """True when an extension path cannot land verbatim in layout.toml's
-    extensions array, a .gitignore line, or a terminal: empty or ".", TOML- or
-    array-corrupting characters, surrounding whitespace, control characters
-    (tomllib decodes \\uXXXX escapes into real bytes — a terminal-injection
-    vector), dot-dot traversal, or an absolute path. One predicate serves the
-    reader (reject a hostile declaration) and materialize.record_extension
-    (reject before the textual splice)."""
+    """Report whether an extension path cannot land verbatim in the layout array, a .gitignore line, or a terminal."""
+    # tomllib decodes escapes into real bytes, so a control character is a
+    # terminal-injection vector; the reader and the recorder share one predicate.
     return (
         not ext_path
         or ext_path == "."
         or any(ch in ext_path for ch in '"[],\\')
         or ext_path != ext_path.strip()
-        or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in ext_path)
+        or _CONTROL_RE.search(ext_path) is not None
         or ".." in Path(ext_path).parts
         or Path(ext_path).is_absolute()
     )
 
 
 def read_harness_layout(target: str | Path) -> HarnessLayout:
-    """Parse and validate the [harness] table of target/scripts/layout.toml.
-
-    A missing file is the greenfield default (copy channel, nothing declared).
-    A file the parser or a per-field check rejects raises LayoutError — never a
-    silent default, which would install plugin-delivered surfaces into a
-    marketplace project whose declaration just went unreadable. This reads
-    only; the extensions write-back stays a textual splice in
-    materialize.record_extension so a re-write keeps the file's comments."""
+    """Parse and validate the [harness] table of the target's layout; a missing file is the greenfield default."""
+    # A file the parser or a field check rejects raises rather than defaulting,
+    # which would install plugin-delivered surfaces into a marketplace project
+    # whose declaration just went unreadable.
     lt = Path(target) / "scripts" / "layout.toml"
     if not lt.is_file():
         return HarnessLayout("copy", False, None, ())
@@ -287,57 +239,72 @@ def read_harness_layout(target: str | Path) -> HarnessLayout:
             f"{', '.join(CHANNELS)} — fix the declaration"
         )
 
-    raw_tools = harness.get("tools")
-    tools: list[str] | None
+    tools = _declared_tools(lt, harness.get("tools"))
+    extensions = _declared_extensions(lt, harness.get("extensions", []))
+    return HarnessLayout(channel, channel_declared, tools, extensions)
+
+
+def _declared_tools(layout: Path, raw_tools: object) -> list[str] | None:
     if raw_tools is None:
-        tools = None
-    elif not (
+        return None
+    if not (
         isinstance(raw_tools, list)
         and raw_tools
         and all(isinstance(t, str) for t in raw_tools)
     ):
         raise LayoutError(
-            f"{lt} [harness] tools must be a non-empty list of strings — fix "
+            f"{layout} [harness] tools must be a non-empty list of strings — fix "
             "the declaration or remove the key"
         )
-    else:
-        unknown = sorted(set(raw_tools) - set(ALL_TOOLS))
-        if unknown:
-            raise LayoutError(
-                f"{lt} [harness] tools names unknown tool(s) "
-                f"{', '.join(unknown)} (valid: {', '.join(ALL_TOOLS)}) — an "
-                "unknown name would silently drop that tool's surfaces"
-            )
-        tools = raw_tools
+    unknown = sorted(set(raw_tools) - set(ALL_TOOLS))
+    if unknown:
+        raise LayoutError(
+            f"{layout} [harness] tools names unknown tool(s) "
+            f"{', '.join(unknown)} (valid: {', '.join(ALL_TOOLS)}) — an "
+            "unknown name would silently drop that tool's surfaces"
+        )
+    return raw_tools
 
-    raw_exts = harness.get("extensions", [])
+
+def _declared_extensions(layout: Path, raw_exts: object) -> tuple[str, ...]:
     if not (isinstance(raw_exts, list) and all(isinstance(e, str) for e in raw_exts)):
         raise LayoutError(
-            f"{lt} [harness] extensions must be a list of strings — fix the declaration"
+            f"{layout} [harness] extensions must be a list of strings — fix the declaration"
         )
     bad = [e for e in raw_exts if unsafe_extension_path(e)]
     if bad:
         raise LayoutError(
-            f"{lt} [harness] extensions entry {bad[0]!r} is empty, absolute, "
+            f"{layout} [harness] extensions entry {bad[0]!r} is empty, absolute, "
             "traversing, or carries unsafe characters — declare plain "
             "target-relative paths"
         )
+    return tuple(raw_exts)
 
-    return HarnessLayout(channel, channel_declared, tools, tuple(raw_exts))
+
+def _lexically_normalized(path: Path) -> Path:
+    """Collapse `.` and `..` segments without touching the filesystem."""
+    parts: list[str] = []
+    for part in path.parts:
+        if part == ".":
+            continue
+        if part == ".." and parts and parts[-1] != "..":
+            parts.pop()
+            continue
+        parts.append(part)
+    return Path(*parts)
 
 
 def logical_abspath(arg: str | Path) -> Path:
-    """Absolute path with shell `pwd` semantics: the shell's logical cwd
-    ($PWD, symlinks kept as entered) wins over the physical getcwd(), so
-    report lines print the path the caller typed — e.g. /tmp/…, not macOS's
-    /private/tmp/…."""
+    """Return the absolute path with the shell's logical cwd, so a report prints the path as typed."""
+    # $PWD keeps symlinks as entered, where the physical cwd would print
+    # /private/tmp on macOS for a /tmp argument.
     path = Path(arg)
     if path.is_absolute():
         return path
     pwd = os.environ.get("PWD")
     try:
-        if pwd and os.path.samefile(pwd, os.getcwd()):
-            return Path(os.path.normpath(os.path.join(pwd, arg)))
+        if pwd and Path(pwd).samefile(Path.cwd()):
+            return _lexically_normalized(Path(pwd) / arg)
     except OSError:
         pass
     return path.absolute()

@@ -107,7 +107,7 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 
 ## IDE-Assisted Checks (optional)
 
-When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: answer access-control / data-flow questions by resolving security-relevant symbols and their references rather than text-matching. This is required, not optional: when the oracle is connected, an access-control / data-flow claim that turns on how a symbol or its references resolve (e.g. "this handler is the only caller that skips the auth check", "every write to this path passes through the validator") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `goland` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The Supply Chain checks read the declared set from `go.mod`; the resolved dependency graph is not granted to this role (`goland` role table). Tool mechanics live in the `goland` skill.
+When an IDE semantic oracle is available, use it to complement (never replace) the sweep in § Detection Patterns: answer access-control / data-flow questions by resolving security-relevant symbols and their references rather than text-matching. This is required, not optional: when the oracle is connected, an access-control / data-flow claim that turns on how a symbol or its references resolve (e.g. "this handler is the only caller that skips the auth check", "every write to this path passes through the validator") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `goland` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The Supply Chain checks read the declared set from `go.mod`; the resolved dependency graph is not granted to this role (`goland` role table). Tool mechanics live in the `goland` skill.
 
 ## Severity Classification
 
@@ -137,6 +137,23 @@ Reachability is rated from the attacker path — the input, the boundary it cros
 - Information disclosure in health endpoints
 - Missing rate limiting
 - Verbose logging in production default
+
+## Detection Patterns
+
+Grep the production roots declared in `scripts/layout.toml` for the shapes below. A hit is a candidate, never a verdict: read each in context and rate it per § Severity Classification.
+
+| Pattern | What It Detects |
+|---|---|
+| `exec\.Command\|exec\.CommandContext` | Process execution — an argument that is not a literal carries injection risk |
+| `fmt\.Sprintf.*SELECT\|fmt\.Sprintf.*INSERT\|db\.Query\|db\.Exec` | Query assembled from strings instead of placeholders |
+| `template\.HTML\|template\.JS\|template\.URL\|template\.CSS` | Contextual escaping bypassed — the value reaches the page raw |
+| `text/template` | Templating without contextual escaping; an HTML sink needs `html/template` |
+| `"unsafe"\|unsafe\.` | Pointer arithmetic outside the type system |
+| `math/rand\|rand\.Intn\|rand\.Read` | Non-cryptographic randomness; a security-relevant value needs `crypto/rand` |
+| `http\.Get\|http\.Post\|http\.NewRequest` | Outbound request — check where the URL comes from and whether the client sets a timeout |
+| `InsecureSkipVerify\|tls\.Config` | TLS verification disabled or relaxed |
+| `filepath\.Join\|os\.Open\|os\.Create\|os\.ReadFile` | Path assembled from input — check for `filepath.Clean` and a containment test |
+| `/tmp/` | System tmp usage (should use `.scratch/tmp/`) |
 
 ## Supply Chain Verification
 

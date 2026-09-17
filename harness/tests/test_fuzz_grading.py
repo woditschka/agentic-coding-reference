@@ -1,4 +1,4 @@
-"""Tests for fuzz-grading.py, the grading commands' contract net."""
+"""The grading fuzz: a seed reproduces its projects, every stack has its tables, and a tree fuzzed against itself yields no difference."""
 
 import sys
 import tempfile
@@ -13,20 +13,24 @@ REPO = ROOT.parent
 fuzz = load("fuzz_grading", "fuzz-grading.py")
 differential = load("differential", "differential.py")
 
+USAGE_EXIT = 2
+FIRST_PROJECT = 0
 SOME_SEED = 7
+ANOTHER_SEED = 8
+SOME_COUNT = 3
 
 
 class Reproducibility(unittest.TestCase):
     def test_the_same_seed_yields_the_same_projects(self):
-        first = [fuzz.Generator(SOME_SEED).project() for _ in range(3)]
-        second = [fuzz.Generator(SOME_SEED).project() for _ in range(3)]
+        first = [fuzz.Generator(SOME_SEED).project() for _ in range(SOME_COUNT)]
+        second = [fuzz.Generator(SOME_SEED).project() for _ in range(SOME_COUNT)]
 
         self.assertEqual(first, second)
 
     def test_different_seeds_yield_different_projects(self):
         self.assertNotEqual(
-            [fuzz.Generator(1).project() for _ in range(5)],
-            [fuzz.Generator(2).project() for _ in range(5)],
+            [fuzz.Generator(SOME_SEED).project() for _ in range(SOME_COUNT)],
+            [fuzz.Generator(ANOTHER_SEED).project() for _ in range(SOME_COUNT)],
         )
 
 
@@ -60,11 +64,15 @@ class Comparison(unittest.TestCase):
             generator = fuzz.Generator(SOME_SEED)
             trees = differential.Trees(REPO, REPO)
 
-            self.assertEqual(fuzz.compare_project(generator, 0, trees, Path(tmp)), [])
+            self.assertEqual(
+                fuzz.compare_project(generator, FIRST_PROJECT, trees, Path(tmp)), []
+            )
 
     def test_a_tree_without_the_entry_is_a_usage_error(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(fuzz.main(["fuzz-grading.py", "--baseline", tmp]), 2)
+            self.assertEqual(
+                fuzz.main(["fuzz-grading.py", "--baseline", tmp]), USAGE_EXIT
+            )
 
 
 if __name__ == "__main__":

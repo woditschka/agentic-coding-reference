@@ -23,6 +23,9 @@ FIRST, SECOND = FLOOR[0], FLOOR[1]
 EXTRA = "compliance-reviewer"
 OUTSIDER = "someone-else"
 BUILD_PASS_LINE = 1
+GRAY_PLAN_LINE = BUILD_PASS_LINE + 1
+PLANNER_PLAN_LINE = GRAY_PLAN_LINE + 1
+A_NON_NAME = 3
 MALFORMED_ROSTER_ERROR = (
     "harness.extra_reviewers in scripts/layout.toml must be a list of reviewer names"
 )
@@ -69,7 +72,7 @@ class ReviewerRoster(unittest.TestCase):
         self.assertEqual(result, RosterResult(None, MALFORMED_ROSTER_ERROR))
 
     def test_a_list_with_a_non_name_is_an_error(self):
-        for extras in ([""], [EXTRA, 3]):
+        for extras in ([""], [EXTRA, A_NON_NAME]):
             with self.subTest(extras=extras):
                 self.assertEqual(
                     reviewer_roster(layout(extra_reviewers=extras)),
@@ -89,20 +92,21 @@ class AutoGrade(unittest.TestCase):
 
 class ActivePlan(unittest.TestCase):
     def test_the_latest_plan_after_the_build_pass_is_active(self):
+        build_pass_line = 2
         log = entries(
             a_plan(roster=(SECOND,)), a_build_pass(), a_plan(), a_plan(roster=(SECOND,))
         )
 
-        found = active_plan(log, 2)
+        found = active_plan(log, build_pass_line)
 
         self.assertIsNotNone(found)
-        self.assertEqual(found[0].no, 4)
+        self.assertEqual(found[0].no, len(log))
         self.assertEqual(found[1].roster, (SECOND,))
 
     def test_a_plan_before_the_build_pass_is_not_active(self):
         log = entries(a_plan(), a_build_pass())
 
-        self.assertIsNone(active_plan(log, 2))
+        self.assertIsNone(active_plan(log, len(log)))
 
 
 class PassRosterFromPlan(unittest.TestCase):
@@ -133,24 +137,26 @@ class PassRosterFromPlan(unittest.TestCase):
 
 class GrayPlanLadder(unittest.TestCase):
     def test_an_engine_deferral_dispatches_the_planner(self):
-        self.assertEqual(roster_after(a_gray_plan()), PlannerStep("plan-gray", 2))
+        self.assertEqual(
+            roster_after(a_gray_plan()), PlannerStep("plan-gray", GRAY_PLAN_LINE)
+        )
 
     def test_a_gray_plan_from_anyone_else_is_invalid(self):
         self.assertEqual(
             roster_after(a_gray_plan(author=PLANNER)),
-            PlannerStep("plan-gray-invalid", 2),
+            PlannerStep("plan-gray-invalid", GRAY_PLAN_LINE),
         )
 
     def test_one_silent_planner_start_retries_once(self):
         self.assertEqual(
             roster_after(a_gray_plan(), a_planner_start()),
-            PlannerStep("planner-stall-retry", 2),
+            PlannerStep("planner-stall-retry", GRAY_PLAN_LINE),
         )
 
     def test_two_silent_planner_starts_stall(self):
         self.assertEqual(
             roster_after(a_gray_plan(), a_planner_start(), a_planner_start()),
-            PlannerStep("planner-stalled", 2),
+            PlannerStep("planner-stalled", GRAY_PLAN_LINE),
         )
 
 
@@ -167,16 +173,18 @@ class PlannerPlan(unittest.TestCase):
         )
 
     def test_a_deferral_from_an_earlier_pass_does_not_invite_the_plan(self):
+        build_pass_line = 2
         log = entries(a_gray_plan(), a_build_pass(), a_plan(author=PLANNER))
 
         self.assertEqual(
-            pass_roster(log, 2, FLOOR), PassRoster(FLOOR, "unauthored-plan")
+            pass_roster(log, build_pass_line, FLOOR),
+            PassRoster(FLOOR, "unauthored-plan"),
         )
 
     def test_a_roster_less_planner_plan_is_bounced_once(self):
         self.assertEqual(
             roster_after(a_gray_plan(), a_plan(author=PLANNER, roster=())),
-            PlannerStep("plan-roster-invalid", 3),
+            PlannerStep("plan-roster-invalid", PLANNER_PLAN_LINE),
         )
 
     def test_a_second_roster_less_planner_plan_fails_closed(self):

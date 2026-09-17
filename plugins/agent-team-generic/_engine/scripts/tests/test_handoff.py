@@ -16,10 +16,13 @@ import unittest.mock
 from pathlib import Path
 
 import accounting
+from handoff.autofix import AUTOFIX_LINE_CAP
 
 from tests.support import (
     _HERE,
     _REPO_SCHEMAS,
+    A_DESIGN_DOC,
+    A_SLICE,
     GOLDEN_RECORDS,
     SOME_REQ_ID,
     SOME_TS,
@@ -30,15 +33,26 @@ from tests.support import (
     entry,
 )
 
+ANOTHER_SLICE = "REQ-B-001"
+AN_UNKNOWN_SLICE = "REQ-NOPE-999"
+NO_MATCH_EXIT = entry.NO_MATCH_EXIT
+USAGE_EXIT = 2
+RETRY_MAX = 3
+A_LINE_NO_LOG_HAS = 5
+A_NON_STRING = 7
+IMPLEMENTER = "feature-implementer"
+DOC_REVIEWER = "doc-reviewer"
+A_PRD = "docs/prd.md"
 
-class TestAppendCanonicalForm(HandoffCase):
-    def test_reports_appended_line_number(self):
+
+class AppendCanonicalForm(HandoffCase):
+    def test_the_receipt_names_the_appended_line(self):
         _, out, _ = self.append(a_record())
         self.assertEqual(out, "appended test-rec at line 1\n")
         _, out, _ = self.append(a_record())
         self.assertEqual(out, "appended test-rec at line 2\n")
 
-    def test_overwrites_supplied_ts(self):
+    def test_a_supplied_timestamp_is_overwritten(self):
         code, _, err = self.append(a_record(ts="2020-01-01T00:00:00Z"))
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(self.log_lines()[0])["ts"], SOME_TS)
@@ -48,7 +62,7 @@ class TestAppendCanonicalForm(HandoffCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(self.log_lines()[0])["ts"], SOME_TS)
 
-    def test_fills_missing_ts(self):
+    def test_a_missing_timestamp_is_filled(self):
         record = a_record()
         del record["ts"]
         code, _, err = self.append(record)
@@ -57,14 +71,13 @@ class TestAppendCanonicalForm(HandoffCase):
 
     def test_append_onto_truncated_tail_warns_and_lands_glued(self):
         # No pre-write repair: a reader cannot tell crash damage from a
-        # concurrent write still landing (ADR 2026-08-16
-        # lock-free-ledger-appends). The append lands on the damaged line,
-        # warns, and validate blocks the log until it is repaired.
-        self.log.write_text(json.dumps(a_record()))  # no trailing newline
+        # concurrent write still landing, so the append lands on the damaged
+        # line and validate blocks the log until it is repaired.
+        self.log.write_text(json.dumps(a_record()))
         code, out, err = self.append(a_record(note="second"))
         self.assertEqual(code, 0)
         self.assertIn("truncated", err)
-        self.assertIn("at line 1", out)  # the glued line is line 1
+        self.assertIn("at line 1", out)
         self.assertEqual(len(self.log_lines()), 1)
         code, _, err = self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
@@ -72,7 +85,7 @@ class TestAppendCanonicalForm(HandoffCase):
         self.assertEqual(code, 1)
 
 
-class TestReviewFeedbackAnchor(HandoffCase):
+class ReviewFeedbackAnchor(HandoffCase):
     """The review-anchor gate reaches append: the refusal names the fix and lands nothing."""
 
     def _feedback(self):
@@ -85,9 +98,7 @@ class TestReviewFeedbackAnchor(HandoffCase):
         }
 
     def _build_pass(self):
-        return a_record(
-            "build-pass", author="feature-implementer", gate_checks_run=["build"]
-        )
+        return a_record("build-pass", author=IMPLEMENTER, gate_checks_run=["build"])
 
     def _start(self):
         return a_record("dispatch-start", author="test-reviewer", responding_to=[1])
@@ -100,14 +111,14 @@ class TestReviewFeedbackAnchor(HandoffCase):
         self.assertEqual(len(self.log_lines()), 3)
 
 
-class TestDesignSyncGate(HandoffCase):
+class DesignSyncGate(HandoffCase):
     """The design-sync gate reaches append: a malformed line in the log is skipped on the way."""
 
     def _build_pass(self):
         return {
             "type": "build-pass",
             "req_id": SOME_REQ_ID,
-            "author": "feature-implementer",
+            "author": IMPLEMENTER,
             "gate_checks_run": ["build"],
         }
 
@@ -117,32 +128,32 @@ class TestDesignSyncGate(HandoffCase):
             author="product-requirements-expert",
             in_response_to=1,
             answer="answered",
-            memory_updates=[{"path": "docs/prd.md", "summary": "edge case 5 added"}],
+            memory_updates=[{"path": A_PRD, "summary": "an edge case added"}],
         )
 
     def test_a_prd_change_with_no_design_answer_is_refused(self):
         self.write_log(self._prd_response())
-        with open(self.log, "a", encoding="utf-8") as handle:
+        with self.log.open("a", encoding="utf-8") as handle:
             handle.write("not json\n")
         code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
         self.assertEqual(code, 1)
-        self.assertIn("consultation-response at line 1, which changed docs/prd.md", err)
+        self.assertIn(f"consultation-response at line 1, which changed {A_PRD}", err)
         self.assertEqual(len(self.log_lines()), 2)
 
 
-class TestAppendValidation(HandoffCase):
-    def test_rejects_type_argument_mismatch(self):
+class AppendValidation(HandoffCase):
+    def test_a_record_type_that_differs_from_the_argument_is_rejected(self):
         code, _, err = self.append(a_record(), rtype="strict-rec")
         self.assertEqual(code, 1)
         self.assertIn("does not match", err)
 
-    def test_rejects_unknown_record_type(self):
+    def test_an_unknown_record_type_is_rejected_naming_the_known_ones(self):
         code, _, err = self.append({"type": "nope"}, rtype="nope")
         self.assertEqual(code, 1)
         self.assertIn("known types", err)
         self.assertIn("test-rec", err)
 
-    def test_rejects_non_object_record(self):
+    def test_a_non_object_record_is_rejected(self):
         code, _, err = self.run_cli(
             "append",
             "test-rec",
@@ -156,8 +167,8 @@ class TestAppendValidation(HandoffCase):
         self.assertIn("JSON object", err)
 
 
-class TestHardening(HandoffCase):
-    def test_nan_rejected_on_stdin(self):
+class AppendHardening(HandoffCase):
+    def test_nan_on_stdin_is_rejected_before_any_write(self):
         code, _, err = self.run_cli(
             "append",
             "test-rec",
@@ -174,96 +185,95 @@ class TestHardening(HandoffCase):
     def test_next_retry_warns_above_schema_maximum(self):
         retry_schema = {
             "type": "object",
-            "properties": {"retry": {"type": "integer", "minimum": 1, "maximum": 3}},
+            "properties": {
+                "retry": {"type": "integer", "minimum": 1, "maximum": RETRY_MAX}
+            },
         }
         (self.schemas / "build-failure.schema.json").write_text(
             json.dumps(retry_schema)
         )
         self.write_log(
-            {"type": "design-block", "req_id": "REQ-A-001"},
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 1},
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 2},
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 3},
+            {"type": "design-block", "req_id": A_SLICE},
+            *(
+                {"type": "build-failure", "req_id": A_SLICE, "retry": retry}
+                for retry in range(1, RETRY_MAX + 1)
+            ),
         )
         code, out, err = self.run_cli(
             "next-retry",
             "--req-id",
-            "REQ-A-001",
+            A_SLICE,
             "--file",
             str(self.log),
             "--schemas",
             str(self.schemas),
         )
         self.assertEqual(code, 0)
-        self.assertEqual(out, "4\n")
+        self.assertEqual(out, f"{RETRY_MAX + 1}\n")
         self.assertIn("exceeds the schema maximum", err)
 
 
-class TestValidate(HandoffCase):
+class ValidateCommand(HandoffCase):
     def validate(self):
         return self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
         )
 
-    def test_clean_log(self):
+    def test_a_clean_log_reports_its_record_count(self):
         self.append(a_record())
         self.append({"type": "ref-rec", "facet": "skim"})
         code, out, err = self.validate()
         self.assertEqual(code, 0, err)
         self.assertEqual(out, "2 records valid\n")
 
-    def test_detects_unknown_type(self):
+    def test_an_unknown_type_fails_naming_the_missing_schema(self):
         self.write_log({"type": "mystery"})
         code, _, err = self.validate()
         self.assertEqual(code, 1)
         self.assertIn("no schema for record type 'mystery'", err)
 
-    def test_missing_file_fails(self):
+    def test_a_missing_log_fails(self):
         code, _, err = self.validate()
         self.assertEqual(code, 1)
         self.assertIn("no handoff log", err)
 
 
-class TestQueries(HandoffCase):
-    def test_latest_returns_last_match(self):
+class QueryCommands(HandoffCase):
+    def test_latest_returns_the_last_matching_record(self):
         self.write_log(
-            {
-                "type": "design-block",
-                "req_id": "REQ-A-001",
-                "verdict": "covered",
-            },
-            {"type": "design-block", "req_id": "REQ-A-001", "verdict": "minor"},
-            {"type": "design-block", "req_id": "REQ-B-001", "verdict": "new"},
+            {"type": "design-block", "req_id": A_SLICE, "verdict": "covered"},
+            {"type": "design-block", "req_id": A_SLICE, "verdict": "minor"},
+            {"type": "design-block", "req_id": ANOTHER_SLICE, "verdict": "new"},
         )
         code, out, err = self.run_cli(
             "latest",
             "--type",
             "design-block",
             "--req-id",
-            "REQ-A-001",
+            A_SLICE,
             "--file",
             str(self.log),
         )
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(out)["verdict"], "minor")
 
-    def test_latest_with_line_prefix(self):
-        self.write_log({"type": "design-block", "req_id": "REQ-A-001"})
+    def test_the_with_line_flag_prefixes_the_line_number(self):
+        self.write_log({"type": "design-block", "req_id": A_SLICE})
         code, out, _ = self.run_cli(
             "latest", "--type", "design-block", "--with-line", "--file", str(self.log)
         )
         self.assertEqual(code, 0)
         self.assertTrue(out.startswith("1\t"))
 
-    def test_latest_no_match_exits_3(self):
-        self.write_log({"type": "design-block", "req_id": "REQ-A-001"})
+    def test_latest_without_a_match_exits_no_match(self):
+        self.write_log({"type": "design-block", "req_id": A_SLICE})
         code, _, err = self.run_cli(
             "latest", "--type", "build-pass", "--file", str(self.log)
         )
-        self.assertEqual(code, 3)
+        self.assertEqual(code, NO_MATCH_EXIT)
         self.assertIn("no build-pass record", err)
 
-    def test_latest_refuses_corrupt_log(self):
+    def test_latest_refuses_a_corrupt_log(self):
         self.log.write_text("not json\n")
         code, _, err = self.run_cli(
             "latest", "--type", "design-block", "--file", str(self.log)
@@ -273,52 +283,47 @@ class TestQueries(HandoffCase):
 
     def test_next_retry_counts_after_latest_design_block(self):
         self.write_log(
-            {"type": "design-block", "req_id": "REQ-A-001"},
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 1},
-            {"type": "build-failure", "req_id": "REQ-B-001", "retry": 1},
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 2},
-            {
-                "type": "design-block",
-                "req_id": "REQ-A-001",
-                "supersedes_record_at": 1,
-            },
-            {"type": "build-failure", "req_id": "REQ-A-001", "retry": 1},
+            {"type": "design-block", "req_id": A_SLICE},
+            {"type": "build-failure", "req_id": A_SLICE, "retry": 1},
+            {"type": "build-failure", "req_id": ANOTHER_SLICE, "retry": 1},
+            {"type": "build-failure", "req_id": A_SLICE, "retry": 2},
+            {"type": "design-block", "req_id": A_SLICE, "supersedes_record_at": 1},
+            {"type": "build-failure", "req_id": A_SLICE, "retry": 1},
         )
         code, out, err = self.run_cli(
-            "next-retry", "--req-id", "REQ-A-001", "--file", str(self.log)
+            "next-retry", "--req-id", A_SLICE, "--file", str(self.log)
         )
         self.assertEqual(code, 0, err)
         self.assertEqual(out, "2\n")
 
-    def test_next_retry_without_design_block_exits_3(self):
-        self.write_log({"type": "build-failure", "req_id": "REQ-A-001", "retry": 1})
+    def test_next_retry_without_a_design_block_exits_no_match(self):
+        self.write_log({"type": "build-failure", "req_id": A_SLICE, "retry": 1})
         code, _, err = self.run_cli(
-            "next-retry", "--req-id", "REQ-A-001", "--file", str(self.log)
+            "next-retry", "--req-id", A_SLICE, "--file", str(self.log)
         )
-        self.assertEqual(code, 3)
+        self.assertEqual(code, NO_MATCH_EXIT)
         self.assertIn("no design-block", err)
 
 
-class TestShow(HandoffCase):
-    def test_show_marks_unparseable_lines(self):
+class ShowCommand(HandoffCase):
+    def test_show_marks_an_unparseable_line(self):
         self.log.write_text(json.dumps(a_record()) + "\nnot json\n")
         code, out, _ = self.run_cli("show", "--file", str(self.log))
         self.assertEqual(code, 0)
         self.assertIn("UNPARSEABLE", out)
-        self.assertIn("test-rec · REQ-DEMO-001", out)
+        self.assertIn(f"test-rec · {SOME_REQ_ID}", out)
 
-    def test_show_empty_filter(self):
-        self.write_log({"type": "design-block", "req_id": "REQ-A-001"})
+    def test_show_with_no_matching_record_says_so(self):
+        self.write_log({"type": "design-block", "req_id": A_SLICE})
         code, out, _ = self.run_cli(
             "show", "--type", "build-pass", "--file", str(self.log)
         )
         self.assertEqual(code, 0)
         self.assertIn("no matching records", out)
 
-    def test_show_directory_at_log_path_fails_clean(self):
+    def test_show_on_a_directory_at_the_log_path_fails_cleanly(self):
         # Every other reader degrades to the clean error form on a directory
-        # at the log path (parse_log's broad OSError); show must too, not
-        # traceback with IsADirectoryError.
+        # at the log path; show follows instead of raising IsADirectoryError.
         self.log.unlink(missing_ok=True)
         self.log.mkdir()
         code, _, err = self.run_cli("show", "--file", str(self.log))
@@ -326,13 +331,12 @@ class TestShow(HandoffCase):
         self.assertIn("cannot read", err)
         self.assertNotIn("Traceback", err)
 
-    def test_show_plain_text_cannot_inject_terminal_escapes(self):
+    def test_show_never_emits_a_terminal_escape(self):
         # show prints an unparseable line raw and builds a header from record
         # fields; neither may carry an escape byte to the reader's terminal.
-        # (The JSON body escapes C0 controls via json.dumps.)
         self.log.write_text(
             json.dumps(a_record(type="test-rec")) + "\n"
-            "raw \x1b]0;pwned\x07\x1b[2J line\n"
+            "raw \x1b]0;title\x07\x1b[2J line\n"
         )
         code, out, _ = self.run_cli("show", "--file", str(self.log))
         self.assertEqual(code, 0)
@@ -340,7 +344,7 @@ class TestShow(HandoffCase):
         self.assertIn("UNPARSEABLE", out)
 
 
-class TestGoldenCanonicalBytes(unittest.TestCase):
+class GoldenCanonicalBytes(unittest.TestCase):
     """The append path writes each golden record's exact bytes."""
 
     def setUp(self):
@@ -374,10 +378,8 @@ class TestGoldenCanonicalBytes(unittest.TestCase):
         return log.read_bytes()
 
     def test_every_golden_type_resolves_to_a_schema(self):
-        # Every pinned record maps to a real schema in whatever tree this runs
-        # (core carries the nine below; a materialized sample adds stack types,
-        # so this is a subset check, not equality). A golden entry naming a
-        # deleted schema fails here.
+        # A materialized sample adds stack types beside the core schemas, so
+        # the golden set is a subset of the tree's schemas, never equal to it.
         covered = {rtype for rtype, _, _ in GOLDEN_RECORDS}
         on_disk = {
             p.name[: -len(".schema.json")] for p in _REPO_SCHEMAS.glob("*.schema.json")
@@ -390,19 +392,17 @@ class TestGoldenCanonicalBytes(unittest.TestCase):
                 self.assertEqual(self._append(rtype, record), expected)
 
 
-class TestAuditAutofix(HandoffCase):
+class AuditAutofixCommand(HandoffCase):
     """audit-autofix and the design-block gate reach the command line over a real repository."""
 
-    COMMIT_DATE = "2026-01-01T00:00:00Z"
+    SOME_COMMIT_DATE = "2026-01-01T00:00:00Z"
 
     def setUp(self):
         super().setUp()
         self.repo = self.fresh_directory()
         os.chdir(self.repo)
         (self.repo / "docs" / "adr").mkdir(parents=True)
-        (self.repo / "docs" / "system-design.md").write_text(
-            "design\n", encoding="utf-8"
-        )
+        (self.repo / A_DESIGN_DOC).write_text("design\n", encoding="utf-8")
         self.git("init", "-q")
         self.git("add", ".")
         self.git("commit", "-q", "-m", "init")
@@ -419,8 +419,8 @@ class TestAuditAutofix(HandoffCase):
             check=True,
             env={
                 **os.environ,
-                "GIT_COMMITTER_DATE": self.COMMIT_DATE,
-                "GIT_AUTHOR_DATE": self.COMMIT_DATE,
+                "GIT_COMMITTER_DATE": self.SOME_COMMIT_DATE,
+                "GIT_AUTHOR_DATE": self.SOME_COMMIT_DATE,
                 "GIT_CONFIG_GLOBAL": "/dev/null",
                 "GIT_CONFIG_SYSTEM": "/dev/null",
             },
@@ -432,33 +432,32 @@ class TestAuditAutofix(HandoffCase):
         return self.run_cli("audit-autofix", "--file", str(self.log))
 
     def autofix_record(self, **over):
+        new_content = "new text"
         base = {
             "type": "design-doc-autofix",
-            "req_id": "REQ-A-001",
+            "req_id": A_SLICE,
             "ts": SOME_TS,
             "author": "root",
-            "file": "docs/system-design.md",
+            "file": A_DESIGN_DOC,
             "category": "writing-standards",
             "source_finding": {
-                "review_feedback_author": "doc-reviewer",
+                "review_feedback_author": DOC_REVIEWER,
                 "review_feedback_ts": SOME_TS,
                 "tag": "autofix",
-                "location": "docs/system-design.md:1",
+                "location": f"{A_DESIGN_DOC}:1",
                 "description": "d",
-                "fix": "new text",
+                "fix": new_content,
             },
             "old_content": "old text",
-            "new_content": "new text",
+            "new_content": new_content,
             "lines_changed": 1,
-            "chars_changed": 8,
+            "chars_changed": len(new_content),
         }
         base.update(over)
         return base
 
     def edit_design_doc(self):
-        (self.repo / "docs" / "system-design.md").write_text(
-            "edited\n", encoding="utf-8"
-        )
+        (self.repo / A_DESIGN_DOC).write_text("edited\n", encoding="utf-8")
 
     def test_a_clean_log_and_clean_tree_pass(self):
         self.write_log(self.autofix_record())
@@ -474,17 +473,19 @@ class TestAuditAutofix(HandoffCase):
         self.assertEqual(code, 0, err)
 
     def test_a_static_failure_reaches_stderr_with_its_line(self):
-        self.write_log(self.autofix_record(lines_changed=6))
+        self.write_log(self.autofix_record(lines_changed=AUTOFIX_LINE_CAP + 1))
         code, _, err = self.audit()
         self.assertEqual(code, 1)
-        self.assertIn("line 1: lines_changed outside the 1-5 autofix cap", err)
+        self.assertIn(
+            f"line 1: lines_changed outside the 1-{AUTOFIX_LINE_CAP} autofix cap", err
+        )
 
     def test_an_uncovered_path_reaches_stderr(self):
         self.edit_design_doc()
         self.write_log(a_slice_record("build-pass"))
         code, _, err = self.audit()
         self.assertEqual(code, 1)
-        self.assertIn("docs/system-design.md: uncommitted change with no covering", err)
+        self.assertIn(f"{A_DESIGN_DOC}: uncommitted change with no covering", err)
 
     def test_a_dirty_log_fails_before_the_audit(self):
         self.log.write_text("not json\n", encoding="utf-8")
@@ -497,7 +498,7 @@ class TestAuditAutofix(HandoffCase):
         os.chdir(fresh)
         self.git("init", "-q")
         (fresh / "docs").mkdir()
-        (fresh / "docs" / "system-design.md").write_text("new\n", encoding="utf-8")
+        (fresh / A_DESIGN_DOC).write_text("new\n", encoding="utf-8")
         self.write_log(self.autofix_record())
         code, out, err = self.audit()
         self.assertEqual(code, 0, err)
@@ -513,7 +514,7 @@ class TestAuditAutofix(HandoffCase):
     def append_design_block(self, **paths):
         record = {
             "type": "design-block",
-            "req_id": "REQ-A-001",
+            "req_id": A_SLICE,
             "author": "system-design-expert",
             "verdict": "covered",
             "architectural_fit": "Fits.",
@@ -526,14 +527,12 @@ class TestAuditAutofix(HandoffCase):
         self.edit_design_doc()
         code, _, err = self.append_design_block()
         self.assertEqual(code, 1)
-        self.assertIn("docs/system-design.md", err)
+        self.assertIn(A_DESIGN_DOC, err)
         self.assertFalse(self.log.exists())
 
     def test_a_design_block_append_accepts_the_listed_path(self):
         self.edit_design_doc()
-        code, _, err = self.append_design_block(
-            supporting_paths=["docs/system-design.md"]
-        )
+        code, _, err = self.append_design_block(supporting_paths=[A_DESIGN_DOC])
         self.assertEqual(code, 0, err)
         self.assertEqual(len(self.log_lines()), 1)
 
@@ -545,17 +544,12 @@ class TestAuditAutofix(HandoffCase):
         self.assertEqual(self.log.read_text(encoding="utf-8"), "not json\n")
 
 
-class TestAccountingDegradation(unittest.TestCase):
+class AccountingDegradation(unittest.TestCase):
     def test_broken_accounting_module_never_gates_the_writer(self):
-        # A present-but-broken vendored accounting.py (an interrupted copy)
-        # must not take handoff.py down: the overlay's import guard catches
-        # any import-time error, not just a missing module — SyntaxError is
-        # not an ImportError subclass.
+        # The overlay's import guard catches any import-time error, not just a
+        # missing module: SyntaxError is not an ImportError subclass.
         with tempfile.TemporaryDirectory() as td:
             scripts = Path(td)
-            # handoff.py composes the handoff package (ADR 2026-07-17
-            # runtime-package-layout); ship the entry and the whole package so
-            # startup runs, then break the vendored accounting module beside them.
             shutil.copy(_HERE / "handoff.py", scripts / "handoff.py")
             shutil.copytree(_HERE / "handoff", scripts / "handoff")
             (scripts / "accounting.py").write_text("def broken(:\n", encoding="utf-8")
@@ -568,24 +562,26 @@ class TestAccountingDegradation(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
-class TestConcurrentAppends(HandoffCase):
-    """Lock-free append under real multi-process concurrency (ADR 2026-08-16
-    in the reference): parallel writers through the CLI must land every
-    record exactly once, keep the log validate-clean, and report receipts
-    naming each record's true line. This also proves the host filesystem
-    honors O_APPEND write atomicity — the property the parallel reviewer
-    fan-out rests on. A failure here means parallel appends are unsafe on
-    this filesystem (network mounts are the known offender)."""
+class ConcurrentAppends(HandoffCase):
+    """Lock-free appends from parallel writers land exactly once with exact receipts."""
+
+    # A failure here means the host filesystem does not honor O_APPEND write
+    # atomicity, so parallel appends are unsafe on it; network mounts are the
+    # known offender.
 
     WORKERS = 4
     APPENDS = 6
+    A_FILE_MODE = 0o644
+    # Real review-feedback runs to tens of KB, and page-crossing writes are
+    # the size class where atomicity is not free.
+    MULTI_PAGE_PAD = "x" * 6000
 
     def test_interleaved_descriptors_yield_exact_offsets(self):
-        # The receipt mechanism, deterministically: two O_APPEND descriptors
-        # interleave; each lseek(SEEK_CUR) bounds its own write, so each
-        # prefix count names that writer's true line — the property the
-        # probabilistic test below can only sample.
-        fd_a = os.open(self.log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        # Each lseek(SEEK_CUR) bounds its own write, so each prefix count
+        # names that writer's true line.
+        fd_a = os.open(
+            self.log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, self.A_FILE_MODE
+        )
         fd_b = os.open(self.log, os.O_WRONLY | os.O_APPEND)
         try:
             os.write(fd_a, b'{"one":1}\n')
@@ -600,18 +596,12 @@ class TestConcurrentAppends(HandoffCase):
         self.assertEqual(raw[:end_b].count(b"\n"), 2)
 
     def test_parallel_appends_land_exactly_with_exact_receipts(self):
-        """Needs O_APPEND write atomicity — a failure here means this
-        filesystem (network mounts are the known offender) cannot run the
-        parallel reviewer fan-out safely."""
         (self.schemas / "stress-rec.schema.json").write_text(
             json.dumps({"type": "object", "required": ["type"]})
         )
 
         def worker(w):
-            # Odd workers append multi-page records: real review-feedback
-            # runs to tens of KB, and page-crossing writes are the size
-            # class where atomicity is not free.
-            pad = "x" * 6000 if w % 2 else ""
+            pad = self.MULTI_PAGE_PAD if w % 2 else ""
             receipts = []
             for seq in range(self.APPENDS):
                 record = {
@@ -651,33 +641,21 @@ class TestConcurrentAppends(HandoffCase):
 
         total = self.WORKERS * self.APPENDS
         lines = self.log_lines()
-        self.assertEqual(len(lines), total, "every append lands exactly once")
+        self.assertEqual(len(lines), total)
         code, _, err = self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
         )
         self.assertEqual(code, 0, err)
         self.assertEqual(
-            sorted(line_no for _, _, line_no in receipts),
-            list(range(1, total + 1)),
-            "receipts are a permutation of the physical lines",
+            sorted(line_no for _, _, line_no in receipts), list(range(1, total + 1))
         )
         for w, seq, line_no in receipts:
             record = json.loads(lines[line_no - 1])
-            self.assertEqual(
-                (record["worker"], record["seq"]),
-                (w, seq),
-                f"receipt line {line_no} names another writer's record",
-            )
+            self.assertEqual((record["worker"], record["seq"]), (w, seq))
 
 
-class TestBuildPassRunsPlanEngine(HandoffCase):
-    """A build-pass append on the default ledger composes the review-plan
-    engine (route-spec § Gate 5): the plan exists by construction, at the
-    append's own tree state. Pins: the spawn and its argv, the fail-open
-    contract (a failed engine warns, the append stays green), and the two
-    non-trigger paths — a --file-redirected append (harness-internal by
-    design; the skip announces itself on stderr) and every other record
-    type. The trigger compares resolved paths, never spellings."""
+class BuildPassPlanEngine(HandoffCase):
+    """A build-pass append on the default ledger composes the review-plan engine, failing open."""
 
     def setUp(self):
         super().setUp()
@@ -702,16 +680,13 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
                 rtype,
                 "--schemas",
                 str(self.schemas),
-                stdin=json.dumps({"type": rtype, "req_id": "REQ-XX-001"}),
+                stdin=json.dumps({"type": rtype, "req_id": A_SLICE}),
             )
         return code, out, err, spawned
 
     def test_build_pass_on_the_default_ledger_spawns_the_engine(self):
         ok = subprocess.CompletedProcess(
-            [],
-            0,
-            stdout="review-plan: appended low plan for REQ-XX-001\n",
-            stderr="",
+            [], 0, stdout=f"review-plan: appended low plan for {A_SLICE}\n", stderr=""
         )
         code, out, err, spawned = self._append_default_file(
             "build-pass", lambda *a, **k: ok
@@ -723,7 +698,7 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
         # -E -B: PYTHON* env never shapes the child's imports; no bytecode.
         self.assertEqual(["-E", "-B"], argv[1:3])
         self.assertTrue(argv[3].endswith("grading.py"))
-        self.assertEqual(["review-plan", "--feature", "REQ-XX-001"], argv[4:])
+        self.assertEqual(["review-plan", "--feature", A_SLICE], argv[4:])
         self.assertIn("review-plan: appended low plan", out)
 
     def test_a_failed_engine_leaves_the_append_green_and_warns(self):
@@ -734,7 +709,7 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
         self.assertIn("falls back to the full battery", err)
 
     def test_an_engine_that_cannot_start_leaves_the_append_green(self):
-        def raise_oserror(*a, **k):
+        def raise_oserror(*_args, **_kwargs):
             raise OSError("no interpreter")
 
         code, out, err, _ = self._append_default_file("build-pass", raise_oserror)
@@ -752,7 +727,7 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
                 str(other),
                 "--schemas",
                 str(self.schemas),
-                stdin=json.dumps({"type": "build-pass", "req_id": "REQ-XX-001"}),
+                stdin=json.dumps({"type": "build-pass", "req_id": A_SLICE}),
             )
         self.assertEqual(0, code, err)
         spawned.assert_not_called()
@@ -761,15 +736,10 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
 
     def test_an_equivalent_spelling_of_the_default_still_spawns(self):
         # `--file` naming the default ledger by another spelling is not a
-        # redirect: string equality alone would silently skip the engine
-        # on every such gate-pass — the exact skip class the composed
-        # trigger exists to close.
+        # redirect: string equality alone would silently skip the engine.
         spelled = self.log.parent / "." / self.log.name
         ok = subprocess.CompletedProcess(
-            [],
-            0,
-            stdout="review-plan: appended low plan for REQ-XX-001\n",
-            stderr="",
+            [], 0, stdout=f"review-plan: appended low plan for {A_SLICE}\n", stderr=""
         )
         with unittest.mock.patch.object(
             entry.subprocess, "run", side_effect=lambda *a, **k: ok
@@ -781,7 +751,7 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
                 str(spelled),
                 "--schemas",
                 str(self.schemas),
-                stdin=json.dumps({"type": "build-pass", "req_id": "REQ-XX-001"}),
+                stdin=json.dumps({"type": "build-pass", "req_id": A_SLICE}),
             )
         self.assertEqual(0, code, err)
         spawned.assert_called_once()
@@ -795,9 +765,9 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
 
     def test_an_unclean_req_id_never_reaches_argv(self):
         # The permissive fixture schema admits shapes the shipped pattern
-        # rejects; the spawn's own fullmatch re-check must refuse them —
+        # rejects, so the spawn's own fullmatch re-check refuses them,
         # including the trailing newline a `$` pattern tolerates.
-        for req in ("REQ-XX-001\n", "--evil", "REQ-XX-001 extra", 7):
+        for req in (f"{A_SLICE}\n", "--flag", f"{A_SLICE} extra", A_NON_STRING):
             with self.subTest(req=req):
                 with unittest.mock.patch.object(entry.subprocess, "run") as spawned:
                     code, out, err = self.run_cli(
@@ -813,14 +783,20 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
                 self.assertIn("falls back to the full battery", err)
 
     def test_engine_output_is_sanitized_before_echo(self):
-        evil = subprocess.CompletedProcess(
+        colored = subprocess.CompletedProcess(
             [], 0, stdout="review-plan: appended \x1b[31mlow\x1b[0m plan\n", stderr=""
         )
-        code, out, _, _ = self._append_default_file("build-pass", lambda *a, **k: evil)
+        code, out, _, _ = self._append_default_file(
+            "build-pass", lambda *a, **k: colored
+        )
         self.assertEqual(0, code)
         self.assertNotIn("\x1b", out)
-        bad = subprocess.CompletedProcess([], 1, stdout="", stderr="x\x1b]0;t\x07y\n")
-        code, _, err, _ = self._append_default_file("build-pass", lambda *a, **k: bad)
+        escaped = subprocess.CompletedProcess(
+            [], 1, stdout="", stderr="x\x1b]0;t\x07y\n"
+        )
+        code, _, err, _ = self._append_default_file(
+            "build-pass", lambda *a, **k: escaped
+        )
         self.assertEqual(0, code)
         self.assertNotIn("\x1b", err)
 
@@ -847,13 +823,11 @@ class ViewCommand(HandoffCase):
             a_slice_record(
                 "design-block", verdict="covered", implementation_effort="routine"
             ),
-            a_slice_record(
-                "dispatch-start", author="feature-implementer", responding_to=[1]
-            ),
+            a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[1]),
             a_slice_record("build-pass"),
             a_slice_record(
                 "review-feedback",
-                author="doc-reviewer",
+                author=DOC_REVIEWER,
                 verdict="changes_requested",
                 findings=[
                     {
@@ -865,9 +839,7 @@ class ViewCommand(HandoffCase):
                     }
                 ],
             ),
-            a_slice_record(
-                "dispatch-start", author="feature-implementer", responding_to=[4]
-            ),
+            a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[4]),
             a_slice_record("build-pass"),
         )
 
@@ -906,14 +878,14 @@ class ViewCommand(HandoffCase):
     def test_color_and_no_color_are_mutually_exclusive(self):
         self.write_log(a_slice_record("prd-entry", title="t"))
         code, _, err = self.view("--color", "--no-color")
-        self.assertEqual(code, 2)
+        self.assertEqual(code, USAGE_EXIT)
         self.assertIn("not allowed with", err)
 
     def test_markdown_and_a_color_flag_are_mutually_exclusive(self):
         self.write_log(a_slice_record("prd-entry", title="t"))
         for flag in ("--color", "--no-color"):
             code, _, err = self.view("--markdown", flag)
-            self.assertEqual(code, 2)
+            self.assertEqual(code, USAGE_EXIT)
             self.assertIn("not allowed with", err)
 
     def test_the_layout_turns_grading_off(self):
@@ -971,17 +943,17 @@ class ViewCommand(HandoffCase):
         _, out, _ = self.view("--no-color")
         self.assertNotIn("· routine", out)
 
-    def test_an_unknown_req_id_exits_three_through_main(self):
+    def test_an_unknown_req_id_exits_no_match_through_main(self):
         self.write_log(a_slice_record("prd-entry", title="T"))
-        code, out, _ = self.view("--no-color", "--req-id", "REQ-NOPE-999")
-        self.assertEqual(code, 3)
-        self.assertIn("no records for REQ-NOPE-999", out)
+        code, out, _ = self.view("--no-color", "--req-id", AN_UNKNOWN_SLICE)
+        self.assertEqual(code, NO_MATCH_EXIT)
+        self.assertIn(f"no records for {AN_UNKNOWN_SLICE}", out)
 
     def test_markdown_renders_the_selected_slice(self):
         self.write_log(a_slice_record("prd-entry", title="T"))
-        code, out, err = self.view("--markdown", "--req-id", "REQ-A-001")
+        code, out, err = self.view("--markdown", "--req-id", A_SLICE)
         self.assertEqual(code, 0, err)
-        self.assertIn("### REQ-A-001 — T", out)
+        self.assertIn(f"### {A_SLICE} — T", out)
 
     def test_a_dirty_log_renders_with_the_parse_errors_as_a_footer(self):
         self.log.write_text(
@@ -999,19 +971,35 @@ class ViewCommand(HandoffCase):
         _, out, _ = self.view("--no-color")
         self.assertNotIn("· routine", out)
 
-    def _synthetic_project(self, usage):
-        slug = accounting.slug_for(os.getcwd())
-        subagents = self.log.parent / "projects" / slug / "sess1" / "subagents"
-        subagents.mkdir(parents=True)
+    OPUS = "claude-opus-4-8"
+    DISPATCH_TS = "2026-07-06T10:05:00Z"
+    IN_WINDOW_TS = "2026-07-06T10:10:00Z"
+    ALSO_IN_WINDOW_TS = "2026-07-06T10:11:00Z"
+    BUILD_PASS_TS = "2026-07-06T10:20:00Z"
+    STEP_DURATION = "15m"
+    INPUT_TOKENS = 1000
+    OUTPUT_TOKENS = 500
+    A_FOREIGN_INPUT = 77_000
+
+    def _subagents_dir(self):
+        slug = accounting.slug_for(str(Path.cwd()))
+        return self.log.parent / "projects" / slug / "sess1" / "subagents"
+
+    def _transcript(self, agent_id, agent_type, usage, ts):
+        subagents = self._subagents_dir()
+        subagents.mkdir(parents=True, exist_ok=True)
         message = {
             "type": "assistant",
-            "timestamp": "2026-07-06T10:10:00Z",
-            "message": {"model": "claude-opus-4-8", "usage": usage},
+            "timestamp": ts,
+            "message": {"model": self.OPUS, "usage": usage},
         }
-        (subagents / "agent-x.jsonl").write_text(json.dumps(message) + "\n")
-        (subagents / "agent-x.meta.json").write_text(
-            json.dumps({"agentType": "feature-implementer"})
+        (subagents / f"agent-{agent_id}.jsonl").write_text(json.dumps(message) + "\n")
+        (subagents / f"agent-{agent_id}.meta.json").write_text(
+            json.dumps({"agentType": agent_type})
         )
+
+    def _synthetic_project(self, usage):
+        self._transcript("x", IMPLEMENTER, usage, self.IN_WINDOW_TS)
 
     def _view_with_projects(self):
         with unittest.mock.patch.dict(
@@ -1020,64 +1008,72 @@ class ViewCommand(HandoffCase):
             self.write_log(
                 a_slice_record(
                     "dispatch-start",
-                    author="feature-implementer",
-                    ts="2026-07-06T10:05:00Z",
+                    author=IMPLEMENTER,
+                    ts=self.DISPATCH_TS,
                     responding_to=[0],
                 ),
                 a_slice_record(
                     "build-pass",
-                    author="feature-implementer",
-                    ts="2026-07-06T10:20:00Z",
+                    author=IMPLEMENTER,
+                    ts=self.BUILD_PASS_TS,
                     gate_checks_run=["test"],
                 ),
             )
             return self.view("--no-color")
 
+    def _step_figures(self):
+        input_rate, output_rate = accounting.PRICE["opus"]
+        cost = (
+            self.INPUT_TOKENS * input_rate + self.OUTPUT_TOKENS * output_rate
+        ) / accounting.TOKENS_PER_MILLION
+        return (
+            f"◷ {self.STEP_DURATION} │ Σ ▲{accounting.format_tokens(self.INPUT_TOKENS)}"
+            f" ▼{accounting.format_tokens(self.OUTPUT_TOKENS)}"
+            f" ${accounting.format_cost(cost)} │ ⛁ 0%"
+        )
+
     def test_the_cost_overlay_reads_the_transcripts_end_to_end(self):
         self._synthetic_project(
-            {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 0}
+            {
+                "input_tokens": self.INPUT_TOKENS,
+                "output_tokens": self.OUTPUT_TOKENS,
+                "cache_read_input_tokens": 0,
+            }
         )
         code, out, err = self._view_with_projects()
         self.assertEqual(code, 0, err)
-        # opus prices 1000 input and 500 output tokens at 0.0175 dollars,
-        # shown as $0.02; the 1000 input tokens read as 1k.
-        self.assertIn("◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
+        self.assertIn(self._step_figures(), out)
 
     def test_the_header_roll_up_ignores_foreign_agents_in_the_window(self):
         self._synthetic_project(
-            {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 0}
+            {
+                "input_tokens": self.INPUT_TOKENS,
+                "output_tokens": self.OUTPUT_TOKENS,
+                "cache_read_input_tokens": 0,
+            }
         )
-        subagents = (
-            self.log.parent
-            / "projects"
-            / accounting.slug_for(os.getcwd())
-            / "sess1"
-            / "subagents"
-        )
-        foreign = {
-            "type": "assistant",
-            "timestamp": "2026-07-06T10:11:00Z",
-            "message": {"model": "claude-opus-4-8", "usage": {"input_tokens": 77000}},
-        }
-        (subagents / "agent-y.jsonl").write_text(json.dumps(foreign) + "\n")
-        (subagents / "agent-y.meta.json").write_text(
-            json.dumps({"agentType": "Explore"})
+        self._transcript(
+            "y",
+            "Explore",
+            {"input_tokens": self.A_FOREIGN_INPUT},
+            self.ALSO_IN_WINDOW_TS,
         )
         code, out, err = self._view_with_projects()
         self.assertEqual(code, 0, err)
-        self.assertIn("│ ◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
+        self.assertIn(f"│ {self._step_figures()}", out)
 
     def test_a_malformed_transcript_degrades_to_no_figures(self):
-        self._synthetic_project({"input_tokens": "1200", "output_tokens": 500})
+        self._synthetic_project(
+            {"input_tokens": "1200", "output_tokens": self.OUTPUT_TOKENS}
+        )
         code, out, err = self._view_with_projects()
         self.assertEqual(code, 0, err)
         self.assertNotIn("Traceback", err)
-        self.assertIn("◷ 15m", out)
+        self.assertIn(f"◷ {self.STEP_DURATION}", out)
 
 
 class RouteCommand(RouteCase):
-    """The route subcommand's wiring: the log file's damage modes, the layout file,
-    and the slice flag. The decisions themselves are the routing suite's."""
+    """The route subcommand's wiring: the log's damage modes, the layout file, and the slice flag."""
 
     def test_a_missing_log_escalates_with_no_active_slice(self):
         decision = self.route()
@@ -1129,10 +1125,11 @@ class RouteCommand(RouteCase):
 
     def test_the_req_id_flag_selects_the_slice(self):
         self.write_log(
-            a_slice_record("prd-entry"), a_slice_record("prd-entry", req_id="REQ-B-001")
+            a_slice_record("prd-entry"),
+            a_slice_record("prd-entry", req_id=ANOTHER_SLICE),
         )
-        decision = self.route("--req-id", "REQ-A-001")
-        self.assertEqual(decision["req_id"], "REQ-A-001")
+        decision = self.route("--req-id", A_SLICE)
+        self.assertEqual(decision["req_id"], A_SLICE)
         self.assertEqual(decision["next"], ["system-design-expert"])
 
     def test_a_schema_gate_reads_the_schemas_directory(self):
@@ -1154,15 +1151,15 @@ class TierCommand(RouteCase):
         code, out, err = self.run_cli("tier", "--file", str(self.log))
         self.assertEqual(code, 0, err)
         derived = json.loads(out)
-        self.assertEqual(derived["req_id"], "REQ-A-001")
-        self.assertEqual(derived["agent"], "feature-implementer")
+        self.assertEqual(derived["req_id"], A_SLICE)
+        self.assertEqual(derived["agent"], IMPLEMENTER)
         self.assertEqual(derived["reason"], "initial")
 
     def test_a_missing_log_reads_the_base_tier(self):
         code, out, err = self.run_cli("tier", "--file", str(self.log))
         self.assertEqual(code, 0, err)
         derived = json.loads(out)
-        self.assertEqual(derived["agent"], "feature-implementer")
+        self.assertEqual(derived["agent"], IMPLEMENTER)
         self.assertEqual(derived["reason"], "no-records")
 
 
@@ -1173,15 +1170,15 @@ class ValidateDispatchDiscipline(RouteCase):
         )
 
     def test_a_substantive_record_without_a_dispatch_start_warns(self):
-        self.write_log(a_slice_record("build-pass", author="feature-implementer"))
-        code, out, err = self.validate()
+        self.write_log(a_slice_record("build-pass", author=IMPLEMENTER))
+        code, _, err = self.validate()
         self.assertEqual(code, 0, err)
         self.assertIn("no prior dispatch-start", err)
 
     def test_the_warning_sanitizes_agent_authored_fields(self):
         control_bytes = "\x1b]0;title\x07\x1b[31mtext\x1b[0m"
         self.write_log(a_slice_record("build-pass", author=control_bytes))
-        code, out, err = self.validate()
+        code, _, err = self.validate()
         self.assertEqual(code, 0, err)
         self.assertIn("no prior dispatch-start", err)
         self.assertNotIn("\x1b", err)
@@ -1191,29 +1188,29 @@ class ValidateDispatchDiscipline(RouteCase):
 class AppendRespondingTo(RouteCase):
     def test_a_dangling_pointer_is_rejected(self):
         # Append is the one moment the referent set is known.
-        code, out, err = self.append(
-            a_slice_record("dispatch-start", responding_to=[5]), rtype="dispatch-start"
+        code, _, err = self.append(
+            a_slice_record("dispatch-start", responding_to=[A_LINE_NO_LOG_HAS]),
+            rtype="dispatch-start",
         )
         self.assertEqual(code, 1)
         self.assertIn("non-existent log line", err)
 
     def test_an_unterminated_last_line_still_counts_as_a_referent(self):
         self.log.write_text('{"a":1}\n{"b":2}\n{"c":3}', encoding="utf-8")
-        code, out, err = self.append(
+        code, _, err = self.append(
             a_slice_record("dispatch-start", responding_to=[3]), rtype="dispatch-start"
         )
         self.assertEqual(code, 0, err)
 
 
 class DuplicateKeyFailClosed(RouteCase):
-    """A log line with duplicate keys fails at parse, before any schema check,
-    so validate errors and route blocks; neither crashes."""
+    """A log line with duplicate keys fails at parse, before any schema check."""
 
     DUP_LINE = '{"type": "prd-entry", "req_id": "REQ-A-001", "req_id": "REQ-A-002"}\n'
 
     def test_validate_reports_a_duplicate_key_as_a_parse_error(self):
         self.log.write_text(self.DUP_LINE, encoding="utf-8")
-        code, out, err = self.run_cli(
+        code, _, err = self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
         )
         self.assertEqual(code, 1)
@@ -1230,9 +1227,7 @@ class DuplicateKeyFailClosed(RouteCase):
 
 
 class DuplicateKeyControlBytesSanitized(RouteCase):
-    """The duplicated key is agent content; a control byte in it never reaches
-    the terminal raw. The parse error sanitizes at message construction, so
-    validate, append, and route's errors all inherit it."""
+    """A control byte in a duplicated key never reaches the terminal raw from any command."""
 
     # A key carrying ESC/BEL/CR, duplicated. The controls are escaped so the
     # line is valid JSON; json decodes them to raw bytes before the hook runs.
@@ -1248,14 +1243,14 @@ class DuplicateKeyControlBytesSanitized(RouteCase):
 
     def test_validate_stderr_is_sanitized(self):
         self.log.write_text(self.DUP, encoding="utf-8")
-        code, out, err = self.run_cli(
+        code, _, err = self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
         )
         self.assertEqual(code, 1)
         self._assert_no_control_bytes(err)
 
     def test_append_stderr_is_sanitized(self):
-        code, out, err = self.run_cli(
+        code, _, err = self.run_cli(
             "append",
             "prd-entry",
             "--file",
@@ -1275,9 +1270,7 @@ class DuplicateKeyControlBytesSanitized(RouteCase):
 
 
 class NonUtf8Log(RouteCase):
-    """A non-UTF-8 byte in the log is a dirty-log parse error, never a decode
-    traceback: route blocks with exit 0, validate exits 1, view footers it,
-    show degrades cleanly."""
+    """A non-UTF-8 byte in the log is a dirty-log parse error in every command, never a traceback."""
 
     BAD = b'{"type": "prd-entry", "req_id": "REQ-A-001"}\n\xff\xfe\n'
 
@@ -1290,7 +1283,7 @@ class NonUtf8Log(RouteCase):
 
     def test_validate_exits_one_cleanly(self):
         self.log.write_bytes(self.BAD)
-        code, out, err = self.run_cli(
+        code, _, err = self.run_cli(
             "validate", "--file", str(self.log), "--schemas", str(self.schemas)
         )
         self.assertEqual(code, 1)
@@ -1305,15 +1298,14 @@ class NonUtf8Log(RouteCase):
 
     def test_show_degrades_without_a_traceback(self):
         self.log.write_bytes(self.BAD)
-        code, out, err = self.run_cli("show", "--file", str(self.log))
+        code, _, err = self.run_cli("show", "--file", str(self.log))
         self.assertNotEqual(code, 0)
         self.assertIn("not valid UTF-8", err)
         self.assertNotIn("Traceback", err)
 
 
 class ScopeLockDelta(RouteCase):
-    """The Non-Goals delta reaches Gate 1 through the command line: the root computes it
-    from git in a throwaway repository; what the delta contains is the non-goals suite's."""
+    """The Non-Goals delta reaches the PRD gate through the command line over a real repository."""
 
     PRD = (
         "# PRD\n\n## Non-Goals\n\n"
@@ -1328,10 +1320,10 @@ class ScopeLockDelta(RouteCase):
         self.addCleanup(os.chdir, Path.cwd())
         os.chdir(self.root)
         (self.root / "docs").mkdir()
-        (self.root / "docs" / "prd.md").write_text(self.PRD, encoding="utf-8")
+        (self.root / A_PRD).write_text(self.PRD, encoding="utf-8")
         for argv in (
             ("init", "-q"),
-            ("add", "docs/prd.md"),
+            ("add", A_PRD),
             ("commit", "-q", "-m", "seed"),
         ):
             subprocess.run(
@@ -1346,7 +1338,7 @@ class ScopeLockDelta(RouteCase):
                 capture_output=True,
                 text=True,
             )
-        (self.root / "docs" / "prd.md").write_text(
+        (self.root / A_PRD).write_text(
             self.PRD.replace("Changing a record", "Cancelling only"), encoding="utf-8"
         )
         self.write_log(a_slice_record("prd-entry"))
@@ -1363,6 +1355,6 @@ class ScopeLockDelta(RouteCase):
             decision = self.route()
         self.assertEqual(decision["rule"], "prd-gate-failed")
         self.assertIn(
-            "cannot read the docs/prd.md scope-lock baseline",
+            f"cannot read the {A_PRD} scope-lock baseline",
             " ".join(decision["context"]["errors"]),
         )

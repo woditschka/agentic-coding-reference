@@ -1,37 +1,14 @@
 #!/usr/bin/env python3
-"""Materialize the harness runtime into a consumer project.
+"""Materialize the harness runtime into a consumer project, and report what the install did not produce.
 
-    harness/materialize.py <stack> <target-dir>
+    harness/materialize.py <stack> <target-dir> [--no-verify] [--dry-run | --show-plan]
+    harness/materialize.py record-extension <target-dir> <runtime-path>
 
-Copies harness/core/ then harness/stacks/<stack>/ into the target, preserving
-permissions. The stack layer is applied last, so it wins on any overlap. This
-is a byte-identical copy, not a render: every materialized file already exists
-in the tree in its final form (agents are pre-expanded per tool surface).
-
-Only the tool surfaces the project uses are installed. The project declares
-them in scripts/layout.toml [harness] tools; if the key is absent (an older
-project), the set is auto-detected from the tool agent-dirs already present —
-so an upgrade never adds a tool surface the project did not opt into. The
-shared substrate (skills, templates, schemas, scripts) installs for every tool.
-
-The target's own files — docs/ briefs, scripts/layout.toml, settings, build
-files — are project-owned and never touched here.
-
-Channel-aware (read from scripts/layout.toml [harness] channel). Under "copy"
-and "manifest" the full runtime is installed. Under "marketplace" the
-tool-discovered surfaces (skills, agents, hooks) ship as a plugin and are NOT
-installed here; only the non-discovered engine sliver (scripts, schemas,
-templates, tool config) is materialized — at project-relative paths every tool
-resolves identically. See docs/adr/2026-06-14-marketplace-plugin-channel.md.
-
-After installing, the script REPORTS (never deletes) "extras": files under the
-harness-owned runtime directories (plus scripts/, minus the project-owned
-layout.toml and backlog.sh and, on the generic stack, stack.sh) that this install did not
-produce. They are either stale orphans from an older harness or genuine project
-extensions; the /materialize skill classifies and acts on them. This script
-stays a safe, non-destructive primitive.
-
-Stdlib only. Tested by test_materialize.py.
+The producer-side installer: a byte-identical copy of harness/core/ then
+harness/stacks/<stack>/, limited to the tool surfaces and the channel the
+target declares, followed by the refreshes of the harness-owned lines in the
+project's files. It never deletes: extras are reported for the /materialize
+skill to classify. Stdlib only.
 """
 
 import importlib.util
@@ -40,6 +17,7 @@ import subprocess
 import sys
 import tomllib
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -47,8 +25,10 @@ sys.path.insert(0, str(HERE))
 import write_guard  # noqa: E402
 from registry import (  # noqa: E402
     ALL_TOOLS,
+    FAILURE_EXIT,
     STACKS,
     TOOLS,
+    USAGE_EXIT,
     LayoutError,
     logical_abspath,
     marketplace_excludes,
@@ -58,69 +38,87 @@ from registry import (  # noqa: E402
 )
 from retired_paths import covered, read_manifest  # noqa: E402
 
-# Extras paths come from the target's filesystem — consumer-influenced bytes
-# echoed to the operator's terminal, so control characters are stripped
-# (same convention as setup.sh's suite-output stripping).
+USAGE = (
+    "usage: materialize.py <stack> <target-dir> [--no-verify] [--dry-run | --show-plan]\n"
+    "       materialize.py record-extension <target-dir> <runtime-path>"
+)
+MATERIALIZE_ARGS = 3
+RECORD_EXTENSION_ARGS = 4
+VERB_ARGS = 2
+DIAGNOSTIC_LINES = 5
+RETIRED_NOTE = "  [retired — harness/retired-paths.txt]"
+
+# Extras paths come from the target's filesystem, so a control character is
+# stripped before the path reaches the operator's terminal.
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+# Suite output is target-influenced: C0 controls (minus tab), DEL, and C1 are
+# the escape-sequence alphabet.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+_SGR_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+class MaterializeError(Exception):
+    """A failure materialize reports on stderr and exits on with its code."""
+
+    def __init__(self, code: int, message: str, *, verbatim: bool = False) -> None:
+        """Carry the exit code and the message; verbatim writes the message as is."""
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.verbatim = verbatim
+
+
+def report(message: str) -> None:
+    """Write one line to stderr."""
+    print(message, file=sys.stderr)
 
 
 def _printable(text: str) -> str:
     return _CTRL_RE.sub("", text)
 
 
-USAGE = (
-    "usage: materialize.py <stack> <target-dir> [--no-verify] [--dry-run | --show-plan]\n"
-    "       materialize.py record-extension <target-dir> <runtime-path>"
-)
+@dataclass(frozen=True, slots=True)
+class Install:
+    """One install resolved against its target: the stack, the channel, and the surfaces in scope."""
 
-# On the marketplace channel the tool-discovered surfaces (skills, agents,
-# hooks) are delivered by the plugin, not materialized; the engine sliver
-# (registry.ENGINE_SLIVER) stays project-side. OpenCode is not a plugin target
-# — under marketplace it is
-# already excluded via its TOOLS surfaces unless the project lists it as a
-# tool. Both mappings derive from the registry.TOOLS registry.
+    stack: str
+    target: Path
+    channel: str
+    tools: list[str]
+    prefixes: list[str]
 
 
 def runtime_dirs() -> list[str]:
-    """The harness-owned runtime directories: derived from RUNTIME_PATHS in
-    harness/core/scripts/doctor.py (the single source), taking the
-    entries whose last segment has no extension. These trees are 100%
-    harness-owned, so scanning them for extras never touches a project-owned
-    file (.claude/settings*.json and scripts/layout.toml live outside them)."""
+    """Return the harness-owned runtime directories, derived from the doctor's runtime roster."""
+    # The roster entries whose last segment has no extension. These trees are
+    # wholly harness-owned, so scanning them for extras never touches a
+    # project-owned file.
     spec = importlib.util.spec_from_file_location(
         "doctor", HERE / "core" / "scripts" / "doctor.py"
     )
     if spec is None or spec.loader is None:
-        raise SystemExit("materialize: cannot load doctor.py to derive runtime dirs")
+        raise MaterializeError(
+            FAILURE_EXIT, "materialize: cannot load doctor.py to derive runtime dirs"
+        )
     doctor = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(doctor)
     return [p for p in doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]]
 
 
 def read_layout(target: Path) -> tuple[list[str] | None, str]:
-    """(tools list or None, channel) from scripts/layout.toml [harness], via
-    the shared registry.read_harness_layout.
-
-    A layout the parser or a per-field check rejects fails LOUD: silently
-    defaulting to copy + all-four-tools would install the full runtime —
-    including plugin-delivered surfaces — into a marketplace or claude-only
-    project whose declaration just went unreadable. The enum hazard is why
-    this must abort before install(): "marketplce" is not == "marketplace" at
-    excluded_prefixes, and the doctor flags the enum only after the damaging
-    install."""
+    """Read the declared tools and channel from the target's layout; an unreadable layout fails loud."""
+    # Defaulting silently would install the full runtime into a marketplace
+    # or single-tool project whose declaration just went unreadable.
     try:
         layout = read_harness_layout(target)
     except LayoutError as exc:
-        # The reader's messages carry their own actionable tail — no second one.
-        raise SystemExit(f"materialize: {exc}") from None
+        raise MaterializeError(FAILURE_EXIT, f"materialize: {exc}") from None
     return layout.tools, layout.channel
 
 
 def resolve_tools(target: Path, declared: list[str] | None) -> list[str]:
-    """The tool surfaces to install. Precedence: (1) the project's declared set
-    in layout.toml; (2) an existing materialized project (a runtime dir already
-    present) keeps its current surfaces — detect them, never add one (upgrade
-    safety); (3) a greenfield target with no signal gets all three."""
+    """Return the tool surfaces to install: the declared set, else the present ones, else all."""
+    # An existing install keeps its surfaces and never gains one on upgrade.
     if declared:
         return declared
     if (target / ".claude/skills").is_dir() or (target / ".claude/agents").is_dir():
@@ -135,6 +133,7 @@ def resolve_tools(target: Path, declared: list[str] | None) -> list[str]:
 
 
 def excluded_prefixes(tools: list[str], channel: str) -> list[str]:
+    """Return the runtime path prefixes an install leaves out for these tools and this channel."""
     prefixes = [
         p for tool, row in TOOLS.items() if tool not in tools for p in row["surfaces"]
     ]
@@ -144,10 +143,8 @@ def excluded_prefixes(tools: list[str], channel: str) -> list[str]:
 
 
 def _install_pairs(stack: str, prefixes: list[str]) -> Iterator[tuple[str, Path]]:
-    """(rel, source path) for each runtime file an install would produce, in
-    copy order: core then the stack layer, the stack winning on overlap.
-    install() copies each; plan_install() stats each — one enumeration, so the
-    preview cannot drift from the copy it previews."""
+    # One enumeration serves the copy and the plan, so the preview cannot
+    # drift from the copy it previews; the stack layer comes last and wins.
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer
         if not src.is_dir():
@@ -159,8 +156,7 @@ def _install_pairs(stack: str, prefixes: list[str]) -> Iterator[tuple[str, Path]
 
 
 def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], int]:
-    """Copy core then the stack layer into the target (stack wins on overlap).
-    Returns (installed set, copy count — overlaps counted per copy)."""
+    """Copy core then the stack layer into the target; return the installed set and the copy count."""
     installed: set[str] = set()
     copied = 0
     for rel, src in _install_pairs(stack, prefixes):
@@ -175,12 +171,7 @@ def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], in
 def plan_install(
     stack: str, target: Path, prefixes: list[str]
 ) -> tuple[list[str], list[str]]:
-    """(created, overwritten) rel paths a real install would produce, decided
-    by a stat only — created = the dest is absent, overwritten = it is present
-    (the copy would replace it). Each file is judged once against the pre-run
-    disk state, so a core∪stack overlap counts as one entry, not two. This is
-    the create-vs-overwrite split install()'s unconditional copy never computes;
-    --dry-run renders it before any byte is written."""
+    """Return the (created, overwritten) paths a real install would produce, judged against the disk once."""
     created: list[str] = []
     overwritten: list[str] = []
     seen: set[str] = set()
@@ -192,36 +183,28 @@ def plan_install(
     return sorted(created), sorted(overwritten)
 
 
-def show_plan(
-    stack: str, target: Path, channel: str, tools: list[str], prefixes: list[str]
-) -> int:
-    """Print what a real materialize would change, then stop — the --dry-run /
-    --show-plan surface. Every set is a pure read of the source tree and the
-    target's current state; the plan is transient and never persisted (ADR
-    2026-07-18). It reports extras as candidates only — the delete decision
-    stays the /materialize skill's judgment, never this script's."""
-    created, overwritten = plan_install(stack, target, prefixes)
+def show_plan(plan: Install) -> int:
+    """Print what a real materialize would change, and write nothing."""
+    # The delete decision stays the /materialize skill's: extras are named as
+    # candidates only.
+    created, overwritten = plan_install(plan.stack, plan.target, plan.prefixes)
     produced = set(created) | set(overwritten)
-    extras = sorted(scan_present(target, stack, runtime_dirs()) - produced)
+    extras = sorted(scan_present(plan.target, plan.stack, runtime_dirs()) - produced)
     print(
-        f"plan stack={stack} channel={channel} tools={' '.join(tools)} "
-        f"→ {target} (dry run — nothing written)"
+        f"plan stack={plan.stack} channel={plan.channel} tools={' '.join(plan.tools)} "
+        f"→ {plan.target} (dry run — nothing written)"
     )
     print(f"  create:    {len(created)} runtime file(s)")
     print(f"  overwrite: {len(overwritten)} runtime file(s) (harness-owned; replaced)")
-    # prefixes carries overlaps by construction (a tool surface a marketplace
-    # install also excludes); dedupe for the display, order preserved.
-    excluded = ", ".join(dict.fromkeys(prefixes))
+    excluded = ", ".join(dict.fromkeys(plan.prefixes))
     print(f"  excluded surfaces (not installed here): {excluded or 'none'}")
     print(
         f"  extras:    {len(extras)} file(s) the harness did not produce "
         "(kept; /materialize classifies)"
     )
-    # The refreshes a real run applies to project-owned files. The managed-
-    # chapter rewrite is the one edit that can overwrite project content placed
-    # inside a harness-owned chapter — the plan names it so a consumer sees it
-    # before the write, the only preview on a gitignored-runtime channel.
-    if (target / "CLAUDE.md").is_file():
+    # The chapter rewrite is the one edit that can overwrite project content
+    # placed inside a harness-owned chapter, so the plan names it.
+    if (plan.target / "CLAUDE.md").is_file():
         print(
             "  refresh:   CLAUDE.md managed chapters (harness-owned regions rewritten)"
         )
@@ -234,31 +217,29 @@ def show_plan(
     ):
         print(f"--- plan {label}: {len(rels)} ---")
         for rel in rels:
-            if label == "extras" and covered(rel, retired):
-                print(f"{_printable(rel)}  [retired — harness/retired-paths.txt]")
-            else:
-                print(_printable(rel) if label == "extras" else rel)
+            print(_extra_line(rel, retired) if label == "extras" else rel)
     print("--- end plan ---")
     return 0
 
 
+def _extra_line(rel: str, retired: list[str]) -> str:
+    # A path the retired-paths manifest covers is a known orphan the skill
+    # removes without archaeology; an unannotated extra keeps the judgment path.
+    note = RETIRED_NOTE if covered(rel, retired) else ""
+    return f"{_printable(rel)}{note}"
+
+
 def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
-    """Every file currently under the harness-owned runtime dirs, plus
-    scripts/ minus the project-owned layout.toml and backlog.sh and, on the
-    generic stack, stack.sh — so a retired engine is reported instead of
-    persisting silently.
-    __pycache__/*.pyc are build artifacts, not orphans — excluded, matching
-    the doctor."""
+    """Return every file under the runtime dirs, the retired dirs, and scripts/ minus the project-owned files."""
+    # __pycache__ artifacts are excluded by the runtime walk, matching the
+    # doctor. A retired directory is no longer a runtime dir, so it is
+    # scanned on its own, or a retired tool surface would persist unreported.
     present: set[str] = set()
     for d in dirs:
         root = target / d
         if not root.is_dir():
             continue
         present.update(f"{d}/{rel}" for rel in runtime_files(root))
-    # A retired directory (a manifest entry with a trailing slash) is no
-    # longer a runtime dir, so the loop above never visits it; scan it too,
-    # or a retired tool surface persists silently instead of being reported
-    # as the retired orphan the /materialize skill removes.
     for entry in read_manifest():
         if entry.endswith("/") and (target / entry).is_dir():
             present.update(f"{entry}{rel}" for rel in runtime_files(target / entry))
@@ -284,136 +265,111 @@ def run_refresh(script: Path, *args: str | Path) -> str:
         check=False,
     )
     if result.returncode != 0:
-        sys.stderr.write(result.stderr)
-        raise SystemExit(result.returncode)
+        raise MaterializeError(result.returncode, result.stderr, verbatim=True)
     return result.stdout.strip()
 
 
-# C0 controls (minus tab), DEL, and C1 — the escape-sequence alphabet. Suite
-# output is target-influenced; a raw ESC reaching the terminal could rewrite
-# what the operator believes the verify said.
-_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
-
-
-def _diagnostic_tail(stderr: str, count: int = 5) -> list[str]:
-    """The last stderr lines of a failed suite run, control characters
-    stripped before they reach the operator's terminal."""
+def _diagnostic_tail(stderr: str, count: int = DIAGNOSTIC_LINES) -> list[str]:
     return [
         _CONTROL_CHARS.sub("", line) for line in stderr.strip().splitlines()[-count:]
     ]
 
 
 def verify_runtime(target: Path, suites: list[str]) -> int:
-    """Install-time verification: run the vendored test suites THIS install
-    produced, once, at the one lifecycle point where the runtime can change.
-    Project builds do not run these suites (ADR 2026-07-13 in the reference
-    repo): between installs the runtime is an immutable released artifact, so
-    per-build re-testing verifies nothing new. This run catches what an
-    install can break — a broken copy, a host python incompatibility.
-
-    The scripts suites are a package tree under scripts/tests/ (ADR 2026-07-17
-    runtime-package-layout): run them as one `unittest` invocation naming
-    exactly the installed modules, from the scripts dir so `import handoff`
-    and `import tests.*` resolve. The module list derives from the install's
-    own file set — a project-authored test module under scripts/tests/ is
-    never run as a suite (ADR 2026-08-16 exact-module-install-verification).
-    The named suites still import from the target tree, so the trust boundary
-    on the target stands. A missing suite file is an import error the run
-    reports; a package missing its __init__.py resolves as a namespace
-    package and its suites still run — the doctor's runtime roster pins every
-    shipped __init__.py. The zero-tests check catches a truncated copy that
-    imports clean and runs nothing; an all-skipped run (a channel-keyed
-    setUpModule skip) is not a failure. The hook suites stay standalone
-    scripts run from the target root. The run is isolated three ways: `-E`
-    drops the caller's PYTHON* env, a pre-run purge drops stale __pycache__
-    artifacts, and diagnostic tails are stripped of control characters.
-    Returns the number of failing runs."""
-    failures = 0
+    """Run the vendored suites this install produced and return the number of failing runs."""
+    # The one lifecycle point where the runtime changes; between installs it
+    # is an immutable artifact. Only the installed modules run, never the
+    # target's whole tests tree, so a project-authored test never runs as a
+    # suite.
+    _purge_bytecode(target)
     script_suites = [r for r in suites if r.startswith("scripts/")]
     hook_suites = [r for r in suites if r.startswith(".claude/hooks/")]
-    # The interpreter must see only the bytes this install laid down. The
-    # guarded copy preserves mtime and size (copy2), which is exactly the
-    # pyc invalidation key — a pre-existing __pycache__ artifact would stay
-    # import-valid across the install. Purge before running anything.
-    with write_guard.write_scope(target):
-        for root in (target / "scripts", target / ".claude" / "hooks"):
-            if root.is_dir():
-                for cache in sorted(root.rglob("__pycache__")):
-                    if cache.is_dir():
-                        write_guard.remove_tree(cache)
-    if script_suites:
-        # The non-empty check is load-bearing: `python -m unittest` with no
-        # module arguments IS `discover`, which would run the target's whole
-        # tests tree — the exact thing the exact-module contract forbids.
-        # The `--` keeps a module name from ever parsing as an option.
-        modules = sorted(
-            rel.removeprefix("scripts/").removesuffix(".py").replace("/", ".")
-            for rel in script_suites
-        )
-        # -E ignores PYTHON* env vars: the caller's PYTHONPATH must never
-        # put foreign roots on the verification interpreter's sys.path. -B
-        # keeps the run from writing __pycache__ into the consumer's tree.
-        result = subprocess.run(
-            [sys.executable, "-E", "-B", "-m", "unittest", "--", *modules],
-            cwd=target / "scripts",
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            failures += 1
-            print("verify: scripts/tests suite run FAILED", file=sys.stderr)
-            for line in _diagnostic_tail(result.stderr):
-                print(f"  {line}", file=sys.stderr)
-        # Python 3.13+ colorizes unittest output under FORCE_COLOR, which
-        # -E does not strip; the counters hide inside SGR escapes otherwise.
-        elif not re.search(
-            r"Ran [1-9][0-9]* tests?",
-            plain := re.sub(r"\x1b\[[0-9;]*m", "", result.stderr),
-        ) and not re.search(r"\(skipped=\d+\)", plain):
-            failures += 1
-            print(
-                "verify: scripts/tests suite run ran zero tests — suites empty "
-                "or truncated",
-                file=sys.stderr,
-            )
-    for rel in sorted(hook_suites):
-        result = subprocess.run(
-            [sys.executable, "-E", "-B", str(target / rel)],
-            cwd=target,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            failures += 1
-            print(f"verify: {rel} FAILED", file=sys.stderr)
-            for line in _diagnostic_tail(result.stderr):
-                print(f"  {line}", file=sys.stderr)
+    failures = _run_script_suites(target, script_suites)
+    failures += sum(_run_hook_suite(target, rel) for rel in sorted(hook_suites))
     if not failures:
         print(f"verified: {len(suites)} vendored suite(s) pass on this host")
     return failures
 
 
+def _purge_bytecode(target: Path) -> None:
+    # The guarded copy preserves mtime and size, exactly the pyc invalidation
+    # key, so a pre-existing artifact would stay import-valid across the install.
+    with write_guard.write_scope(target):
+        for root in (target / "scripts", target / ".claude" / "hooks"):
+            if not root.is_dir():
+                continue
+            for cache in sorted(root.rglob("__pycache__")):
+                if cache.is_dir():
+                    write_guard.remove_tree(cache)
+
+
+def _run_script_suites(target: Path, script_suites: list[str]) -> int:
+    # `python -m unittest` with no module argument is `discover`, the run the
+    # exact-module contract forbids; `--` keeps a module name from parsing as
+    # an option. -E drops the caller's PYTHON* environment and -B keeps the
+    # run from writing bytecode into the consumer's tree.
+    if not script_suites:
+        return 0
+    modules = sorted(
+        rel.removeprefix("scripts/").removesuffix(".py").replace("/", ".")
+        for rel in script_suites
+    )
+    result = subprocess.run(
+        [sys.executable, "-E", "-B", "-m", "unittest", "--", *modules],
+        cwd=target / "scripts",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        report("verify: scripts/tests suite run FAILED")
+        for line in _diagnostic_tail(result.stderr):
+            report(f"  {line}")
+        return 1
+    # Python 3.13+ colorizes unittest output under FORCE_COLOR, which -E does
+    # not strip. A zero-tests run is a truncated copy that imports clean; an
+    # all-skipped run (a channel-keyed setUpModule skip) is not a failure.
+    plain = _SGR_RE.sub("", result.stderr)
+    if not re.search(r"Ran [1-9][0-9]* tests?", plain) and not re.search(
+        r"\(skipped=\d+\)", plain
+    ):
+        report(
+            "verify: scripts/tests suite run ran zero tests — suites empty or truncated"
+        )
+        return 1
+    return 0
+
+
+def _run_hook_suite(target: Path, rel: str) -> int:
+    result = subprocess.run(
+        [sys.executable, "-E", "-B", str(target / rel)],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return 0
+    report(f"verify: {rel} FAILED")
+    for line in _diagnostic_tail(result.stderr):
+        report(f"  {line}")
+    return 1
+
+
 def _installed_suites(installed: set[str]) -> list[str]:
-    """The test suites among an install's produced files: test_*.py under
-    scripts/ or .claude/hooks/."""
     return [
         rel
         for rel in installed
         if rel.endswith(".py")
         and Path(rel).name.startswith("test_")
-        and (rel.startswith("scripts/") or rel.startswith(".claude/hooks/"))
+        and rel.startswith(("scripts/", ".claude/hooks/"))
     ]
 
 
 def restamp_spec_version(target: Path) -> str:
-    """Deterministic refresh of the one harness-contract value inside the
-    project-owned layout.toml: the declared spec_version follows the
-    just-installed doctor manifest. Same managed-lines contract as the
-    chapter and settings refreshes — the harness owns this value, the
-    project owns the rest of the file. A missing file or declaration is
-    reported and left to /init, never silently created."""
+    """Follow the installed manifest's spec_version in the project's layout, and report the outcome."""
+    # The one harness-contract value inside the project-owned layout; a
+    # missing file or declaration is reported and left to /init.
     manifest = target / "scripts" / "doctor-expectations.toml"
     layout = target / "scripts" / "layout.toml"
     try:
@@ -434,216 +390,239 @@ def restamp_spec_version(target: Path) -> str:
 
 
 def record_extension(target: Path, ext_path: str) -> int:
-    """Record one kept project extension durably: add it to `[harness]
-    extensions` in scripts/layout.toml and, on a gitignored-runtime channel,
-    re-include it in .gitignore. Idempotent. The re-include form is encoded
-    here once — `!<path>/` for a directory, `!<path>` for a file; a trailing
-    slash on a file path would not re-include it."""
+    """Record one kept project extension in the layout and, off the copy channel, re-include it in .gitignore."""
     ext_path = ext_path.strip("/")
-    # The path lands verbatim inside layout.toml's extensions array and a
-    # .gitignore line. The shared predicate rejects anything that could inject
-    # config entries, corrupt the array's re-parse, or escape the target —
-    # the same rule read_harness_layout applies to declared entries.
+    # The path lands verbatim in the extensions array and a .gitignore line;
+    # the shared predicate rejects what could inject entries or escape the target.
     if unsafe_extension_path(ext_path):
-        print(
+        report(
             f"materialize: extension path {ext_path!r} contains unsafe "
             "characters or traversal — record it by its plain "
-            "target-relative path",
-            file=sys.stderr,
+            "target-relative path"
         )
-        return 1
+        return FAILURE_EXIT
     resolved = (target / ext_path).resolve()
     if not resolved.is_relative_to(target.resolve()):
-        print(f"materialize: {ext_path} resolves outside {target}", file=sys.stderr)
-        return 1
+        report(f"materialize: {ext_path} resolves outside {target}")
+        return FAILURE_EXIT
     if not (target / ext_path).exists():
-        print(f"materialize: {ext_path} does not exist under {target}", file=sys.stderr)
-        return 1
-    lt = target / "scripts" / "layout.toml"
-    if not lt.is_file():
-        print(f"materialize: no {lt} — run /init first", file=sys.stderr)
-        return 1
-    # Validate the declaration (read_layout fails loud on an invalid channel
-    # or tools value) BEFORE mutating the file — an abort must not leave the
-    # extension half-recorded with the .gitignore re-include never written.
+        report(f"materialize: {ext_path} does not exist under {target}")
+        return FAILURE_EXIT
+    layout = target / "scripts" / "layout.toml"
+    if not layout.is_file():
+        report(f"materialize: no {layout} — run /init first")
+        return FAILURE_EXIT
+    # The declaration is validated before the file is touched, so an abort
+    # never leaves the extension half-recorded.
     _, channel = read_layout(target)
-    text = lt.read_text(encoding="utf-8")
-    m = re.search(r"^extensions = \[(.*)\]$", text, re.MULTILINE)
-    if m is None:
-        print(
-            f"materialize: no `extensions = [...]` line in {lt} [harness]",
-            file=sys.stderr,
-        )
-        return 1
-    current = [e.strip().strip('"') for e in m.group(1).split(",") if e.strip()]
-    changed = []
-    if ext_path not in current:
-        current.append(ext_path)
-        new_line = "extensions = [" + ", ".join(f'"{e}"' for e in current) + "]"
-        write_guard.write_text(
-            lt, text[: m.start()] + new_line + text[m.end() :], encoding="utf-8"
-        )
-        changed.append("layout.toml")
+    changed = _declare_extension(layout, ext_path)
     if channel != "copy":
-        gi = target / ".gitignore"
-        line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"
-        gi_text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
-        if line not in gi_text.splitlines():
-            write_guard.write_text(
-                gi, gi_text.rstrip("\n") + "\n" + line + "\n", encoding="utf-8"
-            )
+        if _reinclude(target, ext_path):
             changed.append(".gitignore")
-        # git never descends into a directory ignored by a bare "dir/"
-        # pattern, so a re-include under one is silently dead — verify the
-        # line took effect and fail loud when it did not (exit 0 = ignored).
-        probe = subprocess.run(
-            ["git", "-C", str(target), "check-ignore", "-q", ext_path],
-            capture_output=True,
-            check=False,
-        )
-        if probe.returncode == 0:
-            print(
+        if _still_ignored(target, ext_path):
+            report(
                 f"materialize: {ext_path} is still gitignored after the "
                 "re-include — a parent directory is ignored by a bare "
                 "dir/ pattern; switch it to the dir/* form (see the "
-                "runtime .gitignore block) and re-run",
-                file=sys.stderr,
+                "runtime .gitignore block) and re-run"
             )
-            return 1
+            return FAILURE_EXIT
     state = ", ".join(changed) if changed else "already recorded"
     print(f"record-extension {ext_path}: {state}")
     return 0
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) >= 2 and argv[1] == "record-extension":
-        if len(argv) != 4:
-            print(USAGE, file=sys.stderr)
-            return 2
-        target = logical_abspath(argv[2])
-        if not target.is_dir():
-            print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
-            return 1
-        with write_guard.write_scope(target):
-            return record_extension(target, argv[3])
-    # --no-verify skips the install-time suite run. For harness-internal
-    # callers only (materialize-samples, faithfulness, self-tests): the battery runs
-    # the same suites in its own step, so re-running them per materialize
-    # would only slow the gate. Consumers get verification by default.
+def _declare_extension(layout: Path, ext_path: str) -> list[str]:
+    text = layout.read_text(encoding="utf-8")
+    match = re.search(r"^extensions = \[(.*)\]$", text, re.MULTILINE)
+    if match is None:
+        raise MaterializeError(
+            FAILURE_EXIT,
+            f"materialize: no `extensions = [...]` line in {layout} [harness]",
+        )
+    current = [e.strip().strip('"') for e in match.group(1).split(",") if e.strip()]
+    if ext_path in current:
+        return []
+    current.append(ext_path)
+    new_line = "extensions = [" + ", ".join(f'"{e}"' for e in current) + "]"
+    write_guard.write_text(
+        layout, text[: match.start()] + new_line + text[match.end() :], encoding="utf-8"
+    )
+    return ["layout.toml"]
+
+
+def _reinclude(target: Path, ext_path: str) -> bool:
+    # `!<path>/` for a directory and `!<path>` for a file: a trailing slash on
+    # a file path would not re-include it.
+    gitignore = target / ".gitignore"
+    line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"
+    text = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+    if line in text.splitlines():
+        return False
+    write_guard.write_text(
+        gitignore, text.rstrip("\n") + "\n" + line + "\n", encoding="utf-8"
+    )
+    return True
+
+
+def _still_ignored(target: Path, ext_path: str) -> bool:
+    # git never descends into a directory ignored by a bare "dir/" pattern,
+    # so a re-include under one is silently dead; exit 0 means still ignored.
+    probe = subprocess.run(
+        ["git", "-C", str(target), "check-ignore", "-q", "--", ext_path],
+        capture_output=True,
+        check=False,
+    )
+    return probe.returncode == 0
+
+
+@dataclass(frozen=True, slots=True)
+class Request:
+    """A materialize invocation as asked on the command line."""
+
+    stack: str
+    target_arg: str
+    verify: bool
+    dry_run: bool
+
+
+def parse_request(argv: list[str]) -> Request:
+    """Read a materialize command line, rejecting a wrong shape or an unknown stack."""
+    # --no-verify is for harness-internal callers, whose battery runs the
+    # same suites; consumers verify by default. --dry-run (alias --show-plan)
+    # is the one preview on a gitignored-runtime channel, where no git diff exists.
     verify = "--no-verify" not in argv
-    # --dry-run (alias --show-plan): compute and print the plan, write nothing.
-    # A preview of the overwrite blast radius before any byte lands — the only
-    # such preview on a gitignored-runtime channel, where no git diff exists.
     dry_run = "--dry-run" in argv or "--show-plan" in argv
-    argv = [a for a in argv if a not in ("--no-verify", "--dry-run", "--show-plan")]
-    if len(argv) != 3:
-        print(USAGE, file=sys.stderr)
-        return 2
-    stack, target = argv[1], logical_abspath(argv[2])
-    # Validate the slug against registry.STACKS, the documented roster (its
-    # parity with the harness/stacks/ directories is verify-harness-guarded). A
-    # slug outside it would otherwise install core alone (install() skips the
-    # missing layer) and report success — the `java` vs `java-spring-boot`
-    # trap. Membership (not is_dir on a joined path) also rejects "", "..",
-    # and absolute slugs, whose pathlib join resolves to a real directory and
-    # would slip past an is_dir guard while install()'s relative
-    # f"stacks/{stack}" still copied core alone; and a stray directory under
-    # stacks/ cannot widen what the roster admits.
+    positional = [
+        a for a in argv if a not in ("--no-verify", "--dry-run", "--show-plan")
+    ]
+    if len(positional) != MATERIALIZE_ARGS:
+        raise MaterializeError(USAGE_EXIT, USAGE)
+    stack, target_arg = positional[1], positional[2]
+    # Membership in the roster, not is_dir on a joined path: a slug outside
+    # it would install core alone and report success, and "", "..", or an
+    # absolute slug joins to a real directory an is_dir guard would admit.
     if stack not in STACKS:
-        print(
+        raise MaterializeError(
+            USAGE_EXIT,
             f"materialize: unknown stack {stack!r} — no harness/stacks/{stack}/ "
             f"(valid: {', '.join(sorted(STACKS))})",
-            file=sys.stderr,
         )
-        return 2
-    if not target.is_dir():
-        print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
-        return 1
+    return Request(stack, target_arg, verify=verify, dry_run=dry_run)
 
+
+def resolve_install(request: Request) -> Install:
+    """Resolve the request against its target: the channel, the tools, and the excluded surfaces."""
+    target = logical_abspath(request.target_arg)
+    if not target.is_dir():
+        raise MaterializeError(
+            FAILURE_EXIT, f"materialize: no such target directory {request.target_arg}"
+        )
     declared, channel = read_layout(target)
     tools = resolve_tools(target, declared)
-    prefixes = excluded_prefixes(tools, channel)
-    if dry_run:
-        return show_plan(stack, target, channel, tools, prefixes)
-    with write_guard.write_scope(target):
-        installed, copied = install(stack, target, prefixes)
-
-    print(
-        f"materialized stack={stack} channel={channel} tools={' '.join(tools)}: "
-        f"{copied} file(s) into {target}"
+    return Install(
+        request.stack, target, channel, tools, excluded_prefixes(tools, channel)
     )
 
-    # Refresh the harness-managed chapters in the project-owned CLAUDE.md.
-    # CLAUDE.md itself is the project's (scaffolded once, never overwritten),
-    # but several chapters are stack-agnostic harness doctrine, each identified
-    # by its heading — the same managed-region contract as the .gitignore
-    # runtime block. Only those chapters are rewritten from the single source;
-    # a missing heading is reported as "absent" and left for /init (greenfield)
-    # or the /materialize reconciliation (legacy) — never a silent edit.
-    if (target / "CLAUDE.md").is_file():
-        # Fail fast on a broken harness tree, like init — refresh would
-        # otherwise skip the stamp and only the later doctor would catch it.
-        stamp = HERE / "VERSION-DATE"
-        if not stamp.is_file() or not stamp.read_text(encoding="utf-8").strip():
-            print(
-                f"materialize: missing or empty {stamp} — cannot stamp CLAUDE.md",
-                file=sys.stderr,
-            )
-            return 1
-        ch_status = run_refresh(
-            HERE / "claude-md" / "refresh-chapters.py", target / "CLAUDE.md", HERE
-        )
-        print(f"managed chapters: {ch_status}")
 
-    # Refresh the harness-owned lines of two more project-owned files, the same
-    # way: deterministically, in place, marker-free — the harness owns those
-    # lines, the project owns the rest. Both are ENSURE-PRESENT and additive:
-    # project-authored ignores, keys, and hooks are never rewritten. Files the
-    # project fills with judgment (layout.toml data, docs/ briefs, non-doctrine
-    # CLAUDE.md chapters) are NOT touched here — the /materialize skill
-    # reconciles those advisorily.
+def materialize(request: Request) -> int:
+    """Install the runtime, refresh the harness-owned lines, report the extras, and verify."""
+    plan = resolve_install(request)
+    if request.dry_run:
+        return show_plan(plan)
+    with write_guard.write_scope(plan.target):
+        installed, copied = install(plan.stack, plan.target, plan.prefixes)
+    print(
+        f"materialized stack={plan.stack} channel={plan.channel} tools={' '.join(plan.tools)}: "
+        f"{copied} file(s) into {plan.target}"
+    )
+    _refresh_managed_chapters(plan.target)
+    _refresh_project_files(plan)
+    _report_extras(plan, installed)
+    if request.verify and verify_runtime(plan.target, _installed_suites(installed)):
+        report("materialize: the installed runtime is not healthy on this host")
+        return FAILURE_EXIT
+    return 0
+
+
+def _refresh_managed_chapters(target: Path) -> None:
+    # CLAUDE.md is the project's, but its managed chapters are harness
+    # doctrine identified by heading; only those are rewritten from the single
+    # source, and a missing heading is reported, never silently added.
+    if not (target / "CLAUDE.md").is_file():
+        return
+    stamp = HERE / "VERSION-DATE"
+    if not stamp.is_file() or not stamp.read_text(encoding="utf-8").strip():
+        raise MaterializeError(
+            FAILURE_EXIT,
+            f"materialize: missing or empty {stamp} — cannot stamp CLAUDE.md",
+        )
+    status = run_refresh(
+        HERE / "claude-md" / "refresh-chapters.py", target / "CLAUDE.md", HERE
+    )
+    print(f"managed chapters: {status}")
+
+
+def _refresh_project_files(plan: Install) -> None:
+    # The harness owns some lines of three project-owned files and refreshes
+    # them in place, additively; the files the project fills with judgment
+    # are the /materialize skill's to reconcile.
     print(
         run_refresh(
             HERE / "refresh-gitignore.py",
-            target / ".gitignore",
+            plan.target / ".gitignore",
             HERE / "init" / "core" / "gitignore-runtime.txt",
-            channel,
+            plan.channel,
         )
     )
     print(
         run_refresh(
             HERE / "refresh-settings.py",
-            target / ".claude" / "settings.json",
+            plan.target / ".claude" / "settings.json",
             HERE / "init" / "core" / ".claude" / "settings.json",
-            target,
+            plan.target,
         )
     )
-    print(restamp_spec_version(target))
+    print(restamp_spec_version(plan.target))
 
-    # Extras = files under the harness-owned runtime dirs that this install did
-    # not produce. One path per line (relative to the target), between the
-    # markers, so the /materialize skill can parse them. A path the cumulative
-    # retired-paths manifest covers is annotated: it is a known retired orphan
-    # — the skill removes it without git archaeology; unannotated extras keep
-    # the judgment path.
-    extras = sorted(scan_present(target, stack, runtime_dirs()) - installed)
+
+def _report_extras(plan: Install, installed: set[str]) -> None:
+    # One path per line between the markers, so the /materialize skill can
+    # parse them.
+    extras = sorted(scan_present(plan.target, plan.stack, runtime_dirs()) - installed)
     retired = read_manifest()
     print(f"--- extras: {len(extras)} file(s) not produced by the harness ---")
     for path in extras:
-        if covered(path, retired):
-            print(f"{_printable(path)}  [retired — harness/retired-paths.txt]")
-        else:
-            print(_printable(path))
+        print(_extra_line(path, retired))
     print("--- end extras ---")
 
-    if verify and verify_runtime(target, _installed_suites(installed)):
-        print(
-            "materialize: the installed runtime is not healthy on this host",
-            file=sys.stderr,
+
+def record_extension_command(argv: list[str]) -> int:
+    """Run the record-extension verb from the command line."""
+    if len(argv) != RECORD_EXTENSION_ARGS:
+        raise MaterializeError(USAGE_EXIT, USAGE)
+    target = logical_abspath(argv[2])
+    if not target.is_dir():
+        raise MaterializeError(
+            FAILURE_EXIT, f"materialize: no such target directory {argv[2]}"
         )
-        return 1
-    return 0
+    with write_guard.write_scope(target):
+        return record_extension(target, argv[3])
+
+
+def main(argv: list[str]) -> int:
+    """Run materialize from the command line and return the exit code."""
+    try:
+        if len(argv) >= VERB_ARGS and argv[1] == "record-extension":
+            return record_extension_command(argv)
+        return materialize(parse_request(argv))
+    except MaterializeError as exc:
+        if exc.verbatim:
+            sys.stderr.write(exc.message)
+        else:
+            report(exc.message)
+        return exc.code
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

@@ -1,40 +1,14 @@
 #!/usr/bin/env python3
-"""ide_preflight — enumerate a JetBrains IDE's MCP tools and check them against policy.
+"""Enumerate a JetBrains IDE's MCP tools and hold them to the harness's exposure policy.
 
-A JetBrains IDE (2025.2+) serves MCP over SSE on a loopback port. It has no
-authentication: the only gate is a `Host: localhost` check, which is DNS-rebinding
-protection, not auth. On macOS the loopback bind does NOT confine it to the host —
-every container on the Docker/Rancher VM reaches it through the gateway.
-
-So the exposed tool set is the only real boundary, and it drifts: an IDE upgrade can
-add a tool and enable it without asking. This script reports the drift.
-
-Exit codes (the interface `claude-dev` branches on):
-    0  OK          — exposed set is within the policy set
-    1  DRIFT       — exposed set contains tools outside policy
-    2  UNREACHABLE — no configured IDE answered
-    3  PROTOCOL    — reachable but the MCP handshake failed
-
---project <path> additionally asks each policy-conforming IDE whether that path
-resolves to an open project (the IDE's own containment resolution — a
-subdirectory of an open project counts). The verdict never changes the exit
-code. It gates the --bridge-ports output instead: only servers with the project
-verifiably open emit a bridge line. claude-dev builds its exactly-one rule on
-those lines. A drifting server is never probed — it could not earn a bridge
-line anyway.
-
-Usage:
-    ide_preflight.py --discover
-    ide_preflight.py --discover --bridge-ports --project /path/to/project
+Exit codes, the interface claude-dev branches on: 0 the exposed set is within
+policy, 1 it drifts outside policy, 2 no configured IDE answered, 3 one
+answered but the MCP handshake failed.
 """
-
-from __future__ import annotations
 
 import argparse
 import http.client
 import json
-import os
-import pathlib
 import socket
 import sys
 import time
@@ -42,37 +16,23 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterator
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, NamedTuple, TextIO
 
 # The IDE's own Auto-Configure writes its MCP endpoint into ~/.claude.json
-# under these names. The port is IDE-assigned and machine-specific — never
-# assume 64342.
+# under these names; the port is IDE-assigned and machine-specific.
 IDE_SERVER_NAMES = ("idea", "goland")
 
-# No port allowlist: the port is a persisted, user-editable setting, so a range
-# check would reject working configurations while stopping no attack. The check
-# that works is identity — ~/.claude.json is pod-writable, so the target must
-# prove it is a JetBrains MCP server (handshake, then serverInfo).
+# The port is a persisted, user-editable setting, so identity is the check
+# that works: the target must prove it is a JetBrains MCP server.
 _JETBRAINS_SERVER_MARKER = "mcp server"
 
-
-def is_jetbrains_mcp_server(server_info: dict) -> bool:
-    """True if serverInfo identifies a JetBrains IDE MCP server.
-
-    Not authentication — a local process could claim the name. It stops a
-    rewritten config from pointing the bridge at an unrelated loopback service,
-    which is the realistic failure.
-    """
-    name = server_info.get("name")
-    return isinstance(name, str) and _JETBRAINS_SERVER_MARKER in name.lower()
-
-
-# The harness's documented exposure policy — see
-# harness/stacks/*/.claude/skills/*/*-mcp-integration.md, "The exposed tool set".
-# A tool earns a slot only if it carries information plain text cannot
-# reconstruct, and neither writes files nor executes code. build_project is
-# deliberately absent: with Gradle delegation on (the default) it executes
-# build.gradle — host code execution from inside a confined pod — and
-# ./gradlew build returns the same compiler errors from the same disk.
+# The exposure policy documented in the stacks' MCP-integration skills: a
+# tool earns a slot only if it carries information plain text cannot
+# reconstruct and neither writes files nor executes code. build_project is
+# absent because with Gradle delegation it executes build.gradle.
 POLICY_TOOLS = frozenset(
     {
         "get_file_problems",
@@ -83,8 +43,7 @@ POLICY_TOOLS = frozenset(
     }
 )
 
-# Tools known to write files or execute code. Named only to make the warning
-# specific — the check is a subset test, so an unknown tool is drift too.
+# Named only to make the warning specific; the check is a subset test.
 KNOWN_DANGEROUS = {
     "apply_patch": "writes files (undocumented; Codex patch format)",
     "execute_tool": "dynamic dispatcher — can reach other tools",
@@ -102,20 +61,36 @@ KNOWN_DANGEROUS = {
 
 OK, DRIFT, UNREACHABLE, PROTOCOL = 0, 1, 2, 3
 
-# Project-check probes, in preference order. Both are policy tools whose only
-# argument is projectPath, so the probe is exactly the call it predicts.
+# Project-check probes in preference order: policy tools whose only argument
+# is projectPath, so the probe is exactly the call it predicts.
 _PROJECT_PROBE_TOOLS = ("get_project_modules", "get_project_dependencies")
-_PROBE_ID = 100  # clear of the handshake (1) and the tools/list pages (2..17)
+_INITIALIZE_ID = 1
+_FIRST_PAGE_ID = 2
+_PROBE_ID = 100
+_PROTOCOL_VERSION = "2024-11-05"
 
-# The IDE rejects any request whose Host is not localhost (DNS-rebinding
-# protection); http.client would send the connect address, so send this.
+# The IDE rejects any request whose Host is not localhost.
 _HOST_HEADER = "localhost"
+_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+_UNPRIVILEGED_PORTS = range(1024, 65536)
 
-# Where a JetBrains MCP server binds, and where its ports are published.
-# Neither is a flag: the server binds loopback deliberately, and a port the
-# IDE did not write into this file is not one an agent would reach either.
 HOST = "127.0.0.1"
 CLAUDE_CONFIG = "~/.claude.json"
+
+# Caps on reads from an unauthenticated, possibly hostile server: the socket
+# timeout is per-recv, so only a wall-clock deadline bounds a dribbling
+# stream.
+_MAX_LINES = 10_000
+_MAX_LINE_BYTES = 1 << 20
+_MAX_TOOL_PAGES = 16
+_READ_CHUNK_BYTES = 8192
+_ERROR_EXCERPT_CHARS = 200
+
+_PRINTABLE_START = 0x20
+_C1_CONTROLS = range(0x7F, 0xA0)
+_INVISIBLE_CATEGORIES = ("Cf", "Zl", "Zp")
+
+JsonObject = dict[str, Any]
 
 
 class MCPError(Exception):
@@ -123,18 +98,15 @@ class MCPError(Exception):
 
 
 def _build_opener() -> urllib.request.OpenerDirector:
-    """An opener that can only speak plain HTTP, and never follows redirects.
-
-    Built by hand rather than via build_opener(): no file:/ftp: handler, so a
-    URL from the pod-writable ~/.claude.json cannot become a local-file read;
-    no redirect handler, so a 3xx cannot walk the probe off loopback.
-    """
+    """Build an opener that speaks plain HTTP only and never follows a redirect."""
+    # No file: or ftp: handler, so a URL from the pod-writable ~/.claude.json
+    # cannot become a local-file read; no redirect handler, so a 3xx cannot
+    # walk the probe off loopback. UnknownHandler makes an unhandled scheme
+    # raise instead of returning None.
     opener = urllib.request.OpenerDirector()
     opener.add_handler(urllib.request.HTTPHandler())
     opener.add_handler(urllib.request.HTTPErrorProcessor())
     opener.add_handler(urllib.request.HTTPDefaultErrorHandler())
-    # UnknownHandler makes an unhandled scheme raise; without it open()
-    # returns None for file:/ftp:/https: and callers dereference a crash.
     opener.add_handler(urllib.request.UnknownHandler())
     return opener
 
@@ -142,11 +114,14 @@ def _build_opener() -> urllib.request.OpenerDirector:
 _OPENER = _build_opener()
 
 
-# ── pure logic (unit-tested; no I/O) ──────────────────────────────────────────
+def is_jetbrains_mcp_server(server_info: JsonObject) -> bool:
+    """Tell whether serverInfo identifies a JetBrains IDE MCP server."""
+    name = server_info.get("name")
+    return isinstance(name, str) and _JETBRAINS_SERVER_MARKER in name.lower()
 
 
 def sse_payload(line: str) -> str | None:
-    """Return the payload of an SSE `data:` line, or None for any other line."""
+    """Return the payload of an SSE data line, or None for any other line."""
     if not line.startswith("data:"):
         return None
     return line[len("data:") :].lstrip()
@@ -155,135 +130,99 @@ def sse_payload(line: str) -> str | None:
 def classify(
     exposed: set[str], allowed: frozenset[str] | set[str]
 ) -> tuple[int, list[str]]:
-    """Compare an exposed tool set against policy; returns (code, extras).
-
-    Subset test: an unknown tool is drift, which is the point — the docs do
-    not list every tool the IDE ships.
-    """
+    """Compare an exposed tool set against policy, returning the code and the extras."""
     extras = sorted(exposed - set(allowed))
     return (DRIFT if extras else OK), extras
 
 
 def describe(tool: str) -> str:
+    """Name why a tool sits outside policy."""
     return KNOWN_DANGEROUS.get(tool, "not in the policy set")
 
 
-def sanitize(text: str) -> str:
-    """Strip terminal-spoofing characters from server-supplied strings.
-
-    An ANSI/OSC escape could overwrite the very DRIFT warning this tool
-    prints; a bidi override or zero-width character could render a dangerous
-    tool name as a benign one. Keep printable text and tab; drop C0/C1
-    controls and the invisible format/separator classes (Cf, Zl, Zp).
-    """
-    return "".join(
-        c
-        for c in text
-        if c == "\t"
-        or (
-            ord(c) >= 0x20
-            and not 0x7F <= ord(c) <= 0x9F
-            and unicodedata.category(c) not in ("Cf", "Zl", "Zp")
-        )
+def _is_displayable(char: str) -> bool:
+    """Tell whether a character may reach the terminal unchanged."""
+    code = ord(char)
+    return char == "\t" or (
+        code >= _PRINTABLE_START
+        and code not in _C1_CONTROLS
+        and unicodedata.category(char) not in _INVISIBLE_CATEGORIES
     )
 
 
-def loopback_sse_port(url: str) -> int | None:
-    """Return the port of a loopback SSE URL, or None if it is not one.
+def sanitize(text: str) -> str:
+    """Strip terminal-spoofing characters from a server-supplied string."""
+    # An escape could overwrite the DRIFT warning; a bidi override or
+    # zero-width character could render a dangerous tool name as benign.
+    return "".join(char for char in text if _is_displayable(char))
 
-    Only loopback URLs qualify: a server the IDE published elsewhere is not the
-    local IDE this tool reasons about, and must not be probed or bridged.
-    """
+
+def loopback_sse_port(url: str) -> int | None:
+    """Return the port of a loopback SSE URL, or None when the URL is not one."""
+    # A server the IDE published elsewhere is not the local IDE and must not
+    # be probed or bridged; a privileged port is never where an IDE publishes.
     try:
         parsed = urllib.parse.urlparse(url)
     except ValueError:
         return None
-    if parsed.scheme != "http" or parsed.hostname not in (
-        "127.0.0.1",
-        "localhost",
-        "::1",
-    ):
+    if parsed.scheme != "http" or parsed.hostname not in _LOOPBACK_HOSTS:
         return None
     try:
         port = parsed.port
     except ValueError:
-        return None  # malformed port
-    # Sanity bound only, not an allowlist: a privileged port is never where an IDE
-    # publishes, and refusing it keeps the bridge away from host system services.
-    if port is None or not (1024 <= port <= 65535):
+        return None
+    if port is None or port not in _UNPRIVILEGED_PORTS:
         return None
     return port
 
 
-def discover_servers(config: dict) -> list[tuple[str, int]]:
-    """Find (name, port) for each IDE MCP server the config carries.
-
-    Scoped to the known IDE server names so an unrelated local MCP server is
-    never probed or bridged. Both config scopes count: Auto-Configure writes
-    top-level `mcpServers`, but `claude mcp add` defaults to local scope under
-    `projects.<path>.mcpServers` — the exposure is identical.
-    """
+def _server_scopes(config: JsonObject) -> list[Any]:
+    """List every mcpServers map the config carries, top-level and per project."""
     scopes = [config.get("mcpServers")]
     projects = config.get("projects")
     if isinstance(projects, dict):
         scopes.extend(
-            p.get("mcpServers") for p in projects.values() if isinstance(p, dict)
+            project.get("mcpServers")
+            for project in projects.values()
+            if isinstance(project, dict)
         )
+    return scopes
+
+
+def discover_servers(config: JsonObject) -> list[tuple[str, int]]:
+    """Find the (name, port) of each IDE MCP server the config carries."""
+    # Two IDEs cannot share a port, so the same port under two names is one
+    # server; counting it twice would break the exactly-one bridge rule.
     found: list[tuple[str, int]] = []
-    for servers in scopes:
+    for servers in _server_scopes(config):
         if not isinstance(servers, dict):
             continue
         for name in IDE_SERVER_NAMES:
             entry = servers.get(name)
-            if not isinstance(entry, dict):
-                continue
-            url = entry.get("url")
-            if not isinstance(url, str):
-                continue
-            port = loopback_sse_port(url)
-            # Dedupe by port alone: two IDEs cannot share one, so `idea` and
-            # `goland` entries on the same port are one server under two names.
-            # Counting it twice would make the exactly-one bridge rule refuse a
-            # single open IDE as "2 qualify".
-            if port is not None and all(port != p for _, p in found):
+            url = entry.get("url") if isinstance(entry, dict) else None
+            port = loopback_sse_port(url) if isinstance(url, str) else None
+            if port is not None and all(port != known for _, known in found):
                 found.append((name, port))
     return found
 
 
-def load_claude_config(path: pathlib.Path) -> dict:
-    """Read ~/.claude.json. A missing or malformed file means no IDE configured."""
-    # The file is pod-writable: ValueError covers malformed JSON and invalid
-    # UTF-8, RecursionError deeply nested JSON — every parse runs on this path.
+def load_claude_config(path: Path) -> JsonObject:
+    """Read ~/.claude.json, reading a missing or malformed file as no IDE configured."""
+    # ValueError covers malformed JSON and invalid UTF-8, RecursionError a
+    # deeply nested document.
     try:
-        with path.open(encoding="utf-8") as fh:
-            data = json.load(fh)
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
     except (OSError, ValueError, RecursionError):
         return {}
     return data if isinstance(data, dict) else {}
 
 
-# ── MCP over SSE (I/O) ────────────────────────────────────────────────────────
-
-
-# Hard caps on reads from an unauthenticated, possibly-hostile server. The
-# socket timeout is per-recv, so only a wall-clock deadline bounds a dribbling
-# stream; without these a repointed ~/.claude.json entry could hang the pod
-# launch or exhaust memory.
-_MAX_LINES = 10_000
-_MAX_LINE_BYTES = 1 << 20  # 1 MiB — an SSE line is small JSON; more is abuse
-_MAX_TOOL_PAGES = 16  # an IDE ships dozens of tools, not 16 pages' worth
-
-
 class Session:
-    """Minimal MCP SSE client.
+    """Speak minimal MCP over SSE: one long-lived stream, one short POST per request."""
 
-    A long-lived GET streams responses; each request is one short POST. The
-    flow stays sequential — post, then read the stream until the matching id
-    arrives. Every read is bounded by a wall-clock deadline and byte/line
-    caps: the server is never trusted to end the stream.
-    """
-
-    def __init__(self, host: str, port: int, timeout: float):
+    def __init__(self, host: str, port: int, timeout: float) -> None:
+        """Open the stream and read the endpoint event within the deadline."""
         self.base = f"http://{host}:{port}"
         self.timeout = timeout
         self.deadline = time.monotonic() + timeout
@@ -294,26 +233,23 @@ class Session:
             ),
             timeout=timeout,
         )
-        # If reading the endpoint fails, close the stream here — the caller's
-        # `finally: sess.close()` never runs when the constructor raises, so an
-        # un-closed stream would leak the socket until GC.
+        # The caller's close never runs when the constructor raises.
         try:
             self.endpoint = self._read_endpoint()
         except BaseException:
             self.close()
             raise
 
-    def _lines(self):
-        # Bounded chunk reads rather than readline(): an unbounded readline()
-        # buffers a newline-free stream forever, past both caps. read1()
-        # returns as soon as any bytes arrive, so the deadline is re-checked
-        # at most one socket-timeout apart.
-        buf = b""
+    def _lines(self) -> Iterator[str]:
+        """Yield stream lines under the byte, line, and deadline caps."""
+        # Bounded chunk reads rather than readline, which would buffer a
+        # newline-free stream forever, past both caps.
+        buffer = b""
         count = 0
         while True:
-            newline = buf.find(b"\n")
+            newline = buffer.find(b"\n")
             if newline != -1:
-                raw, buf = buf[:newline], buf[newline + 1 :]
+                raw, buffer = buffer[:newline], buffer[newline + 1 :]
                 count += 1
                 if count > _MAX_LINES:
                     raise MCPError(
@@ -321,18 +257,18 @@ class Session:
                     )
                 yield raw.decode("utf-8", "replace").rstrip("\r")
                 continue
-            if len(buf) > _MAX_LINE_BYTES:
+            if len(buffer) > _MAX_LINE_BYTES:
                 raise MCPError("server sent an oversized SSE line")
             if time.monotonic() > self.deadline:
                 raise MCPError(
                     f"no usable response within {self.timeout:.0f}s (server stalled)"
                 )
-            chunk = self.stream.read1(8192)
+            chunk = self.stream.read1(_READ_CHUNK_BYTES)
             if not chunk:
-                if buf:
-                    yield buf.decode("utf-8", "replace").rstrip("\r")
+                if buffer:
+                    yield buffer.decode("utf-8", "replace").rstrip("\r")
                 return
-            buf += chunk
+            buffer += chunk
 
     def _read_endpoint(self) -> str:
         for line in self._lines():
@@ -341,61 +277,56 @@ class Session:
                 return payload
         raise MCPError("stream closed before the endpoint event — not an MCP server")
 
-    def post(self, payload: dict) -> None:
-        req = urllib.request.Request(
+    def post(self, payload: JsonObject) -> None:
+        """Send one JSON-RPC message to the endpoint."""
+        request = urllib.request.Request(
             f"{self.base}{self.endpoint}",
             data=json.dumps(payload).encode(),
             headers={"Host": _HOST_HEADER, "Content-Type": "application/json"},
             method="POST",
         )
-        _OPENER.open(req, timeout=self.timeout).close()
+        _OPENER.open(request, timeout=self.timeout).close()
 
-    def await_id(self, want: int) -> dict:
-        """Read the stream until the response with this id arrives.
-
-        Only a message carrying `result` or `error` counts: a server-initiated
-        request (e.g. `ping`) may reuse the same id number in its own id space,
-        and matching it would fail the probe on a healthy server.
-        """
+    def await_id(self, want: int) -> JsonObject:
+        """Read the stream until the response carrying this id arrives."""
+        # Only a message with result or error counts: a server-initiated
+        # request may reuse the id number in its own id space.
         for line in self._lines():
             payload = sse_payload(line)
             if not payload or not payload.startswith("{"):
                 continue
             try:
-                msg = json.loads(payload)
+                message = json.loads(payload)
             except json.JSONDecodeError:
                 continue
             if (
-                isinstance(msg, dict)
-                and msg.get("id") == want
-                and ("result" in msg or "error" in msg)
+                isinstance(message, dict)
+                and message.get("id") == want
+                and ("result" in message or "error" in message)
             ):
-                return msg
+                return message
         raise MCPError(f"stream closed before a response to request id={want}")
 
     def close(self) -> None:
+        """Close the stream."""
         self.stream.close()
 
 
-def _result_of(msg: dict, what: str) -> dict:
-    """Pull a dict `result` out of a JSON-RPC response, or fail cleanly.
-
-    `result` may be absent, null, or a non-object; every non-dict shape
-    becomes an MCPError rather than an AttributeError later.
-    """
-    if not isinstance(msg, dict):
+def _result_of(message: JsonObject, what: str) -> JsonObject:
+    """Return the object result of a JSON-RPC response, or raise MCPError."""
+    if not isinstance(message, dict):
         raise MCPError(f"{what}: response was not a JSON object")
-    result = msg.get("result")
+    result = message.get("result")
     if not isinstance(result, dict):
         raise MCPError(
-            f"{what} failed or returned no result object: {json.dumps(msg)[:200]}"
+            f"{what} failed or returned no result object: "
+            f"{json.dumps(message)[:_ERROR_EXCERPT_CHARS]}"
         )
     return result
 
 
-# Distinct verdicts because the operator's fix differs: "no_probe_tool" sends
-# them to Exposed Tools, the other two say the IDE misbehaved. All three map
-# to project_open=null — never bridged.
+# Distinct verdicts because the operator's fix differs; all three map to an
+# unverifiable project, which is never bridged.
 _UNVERIFIABLE_REASONS = {
     "no_probe_tool": f"no probe tool exposed ({'/'.join(_PROJECT_PROBE_TOOLS)})",
     "probe_failed": "the probe call failed",
@@ -403,21 +334,16 @@ _UNVERIFIABLE_REASONS = {
 }
 
 
-def probe_project(sess: Session, exposed: set[str], project: str) -> str:
-    """Ask the IDE whether `project` resolves to an open project.
-
-    One call to the cheapest exposed probe tool with projectPath — the verdict
-    is the IDE's own containment resolution, so a subdirectory of an open
-    project counts as open. Returns "open", "not_open", or an
-    _UNVERIFIABLE_REASONS key. Never raises past a completed policy check: a
-    stalled probe degrades to "probe_failed" — the probe verdict must never
-    change the policy verdict or the exit code.
-    """
-    tool = next((t for t in _PROJECT_PROBE_TOOLS if t in exposed), None)
+def probe_project(session: Session, exposed: set[str], project: str) -> str:
+    """Ask the IDE whether project resolves to an open project, never raising."""
+    # The verdict is the IDE's own containment resolution, so a subdirectory
+    # of an open project counts. A stalled probe degrades to probe_failed and
+    # never changes the completed policy verdict.
+    tool = next((name for name in _PROJECT_PROBE_TOOLS if name in exposed), None)
     if tool is None:
         return "no_probe_tool"
     try:
-        sess.post(
+        session.post(
             {
                 "jsonrpc": "2.0",
                 "id": _PROBE_ID,
@@ -425,134 +351,171 @@ def probe_project(sess: Session, exposed: set[str], project: str) -> str:
                 "params": {"name": tool, "arguments": {"projectPath": project}},
             }
         )
-        result = sess.await_id(_PROBE_ID).get("result")
+        result = session.await_id(_PROBE_ID).get("result")
     except (MCPError, OSError, http.client.HTTPException, RecursionError):
-        # RecursionError: a deeply nested probe response degrades like any
-        # probe failure — it must never flip the completed policy verdict.
         return "probe_failed"
-    # "Open" needs positive evidence, not just an absent isError: a real
-    # tools/call success carries a content array. A degenerate {} stays
-    # unverifiable — bridge only what is verified.
+    # Open needs positive evidence: a real success carries a content array.
     if not isinstance(result, dict) or not isinstance(result.get("content"), list):
         return "unusable_response"
     return "not_open" if result.get("isError") else "open"
 
 
-def enumerate_tools(
-    host: str,
-    port: int,
-    timeout: float,
-    project: str | None = None,
-    allowed: frozenset[str] | set[str] | None = None,
-) -> tuple[dict, set[str], str | None]:
-    """Handshake and return (serverInfo, exposed tool names, probe verdict).
+def _initialize(session: Session) -> JsonObject:
+    """Run the MCP handshake and return the serverInfo of a JetBrains server."""
+    session.post(
+        {
+            "jsonrpc": "2.0",
+            "id": _INITIALIZE_ID,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": _PROTOCOL_VERSION,
+                "capabilities": {"tools": {}},
+                "clientInfo": {"name": "ide-preflight", "version": "1"},
+            },
+        }
+    )
+    init_result = _result_of(session.await_id(_INITIALIZE_ID), "initialize")
+    server_info = init_result.get("serverInfo")
+    if not isinstance(server_info, dict):
+        server_info = {}
+    if not is_jetbrains_mcp_server(server_info):
+        raise MCPError(
+            f"not a JetBrains IDE MCP server (serverInfo.name="
+            f"{server_info.get('name')!r}) — refusing to treat it as the oracle"
+        )
+    session.post(
+        {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
+    )
+    return server_info
 
-    The probe runs on the same session, after the tool listing; None when no
-    project was given. With `allowed`, only a policy-conforming set is probed:
-    a drifting server could never earn a bridge line, so it gets no extra
-    interaction either.
-    """
-    sess = Session(host, port, timeout)
-    try:
-        sess.post(
+
+def _tool_names(session: Session) -> set[str]:
+    """List every exposed tool name across the paginated tools/list."""
+    # A dangerous tool could hide on page 2; hitting the page cap fails loud
+    # rather than trusting a partial list.
+    names: set[str] = set()
+    cursor: str | None = None
+    for page in range(_MAX_TOOL_PAGES):
+        request_id = _FIRST_PAGE_ID + page
+        params = {} if cursor is None else {"cursor": cursor}
+        session.post(
             {
                 "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "clientInfo": {"name": "ide-preflight", "version": "1"},
-                },
+                "id": request_id,
+                "method": "tools/list",
+                "params": params,
             }
         )
-        init_result = _result_of(sess.await_id(1), "initialize")
-        server_info = init_result.get("serverInfo")
-        if not isinstance(server_info, dict):
-            server_info = {}
-        if not is_jetbrains_mcp_server(server_info):
-            raise MCPError(
-                f"not a JetBrains IDE MCP server (serverInfo.name="
-                f"{server_info.get('name')!r}) — refusing to treat it as the oracle"
-            )
-
-        sess.post(
-            {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
-        )
-        # tools/list is paginated (nextCursor). Follow every page — a
-        # dangerous tool could hide on page 2. The page cap stops an endless
-        # cursor feed; hitting it fails loud rather than trusting a partial list.
-        names: set[str] = set()
-        cursor: str | None = None
-        for page in range(_MAX_TOOL_PAGES):
-            params = {} if cursor is None else {"cursor": cursor}
-            sess.post(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 2 + page,
-                    "method": "tools/list",
-                    "params": params,
-                }
-            )
-            result = _result_of(sess.await_id(2 + page), "tools/list")
-            tools = result.get("tools")
-            if not isinstance(tools, list):
-                raise MCPError("tools/list returned no tools array")
-            # Each entry may be anything; only dicts with a string name count.
-            names |= {
-                t["name"]
-                for t in tools
-                if isinstance(t, dict) and isinstance(t.get("name"), str)
-            }
-            cursor = result.get("nextCursor")
-            if not isinstance(cursor, str) or not cursor:
-                probe = None
-                if project is not None and (
-                    allowed is None or not (names - set(allowed))
-                ):
-                    probe = probe_project(sess, names, project)
-                return server_info, names, probe
-        raise MCPError(
-            f"tools/list still paginating after {_MAX_TOOL_PAGES} pages — refusing a partial tool list"
-        )
-    finally:
-        sess.close()
-
-
-def check_port(
-    host: str,
-    port: int,
-    allowed: frozenset[str] | set[str],
-    timeout: float,
-    connect_timeout: float = 1.0,
-    project: str | None = None,
-) -> dict:
-    """Probe one port and return a result record. Never raises.
-
-    The cheap TCP pre-probe keeps pod launch fast when no IDE is running: a
-    closed port refuses instantly, a filtered or stalling one costs at most
-    connect_timeout — never the full session timeout.
-    """
-    try:
-        socket.create_connection((host, port), timeout=connect_timeout).close()
-    except OSError:
-        return {"status": "unreachable", "port": port, "code": UNREACHABLE}
-    try:
-        server_info, exposed, probe = enumerate_tools(
-            host, port, timeout, project, allowed
-        )
-    except urllib.error.HTTPError as exc:
-        # Something is listening and speaking HTTP — just not an MCP server.
-        # Distinct from unreachable: "no IDE there" would send the operator
-        # hunting the wrong problem.
-        return {
-            "status": "protocol_error",
-            "port": port,
-            "error": f"HTTP {exc.code} — not an MCP server",
-            "code": PROTOCOL,
+        result = _result_of(session.await_id(request_id), "tools/list")
+        tools = result.get("tools")
+        if not isinstance(tools, list):
+            raise MCPError("tools/list returned no tools array")
+        names |= {
+            tool["name"]
+            for tool in tools
+            if isinstance(tool, dict) and isinstance(tool.get("name"), str)
         }
+        cursor = result.get("nextCursor")
+        if not isinstance(cursor, str) or not cursor:
+            return names
+    raise MCPError(
+        f"tools/list still paginating after {_MAX_TOOL_PAGES} pages — refusing a partial tool list"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Probe:
+    """One port to check, with the policy and the deadlines to hold it to."""
+
+    host: str
+    port: int
+    allowed: frozenset[str] | set[str]
+    timeout: float
+    connect_timeout: float = 1.0
+    project: str | None = None
+
+
+def enumerate_tools(probe: Probe) -> tuple[JsonObject, set[str], str | None]:
+    """Handshake and return the serverInfo, the exposed tool names, and the probe verdict."""
+    # Only a policy-conforming set is probed for the project: a drifting
+    # server could never earn a bridge line.
+    session = Session(probe.host, probe.port, probe.timeout)
+    try:
+        server_info = _initialize(session)
+        names = _tool_names(session)
+        verdict = None
+        if probe.project is not None and not (names - set(probe.allowed)):
+            verdict = probe_project(session, names, probe.project)
+        return server_info, names, verdict
+    finally:
+        session.close()
+
+
+@dataclass(frozen=True, slots=True)
+class PortResult:
+    """The verdict of one probed port."""
+
+    status: str
+    host: str
+    port: int
+    code: int
+    error: str = ""
+    server: str = "unknown"
+    version: str = "unknown"
+    exposed: list[str] = field(default_factory=list)
+    extras: list[str] = field(default_factory=list)
+    allowed: list[str] = field(default_factory=list)
+    project: str | None = None
+    project_open: bool | None = None
+    project_unverifiable: str | None = None
+    name: str = ""
+
+
+class _ProjectVerdict(NamedTuple):
+    """The project fields a probe verdict yields."""
+
+    project: str | None
+    project_open: bool | None
+    project_unverifiable: str | None
+
+
+def _project_verdict(probe: Probe, verdict: str | None) -> _ProjectVerdict:
+    """Translate a probe verdict into the result's project fields."""
+    if verdict is None:
+        return _ProjectVerdict(None, None, None)
+    project_open = {"open": True, "not_open": False}.get(verdict)
+    unverifiable = (
+        None
+        if project_open is not None
+        else _UNVERIFIABLE_REASONS.get(verdict, verdict)
+    )
+    return _ProjectVerdict(probe.project, project_open, unverifiable)
+
+
+def check_port(probe: Probe) -> PortResult:
+    """Probe one port and return its result, never raising."""
+    # The TCP pre-probe keeps pod launch fast when no IDE runs: a closed port
+    # refuses instantly, a filtered one costs at most connect_timeout.
+    try:
+        socket.create_connection(
+            (probe.host, probe.port), timeout=probe.connect_timeout
+        ).close()
+    except OSError:
+        return PortResult("unreachable", probe.host, probe.port, UNREACHABLE)
+    try:
+        server_info, exposed, verdict = enumerate_tools(probe)
+    except urllib.error.HTTPError as exc:
+        # Something speaks HTTP there, just not MCP; distinct from
+        # unreachable so the operator hunts the right problem.
+        return PortResult(
+            "protocol_error",
+            probe.host,
+            probe.port,
+            PROTOCOL,
+            error=f"HTTP {exc.code} — not an MCP server",
+        )
     except (urllib.error.URLError, OSError):
-        return {"status": "unreachable", "port": port, "code": UNREACHABLE}
+        return PortResult("unreachable", probe.host, probe.port, UNREACHABLE)
     except (
         MCPError,
         http.client.HTTPException,
@@ -562,232 +525,211 @@ def check_port(
         TypeError,
         RecursionError,
     ) as exc:
-        # AttributeError/TypeError back the "never raises" contract;
-        # RecursionError so deeply nested JSON cannot take down the rest.
-        return {
-            "status": "protocol_error",
-            "port": port,
-            "error": sanitize(str(exc)),
-            "code": PROTOCOL,
-        }
-
-    code, extras = classify(exposed, allowed)
-    record = {
-        "status": "drift" if extras else "ok",
-        "port": port,
-        "server": server_info.get("name", "unknown"),
-        "version": server_info.get("version", "unknown"),
-        "exposed": sorted(exposed),
-        "extras": extras,
-        # The set the comparison used — shown so the operator knows what the
-        # checkboxes should look like, not just what to remove.
-        "allowed": sorted(allowed),
-        "code": code,
-    }
-    if probe is not None:
-        record["project"] = project
-        # true/false/null in JSON; null = unverifiable, which bridging treats as
-        # not qualified — bridge only what is verified.
-        record["project_open"] = {"open": True, "not_open": False}.get(probe)
-        if record["project_open"] is None:
-            record["project_unverifiable"] = _UNVERIFIABLE_REASONS.get(probe, probe)
-    return record
+        return PortResult(
+            "protocol_error", probe.host, probe.port, PROTOCOL, error=sanitize(str(exc))
+        )
+    code, extras = classify(exposed, probe.allowed)
+    project = _project_verdict(probe, verdict)
+    return PortResult(
+        "drift" if extras else "ok",
+        probe.host,
+        probe.port,
+        code,
+        server=server_info.get("name", "unknown"),
+        version=server_info.get("version", "unknown"),
+        exposed=sorted(exposed),
+        extras=extras,
+        allowed=sorted(probe.allowed),
+        project=project.project,
+        project_open=project.project_open,
+        project_unverifiable=project.project_unverifiable,
+    )
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
-
-
-def _bridgeable(result: dict, project_required: bool) -> bool:
-    """Whether a server has earned a bridge line.
-
-    Policy-conforming always; with --project, additionally verified project-open.
-    Unverifiable (null) does not qualify: bridge only what is verified.
-    """
-    if result["code"] != OK or result["status"] != "ok":
+def _bridgeable(result: PortResult, *, project_required: bool) -> bool:
+    """Tell whether a server has earned a bridge line."""
+    # Unverifiable does not qualify: bridge only what is verified.
+    if result.code != OK or result.status != "ok":
         return False
-    return not project_required or result.get("project_open") is True
+    return not project_required or result.project_open is True
 
 
-def _project_note(result: dict) -> str:
-    """One clause describing the project verdict; empty when no check ran."""
-    if "project_open" not in result:
+def _project_note(result: PortResult) -> str:
+    """Describe the project verdict in one clause, empty when no check ran."""
+    if result.project is None:
         return ""
-    path = sanitize(result.get("project") or "")
-    if result["project_open"] is True:
+    path = sanitize(result.project)
+    if result.project_open is True:
         return f"project {path} is open"
-    if result["project_open"] is False:
+    if result.project_open is False:
         return f"project {path} is NOT open"
-    return f"project {path} unverifiable — {result.get('project_unverifiable', 'unknown cause')}"
+    return f"project {path} unverifiable — {result.project_unverifiable or 'unknown cause'}"
 
 
-def _bridge_line(result: dict) -> str:
-    """One machine-line per bridgeable server: `port<TAB>server label`.
+def _bridge_line(result: PortResult) -> str:
+    """Render the machine line for one bridgeable server: port, tab, server label."""
+    # claude-dev uses the label only in its own messages, never in a command;
+    # it is server-supplied, so it is sanitized like everything printed.
+    label = sanitize(f"{result.server} {result.version}").strip()
+    return f"{result.port}\t{label}"
 
-    claude-dev splits on the tab, validates the port, and uses the label only in
-    its own user-facing messages — never in a shell command. The label is
-    server-supplied, so it is sanitized here like everything else it prints.
-    """
-    label = sanitize(
-        f"{result.get('server', 'unknown')} {result.get('version', '')}"
-    ).strip()
-    return f"{result['port']}\t{label}"
+
+_DRIFT_ADVICE = (
+    "",
+    "  These are reachable from any container on the Docker VM, with or without",
+    "  a bridge: the IDE's MCP server has no authentication and its loopback bind",
+    "  does not confine it. Remove them in the IDE to actually restrict access:",
+    "    Settings -> Tools -> MCP Server -> Exposed Tools",
+    "  Keep exactly these enabled (the read-only policy set):",
+)
+
+
+def _report_lines(result: PortResult, *, label: str, compact: bool) -> list[str]:
+    """Render one server's verdict; compact collapses a healthy server to one line."""
+    where = f"{result.host}:{result.port}"
+    tag = f"{label} " if label else ""
+    if result.status == "unreachable":
+        return [f"ide-preflight: {tag}no IDE on {where} — oracle unavailable"]
+    if result.status == "protocol_error":
+        return [
+            f"ide-preflight: {tag}{where} answered but is not a usable oracle — {result.error}"
+        ]
+    # Names are sanitized for display only; the raw names already drove
+    # classify, so a look-alike name was flagged as drift there.
+    server = sanitize(result.server)
+    version = sanitize(result.version)
+    exposed = [sanitize(tool) for tool in result.exposed]
+    note = _project_note(result)
+    if compact and not result.extras:
+        return [
+            f"ide-preflight: {tag}{server} {version} on {where} — "
+            f"OK: exposed set within policy ({len(exposed)} tools)"
+            + (f"; {note}" if note else "")
+        ]
+    lines = [
+        f"ide-preflight: {tag}{server} {version} on {where}",
+        f"  exposed: {len(exposed)} tool(s) — {', '.join(exposed)}",
+    ]
+    if note:
+        lines.append(f"  {note}")
+    if not result.extras:
+        lines.append("  verdict: OK — exposed set is within policy")
+        return lines
+    lines.append(f"  verdict: DRIFT — {len(result.extras)} tool(s) outside policy:")
+    lines.extend(f"    - {sanitize(tool)}: {describe(tool)}" for tool in result.extras)
+    lines.extend(_DRIFT_ADVICE)
+    lines.extend(f"    [x] {tool}" for tool in result.allowed)
+    return lines
 
 
 def _report(
-    result: dict, host: str, label: str = "", stream=None, compact: bool = False
+    result: PortResult,
+    *,
+    label: str = "",
+    stream: TextIO | None = None,
+    compact: bool = False,
 ) -> None:
-    """Print one server's verdict. `compact` collapses a healthy server to one
-    line — the every-launch case — while drift always gets the full block."""
+    """Print one server's verdict."""
     out = stream or sys.stdout
-    port = result["port"]
-    tag = f"{label} " if label else ""
-    if result["status"] == "unreachable":
-        print(
-            f"ide-preflight: {tag}no IDE on {host}:{port} — oracle unavailable",
-            file=out,
-        )
-        return
-    if result["status"] == "protocol_error":
-        print(
-            f"ide-preflight: {tag}{host}:{port} answered but is not a usable oracle — {result['error']}",
-            file=out,
-        )
-        return
-
-    # Server-supplied names are sanitized for display only — the raw names
-    # already drove classify(), so a name that merely looks like a policy tool
-    # (control chars added) was flagged as drift there.
-    server = sanitize(result["server"])
-    version = sanitize(result["version"])
-    exposed = [sanitize(t) for t in result["exposed"]]
-    note = _project_note(result)
-    if compact and not result["extras"]:
-        print(
-            f"ide-preflight: {tag}{server} {version} on {host}:{port} — "
-            f"OK: exposed set within policy ({len(exposed)} tools)"
-            + (f"; {note}" if note else ""),
-            file=out,
-        )
-        return
-    print(f"ide-preflight: {tag}{server} {version} on {host}:{port}", file=out)
-    print(f"  exposed: {len(exposed)} tool(s) — {', '.join(exposed)}", file=out)
-    if note:
-        print(f"  {note}", file=out)
-    if not result["extras"]:
-        print("  verdict: OK — exposed set is within policy", file=out)
-        return
-
-    print(
-        f"  verdict: DRIFT — {len(result['extras'])} tool(s) outside policy:", file=out
-    )
-    for tool in result["extras"]:
-        # describe() keys on the raw name; the label prints the sanitized one.
-        print(f"    - {sanitize(tool)}: {describe(tool)}", file=out)
-    print(file=out)
-    print(
-        "  These are reachable from any container on the Docker VM, with or without",
-        file=out,
-    )
-    print(
-        "  a bridge: the IDE's MCP server has no authentication and its loopback bind",
-        file=out,
-    )
-    print(
-        "  does not confine it. Remove them in the IDE to actually restrict access:",
-        file=out,
-    )
-    print("    Settings -> Tools -> MCP Server -> Exposed Tools", file=out)
-    print("  Keep exactly these enabled (the read-only policy set):", file=out)
-    for tool in result.get("allowed", []):
-        print(f"    [x] {tool}", file=out)
+    for line in _report_lines(result, label=label, compact=compact):
+        print(line, file=out)
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    # Discovery is the only mode — the port is IDE-assigned and published in
-    # ~/.claude.json, never guessed. The flag stays required so a bare
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    # Discovery is the only mode; the flag stays required so a bare
     # invocation is a loud usage error, never a silent probe.
-    ap.add_argument(
+    parser.add_argument(
         "--discover",
         action="store_true",
         required=True,
         help=f"read the IDE-assigned ports from {CLAUDE_CONFIG} (the only mode)",
     )
-    ap.add_argument(
+    parser.add_argument(
         "--timeout", type=float, default=10.0, help="handshake deadline once connected"
     )
-    ap.add_argument(
+    parser.add_argument(
         "--connect-timeout",
         type=float,
         default=1.0,
         help="TCP connect bound — keeps pod launch fast when no IDE is running (default 1s)",
     )
-    ap.add_argument(
+    parser.add_argument(
         "--bridge-ports",
         action="store_true",
         help="print one 'port<TAB>server label' line per policy-conforming server on "
         "stdout, reports on stderr (the interface claude-dev consumes)",
     )
-    ap.add_argument(
+    parser.add_argument(
         "--project",
         default=None,
         help="verify this path resolves to an open project in each conforming IDE; "
         "with --bridge-ports, only verified-open servers emit a bridge line",
     )
-    args = ap.parse_args(argv)
+    return parser.parse_args(argv)
 
-    # Deliberately not a flag: a runtime override would let a launch wrapper
-    # widen the set and still print "OK". Changing the policy means changing
-    # this file, where the harness-docs coupling test sees it.
+
+def _worst_code(results: list[PortResult]) -> int:
+    """Pick the exit code: drift outranks everything, then protocol over unreachable."""
+    codes = [result.code for result in results]
+    return DRIFT if DRIFT in codes else max(codes)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Check every configured IDE and return the worst verdict."""
+    args = _parse_args(argv)
+    # The policy is not a flag: a runtime override would let a launch wrapper
+    # widen the set and still print OK.
     allowed = POLICY_TOOLS
-
-    # --bridge-ports keeps stdout machine-only so bash can read ports from it;
-    # the human report moves to stderr in every mode.
+    # --bridge-ports keeps stdout machine-only so bash can read ports from it.
     report_to = sys.stderr if args.bridge_ports else sys.stdout
-
-    config_path = pathlib.Path(os.path.expanduser(CLAUDE_CONFIG))
+    # The failure direction is degrade, never raise: an unresolvable home
+    # reads as no IDE configured.
+    try:
+        config_path = Path(CLAUDE_CONFIG).expanduser()
+    except RuntimeError:
+        config_path = Path(CLAUDE_CONFIG)
     servers = discover_servers(load_claude_config(config_path))
     if not servers:
         if not args.bridge_ports:
             print(
                 f"ide-preflight: no IDE MCP server configured in {config_path} — nothing to check"
             )
-        return OK  # nothing configured is not a failure; the oracle is optional
-
-    results = []
-    for name, port in servers:
-        result = check_port(
-            HOST, port, allowed, args.timeout, args.connect_timeout, args.project
+        return OK
+    results = [
+        replace(
+            check_port(
+                Probe(
+                    HOST,
+                    port,
+                    allowed,
+                    args.timeout,
+                    args.connect_timeout,
+                    args.project,
+                )
+            ),
+            name=name,
         )
-        result["name"] = name
-        results.append(result)
-
-    # DRIFT needs action, so it outranks a merely absent or unreachable IDE;
-    # below it the order is a deterministic max — PROTOCOL over UNREACHABLE.
-    codes = [r["code"] for r in results]
-    worst = DRIFT if DRIFT in codes else max(codes)
-
+        for name, port in servers
+    ]
     for result in results:
-        # An unreachable IDE is the normal case (it just is not running);
-        # saying so on every launch would be noise.
-        if args.bridge_ports and result["status"] == "unreachable":
+        # An unreachable IDE is the normal case when it is not running.
+        if args.bridge_ports and result.status == "unreachable":
             continue
         _report(
             result,
-            HOST,
-            label=f"[{result['name']}]",
+            label=f"[{result.name}]",
             stream=report_to,
             compact=args.bridge_ports,
         )
-
     if args.bridge_ports:
-        # A drifting IDE stays reachable from the pod regardless — the warning
-        # above says so — but it does not get the convenience of a bridge.
+        # A drifting IDE stays reachable regardless, as the warning says, but
+        # it does not get the convenience of a bridge.
         for result in results:
-            if _bridgeable(result, args.project is not None):
+            if _bridgeable(result, project_required=args.project is not None):
                 print(_bridge_line(result))
-    return worst
+    return _worst_code(results)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

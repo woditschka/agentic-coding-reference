@@ -1,14 +1,4 @@
-"""Shared path-loader for the harness test suites.
-
-The producer-side toolbox is not a package (see ADR
-2026-07-18-producer-side-tests-subdir): source scripts keep their
-hyphenated CLI names and are loaded by path. This module centralizes
-that path-load. ``ROOT`` is the toolbox root — the ``harness/``
-directory containing ``registry.py`` — resolved by walking up from this
-file, so it works at any test depth.
-"""
-
-from __future__ import annotations
+"""Load the hyphenated maintainer scripts by path for the harness test suites."""
 
 import importlib.util
 from pathlib import Path

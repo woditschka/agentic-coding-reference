@@ -29,6 +29,7 @@ RECORDS = HERE / "core" / "scripts" / "handoff" / "records.py"
 OUTPUT = HERE / "core" / ".claude" / "skills" / "handoff-routing" / "route-rules.md"
 
 USAGE = "usage: harness/render-route-rules.py [--check]"
+CHECK_ARGV_LENGTH = 2
 
 # Constructor name -> (rule-argument index, decision-kind label). A call is
 # matched by its bare name, as a module function (`_dispatch(...)`) or as a
@@ -97,7 +98,7 @@ def _resolve(node: ast.expr, constants: dict[str, str]) -> str | None:
 
 
 def _target(call: ast.Call, name: str, constants: dict[str, str]) -> str:
-    """The dispatch target of one constructor call, or the computed marker."""
+    """Return the dispatch target of one constructor call, or the computed marker."""
     if name in ("blocked", "escalate"):
         return "—"
     if not call.args:
@@ -113,7 +114,7 @@ def _target(call: ast.Call, name: str, constants: dict[str, str]) -> str:
 
 
 def _rule(call: ast.Call, index: int) -> ast.expr | None:
-    """The rule argument of one constructor call, positional or keyword."""
+    """Return the rule argument of one constructor call, positional or keyword."""
     if len(call.args) > index:
         return call.args[index]
     for keyword in call.keywords:
@@ -159,7 +160,7 @@ def extract(source: str, constants: dict[str, str]) -> dict[str, set[tuple[str, 
 
 
 def render(rules: dict[str, set[tuple[str, str]]]) -> str:
-    """The complete inventory as one markdown document."""
+    """Render the complete inventory as one markdown document."""
     lines = [HEADER]
     for rule in sorted(rules):
         variants = sorted(rules[rule])
@@ -171,8 +172,9 @@ def render(rules: dict[str, set[tuple[str, str]]]) -> str:
 
 
 def main(argv: list[str]) -> int:
+    """Render the inventory, or compare it under --check, and return the exit code."""
     check = False
-    if len(argv) == 2 and argv[1] == "--check":
+    if len(argv) == CHECK_ARGV_LENGTH and argv[1] == "--check":
         check = True
     elif len(argv) != 1:
         print(USAGE, file=sys.stderr)
@@ -214,4 +216,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

@@ -46,6 +46,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 ## Reference Documents
 
 - **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
+- **Architecture Principles:** `docs/architecture-principles.md` — module boundaries, patterns, naming
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria, non-goals
 - **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names must use

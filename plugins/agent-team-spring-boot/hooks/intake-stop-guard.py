@@ -1,32 +1,21 @@
 #!/usr/bin/env python3
-"""Stop hook — a session may not end while route decides `intake-ready`.
+"""Block a session end while route decides the intake-ready dispatch, and allow otherwise.
 
-A recorded `intake-decision` obligates a product-expert dispatch; the only
-refusal exit is the expert's recorded `consultation-request`. The failure
-this guards: root reads the docs itself, judges the request to conflict
-with recorded non-goals, and ends the session with a prose decline —
-leaving the ledger saying "work pending" while the operator heard "no".
-Ledger-visible states one step later are already caught deterministically
-(an abandoned dispatch escalates through the truncation rules); the
-session end itself is observable only here.
-
-Blocking is narrow: exit 2 only when `handoff.py route` decides
-`dispatch` with rule `intake-ready` — the exact measured failure state —
-and only once (`stop_hook_active` allows the retry through, so a blocked
-model that still stops is not trapped). Every other path exits 0,
-including every malfunction: missing log, missing script, route failing
-or emitting non-JSON. A Stop hook that failed closed would trap sessions
-on infrastructure errors, so unlike the deny-by-default PreToolUse
-guards, this backstop fails OPEN; the doctrine prose and the audit review
-remain the outer layers.
-
-Stdlib only. Tested by test_intake_stop_guard.py alongside this file.
+A Stop backstop that fails open: a recorded intake obligates the product
+expert's dispatch, so the session may not end in prose instead. Every
+malfunction allows, and the retry after a block allows, so a session is never
+trapped on an infrastructure error.
 """
 
 import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
+from pathlib import Path
+
+ALLOW_EXIT = 0
+BLOCK_EXIT = 2
 
 BLOCK_MESSAGE = (
     "route decides dispatch: product-requirements-expert (intake-ready). "
@@ -37,16 +26,21 @@ BLOCK_MESSAGE = (
 
 ROUTE_TIMEOUT_SECONDS = 30
 
+Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
-def route_decision(project_dir, runner=subprocess.run):
-    """The parsed route decision, or None on any malfunction (fails open)."""
-    log = os.path.join(project_dir, ".scratch", "handoff.jsonl")
-    script = os.path.join(project_dir, "scripts", "handoff.py")
-    if not (os.path.isfile(log) and os.path.isfile(script)):
+
+def route_decision(
+    project_dir: str, runner: Runner = subprocess.run
+) -> dict[str, object] | None:
+    """Return the parsed route decision, or None on any malfunction."""
+    project = Path(project_dir)
+    log = project / ".scratch" / "handoff.jsonl"
+    script = project / "scripts" / "handoff.py"
+    if not (log.is_file() and script.is_file()):
         return None
     try:
         proc = runner(
-            [sys.executable, script, "route"],
+            [sys.executable, str(script), "route"],
             capture_output=True,
             text=True,
             timeout=ROUTE_TIMEOUT_SECONDS,
@@ -63,33 +57,34 @@ def route_decision(project_dir, runner=subprocess.run):
     return decision if isinstance(decision, dict) else None
 
 
-def decide(payload_text, project_dir, runner=subprocess.run):
-    """0 to allow the stop, 2 to block — the only two exits."""
+def decide(payload_text: str, project_dir: str, runner: Runner = subprocess.run) -> int:
+    """Return the exit code for one Stop payload: block only the intake-ready dispatch, once."""
     try:
         payload = json.loads(payload_text)
     except json.JSONDecodeError:
-        return 0
+        return ALLOW_EXIT
     if not isinstance(payload, dict) or payload.get("stop_hook_active"):
-        return 0
+        return ALLOW_EXIT
     if not project_dir:
-        return 0
+        return ALLOW_EXIT
     decision = route_decision(project_dir, runner)
     if decision is None:
-        return 0
+        return ALLOW_EXIT
     if (
         decision.get("decision") == "dispatch"
         and decision.get("rule") == "intake-ready"
     ):
-        return 2
-    return 0
+        return BLOCK_EXIT
+    return ALLOW_EXIT
 
 
-def main():
+def main() -> int:
+    """Decide for the payload on stdin and print the reason when blocking."""
     code = decide(sys.stdin.read(), os.environ.get("CLAUDE_PROJECT_DIR", ""))
-    if code == 2:
+    if code == BLOCK_EXIT:
         print(BLOCK_MESSAGE, file=sys.stderr)
     return code
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

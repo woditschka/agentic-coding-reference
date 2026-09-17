@@ -45,11 +45,19 @@ OTHER_REVIEWER = ROSTER_FLOOR[3]
 OFF_ROSTER_AUTHOR = "perf-reviewer"
 OTHER_REQ_ID = "REQ-B-002"
 A_FINDING = {"tag": "autofix", "location": "src/widget.py:1", "description": "d"}
-NO_CYCLE_START = 0
+A_NON_STRING = 7
+A_DANGLING_NO = 99
+DISPATCH_MINUTE = 6
+RECORD_MINUTE = 10
+SLICE_MINUTES = 15
 
 
 def at(minute):
     return f"2026-07-06T10:{minute:02d}:00Z"
+
+
+def minutes_between(start, end):
+    return f"{end - start}m"
 
 
 def a_dispatch(author=IMPLEMENTER, minute=0, responding_to=(0,), req_id=SOME_REQ_ID):
@@ -158,11 +166,12 @@ class AgentLabels(unittest.TestCase):
 
     def test_a_missing_or_non_string_author_is_a_question_mark(self):
         self.assertEqual(
-            (agent_label(None), agent_label(7), agent_label("")), ("?", "?", "?")
+            (agent_label(None), agent_label(A_NON_STRING), agent_label("")),
+            ("?", "?", "?"),
         )
 
     def test_control_characters_are_dropped(self):
-        self.assertEqual(agent_label("evil\x1b[2Jer-reviewer"), "evil[2Jer")
+        self.assertEqual(agent_label("doc\x1b[2J-reviewer"), "doc[2J")
 
 
 class GradeWords(unittest.TestCase):
@@ -204,7 +213,7 @@ class FacetRows(unittest.TestCase):
 
 class SliceFacts(unittest.TestCase):
     def test_the_latest_string_title_wins(self):
-        log = entries(a_prd("first"), a_prd("second"), a_prd(title=7))
+        log = entries(a_prd("first"), a_prd("second"), a_prd(title=A_NON_STRING))
 
         self.assertEqual(slice_title(log), "second")
 
@@ -261,7 +270,9 @@ class ReviewRounds(unittest.TestCase):
         )
 
     def test_an_unnamed_author_rounds_as_unknown(self):
-        (log,) = [entries(a_record("review-feedback", author=7, verdict="approved"))]
+        log = entries(
+            a_record("review-feedback", author=A_NON_STRING, verdict="approved")
+        )
 
         self.assertEqual(list(review_rounds(log)[0]), ["?"])
 
@@ -275,9 +286,10 @@ class ReviewRounds(unittest.TestCase):
         )
 
     def test_the_ladder_round_counts_completed_passes_with_dissent(self):
-        log = entries(a_pass(), a_review(REVIEWER), a_pass())
+        passes = (a_pass(), a_pass())
+        log = entries(passes[0], a_review(REVIEWER), passes[1])
 
-        self.assertEqual(ladder_round(log, ROSTER_FLOOR), 2)
+        self.assertEqual(ladder_round(log, ROSTER_FLOOR), len(passes))
 
 
 class ProducerDispatch(unittest.TestCase):
@@ -304,24 +316,37 @@ class ProducerDispatch(unittest.TestCase):
 
 class StepTails(unittest.TestCase):
     def test_a_timed_step_carries_its_elapsed_time(self):
-        log = entries(a_dispatch(REVIEWER, minute=0), a_review(REVIEWER, minute=5))
-
-        self.assertEqual(step_tail(log[1], log, None), Tail("5m", None))
-
-    def test_the_cost_rides_when_the_lookup_answers(self):
-        log = entries(a_dispatch(REVIEWER, minute=0), a_review(REVIEWER, minute=5))
+        log = entries(
+            a_dispatch(REVIEWER, minute=DISPATCH_MINUTE),
+            a_review(REVIEWER, minute=RECORD_MINUTE),
+        )
 
         self.assertEqual(
-            step_tail(log[1], log, FakeCostLookup()), Tail("5m", SOME_FIGURES)
+            step_tail(log[1], log, None),
+            Tail(minutes_between(DISPATCH_MINUTE, RECORD_MINUTE), None),
+        )
+
+    def test_the_cost_rides_when_the_lookup_answers(self):
+        log = entries(
+            a_dispatch(REVIEWER, minute=DISPATCH_MINUTE),
+            a_review(REVIEWER, minute=RECORD_MINUTE),
+        )
+
+        self.assertEqual(
+            step_tail(log[1], log, FakeCostLookup()),
+            Tail(minutes_between(DISPATCH_MINUTE, RECORD_MINUTE), SOME_FIGURES),
         )
 
     def test_a_step_without_a_dispatch_carries_no_tail(self):
-        log = entries(a_review(REVIEWER, minute=5))
+        log = entries(a_review(REVIEWER, minute=RECORD_MINUTE))
 
         self.assertIsNone(step_tail(log[0], log, FakeCostLookup()))
 
     def test_a_record_older_than_its_dispatch_carries_no_tail(self):
-        log = entries(a_dispatch(REVIEWER, minute=9), a_review(REVIEWER, minute=5))
+        log = entries(
+            a_dispatch(REVIEWER, minute=RECORD_MINUTE),
+            a_review(REVIEWER, minute=DISPATCH_MINUTE),
+        )
 
         self.assertIsNone(step_tail(log[1], log, None))
 
@@ -386,19 +411,23 @@ class SessionSpans(unittest.TestCase):
 
 class SessionTails(unittest.TestCase):
     def test_a_closed_session_is_timed_from_opener_to_closer(self):
-        log = entries(a_dispatch(minute=6), a_pass(minute=10))
-
-        self.assertEqual(session_tail(log[0], log[1], None), Tail("4m", None))
-
-    def test_the_cost_rides_the_closed_session(self):
-        log = entries(a_dispatch(minute=6), a_pass(minute=10))
+        log = entries(a_dispatch(minute=DISPATCH_MINUTE), a_pass(minute=RECORD_MINUTE))
 
         self.assertEqual(
-            session_tail(log[0], log[1], FakeCostLookup()), Tail("4m", SOME_FIGURES)
+            session_tail(log[0], log[1], None),
+            Tail(minutes_between(DISPATCH_MINUTE, RECORD_MINUTE), None),
+        )
+
+    def test_the_cost_rides_the_closed_session(self):
+        log = entries(a_dispatch(minute=DISPATCH_MINUTE), a_pass(minute=RECORD_MINUTE))
+
+        self.assertEqual(
+            session_tail(log[0], log[1], FakeCostLookup()),
+            Tail(minutes_between(DISPATCH_MINUTE, RECORD_MINUTE), SOME_FIGURES),
         )
 
     def test_an_open_session_carries_no_tail(self):
-        log = entries(a_dispatch(minute=6))
+        log = entries(a_dispatch(minute=DISPATCH_MINUTE))
 
         self.assertIsNone(session_tail(log[0], None, FakeCostLookup()))
 
@@ -442,18 +471,21 @@ class FixSourceResolution(unittest.TestCase):
         )
 
         self.assertEqual(
-            fix_sources(log[2], by_no_of(log)), FixSources(("code-quality",), 1)
+            fix_sources(log[2], by_no_of(log)),
+            FixSources((agent_label(REVIEWER),), len(a_review()["findings"])),
         )
 
     def test_findings_sum_across_sources(self):
-        log = entries(
-            a_review(REVIEWER, findings=(A_FINDING, A_FINDING)),
-            a_review(OTHER_REVIEWER),
-            a_dispatch(responding_to=(1, 2)),
-        )
+        first = a_review(REVIEWER, findings=(A_FINDING, A_FINDING))
+        second = a_review(OTHER_REVIEWER)
+        log = entries(first, second, a_dispatch(responding_to=(1, 2)))
 
         self.assertEqual(
-            fix_sources(log[2], by_no_of(log)), FixSources(("code-quality", "doc"), 3)
+            fix_sources(log[2], by_no_of(log)),
+            FixSources(
+                (agent_label(REVIEWER), agent_label(OTHER_REVIEWER)),
+                len(first["findings"]) + len(second["findings"]),
+            ),
         )
 
     def test_a_dispatch_answering_no_dissent_has_no_sources(self):
@@ -481,7 +513,7 @@ class Pointers(unittest.TestCase):
     def test_a_dangling_pointer_resolves_nothing(self):
         log = entries(a_request())
 
-        self.assertIsNone(entry_at(by_no_of(log), 99))
+        self.assertIsNone(entry_at(by_no_of(log), A_DANGLING_NO))
 
     def test_a_response_returns_to_its_requester(self):
         log = entries(a_request(author=PRODUCT), a_response(1))
@@ -499,16 +531,18 @@ class SliceTails(unittest.TestCase):
         self.assertIsNone(slice_tail(entries(a_pass()), FakeCostLookup()))
 
     def test_no_lookup_means_no_roll_up(self):
-        self.assertIsNone(slice_tail(entries(a_pass(0), a_pass(15)), None))
+        self.assertIsNone(slice_tail(entries(a_pass(0), a_pass(SLICE_MINUTES)), None))
 
     def test_the_roll_up_spans_first_to_last_timed_record(self):
-        tail = slice_tail(entries(a_pass(0), a_pass(15)), FakeCostLookup())
+        tail = slice_tail(entries(a_pass(0), a_pass(SLICE_MINUTES)), FakeCostLookup())
 
-        self.assertEqual(tail, Tail("15m", SOME_FIGURES))
+        self.assertEqual(tail, Tail(minutes_between(0, SLICE_MINUTES), SOME_FIGURES))
 
     def test_a_lookup_without_figures_means_no_roll_up(self):
         self.assertIsNone(
-            slice_tail(entries(a_pass(0), a_pass(15)), FakeCostLookup(figures=None))
+            slice_tail(
+                entries(a_pass(0), a_pass(SLICE_MINUTES)), FakeCostLookup(figures=None)
+            )
         )
 
 
@@ -523,9 +557,10 @@ class BuildingTheBoard(unittest.TestCase):
         )
 
     def test_passes_and_failures_are_counted(self):
-        board = self.board_of(a_failure(), a_pass(), a_pass())
+        passes, failures = (a_pass(), a_pass()), (a_failure(),)
+        board = self.board_of(*failures, *passes)
 
-        self.assertEqual((board.passes, board.failures), (2, 1))
+        self.assertEqual((board.passes, board.failures), (len(passes), len(failures)))
 
     def test_other_slices_are_carried(self):
         self.assertEqual(self.board_of(a_pass()).other_slices, (OTHER_REQ_ID,))
@@ -538,12 +573,16 @@ class BuildingTheBoard(unittest.TestCase):
 
     def test_an_implementer_dispatch_opens_a_session(self):
         board = self.board_of(
-            a_dispatch(minute=6), a_failure(minute=8), a_pass(minute=10)
+            a_dispatch(minute=DISPATCH_MINUTE),
+            a_failure(minute=DISPATCH_MINUTE + 1),
+            a_pass(minute=RECORD_MINUTE),
         )
 
         (session,) = board.timeline
         self.assertIsInstance(session, Session)
-        self.assertEqual(session.tail, Tail("4m", None))
+        self.assertEqual(
+            session.tail, Tail(minutes_between(DISPATCH_MINUTE, RECORD_MINUTE), None)
+        )
         self.assertIsInstance(session.children[0].record, BuildFailure)
 
     def test_a_routine_window_marks_the_session(self):

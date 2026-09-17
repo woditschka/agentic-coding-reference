@@ -1,49 +1,19 @@
 #!/usr/bin/env python3
-"""Scaffold the project-OWNED files a harness consumer commits.
+"""Scaffold the project-owned files a harness consumer commits, and never overwrite one.
 
     harness/init.py <stack> <target-dir> <project-name> <project-description> [harness-version] [tools-csv] [channel]
 
-harness-version is the artifact version, independent of the API spec_version.
-Omit it (or pass empty) and init reads harness/VERSION — the single source of
-truth — so callers normally do not supply it. The provenance line of every
-materialized brief is stamped with the harness RELEASE DATE (harness/VERSION-
-DATE), not the version: the same neutral, orderable token CLAUDE.md carries,
-while the version proper stays a plugin/marketplace concern.
-
-tools-csv is the comma-separated tool surfaces to install (claude is always on;
-copilot, opencode optional). Default: all three. The /init skill asks.
-
-channel is "copy" (default — runtime committed into the repo), "manifest"
-(runtime materialized and gitignored, not committed), or "marketplace" (the
-tool-discovered surfaces — skills, agents, hooks — ship as a plugin; the
-project keeps only the materialized engine sliver, gitignored). Copy keeps the
-harness self-contained and version-controlled; manifest and marketplace keep
-the repo lean and deliver the runtime out-of-band. The /init skill detects an
-existing project's channel and defaults a greenfield one to copy — no prompt.
-A channel already declared in the target's scripts/layout.toml is
-authoritative: init adopts it, and a conflicting argument fails loud.
-
-This lays down only what the PROJECT owns and commits — its CLAUDE.md rules
-file, .claude/settings.json, scripts/layout.toml (with the channel
-declaration), the docs/ brief roster, and the .gitignore block. It does NOT
-install the harness runtime: that is materialize.py, which delivers the
-runtime (.claude/skills, agents, schemas, scripts) — committed under the copy
-channel (default), gitignored under manifest.
-
-init never overwrites a project file that already exists — re-running it only
-fills gaps. A greenfield setup runs init once, then materialize once (or just
-/materialize, which runs init first when the project-owned files are missing).
-
-Sources live in harness/init/ (core overlaid with stacks/<stack>) and the
-doctor's brief templates (harness/core/.claude/skills/doctor/templates).
-
-Stdlib only. Tested by test_init.py.
+The producer-side scaffold over harness/init/ (core overlaid with the stack)
+and the doctor's brief templates: the rules file, the settings, the layout
+with its channel declaration, the brief roster, and the .gitignore block. The
+runtime itself is materialize.py's. Stdlib only.
 """
 
 import json
 import re
 import subprocess
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -52,7 +22,9 @@ import write_guard  # noqa: E402
 from registry import (  # noqa: E402
     ALL_TOOLS,
     CHANNELS,
+    FAILURE_EXIT,
     STACKS,
+    USAGE_EXIT,
     LayoutError,
     logical_abspath,
     read_harness_layout,
@@ -63,6 +35,17 @@ USAGE = (
     "usage: init.py <stack> <target> <project-name> <project-description> "
     "[harness-version] [tools-csv] [channel]"
 )
+REQUIRED_ARGS = 5
+MAX_ARGS = 8
+DEFAULT_CHANNEL = "copy"
+DEFAULT_SPEC_VERSION = "0.2.0"
+GITIGNORE_BLOCK = "gitignore-runtime.txt"
+# The token init and refresh-gitignore share, so whichever runs first, the
+# other recognizes the block and never appends it twice.
+GITIGNORE_SENTINEL = "harness runtime"
+LEDGER_IGNORE = "\n# Handoff ledger (per-session, never committed)\n.scratch/\n"
+
+INIT_SRC = HERE / "init"
 
 BRIEFS = (
     ("prd.md", "docs/prd.md"),
@@ -75,15 +58,69 @@ BRIEFS = (
 )
 
 
+class InitError(Exception):
+    """A failure init reports on stderr and exits on with its code."""
+
+    def __init__(self, code: int, message: str, *, verbatim: bool = False) -> None:
+        """Carry the exit code and the message; verbatim writes the message as is."""
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.verbatim = verbatim
+
+
+def report(message: str) -> None:
+    """Write one line to stderr."""
+    print(message, file=sys.stderr)
+
+
+@dataclass(frozen=True, slots=True)
+class Request:
+    """The scaffold as asked on the command line."""
+
+    stack: str
+    target_arg: str
+    project_name: str
+    project_description: str
+    harness_version: str
+    tools_csv: str
+    channel_arg: str
+
+
+@dataclass(frozen=True, slots=True)
+class Plan:
+    """The scaffold resolved against the target: its channel, sources, and replacement map."""
+
+    request: Request
+    target: Path
+    channel: str
+    templates: Path
+    toml_array: str
+    replacements: dict[str, str]
+    layout: Path
+    layout_preexisting: bool
+
+
+@dataclass(slots=True)
+class Tally:
+    """What one scaffold run wrote, kept, and left unfilled."""
+
+    created: int = 0
+    skipped: int = 0
+    appended: int = 0
+    harness_injected: int = 0
+    leaks: list[tuple[str, str]] = field(default_factory=list)
+
+
 def norm_tools(tools_csv: str) -> list[str]:
-    """The normalized tool names of a tools-csv — blanks trimmed, empties
-    dropped. The single normalization shared by the validation in main() and
-    tools_toml, so what is validated is exactly what is written."""
+    """Return the normalized tool names of a tools-csv: blanks trimmed, empties dropped."""
+    # The one normalization shared by the validation and the TOML render, so
+    # what is validated is exactly what is written.
     return [n for n in (t.strip().replace(" ", "") for t in tools_csv.split(",")) if n]
 
 
 def tools_toml(tools_csv: str) -> str:
-    """The TOML array literal for the tool list — normalized, claude forced on."""
+    """Render the TOML array literal for the tool list, with claude forced on."""
     tools = norm_tools(tools_csv)
     if "claude" not in tools:
         tools.insert(0, "claude")
@@ -91,12 +128,9 @@ def tools_toml(tools_csv: str) -> str:
 
 
 def fill(path: Path, replacements: dict[str, str]) -> list[str]:
-    """Literal placeholder fill; trailing newlines normalized to exactly one.
-
-    Returns every placeholder token still present after the fill except
-    {{FILL}} — the one marker a consumer completes by hand. A survivor is a
-    skeleton token the replacement map does not cover; the caller fails on it
-    so the leak never reaches a consumer's committed docs."""
+    """Fill the placeholders of a file in place and return the tokens still present, {{FILL}} aside."""
+    # {{FILL}} is the one marker a consumer completes by hand; any other
+    # survivor is a skeleton token the replacement map does not cover.
     content = path.read_text(encoding="utf-8")
     for token, value in replacements.items():
         content = content.replace("{{" + token + "}}", value)
@@ -105,322 +139,311 @@ def fill(path: Path, replacements: dict[str, str]) -> list[str]:
 
 
 def replace_first_line(path: Path, prefix: str, replacement: str) -> None:
-    """Replace the first line starting with prefix; every other line verbatim.
-    A file with no matching line is left byte-untouched."""
+    """Replace the first line starting with prefix; a file with no such line stays untouched."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    for i, line in enumerate(lines):
+    for index, line in enumerate(lines):
         if line.startswith(prefix):
-            lines[i] = replacement
+            lines[index] = replacement
             write_guard.write_text(path, "\n".join(lines) + "\n", encoding="utf-8")
             return
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) < 5 or len(argv) > 8:
-        print(USAGE, file=sys.stderr)
-        return 2
-    stack, target_arg, project_name, project_description = argv[1:5]
-    # Validate the slug against registry.STACKS, the same guard materialize.py
-    # applies: an unknown slug would otherwise scaffold the core layer alone
-    # (the overlay loop skips a missing stacks/<stack>) and report success —
-    # the `java` vs `java-spring-boot` silent-success trap.
+def parse_request(argv: list[str]) -> Request:
+    """Read the command line into a request, rejecting an unknown stack, tool, or channel."""
+    if len(argv) < REQUIRED_ARGS or len(argv) > MAX_ARGS:
+        raise InitError(USAGE_EXIT, USAGE)
+    stack, target_arg, project_name, project_description = argv[1:REQUIRED_ARGS]
+    # An unknown slug would scaffold the core layer alone and report success,
+    # the silent-success trap materialize guards the same way.
     if stack not in STACKS:
-        print(
+        raise InitError(
+            USAGE_EXIT,
             f"init: unknown stack {stack!r} — no harness/init/stacks/{stack}/ "
             f"(valid: {', '.join(sorted(STACKS))})",
-            file=sys.stderr,
         )
-        return 2
-    harness_version = argv[5] if len(argv) > 5 else ""
-    tools_csv = (argv[6] if len(argv) > 6 else "") or ",".join(ALL_TOOLS)
-    # Same silent-success trap as the stack slug: a typo'd tool name would be
-    # written into layout.toml verbatim, and every later materialize would
-    # silently drop that tool's surfaces (the doctor filters unknown names
-    # without failing). Reject it here, where it is fixable.
+    optional = [*argv[REQUIRED_ARGS:], "", "", ""]
+    harness_version, tools_arg, channel_arg = optional[:3]
+    tools_csv = tools_arg or ",".join(ALL_TOOLS)
+    # A typo'd tool name written into layout.toml would make every later
+    # materialize silently drop that tool's surfaces.
     unknown = sorted(set(norm_tools(tools_csv)) - set(ALL_TOOLS))
     if unknown:
-        print(
+        raise InitError(
+            USAGE_EXIT,
             f"init: unknown tool(s) {', '.join(unknown)} in tools-csv "
             f"(valid: {', '.join(ALL_TOOLS)})",
-            file=sys.stderr,
         )
-        return 2
-    channel_arg = argv[7] if len(argv) > 7 else ""
-    channel = channel_arg or "copy"
+    channel = channel_arg or DEFAULT_CHANNEL
     if channel not in CHANNELS:
-        print(
+        raise InitError(
+            FAILURE_EXIT,
             f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",
-            file=sys.stderr,
         )
-        return 1
+    return Request(
+        stack,
+        target_arg,
+        project_name,
+        project_description,
+        harness_version,
+        tools_csv,
+        channel_arg,
+    )
 
-    target = logical_abspath(target_arg)
+
+def resolve_plan(request: Request) -> Plan:
+    """Resolve the request against the target: its directory, the sources, and the channel in force."""
+    target = logical_abspath(request.target_arg)
     if not target.is_dir():
-        print(f"init: no such target directory {target_arg}", file=sys.stderr)
-        return 1
-    init_src = HERE / "init"
-    # Two layouts share this file: the harness tree (templates under
-    # core/.claude/skills) and the plugin cache (templates under skills/,
-    # where package-marketplace bundles init.py beside them).
-    templates = HERE / "core" / ".claude" / "skills" / "doctor" / "templates"
-    if not templates.is_dir():
-        templates = HERE / "skills" / "doctor" / "templates"
-    toml_array = tools_toml(tools_csv)
-
-    # Artifact version: explicit argument wins; otherwise the harness/VERSION
-    # source of truth. Decoupled from spec_version (doctor-validated separately).
-    if not harness_version:
-        harness_version = read_stamp(
-            HERE / "VERSION", "init (or pass [harness-version])"
+        raise InitError(
+            FAILURE_EXIT, f"init: no such target directory {request.target_arg}"
         )
-    # Release date for the brief provenance line (and the CLAUDE.md stamp).
+    harness_version = request.harness_version or read_stamp(
+        HERE / "VERSION", "init (or pass [harness-version])"
+    )
+    # The brief provenance line and the CLAUDE.md stamp carry the release
+    # date, the same neutral, orderable token, not the version.
     harness_date = read_stamp(HERE / "VERSION-DATE", "init")
-    replacements = {
-        "PROJECT_NAME": project_name,
-        "PROJECT_DESCRIPTION": project_description,
-        "HARNESS_VERSION": harness_version,
-        "HARNESS_DATE": harness_date,
-    }
-
-    created = skipped = 0
-    leaks: list[tuple[str, str]] = []
     layout = target / "scripts" / "layout.toml"
     layout_preexisting = layout.exists()
+    return Plan(
+        request=request,
+        target=target,
+        channel=_channel_in_force(
+            request, target, layout, preexisting=layout_preexisting
+        ),
+        templates=_templates(),
+        toml_array=tools_toml(request.tools_csv),
+        replacements={
+            "PROJECT_NAME": request.project_name,
+            "PROJECT_DESCRIPTION": request.project_description,
+            "HARNESS_VERSION": harness_version,
+            "HARNESS_DATE": harness_date,
+        },
+        layout=layout,
+        layout_preexisting=layout_preexisting,
+    )
 
-    # A pre-existing [harness] declaration is authoritative — init never flips
-    # it (the adoption guide's channel-switching section owns migration). A
-    # conflicting explicit argument fails loud BEFORE any file is written;
-    # without one, the declared value drives the remaining steps (gitignore
-    # block, migration aid) and the summary, so a re-run cannot misreport the
-    # channel it left in place.
-    if layout_preexisting:
-        try:
-            declared_layout = read_harness_layout(target)
-        except LayoutError as exc:
-            print(f"init: {exc}", file=sys.stderr)
-            return 1
-        if declared_layout.channel_declared:
-            if channel_arg and channel_arg != declared_layout.channel:
-                print(
-                    f"init: {layout} already declares channel = "
-                    f"'{declared_layout.channel}' — init never flips a "
-                    "declaration; edit the file to switch channels (adoption "
-                    "guide § Distribution channels)",
-                    file=sys.stderr,
-                )
-                return 1
-            channel = declared_layout.channel
 
-    with write_guard.write_scope(target):
-        # 1. Project-owned skeletons: overlay init/core then init/stacks/<stack>.
-        for layer in ("core", f"stacks/{stack}"):
-            src = init_src / layer
-            if not src.is_dir():
+def _templates() -> Path:
+    # Two layouts share this file: the harness tree keeps the templates under
+    # core/.claude/skills, the plugin cache under skills/.
+    templates = HERE / "core" / ".claude" / "skills" / "doctor" / "templates"
+    if templates.is_dir():
+        return templates
+    return HERE / "skills" / "doctor" / "templates"
+
+
+def _channel_in_force(
+    request: Request, target: Path, layout: Path, *, preexisting: bool
+) -> str:
+    # A pre-existing declaration is authoritative: init never flips it, and a
+    # conflicting explicit argument fails before any file is written.
+    channel = request.channel_arg or DEFAULT_CHANNEL
+    if not preexisting:
+        return channel
+    try:
+        declared = read_harness_layout(target)
+    except LayoutError as exc:
+        raise InitError(FAILURE_EXIT, f"init: {exc}") from exc
+    if not declared.channel_declared:
+        return channel
+    if request.channel_arg and request.channel_arg != declared.channel:
+        raise InitError(
+            FAILURE_EXIT,
+            f"init: {layout} already declares channel = "
+            f"'{declared.channel}' — init never flips a "
+            "declaration; edit the file to switch channels (adoption "
+            "guide § Distribution channels)",
+        )
+    return declared.channel
+
+
+def scaffold(plan: Plan) -> Tally:
+    """Write every project-owned file the target lacks and return the tally."""
+    tally = Tally()
+    with write_guard.write_scope(plan.target):
+        _overlay_skeletons(plan, tally)
+        _refresh_chapters(plan.target)
+        _inject_harness_table(plan, tally)
+        _normalize_fresh_layout(plan)
+        _scaffold_briefs(plan, tally)
+        _append_gitignore(plan, tally)
+    return tally
+
+
+def _overlay_skeletons(plan: Plan, tally: Tally) -> None:
+    for layer in ("core", f"stacks/{plan.request.stack}"):
+        src = INIT_SRC / layer
+        if not src.is_dir():
+            continue
+        for path in sorted(p for p in src.rglob("*") if p.is_file()):
+            rel = path.relative_to(src).as_posix()
+            if rel == GITIGNORE_BLOCK:
                 continue
-            for path in sorted(p for p in src.rglob("*") if p.is_file()):
-                rel = path.relative_to(src).as_posix()
-                if rel == "gitignore-runtime.txt":  # appended below, not a file to copy
-                    continue
-                dest = target / rel
-                if dest.exists():
-                    skipped += 1
-                    continue
-                write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
-                write_guard.copy(path, dest)
-                # On the marketplace channel the plugin registers its hooks
-                # via its own hooks.json; project-side matchers would invoke
-                # .claude/hooks/ scripts that never exist on disk there. The
-                # doctor's hook-registration check fails exactly that state.
-                if channel == "marketplace" and rel == ".claude/settings.json":
-                    settings = json.loads(dest.read_text(encoding="utf-8"))
-                    settings.pop("hooks", None)
-                    write_guard.write_text(dest, json.dumps(settings, indent=2) + "\n")
-                leaks += [(rel, t) for t in fill(dest, replacements)]
-                created += 1
-
-        # 1a. Fill the harness-managed chapters in the scaffolded CLAUDE.md. The
-        # skeleton ships each managed heading with an empty body; copy the single
-        # source (harness/claude-md/managed-chapters.md) into them. Idempotent and
-        # a no-op ("absent") for any heading the skeleton omits — materialize
-        # refreshes them on every upgrade thereafter.
-        if (target / "CLAUDE.md").is_file():
-            refresh = subprocess.run(
-                [
-                    sys.executable,
-                    str(HERE / "claude-md" / "refresh-chapters.py"),
-                    str(target / "CLAUDE.md"),
-                    str(HERE),
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if refresh.returncode != 0:
-                # Re-emit the child's diagnostic — a swallowed stderr leaves only
-                # an exit code to debug a broken harness tree with.
-                sys.stderr.write(refresh.stderr)
-                raise SystemExit(refresh.returncode)
-
-        # 1b. Channel declaration. If the target already had scripts/layout.toml
-        # (so the overlay above kept it), it may predate the manifest channel and
-        # lack the [harness] table. Additively inject it — append-only, touching no
-        # existing key. This is the one exception to "never modify an existing
-        # project file": a key the doctor requires, added without altering the
-        # project's own rules. It is how an existing copy-channel project migrates.
-        harness_injected = 0
-        if layout.is_file():
-            layout_text = layout.read_text(encoding="utf-8")
-            if not re.search(r"^\[harness\]", layout_text, re.MULTILINE):
-                skeleton = init_src / "stacks" / stack / "scripts" / "layout.toml"
-                spec = "0.2.0"
-                if skeleton.is_file():
-                    m = re.search(
-                        r'^spec_version = "(.*)"',
-                        skeleton.read_text(encoding="utf-8"),
-                        re.MULTILINE,
-                    )
-                    if m:
-                        spec = m.group(1)
-                layout_text += (
-                    "\n# Harness identity (added by init): distribution channel + "
-                    "harness-project API revision.\n"
-                    f'[harness]\nchannel = "{channel}"\nspec_version = "{spec}"\n'
-                    f"tools = {toml_array}\nextensions = []\n"
-                )
-                write_guard.write_text(layout, layout_text, encoding="utf-8")
-                harness_injected = 1
-
-        # 1c. Normalize channel and tool surfaces on a freshly scaffolded
-        # layout.toml. The skeleton ships channel="copy" and all three tools; set
-        # both to the requested values so the user's choice wins. A pre-existing
-        # project owns these lines — leave them untouched (the migration injection
-        # above wrote the requested values when it added the table).
-        if not layout_preexisting and layout.is_file():
-            replace_first_line(layout, "channel = ", f'channel = "{channel}"')
-            replace_first_line(layout, "tools = ", f"tools = {toml_array}")
-
-        # 2. docs/ brief roster from the doctor templates (project-owned defaults).
-        for template, rel in BRIEFS:
-            src = templates / template
-            if not src.is_file():
-                print(f"init: missing brief template {template}", file=sys.stderr)
-                return 1
-            dest = target / rel
+            dest = plan.target / rel
             if dest.exists():
-                skipped += 1
+                tally.skipped += 1
                 continue
             write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
-            write_guard.copy(src, dest)
-            leaks += [(rel, t) for t in fill(dest, replacements)]
-            created += 1
+            write_guard.copy(path, dest)
+            if plan.channel == "marketplace" and rel == ".claude/settings.json":
+                _drop_hook_matchers(dest)
+            tally.leaks += [(rel, t) for t in fill(dest, plan.replacements)]
+            tally.created += 1
 
-        # 3. .gitignore. Manifest and marketplace deliver the runtime out-of-band,
-        # so it is materialized (or plugin-supplied) and never committed; copy
-        # commits the runtime, so only the handoff ledger is ignored. Both append
-        # once, guarded by the same case-insensitive "harness runtime" token
-        # refresh-gitignore.py writes, so whichever of init or the refresh runs
-        # first, the other recognizes the block and never re-appends it (the two
-        # must share one detection rule).
-        gitignore = target / ".gitignore"
-        gi_text = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
-        appended = 0
-        if channel != "copy":
-            if "harness runtime" not in gi_text.lower():
-                block = (init_src / "core" / "gitignore-runtime.txt").read_text(
-                    encoding="utf-8"
-                )
-                write_guard.write_text(
-                    gitignore, gi_text + "\n" + block, encoding="utf-8"
-                )
-                appended = 1
-        elif ".scratch/" not in gi_text.splitlines():
-            # copy channel: runtime is committed; ignore only the per-session ledger.
-            write_guard.write_text(
-                gitignore,
-                gi_text
-                + "\n# Handoff ledger (per-session, never committed)\n.scratch/\n",
-                encoding="utf-8",
-            )
-            appended = 1
 
-    # 4. Migration aid (manifest/marketplace). Under any out-of-band channel the
-    # runtime is gitignored, but a project migrating from the copy channel still
-    # has those files git-TRACKED (a new .gitignore does not untrack what is
-    # already committed). Git is never run against the user's repo; the report
-    # carries the exact untrack command.
-    tracked_note = ""
-    if channel != "copy" and _inside_git_worktree(target):
-        runtime_paths: list[str] = []
-        for line in (
-            (init_src / "core" / "gitignore-runtime.txt")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        ):
-            if not line or line.startswith("#") or line == ".scratch/":
-                continue
-            runtime_paths.append(line.removesuffix("/*"))
-        # Declared extensions are project-owned and stay tracked — exclude them
-        # from the untrack so the migration never strips the project's own
-        # skills/agents. The layout is already valid here (adopted or injected
-        # above); a best-effort read keeps a malformed edit from crashing a
-        # migration hint.
-        ext_excludes: list[str] = []
-        try:
-            ext_excludes = [f":!{e}" for e in read_harness_layout(target).extensions]
-        except LayoutError:
-            ext_excludes = []
-        if runtime_paths:
-            result = subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(target),
-                    "ls-files",
-                    "--",
-                    *runtime_paths,
-                    *ext_excludes,
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            tracked = [l for l in result.stdout.splitlines() if l.strip()]
-            if tracked:
-                n = len(tracked)
-                tracked_note = f", {n} tracked-runtime-file(s)-need-untracking"
-                print(
-                    f"init: NOTE {n} harness runtime file(s) are git-tracked; "
-                    f"untrack them for the {channel} channel:",
-                    file=sys.stderr,
-                )
-                # --ignore-unmatch: a partial-tool project lacks some runtime
-                # paths; without it git rm fails atomically on the first
-                # non-matching pathspec. Quote each pathspec so the printed
-                # command survives a path with spaces.
-                hint = "".join(f' "{p}"' for p in runtime_paths + ext_excludes)
-                print(
-                    f'  git -C "{target}" rm -r --cached --ignore-unmatch{hint}',
-                    file=sys.stderr,
-                )
+def _drop_hook_matchers(settings_path: Path) -> None:
+    # On the marketplace channel the plugin registers its hooks through its
+    # own hooks.json; a project-side matcher would invoke a script that never
+    # exists on disk there.
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    settings.pop("hooks", None)
+    write_guard.write_text(settings_path, json.dumps(settings, indent=2) + "\n")
 
-    # Self-verify: a token init was asked to fill must not survive into a
-    # consumer's committed docs. {{FILL}} rows outside the replacement map
-    # are the consumer's to complete and are not checked here.
-    if leaks:
-        for rel, token in leaks:
-            print(
-                f"init: FAIL unfilled placeholder {{{{{token}}}}} in {rel}",
-                file=sys.stderr,
-            )
-        return 1
 
-    print(
-        f"init stack={stack} channel={channel} tools={toml_array}: "
-        f"{created} created, {skipped} pre-existing kept, "
-        f"gitignore-block-appended={appended}, "
-        f"harness-table-injected={harness_injected}{tracked_note} → {target}"
+def _refresh_chapters(target: Path) -> None:
+    # The skeleton ships each managed heading with an empty body; the single
+    # source fills them, and materialize refreshes them on every upgrade.
+    if not (target / "CLAUDE.md").is_file():
+        return
+    refresh = subprocess.run(
+        [
+            sys.executable,
+            str(HERE / "claude-md" / "refresh-chapters.py"),
+            str(target / "CLAUDE.md"),
+            str(HERE),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    return 0
+    if refresh.returncode != 0:
+        # The child's diagnostic is the only thing a broken tree leaves to debug with.
+        raise InitError(refresh.returncode, refresh.stderr, verbatim=True)
+
+
+def _inject_harness_table(plan: Plan, tally: Tally) -> None:
+    # A kept layout may predate the channel declaration. Appending the table
+    # is the one exception to never modifying a project file: a key the
+    # doctor requires, added without touching the project's own rules.
+    if not plan.layout.is_file():
+        return
+    layout_text = plan.layout.read_text(encoding="utf-8")
+    if re.search(r"^\[harness\]", layout_text, re.MULTILINE):
+        return
+    layout_text += (
+        "\n# Harness identity (added by init): distribution channel + "
+        "harness-project API revision.\n"
+        f'[harness]\nchannel = "{plan.channel}"\nspec_version = "{_skeleton_spec_version(plan)}"\n'
+        f"tools = {plan.toml_array}\nextensions = []\n"
+    )
+    write_guard.write_text(plan.layout, layout_text, encoding="utf-8")
+    tally.harness_injected = 1
+
+
+def _skeleton_spec_version(plan: Plan) -> str:
+    skeleton = INIT_SRC / "stacks" / plan.request.stack / "scripts" / "layout.toml"
+    if not skeleton.is_file():
+        return DEFAULT_SPEC_VERSION
+    match = re.search(
+        r'^spec_version = "(.*)"', skeleton.read_text(encoding="utf-8"), re.MULTILINE
+    )
+    return match.group(1) if match else DEFAULT_SPEC_VERSION
+
+
+def _normalize_fresh_layout(plan: Plan) -> None:
+    # The skeleton ships channel="copy" and every tool; the request wins on a
+    # fresh file, while a pre-existing project owns these lines.
+    if plan.layout_preexisting or not plan.layout.is_file():
+        return
+    replace_first_line(plan.layout, "channel = ", f'channel = "{plan.channel}"')
+    replace_first_line(plan.layout, "tools = ", f"tools = {plan.toml_array}")
+
+
+def _scaffold_briefs(plan: Plan, tally: Tally) -> None:
+    for template, rel in BRIEFS:
+        src = plan.templates / template
+        if not src.is_file():
+            raise InitError(FAILURE_EXIT, f"init: missing brief template {template}")
+        dest = plan.target / rel
+        if dest.exists():
+            tally.skipped += 1
+            continue
+        write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
+        write_guard.copy(src, dest)
+        tally.leaks += [(rel, t) for t in fill(dest, plan.replacements)]
+        tally.created += 1
+
+
+def _append_gitignore(plan: Plan, tally: Tally) -> None:
+    # Manifest and marketplace deliver the runtime out-of-band, so it is never
+    # committed; copy commits it, so only the handoff ledger is ignored.
+    gitignore = plan.target / ".gitignore"
+    text = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+    addition = _gitignore_addition(plan.channel, text)
+    if addition is None:
+        return
+    write_guard.write_text(gitignore, text + addition, encoding="utf-8")
+    tally.appended = 1
+
+
+def _gitignore_addition(channel: str, text: str) -> str | None:
+    if channel != DEFAULT_CHANNEL:
+        if GITIGNORE_SENTINEL in text.lower():
+            return None
+        return "\n" + (INIT_SRC / "core" / GITIGNORE_BLOCK).read_text(encoding="utf-8")
+    if ".scratch/" in text.splitlines():
+        return None
+    return LEDGER_IGNORE
+
+
+def tracked_runtime_note(plan: Plan) -> str:
+    """Print the untrack hint for a migrating repository and return the summary's note."""
+    # A new .gitignore does not untrack what is already committed. Git is
+    # never run against the user's repository beyond the read; the report
+    # carries the exact command.
+    if plan.channel == DEFAULT_CHANNEL or not _inside_git_worktree(plan.target):
+        return ""
+    runtime_paths = _runtime_paths(INIT_SRC / "core" / GITIGNORE_BLOCK)
+    if not runtime_paths:
+        return ""
+    excludes = _extension_excludes(plan.target)
+    result = subprocess.run(
+        ["git", "-C", str(plan.target), "ls-files", "--", *runtime_paths, *excludes],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    tracked = [line for line in result.stdout.splitlines() if line.strip()]
+    if not tracked:
+        return ""
+    report(
+        f"init: NOTE {len(tracked)} harness runtime file(s) are git-tracked; "
+        f"untrack them for the {plan.channel} channel:"
+    )
+    # --ignore-unmatch: a partial-tool project lacks some runtime paths, and
+    # git rm fails atomically on the first non-matching pathspec.
+    hint = "".join(f' "{p}"' for p in runtime_paths + excludes)
+    report(f'  git -C "{plan.target}" rm -r --cached --ignore-unmatch{hint}')
+    return f", {len(tracked)} tracked-runtime-file(s)-need-untracking"
+
+
+def _runtime_paths(block: Path) -> list[str]:
+    return [
+        line.removesuffix("/*")
+        for line in block.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#") and line != ".scratch/"
+    ]
+
+
+def _extension_excludes(target: Path) -> list[str]:
+    # Declared extensions are project-owned and stay tracked. The layout is
+    # valid by now; a best-effort read keeps a malformed edit from crashing a
+    # migration hint.
+    try:
+        return [f":!{e}" for e in read_harness_layout(target).extensions]
+    except LayoutError:
+        return []
 
 
 def _inside_git_worktree(target: Path) -> bool:
@@ -433,5 +456,31 @@ def _inside_git_worktree(target: Path) -> bool:
     return result.returncode == 0
 
 
+def main(argv: list[str]) -> int:
+    """Scaffold the target from the command line and return the exit code."""
+    try:
+        plan = resolve_plan(parse_request(argv))
+        tally = scaffold(plan)
+    except InitError as exc:
+        if exc.verbatim:
+            sys.stderr.write(exc.message)
+        else:
+            report(exc.message)
+        return exc.code
+    tracked_note = tracked_runtime_note(plan)
+    # A token init was asked to fill must not survive into a consumer's docs.
+    if tally.leaks:
+        for rel, token in tally.leaks:
+            report(f"init: FAIL unfilled placeholder {{{{{token}}}}} in {rel}")
+        return FAILURE_EXIT
+    print(
+        f"init stack={plan.request.stack} channel={plan.channel} tools={plan.toml_array}: "
+        f"{tally.created} created, {tally.skipped} pre-existing kept, "
+        f"gitignore-block-appended={tally.appended}, "
+        f"harness-table-injected={tally.harness_injected}{tracked_note} → {plan.target}"
+    )
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

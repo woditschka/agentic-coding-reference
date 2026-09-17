@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""Characterization tests for backlog.py — the `next` skill's candidate set.
-
-Each case builds a throwaway project: a git repo with docs/prd.md, commits
-naming delivered ids, and optionally a scripts/backlog.sh connector. The
-engine is exercised through main() with --root, exactly as the skill calls
-it, so the cases pin the terminal and JSON forms the skill reads.
-
-Run (from the scripts dir): python3 -m unittest tests.test_backlog
-"""
+"""The backlog engine over throwaway projects: a git repository, a PRD, and an optional connector."""
 
 import contextlib
 import io
@@ -19,10 +11,19 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # the scripts dir
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import backlog
+
+COMMAND_FAILED_EXIT = 2
+ANY_STATUS = 9
+OPEN_REQUIREMENTS = ("REQ-WX-001", "REQ-WX-002", "REQ-WX-003", "REQ-WX-005")
+A_NON_GOAL = "REQ-WX-004"
+A_SUPERSEDED = "REQ-WX-006"
+AN_ID_THE_PRD_LACKS = "REQ-WX-009"
+SOME_OWNER = "alice"
 
 PRD = """# PRD
 
@@ -67,16 +68,25 @@ backlog_items() { return 0; }
 backlog_claim() { return 0; }
 """
 
-BOUND_CONNECTOR = """#!/usr/bin/env bash
-backlog_items() {
-  printf 'REQ-WX-003\\t\\tRename a widget\\n'
-  printf 'REQ-WX-002\\talice\\tCreate a widget\\n'
-  printf '\\t\\tBulk import from CSV\\n'
-  printf 'REQ-WX-001\\t\\tList widgets\\n'
-  printf 'REQ-WX-009\\t\\tA ticket for an id the PRD lacks\\n'
-}
-backlog_claim() { printf 'moved %s to In Progress\\n' "$1"; }
-"""
+BOUND_BOARD = (
+    ("REQ-WX-003", "", "Rename a widget"),
+    ("REQ-WX-002", SOME_OWNER, "Create a widget"),
+    ("", "", "Bulk import from CSV"),
+    ("REQ-WX-001", "", "List widgets"),
+    (AN_ID_THE_PRD_LACKS, "", "A ticket for an id the PRD lacks"),
+)
+BOUND_CONNECTOR = (
+    "#!/usr/bin/env bash\nbacklog_items() {\n"
+    + "".join(
+        f"  printf '{req_id}\\t{owner}\\t{title}\\n'\n"
+        for req_id, owner, title in BOUND_BOARD
+    )
+    + "}\nbacklog_claim() { printf 'moved %s to In Progress\\n' \"$1\"; }\n"
+)
+
+
+def board_rank(req_id):
+    return next(no for no, row in enumerate(BOUND_BOARD, 1) if row[0] == req_id)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -93,7 +103,7 @@ def make_project(
     commits: tuple[str, ...] = (),
 ) -> None:
     (root / "docs").mkdir(parents=True)
-    (root / "docs/prd.md").write_text(prd, encoding="utf-8")
+    (root / backlog.PRD_PATH).write_text(prd, encoding="utf-8")
     (root / "scripts").mkdir()
     if connector is not None:
         path = root / backlog.CONNECTOR_PATH
@@ -133,11 +143,11 @@ class Solo(unittest.TestCase):
             self.assertEqual(r["connector"], "none")
             self.assertEqual(
                 [c["req_id"] for c in r["open"]],
-                ["REQ-WX-002", "REQ-WX-003", "REQ-WX-005"],
+                [req_id for req_id in OPEN_REQUIREMENTS if req_id != "REQ-WX-001"],
             )
-            self.assertEqual(r["done"], ["REQ-WX-001"])  # case-folded from the subject
-            self.assertEqual(r["non_goal"], ["REQ-WX-004"])
-            self.assertEqual(r["superseded"], ["REQ-WX-006"])
+            self.assertEqual(r["done"], ["REQ-WX-001"])
+            self.assertEqual(r["non_goal"], [A_NON_GOAL])
+            self.assertEqual(r["superseded"], [A_SUPERSEDED])
             self.assertEqual(r["claimed"], [])
             self.assertEqual(r["needs_intake"], [])
 
@@ -157,9 +167,9 @@ class Solo(unittest.TestCase):
             make_project(root)
             ids = [c["req_id"] for c in report(root)["open"]]
             self.assertIn("REQ-WX-005", ids)
-            self.assertNotIn("REQ-WX-006", ids)
+            self.assertNotIn(A_SUPERSEDED, ids)
 
-    def test_unborn_head_delivers_nothing(self):
+    def test_an_unborn_head_delivers_nothing(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             make_project(root)
@@ -172,7 +182,7 @@ class Solo(unittest.TestCase):
             r = report(root)
             self.assertEqual(r["connector"], "unbound")
             self.assertEqual(r["board_items"], 0)
-            self.assertEqual(len(r["open"]), 4)
+            self.assertEqual(len(r["open"]), len(OPEN_REQUIREMENTS))
             code, out, _ = run(root, "candidates")
             self.assertIn("unbound (solo)", out)
             self.assertNotIn("not on the board", out)
@@ -194,30 +204,25 @@ class Solo(unittest.TestCase):
             self.assertIn("confirm the move on the board", out)
             self.assertNotIn("recorded", out)
 
-    def test_missing_prd_fails(self):
+    def test_a_missing_prd_fails(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             make_project(root)
-            (root / "docs/prd.md").unlink()
+            (root / backlog.PRD_PATH).unlink()
             code, _, err = run(root, "candidates")
-            self.assertEqual(code, 2)
-            self.assertIn("docs/prd.md", err)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
+            self.assertIn(backlog.PRD_PATH, err)
 
-    def test_outside_a_repo_fails(self):
+    def test_a_root_outside_a_repository_fails(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             (root / "docs").mkdir()
-            (root / "docs/prd.md").write_text(PRD, encoding="utf-8")
-            env_home = os.environ.get("GIT_CEILING_DIRECTORIES")
-            os.environ["GIT_CEILING_DIRECTORIES"] = str(root.parent)
-            try:
+            (root / backlog.PRD_PATH).write_text(PRD, encoding="utf-8")
+            with unittest.mock.patch.dict(
+                os.environ, {"GIT_CEILING_DIRECTORIES": str(root.parent)}
+            ):
                 code, _, err = run(root, "candidates")
-            finally:
-                if env_home is None:
-                    del os.environ["GIT_CEILING_DIRECTORIES"]
-                else:
-                    os.environ["GIT_CEILING_DIRECTORIES"] = env_home
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertIn("not a git repository", err)
 
 
@@ -231,19 +236,23 @@ class Bound(unittest.TestCase):
             make_project(root, connector=BOUND_CONNECTOR)
             r = report(root)
             self.assertEqual(r["connector"], "bound")
-            self.assertEqual(r["board_items"], 5)
+            self.assertEqual(r["board_items"], len(BOUND_BOARD))
             self.assertEqual(
                 [(c["req_id"], c["rank"]) for c in r["open"]],
-                [("REQ-WX-003", 1), ("REQ-WX-001", 4), ("REQ-WX-005", None)],
+                [
+                    ("REQ-WX-003", board_rank("REQ-WX-003")),
+                    ("REQ-WX-001", board_rank("REQ-WX-001")),
+                    ("REQ-WX-005", None),
+                ],
             )
             self.assertEqual(
                 [(c["req_id"], c["owner"]) for c in r["claimed"]],
-                [("REQ-WX-002", "alice")],
+                [("REQ-WX-002", SOME_OWNER)],
             )
             self.assertEqual(
                 [i["title"] for i in r["needs_intake"]], ["Bulk import from CSV"]
             )
-            self.assertEqual([c["req_id"] for c in r["stale"]], ["REQ-WX-009"])
+            self.assertEqual([c["req_id"] for c in r["stale"]], [AN_ID_THE_PRD_LACKS])
 
     def test_delivered_board_item_is_stale(self):
         with tempfile.TemporaryDirectory() as td:
@@ -257,22 +266,22 @@ class Bound(unittest.TestCase):
             _, out, _ = run(root, "candidates")
             self.assertIn("REQ-WX-003  delivered in git history", out)
 
-    def test_terminal_form(self):
+    def test_the_terminal_form_lists_every_section(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             make_project(root, connector=BOUND_CONNECTOR)
             code, out, _ = run(root, "candidates")
             self.assertEqual(code, 0)
-            self.assertIn("(5 board items)", out)
-            self.assertIn("  1  REQ-WX-003  ", out)
+            self.assertIn(f"({len(BOUND_BOARD)} board items)", out)
+            self.assertIn(f"  {board_rank('REQ-WX-003')}  REQ-WX-003  ", out)
             self.assertIn("  -  REQ-WX-005  ", out)
             self.assertIn("(not on the board)", out)
             self.assertIn("claimed (1):", out)
-            self.assertIn("REQ-WX-002  alice", out)
+            self.assertIn(f"REQ-WX-002  {SOME_OWNER}", out)
             self.assertIn("needs intake (1)", out)
             self.assertIn("stale on the board (1)", out)
             self.assertIn(
-                "excluded: done 0, non-goal 1 (REQ-WX-004), superseded 1 (REQ-WX-006)",
+                f"excluded: done 0, non-goal 1 ({A_NON_GOAL}), superseded 1 ({A_SUPERSEDED})",
                 out,
             )
 
@@ -283,18 +292,18 @@ class Bound(unittest.TestCase):
                 root, connector="backlog_items() { echo 'jira: 401' >&2; return 1; }\n"
             )
             code, out, err = run(root, "candidates")
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertEqual(out, "")
             self.assertIn("jira: 401", err)
             self.assertIn("--no-connector", err)
 
-    def test_no_connector_flag_overrides(self):
+    def test_the_no_connector_flag_skips_a_failing_connector(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             make_project(root, connector="backlog_items() { return 1; }\n")
             r = report(root, "--no-connector")
             self.assertEqual(r["connector"], "skipped")
-            self.assertEqual(len(r["open"]), 4)
+            self.assertEqual(len(r["open"]), len(OPEN_REQUIREMENTS))
 
     def test_connector_without_the_function_is_unbound(self):
         with tempfile.TemporaryDirectory() as td:
@@ -302,17 +311,17 @@ class Bound(unittest.TestCase):
             make_project(root, connector="# nothing bound yet\n")
             self.assertEqual(report(root)["connector"], "unbound")
 
-    def test_verb_exit_3_or_4_is_the_verbs_failure(self):
-        # A tracker CLI can exit 3 or 4 itself; neither is the probe's code
-        # without its sentinel, so the read fails loud instead of going solo.
-        for status in (3, 4):
+    def test_a_verb_exiting_with_a_probe_status_is_the_verbs_failure(self):
+        # A tracker CLI can exit with a probe status itself; without the
+        # probe's sentinel the read fails loud instead of going solo.
+        for status in (backlog.SOURCE_FAILED_STATUS, backlog.NO_FUNCTION_STATUS):
             with tempfile.TemporaryDirectory() as td:
                 root = Path(td)
                 make_project(
                     root, connector=f"backlog_items() {{ return {status}; }}\n"
                 )
                 code, _, err = run(root, "candidates")
-                self.assertEqual(code, 2, status)
+                self.assertEqual(code, COMMAND_FAILED_EXIT, status)
                 self.assertIn("backlog_items failed", err)
                 self.assertNotIn("failed to source", err)
 
@@ -329,7 +338,7 @@ class Bound(unittest.TestCase):
             self.assertEqual(r["board_items"], 1)
             self.assertEqual(r["open"][0]["req_id"], "REQ-WX-003")
             self.assertEqual(r["claimed"], [])
-            code, out, _ = run(root, "candidates")
+            _, out, _ = run(root, "candidates")
             self.assertNotIn("\x1b", out)
             self.assertNotIn("\x0c", out)
 
@@ -355,7 +364,7 @@ class Bound(unittest.TestCase):
             (root / "board.tsv").write_text(
                 "REQ-WX-003\tbob\tRename\n", encoding="utf-8"
             )
-            here = os.getcwd()
+            here = Path.cwd()
             os.chdir(cwd)
             try:
                 r = report(root)
@@ -378,9 +387,9 @@ class Bound(unittest.TestCase):
             root = Path(td)
             # A top-level `return` fails the source; a top-level `exit` would
             # end the shell itself, which the engine reports as the verb's status.
-            make_project(root, connector="return 9\n")
+            make_project(root, connector=f"return {ANY_STATUS}\n")
             code, _, err = run(root, "candidates")
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertIn("failed to source", err)
 
     def test_non_req_first_column_is_a_binding_error(self):
@@ -390,7 +399,7 @@ class Bound(unittest.TestCase):
                 root, connector="backlog_items() { printf 'PROJ-42\\tbob\\tx\\n'; }\n"
             )
             code, _, err = run(root, "candidates")
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertIn("PROJ-42", err)
 
     def test_lowercase_ids_and_comments_are_tolerated(self):
@@ -439,16 +448,19 @@ class Claim(unittest.TestCase):
                 connector="backlog_claim() { echo 'transition denied' >&2; return 1; }\n",
             )
             code, _, err = run(root, "claim", "REQ-WX-003")
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertIn("transition denied", err)
             self.assertIn("by hand", err)
 
-    def test_claim_verb_exit_4_fails_loud(self):
+    def test_a_claim_verb_exiting_with_a_probe_status_fails_loud(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            make_project(root, connector="backlog_claim() { return 4; }\n")
+            make_project(
+                root,
+                connector=f"backlog_claim() {{ return {backlog.NO_FUNCTION_STATUS}; }}\n",
+            )
             code, _, err = run(root, "claim", "REQ-WX-003")
-            self.assertEqual(code, 2)
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertIn("claim REQ-WX-003 failed", err)
 
     def test_claim_folds_case_and_rejects_a_trailing_newline(self):
@@ -458,15 +470,15 @@ class Claim(unittest.TestCase):
             code, out, _ = run(root, "claim", "req-wx-003")
             self.assertEqual(code, 0)
             self.assertIn("moved REQ-WX-003", out)
-            code, _, err = run(root, "claim", "REQ-WX-003\n")
-            self.assertEqual(code, 2)
+            code, _, _ = run(root, "claim", "REQ-WX-003\n")
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
 
     def test_claim_rejects_a_non_id(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             make_project(root, connector="backlog_claim() { echo ran; }\n")
-            code, out, err = run(root, "claim", "REQ-WX-3; rm -rf /")
-            self.assertEqual(code, 2)
+            code, out, err = run(root, "claim", "REQ-WX-003; echo x")
+            self.assertEqual(code, COMMAND_FAILED_EXIT)
             self.assertNotIn("ran", out)
             self.assertIn("not a requirement id", err)
 
@@ -478,27 +490,20 @@ class PrdParsing(unittest.TestCase):
             "| NG-1 | Bulk export (was [REQ-WX-004], folded into [REQ-WX-005]) | out of scope |",
         )
         parsed = backlog.parse_prd(prd)
-        self.assertEqual(parsed.non_goal, ["REQ-WX-004"])
+        self.assertEqual(parsed.non_goal, [A_NON_GOAL])
         self.assertIn("REQ-WX-005", parsed.requirements)
 
-    def test_first_id_per_superseded_line(self):
+    def test_the_first_id_per_superseded_line_is_retired(self):
         prd = backlog.parse_prd(PRD)
-        self.assertEqual(prd.superseded, ["REQ-WX-006"])
-        self.assertEqual(prd.non_goal, ["REQ-WX-004"])
+        self.assertEqual(prd.superseded, [A_SUPERSEDED])
+        self.assertEqual(prd.non_goal, [A_NON_GOAL])
         self.assertEqual(
             list(prd.requirements),
-            [
-                "REQ-WX-004",
-                "REQ-WX-001",
-                "REQ-WX-002",
-                "REQ-WX-003",
-                "REQ-WX-005",
-                "REQ-WX-006",
-            ],
+            [A_NON_GOAL, *OPEN_REQUIREMENTS, A_SUPERSEDED],
         )
 
-    def test_long_title_is_cut(self):
-        text = "## Requirements\n\n" + "word " * 40 + "[REQ-LL-001]\n"
+    def test_a_title_past_the_width_is_cut_with_an_ellipsis(self):
+        text = "## Requirements\n\n" + "word " * backlog.TITLE_WIDTH + "[REQ-LL-001]\n"
         title = backlog.parse_prd(text).requirements["REQ-LL-001"]
         self.assertLessEqual(len(title), backlog.TITLE_WIDTH)
         self.assertTrue(title.endswith("…"))

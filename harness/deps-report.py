@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""deps-report: collect every pinned tool/plugin version the upgrade-deps
-skill tracks, group by item, and fail on intra-item drift.
+"""Collect every pinned tool and plugin version the upgrade-deps skill tracks, and fail on drift.
 
 The mechanical half of the upgrade-deps skill's collect step, plus its
 consistency rule: one item, one version, however many locations restate it
@@ -110,10 +109,7 @@ USES_RE = re.compile(
 
 @dataclass(frozen=True)
 class ActionPin:
-    """One SHA-pinned workflow action: the pinned commit, its `# vX.Y.Z`
-    comment tag, and the first workflow file that pinned it (named in the
-    disagreement message). Replaces a positional (sha, tag, wf) tuple so the
-    reads are `pin.workflow`, not `pin[2]`."""
+    """One SHA-pinned workflow action: the commit, its comment tag, and the first workflow that pinned it."""
 
     sha: str
     tag: str
@@ -121,7 +117,7 @@ class ActionPin:
 
 
 def collect() -> tuple[list[tuple[str, str, int]], list[str]]:
-    """(rows, problems): one row per item, one problem string per defect."""
+    """Collect one row per item and one problem string per defect."""
     rows: list[tuple[str, str, int]] = []
     problems: list[str] = []
     for item, locations in ITEMS.items():
@@ -145,8 +141,7 @@ def collect() -> tuple[list[tuple[str, str, int]], list[str]]:
 
 
 def collect_actions() -> tuple[dict[str, ActionPin], list[str]]:
-    """(pins, problems): every SHA-pinned workflow action with its comment
-    tag. The same action pinned in several workflows must agree exactly."""
+    """Collect every SHA-pinned workflow action with its comment tag, and the disagreements between workflows."""
     pins: dict[str, ActionPin] = {}
     problems: list[str] = []
     for wf in sorted((ROOT / ".github/workflows").glob("*.yml")):
@@ -173,13 +168,10 @@ def collect_actions() -> tuple[dict[str, ActionPin], list[str]]:
 
 
 def resolve_shas(pins: dict[str, ActionPin]) -> list[str]:
-    """Verify each '# vX.Y.Z' comment names the commit its SHA pins.
-
-    The pinned SHA is what runs; the comment is what a reviewer reads. A
-    valid-but-wrong SHA passes CI green while the comment lies — the exact
-    supply-chain scenario SHA-pinning exists for. Resolution uses
-    `git ls-remote` (no GitHub CLI in this environment); the peeled `^{}`
-    line is the commit an annotated tag points at."""
+    """Verify each comment tag names the commit its SHA pins, through git ls-remote."""
+    # The pinned SHA is what runs and the comment is what a reviewer reads; a
+    # valid but wrong SHA passes green while the comment lies. The peeled
+    # `^{}` line is the commit an annotated tag points at.
     problems: list[str] = []
     for action, pin in sorted(pins.items()):
         sha, tag = pin.sha, pin.tag
@@ -201,14 +193,14 @@ def resolve_shas(pins: dict[str, ActionPin]) -> list[str]:
         except (OSError, subprocess.TimeoutExpired) as exc:
             problems.append(f"{action}: cannot run git ls-remote ({exc})")
             break
-        rows = dict(
-            (ref, obj)
+        rows = {
+            ref: obj
             for obj, ref in (
                 line.split(None, 1)
                 for line in result.stdout.splitlines()
                 if line.strip()
             )
-        )
+        }
         real = rows.get(f"refs/tags/{tag}^{{}}") or rows.get(f"refs/tags/{tag}")
         if result.returncode != 0 or not real:
             problems.append(
@@ -226,6 +218,7 @@ def resolve_shas(pins: dict[str, ActionPin]) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    """Print the pin report and return the exit code."""
     # Fail loud on an unknown flag: a typo like --resolve-sha would otherwise
     # silently skip the SHA verification while printing the same table.
     # main() receives sys.argv[1:], so every element is an argument.
@@ -262,4 +255,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    raise SystemExit(main(sys.argv[1:]))

@@ -42,8 +42,12 @@ AN_ESCALATION = {**A_POLISH, "tag": "escalate"}
 A_CHECKPOINT = {**A_POLISH, "tag": "truncation"}
 NO_CYCLE_START = 0
 ROUND_ONE = 1
+BELOW_THE_CAP = REVIEW_ROUND_CAP - 1
 CAPPED_ROUND = REVIEW_ROUND_CAP
 PAST_THE_CAP = REVIEW_ROUND_CAP + 1
+DISSENTS_TO_CHURN = 3
+TRUNCATION_RUN = 3
+ONE_ESCALATION = 1
 
 
 def a_build_pass():
@@ -67,7 +71,6 @@ def an_approval(author=FIRST, findings=()):
 
 
 PASS_SHAPE = {
-    "build_pass_line": 1,
     "round_no": ROUND_ONE,
     "reviewers": FLOOR,
     "roster": FLOOR,
@@ -76,12 +79,21 @@ PASS_SHAPE = {
 }
 
 
+def line_of(records, record):
+    """The one-based ledger line the record lands on."""
+    return records.index(record) + 1
+
+
+def last_build_pass_line(records):
+    return max(no for no, r in enumerate(records, 1) if r["type"] == "build-pass")
+
+
 def a_pass(*raws, **shape):
-    """Build a pass over the records; the shape defaults to a build-pass at line one and the floor."""
+    """Build a pass over the records, opened by the last build-pass, with the floor as roster."""
     form = {**PASS_SHAPE, **shape}
     return ReviewPass(
         entries(*raws),
-        form["build_pass_line"],
+        last_build_pass_line(raws),
         form["cycle_start"],
         form["round_no"],
         tuple(form["reviewers"]),
@@ -99,15 +111,16 @@ def verdicts_of(review):
 
 class RoundContext(unittest.TestCase):
     def test_a_round_below_the_cap_carries_only_its_number(self):
-        context = a_pass(a_build_pass(), round_no=2).round_context()
+        context = a_pass(a_build_pass(), round_no=BELOW_THE_CAP).round_context()
 
-        self.assertEqual(context, {"round": 2, "prompt_note": "Review round 2."})
+        self.assertEqual(
+            context,
+            {"round": BELOW_THE_CAP, "prompt_note": f"Review round {BELOW_THE_CAP}."},
+        )
 
     def test_the_capped_round_is_critical_only(self):
         self.assertTrue(a_pass(a_build_pass(), round_no=CAPPED_ROUND).critical_only)
-        self.assertFalse(
-            a_pass(a_build_pass(), round_no=CAPPED_ROUND - 1).critical_only
-        )
+        self.assertFalse(a_pass(a_build_pass(), round_no=BELOW_THE_CAP).critical_only)
 
     def test_the_capped_round_advertises_the_critical_only_bar(self):
         context = a_pass(a_build_pass(), round_no=CAPPED_ROUND).round_context()
@@ -119,39 +132,41 @@ class RoundContext(unittest.TestCase):
         )
 
     def test_feedback_since_build_pass_yields_typed_records_after_the_line(self):
-        review = a_pass(a_dissent(), a_build_pass(), an_approval(), build_pass_line=2)
+        approval = an_approval()
+        records = (a_dissent(), a_build_pass(), approval)
+        review = a_pass(*records)
 
         yielded = list(review.feedback_since_build_pass())
 
-        self.assertEqual([entry.no for entry, _ in yielded], [3])
+        self.assertEqual(
+            [entry.no for entry, _ in yielded], [line_of(records, approval)]
+        )
         self.assertEqual(yielded[0][1].verdict, "approved")
 
 
-class TheLadder(unittest.TestCase):
+class Ladder(unittest.TestCase):
     def test_reviewers_with_no_record_since_the_build_pass_are_undispatched(self):
         ladder = reviewer_ladder(a_pass(a_build_pass()))
 
         self.assertEqual(ladder, ReviewerLadder({}, (), (), FLOOR))
 
     def test_current_feedback_places_a_reviewer_on_the_feedback_rung(self):
-        ladder = reviewer_ladder(
-            a_pass(a_build_pass(), an_approval(FIRST), reviewers=(FIRST,))
-        )
+        approval = an_approval(FIRST)
+        records = (a_build_pass(), approval)
+        ladder = reviewer_ladder(a_pass(*records, reviewers=(FIRST,)))
 
         self.assertEqual(list(ladder.feedback), [FIRST])
-        self.assertEqual(ladder.feedback[FIRST].no, 2)
+        self.assertEqual(ladder.feedback[FIRST].no, line_of(records, approval))
         self.assertEqual(
             (ladder.retry_once, ladder.stalled, ladder.undispatched), ((), (), ())
         )
 
     def test_the_latest_feedback_of_a_reviewer_wins(self):
-        ladder = reviewer_ladder(
-            a_pass(
-                a_build_pass(), a_dissent(FIRST), an_approval(FIRST), reviewers=(FIRST,)
-            )
-        )
+        approval = an_approval(FIRST)
+        records = (a_build_pass(), a_dissent(FIRST), approval)
+        ladder = reviewer_ladder(a_pass(*records, reviewers=(FIRST,)))
 
-        self.assertEqual(ladder.feedback[FIRST].no, 3)
+        self.assertEqual(ladder.feedback[FIRST].no, line_of(records, approval))
 
     def test_one_silent_start_is_a_retry(self):
         ladder = reviewer_ladder(
@@ -197,7 +212,6 @@ class TheLadder(unittest.TestCase):
                 an_approval(FIRST),
                 a_start(FIRST),
                 a_build_pass(),
-                build_pass_line=3,
                 reviewers=(FIRST,),
             )
         )
@@ -214,24 +228,30 @@ class TheLadder(unittest.TestCase):
 
 class EscalateHalt(unittest.TestCase):
     def test_an_escalate_finding_in_the_previous_pass_halts_the_next(self):
-        log = entries(
-            a_build_pass(), a_dissent(FIRST, findings=(AN_ESCALATION,)), a_build_pass()
+        records = (
+            a_build_pass(),
+            a_dissent(FIRST, findings=(AN_ESCALATION,)),
+            a_build_pass(),
         )
 
-        self.assertTrue(escalate_precedes_pass(log, 3))
+        self.assertTrue(
+            escalate_precedes_pass(entries(*records), last_build_pass_line(records))
+        )
 
     def test_feedback_after_the_build_pass_lifts_the_halt(self):
-        log = entries(
+        records = (
             a_build_pass(),
             a_dissent(FIRST, findings=(AN_ESCALATION,)),
             a_build_pass(),
             an_approval(FIRST),
         )
 
-        self.assertFalse(escalate_precedes_pass(log, 3))
+        self.assertFalse(
+            escalate_precedes_pass(entries(*records), last_build_pass_line(records))
+        )
 
     def test_an_escalate_finding_two_passes_back_does_not_halt(self):
-        log = entries(
+        records = (
             a_build_pass(),
             a_dissent(FIRST, findings=(AN_ESCALATION,)),
             a_build_pass(),
@@ -239,12 +259,16 @@ class EscalateHalt(unittest.TestCase):
             a_build_pass(),
         )
 
-        self.assertFalse(escalate_precedes_pass(log, 5))
+        self.assertFalse(
+            escalate_precedes_pass(entries(*records), last_build_pass_line(records))
+        )
 
     def test_a_previous_pass_without_an_escalate_does_not_halt(self):
-        log = entries(a_build_pass(), a_dissent(FIRST), a_build_pass())
+        records = (a_build_pass(), a_dissent(FIRST), a_build_pass())
 
-        self.assertFalse(escalate_precedes_pass(log, 3))
+        self.assertFalse(
+            escalate_precedes_pass(entries(*records), last_build_pass_line(records))
+        )
 
 
 class DissentCeiling(unittest.TestCase):
@@ -265,9 +289,9 @@ class DissentCeiling(unittest.TestCase):
             Ceiling("empty-findings", (FIRST, SECOND)),
         )
 
-    def test_a_third_substantive_dissent_in_one_pass_is_churn(self):
+    def test_substantive_dissents_to_the_churn_count_in_one_pass_are_churn(self):
         review = a_pass(
-            a_build_pass(), a_dissent(FIRST), a_dissent(FIRST), a_dissent(FIRST)
+            a_build_pass(), *(a_dissent(FIRST) for _ in range(DISSENTS_TO_CHURN))
         )
 
         self.assertEqual(
@@ -284,7 +308,7 @@ class DissentCeiling(unittest.TestCase):
 
         self.assertEqual(
             dissent_ceiling(review, verdicts_of(review)),
-            Ceiling("round-cap", (FIRST,), 1),
+            Ceiling("round-cap", (FIRST,), ONE_ESCALATION),
         )
 
     def test_substantive_dissent_on_the_capped_round_is_not_yet_the_cap(self):
@@ -311,15 +335,16 @@ class DissentCeiling(unittest.TestCase):
 
         self.assertIsNone(dissent_ceiling(review, verdicts_of(review)))
 
-    def test_three_truncation_only_passes_are_a_run(self):
+    def test_truncation_only_passes_to_the_run_length_are_a_run(self):
         review = a_pass(
-            a_build_pass(),  # 1
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),  # 2
-            a_build_pass(),  # 3
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),  # 4
-            a_build_pass(),  # 5
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),  # 6
-            build_pass_line=5,
+            *(
+                record
+                for _ in range(TRUNCATION_RUN)
+                for record in (
+                    a_build_pass(),
+                    a_dissent(FIRST, findings=(A_CHECKPOINT,)),
+                )
+            )
         )
 
         self.assertEqual(
@@ -327,13 +352,16 @@ class DissentCeiling(unittest.TestCase):
             Ceiling("truncation-run", (FIRST,)),
         )
 
-    def test_two_truncation_only_passes_are_not_yet_a_run(self):
+    def test_truncation_only_passes_short_of_the_run_length_are_not_yet_a_run(self):
         review = a_pass(
-            a_build_pass(),
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),
-            a_build_pass(),
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),
-            build_pass_line=3,
+            *(
+                record
+                for _ in range(TRUNCATION_RUN - 1)
+                for record in (
+                    a_build_pass(),
+                    a_dissent(FIRST, findings=(A_CHECKPOINT,)),
+                )
+            )
         )
 
         self.assertIsNone(dissent_ceiling(review, verdicts_of(review)))
@@ -341,8 +369,7 @@ class DissentCeiling(unittest.TestCase):
     def test_empty_findings_win_over_churn(self):
         review = a_pass(
             a_build_pass(),
-            a_dissent(FIRST),
-            a_dissent(FIRST),
+            *(a_dissent(FIRST) for _ in range(DISSENTS_TO_CHURN - 1)),
             a_dissent(FIRST, findings=()),
         )
 
@@ -356,25 +383,21 @@ class ChurnedReviewers(unittest.TestCase):
         review = a_pass(
             a_dissent(FIRST),
             a_build_pass(),
-            a_dissent(FIRST),
-            a_dissent(FIRST),
-            a_dissent(FIRST),
-            build_pass_line=2,
+            *(a_dissent(FIRST) for _ in range(DISSENTS_TO_CHURN)),
         )
 
         self.assertEqual(churned_reviewers(review), [FIRST])
 
-    def test_two_dissents_do_not_churn(self):
-        review = a_pass(a_build_pass(), a_dissent(FIRST), a_dissent(FIRST))
+    def test_dissents_short_of_the_churn_count_do_not_churn(self):
+        review = a_pass(
+            a_build_pass(), *(a_dissent(FIRST) for _ in range(DISSENTS_TO_CHURN - 1))
+        )
 
         self.assertEqual(churned_reviewers(review), [])
 
     def test_an_off_roster_author_never_churns(self):
         review = a_pass(
-            a_build_pass(),
-            a_dissent(OUTSIDER),
-            a_dissent(OUTSIDER),
-            a_dissent(OUTSIDER),
+            a_build_pass(), *(a_dissent(OUTSIDER) for _ in range(DISSENTS_TO_CHURN))
         )
 
         self.assertEqual(churned_reviewers(review), [])
@@ -382,7 +405,10 @@ class ChurnedReviewers(unittest.TestCase):
     def test_truncation_only_dissents_do_not_count(self):
         review = a_pass(
             a_build_pass(),
-            *(a_dissent(FIRST, findings=(A_CHECKPOINT,)) for _ in range(3)),
+            *(
+                a_dissent(FIRST, findings=(A_CHECKPOINT,))
+                for _ in range(DISSENTS_TO_CHURN)
+            ),
         )
 
         self.assertEqual(churned_reviewers(review), [])
@@ -393,16 +419,20 @@ class TruncationOnlyPasses(unittest.TestCase):
         self.assertEqual(truncation_only_passes(a_pass(a_build_pass())), 1)
 
     def test_each_earlier_truncation_only_pass_adds_one(self):
+        earlier_passes = 2
         review = a_pass(
+            *(
+                record
+                for _ in range(earlier_passes)
+                for record in (
+                    a_build_pass(),
+                    a_dissent(FIRST, findings=(A_CHECKPOINT,)),
+                )
+            ),
             a_build_pass(),
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),
-            a_build_pass(),
-            a_dissent(FIRST, findings=(A_CHECKPOINT,)),
-            a_build_pass(),
-            build_pass_line=5,
         )
 
-        self.assertEqual(truncation_only_passes(review), 3)
+        self.assertEqual(truncation_only_passes(review), earlier_passes + 1)
 
     def test_a_substantive_or_approved_pass_ends_the_run(self):
         review = a_pass(
@@ -411,7 +441,6 @@ class TruncationOnlyPasses(unittest.TestCase):
             a_build_pass(),
             an_approval(FIRST),
             a_build_pass(),
-            build_pass_line=5,
         )
 
         self.assertEqual(truncation_only_passes(review), 1)
@@ -443,7 +472,9 @@ class BelowTheBar(unittest.TestCase):
         entry = self.dissent_entry(A_POLISH)
 
         self.assertFalse(
-            dissents_below_bar(a_pass(a_build_pass(), round_no=2), entry, [A_POLISH])
+            dissents_below_bar(
+                a_pass(a_build_pass(), round_no=BELOW_THE_CAP), entry, [A_POLISH]
+            )
         )
 
     def test_a_critical_or_channel_finding_clears_the_bar(self):
@@ -466,7 +497,7 @@ class BelowTheBar(unittest.TestCase):
         review = a_pass(
             a_build_pass(), a_dissent(FIRST), a_dissent(FIRST), round_no=CAPPED_ROUND
         )
-        current = review.records[2]
+        current = review.records[-1]
 
         self.assertTrue(prior_below_bar_dissent(review, FIRST, current))
 
@@ -476,10 +507,9 @@ class BelowTheBar(unittest.TestCase):
             a_build_pass(),
             a_dissent(SECOND),
             a_dissent(FIRST),
-            build_pass_line=2,
             round_no=CAPPED_ROUND,
         )
-        current = review.records[3]
+        current = review.records[-1]
 
         self.assertFalse(prior_below_bar_dissent(review, FIRST, current))
 
@@ -490,18 +520,17 @@ class BelowTheBar(unittest.TestCase):
             a_dissent(FIRST),
             round_no=CAPPED_ROUND,
         )
-        current = review.records[2]
+        current = review.records[-1]
 
         self.assertFalse(prior_below_bar_dissent(review, FIRST, current))
 
 
-class Outstanding(unittest.TestCase):
+class OutstandingDissenters(unittest.TestCase):
     def test_a_dropped_dissenter_is_outstanding(self):
         review = a_pass(
             a_build_pass(),
             a_dissent(SECOND),
             a_build_pass(),
-            build_pass_line=3,
             reviewers=(FIRST,),
         )
 
@@ -512,28 +541,22 @@ class Outstanding(unittest.TestCase):
             a_build_pass(),
             an_approval(SECOND),
             a_build_pass(),
-            build_pass_line=3,
             reviewers=(FIRST,),
         )
 
         self.assertIsNone(outstanding_dissent(review))
 
     def test_dissent_before_the_cycle_start_is_void(self):
+        dissent = a_dissent(SECOND)
+        records = (a_build_pass(), dissent, a_build_pass())
         review = a_pass(
-            a_build_pass(),
-            a_dissent(SECOND),
-            a_build_pass(),
-            build_pass_line=3,
-            reviewers=(FIRST,),
-            cycle_start=2,
+            *records, reviewers=(FIRST,), cycle_start=line_of(records, dissent)
         )
 
         self.assertIsNone(outstanding_dissent(review))
 
     def test_a_reviewer_on_the_pass_roster_is_never_outstanding(self):
-        review = a_pass(
-            a_build_pass(), a_dissent(SECOND), a_build_pass(), build_pass_line=3
-        )
+        review = a_pass(a_build_pass(), a_dissent(SECOND), a_build_pass())
 
         self.assertIsNone(outstanding_dissent(review))
 
@@ -544,7 +567,6 @@ class Outstanding(unittest.TestCase):
             a_build_pass(),
             a_start(SECOND),
             a_start(SECOND),
-            build_pass_line=3,
             reviewers=(FIRST,),
         )
 
@@ -557,7 +579,6 @@ class Outstanding(unittest.TestCase):
             a_build_pass(),
             a_dissent(OUTSIDER),
             a_build_pass(),
-            build_pass_line=3,
             reviewers=(FIRST,),
         )
 

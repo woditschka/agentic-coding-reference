@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for registry.read_harness_layout (stdlib only).
-
-Run: python3 harness/tests/test_registry.py
-
-Covers:
-  1. Grammar parity — the battery gate ADR 2026-07-18 names: the producer
-     reader accepts exactly what the doctor's tomllib parse accepts, pinned
-     on the multi-line-array fixture that split the two pre-reader grammars
-     (init's regex returned [], materialize's comma-split errored).
-  2. Fail-loud validation — unknown tools, malformed or unsafe extensions,
-     and an unreadable file each raise LayoutError with a clean message;
-     no silent default, no traceback.
-  3. The unsafe_extension_path predicate shared with record_extension.
-"""
+"""Pin registry.read_harness_layout: tomllib grammar parity and fail-loud validation."""
 
 import os
 import tempfile
@@ -24,15 +11,11 @@ from _loader import load
 
 registry = load("registry", "registry.py")
 
+DEFAULT_CHANNEL = "copy"
+UNREADABLE_MODE = 0o000
+READABLE_MODE = 0o644
 
-def _target_with_layout(td, text):
-    target = Path(td)
-    (target / "scripts").mkdir()
-    (target / "scripts" / "layout.toml").write_text(text, encoding="utf-8")
-    return target
-
-
-MULTILINE = """\
+MULTILINE_ARRAY_LAYOUT = """\
 [harness]
 channel = "manifest"
 tools = [
@@ -44,51 +27,59 @@ extensions = [
   "docs/runbook.md",
 ]
 """
+SINGLE_LINE_LAYOUT = (
+    '[harness]\nchannel = "copy"\ntools = ["claude"]\nextensions = []\n'
+)
+EMPTY_CHANNEL_LAYOUT = '[harness]\nchannel = ""\n'
+UNKNOWN_TOOL_LAYOUT = '[harness]\ntools = ["claude", "bogus-tool"]\n'
+NON_STRING_EXTENSION_LAYOUT = "[harness]\nextensions = [123]\n"
+CONTROL_CHARACTER_EXTENSION_LAYOUT = '[harness]\nextensions = ["\\u001b[2Jpwned"]\n'
+TRAVERSING_EXTENSION_LAYOUT = '[harness]\nextensions = ["../outside"]\n'
 
 
-class TestReaderGrammarParity(unittest.TestCase):
-    """The reader's grammar is the doctor's grammar: both are tomllib. Each
-    fixture is parsed twice — raw tomllib (what the doctor accepts) and
-    read_harness_layout — and the [harness] fields must agree."""
+def _target_with_layout(td, text):
+    target = Path(td)
+    (target / "scripts").mkdir()
+    (target / "scripts" / "layout.toml").write_text(text, encoding="utf-8")
+    return target
+
+
+class ReaderGrammarParity(unittest.TestCase):
+    """The reader accepts exactly what a raw tomllib parse of the same text accepts."""
 
     def _assert_parity(self, text):
         expected = tomllib.loads(text).get("harness", {})
         with tempfile.TemporaryDirectory() as td:
             layout = registry.read_harness_layout(_target_with_layout(td, text))
-        self.assertEqual(layout.channel, expected.get("channel", "copy"))
+        self.assertEqual(layout.channel, expected.get("channel", DEFAULT_CHANNEL))
         self.assertEqual(layout.tools, expected.get("tools"))
         self.assertEqual(list(layout.extensions), expected.get("extensions", []))
 
-    def test_multiline_arrays_match_doctor_grammar(self):
-        # The motivating divergence: init's old regex read this as [],
-        # materialize's old comma-split errored. tomllib accepts it.
-        self._assert_parity(MULTILINE)
+    def test_multiline_arrays_match_the_doctor_grammar(self):
+        self._assert_parity(MULTILINE_ARRAY_LAYOUT)
 
-    def test_single_line_layout_matches_doctor_grammar(self):
-        self._assert_parity(
-            '[harness]\nchannel = "copy"\ntools = ["claude"]\nextensions = []\n'
-        )
+    def test_a_single_line_layout_matches_the_doctor_grammar(self):
+        self._assert_parity(SINGLE_LINE_LAYOUT)
 
-    def test_missing_file_is_greenfield_default(self):
+    def test_a_missing_file_reads_as_the_greenfield_default(self):
         with tempfile.TemporaryDirectory() as td:
             layout = registry.read_harness_layout(td)
         self.assertEqual(
             (layout.channel, layout.channel_declared, layout.tools, layout.extensions),
-            ("copy", False, None, ()),
+            (DEFAULT_CHANNEL, False, None, ()),
         )
 
-    def test_empty_channel_defaults_but_is_not_declared(self):
+    def test_an_empty_channel_takes_the_default_without_counting_as_declared(self):
         with tempfile.TemporaryDirectory() as td:
             layout = registry.read_harness_layout(
-                _target_with_layout(td, '[harness]\nchannel = ""\n')
+                _target_with_layout(td, EMPTY_CHANNEL_LAYOUT)
             )
-        self.assertEqual(layout.channel, "copy")
+        self.assertEqual(layout.channel, DEFAULT_CHANNEL)
         self.assertFalse(layout.channel_declared)
 
 
-class TestReaderFailsLoud(unittest.TestCase):
-    """Every rejected declaration raises LayoutError — never a silent default
-    (a swallowed declaration would install the wrong surfaces)."""
+class ReaderFailsLoud(unittest.TestCase):
+    """Every rejected declaration raises LayoutError instead of a silent default."""
 
     def _err(self, text):
         with (
@@ -98,45 +89,47 @@ class TestReaderFailsLoud(unittest.TestCase):
             registry.read_harness_layout(_target_with_layout(td, text))
         return str(ctx.exception)
 
-    def test_unknown_tool_fails_loud(self):
-        msg = self._err('[harness]\ntools = ["claude", "bogus-tool"]\n')
+    def test_an_unknown_tool_is_named_in_the_error(self):
+        msg = self._err(UNKNOWN_TOOL_LAYOUT)
         self.assertIn("unknown tool(s) bogus-tool", msg)
 
-    def test_non_string_extension_entry_fails_loud(self):
-        msg = self._err("[harness]\nextensions = [123]\n")
+    def test_a_non_string_extension_entry_is_rejected(self):
+        msg = self._err(NON_STRING_EXTENSION_LAYOUT)
         self.assertIn("extensions must be a list of strings", msg)
 
-    def test_control_character_extension_rejected_and_repr_escaped(self):
-        # tomllib decodes  into a real ESC byte; the reader must reject
-        # it AND keep the byte out of its own error message (terminal safety).
-        msg = self._err('[harness]\nextensions = ["\\u001b[2Jpwned"]\n')
+    def test_a_control_character_extension_is_rejected_and_kept_out_of_the_message(
+        self,
+    ):
+        msg = self._err(CONTROL_CHARACTER_EXTENSION_LAYOUT)
         self.assertIn("unsafe characters", msg)
         self.assertNotIn("\x1b", msg)
 
-    def test_traversing_extension_rejected(self):
-        msg = self._err('[harness]\nextensions = ["../outside"]\n')
+    def test_a_traversing_extension_is_rejected(self):
+        msg = self._err(TRAVERSING_EXTENSION_LAYOUT)
         self.assertIn("unsafe characters", msg)
 
     @unittest.skipIf(os.geteuid() == 0, "root reads through chmod 000")
-    def test_unreadable_file_reports_cleanly(self):
+    def test_an_unreadable_file_reports_unreadable(self):
         with tempfile.TemporaryDirectory() as td:
-            target = _target_with_layout(td, '[harness]\nchannel = "copy"\n')
+            target = _target_with_layout(td, SINGLE_LINE_LAYOUT)
             lt = target / "scripts" / "layout.toml"
-            lt.chmod(0o000)
+            lt.chmod(UNREADABLE_MODE)
             try:
                 with self.assertRaises(registry.LayoutError) as ctx:
                     registry.read_harness_layout(target)
             finally:
-                lt.chmod(0o644)
+                lt.chmod(READABLE_MODE)
         self.assertIn("unreadable", str(ctx.exception))
 
 
-class TestUnsafeExtensionPath(unittest.TestCase):
-    def test_plain_relative_paths_pass(self):
+class UnsafeExtensionPath(unittest.TestCase):
+    def test_plain_relative_paths_are_safe(self):
         for ok in ("scripts/deploy.sh", ".claude/skills/mine", "docs/x.md"):
             self.assertFalse(registry.unsafe_extension_path(ok), ok)
 
-    def test_unsafe_paths_rejected(self):
+    def test_empty_separator_padded_control_traversing_and_absolute_paths_are_unsafe(
+        self,
+    ):
         bad = ["", ".", "a,b", 'a"b', "a\\b", " padded ", "a\x1bb", "../up", "/abs"]
         for p in bad:
             self.assertTrue(registry.unsafe_extension_path(p), repr(p))

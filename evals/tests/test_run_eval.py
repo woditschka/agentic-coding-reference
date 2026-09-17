@@ -1,9 +1,5 @@
-"""Unit suite for the runner's pure measurement helpers: the blind judge's
-patch sanitization, the post-hoc judge sweep, the ledger-windowed stage
-slices with their caps, the hardened JUnit report parse, and the facet
-lockstep with the pinned rubric."""
-
-from __future__ import annotations
+"""Unit suite for the runner's pure measurement helpers: patch sanitization,
+the judge sweep, stage slices, the JUnit parse, and the leak gate."""
 
 import datetime
 import io
@@ -22,8 +18,10 @@ from unittest import mock
 import run_eval
 from run_eval import (
     AGENT_BASH_ENV,
+    DETAIL_CHARS,
     EVALS,
     JUDGE_FACETS,
+    LIVE_LINE_CHARS,
     LIVE_MAX_LINES_PER_POLL,
     LOGIN_NAME,
     MAX_LEDGER_BYTES,
@@ -34,6 +32,7 @@ from run_eval import (
     VersionRef,
     agent_claude_args,
     attempt_name,
+    best_effort,
     commit_baseline,
     consultation_requests,
     dev_source_kept,
@@ -73,8 +72,25 @@ from run_eval import (
     write_session_pins,
 )
 
+SOME_MODEL = "claude-opus-5"
+SOME_PROMPT = "Fix it."
+SUT_PLUGIN = "agent-team-spring-boot"
+EVAL_PLUGIN = f"{SUT_PLUGIN}@agent-team-eval"
+OPERATOR_PLUGIN = f"{SUT_PLUGIN}@agent-team"
+SOME_PLUGIN_VERSION = "0.2.0"
+OTHER_PLUGIN_VERSION = "0.3.0"
+SOME_VERSION_LABEL = "v0.2.0"
+UNMEASURED_VERSION = "v9.9.9"
+FEATURE_TASK_ID = "visit-edit"
+PAGED_TASK_ID = "owners-page-param"
+REFUSAL_TASK_ID = "visit-cancel"
+SOME_REQ_ID = "REQ-A-001"
+SOME_RECORD_COUNT = 19
+A_TERMINAL_ESCAPE = "\x1b[2J"
+DEEPLY_NESTED_JSON = "[" * 200_000
 
-class RouteDecisionTest(unittest.TestCase):
+
+class RouteDecision(unittest.TestCase):
     """The post-session routing read: real subprocess against a stub
     engine, fail-open to None on every degraded shape."""
 
@@ -106,7 +122,7 @@ class RouteDecisionTest(unittest.TestCase):
         self.assertIsNone(run_eval.route_decision(workdir))
 
 
-class SanitizePatchTest(unittest.TestCase):
+class SanitizePatch(unittest.TestCase):
     PATCH = (
         "diff --git a/src/main/java/A.java b/src/main/java/A.java\n"
         "+public class A {}\n"
@@ -146,7 +162,7 @@ class SanitizePatchTest(unittest.TestCase):
         self.assertEqual(sanitize_patch(""), ("", 0))
 
 
-class StageSlicesTest(unittest.TestCase):
+class StageSlices(unittest.TestCase):
     acc: ModuleType
 
     @classmethod
@@ -167,46 +183,52 @@ class StageSlicesTest(unittest.TestCase):
         ledger.write_text(text, encoding="utf-8")
         return ledger
 
+    @staticmethod
+    def ts(minute: int) -> str:
+        return f"2026-08-02T10:{minute:02d}:00Z"
+
     def row(self, minute: int, output_tokens: int) -> tuple[float, Any, dict[str, Any]]:
-        secs = self.acc.parse_ts(f"2026-08-02T10:{minute:02d}:00Z")
+        secs = self.acc.parse_ts(self.ts(minute))
         assert secs is not None
         usage = {"input_tokens": 100, "output_tokens": output_tokens}
-        return (float(secs), "claude-opus-5", usage)
+        return (float(secs), SOME_MODEL, usage)
 
     def test_ledger_records_partition_usage_rows_without_double_count(self) -> None:
         workdir = self.workdir_with_ledger(
             [
-                {"type": "spec-ready", "ts": "2026-08-02T10:10:00Z", "author": "spec"},
-                {"type": "tests-ready", "ts": "2026-08-02T10:20:00Z", "author": "td"},
+                {"type": "spec-ready", "ts": self.ts(10), "author": "spec"},
+                {"type": "tests-ready", "ts": self.ts(20), "author": "td"},
             ]
         )
-        # The 10:10 row sits exactly on a boundary: it lands once, in the
-        # stage that record closes.
-        rows = [self.row(2, 10), self.row(10, 20), self.row(15, 40), self.row(25, 80)]
+        # The row at minute 10 sits exactly on a boundary: it lands once, in
+        # the stage that record closes.
+        first, on_boundary, second, third = 10, 20, 40, 80
+        rows = [
+            self.row(2, first),
+            self.row(10, on_boundary),
+            self.row(15, second),
+            self.row(25, third),
+        ]
         slices = stage_slices(self.acc, workdir, rows)
         self.assertEqual(
             [s["closes"] for s in slices], ["spec-ready", "tests-ready", None]
         )
-        self.assertEqual([s["totals"]["output"] for s in slices], [30, 40, 80])
-        self.assertEqual(slices[0]["wall_seconds"], 480.0)
+        self.assertEqual(
+            [s["totals"]["output"] for s in slices],
+            [first + on_boundary, second, third],
+        )
+        self.assertEqual(slices[0]["wall_seconds"], float((10 - 2) * 60))
 
     def test_a_non_string_author_is_dropped_not_embedded(self) -> None:
         workdir = self.workdir_with_ledger(
-            [
-                {
-                    "type": "spec-ready",
-                    "ts": "2026-08-02T10:10:00Z",
-                    "author": {"nested": "object"},
-                }
-            ]
+            [{"type": "spec-ready", "ts": self.ts(10), "author": {"nested": "object"}}]
         )
         slices = stage_slices(self.acc, workdir, [self.row(2, 10)])
         self.assertIsNone(slices[0]["author"])
 
     def test_a_ledger_over_the_mark_cap_is_refused_whole(self) -> None:
         records = [
-            {"type": "noise", "ts": "2026-08-02T10:10:00Z"}
-            for _ in range(MAX_STAGE_MARKS + 1)
+            {"type": "noise", "ts": self.ts(10)} for _ in range(MAX_STAGE_MARKS + 1)
         ]
         workdir = self.workdir_with_ledger(records)
         self.assertEqual(stage_slices(self.acc, workdir, [self.row(1, 1)]), [])
@@ -224,7 +246,7 @@ class StageSlicesTest(unittest.TestCase):
         self.assertEqual(stage_slices(self.acc, workdir, [self.row(1, 1)]), [])
 
 
-class OracleReportTest(unittest.TestCase):
+class OracleReport(unittest.TestCase):
     ORACLE = OracleSpec(
         source=Path("unused"),
         dest="unused",
@@ -296,7 +318,7 @@ class OracleReportTest(unittest.TestCase):
         self.assertEqual(set(results.values()), {"missing"})
 
 
-class DevSourceFilterTest(unittest.TestCase):
+class DevSourceFilter(unittest.TestCase):
     """The leak barrier of a dev build: the eval bench never enters the
     agent-readable marketplace source."""
 
@@ -310,7 +332,7 @@ class DevSourceFilterTest(unittest.TestCase):
         self.assertTrue(dev_source_kept("evals-notes.md"))
 
 
-class ParseNumstatTest(unittest.TestCase):
+class NumstatParse(unittest.TestCase):
     """The `--numstat -z` parse feeding the diff figures and the refusal
     bar's src count."""
 
@@ -382,7 +404,7 @@ class ParseNumstatTest(unittest.TestCase):
         self.assertEqual(totals["src_files_changed"], 3)
 
 
-class MakePatchTest(unittest.TestCase):
+class MakePatch(unittest.TestCase):
     """The staging that feeds the refusal bar: an agent-edited ignore file
     cannot hide a src/ change from the diff."""
 
@@ -391,14 +413,14 @@ class MakePatchTest(unittest.TestCase):
         self.addCleanup(holder.cleanup)
         workdir = Path(holder.name)
         git = ["git", "-C", str(workdir)]
-        subprocess.run(git + ["init", "--quiet"], check=True)
+        subprocess.run([*git, "init", "--quiet"], check=True)
         (workdir / "src" / "main").mkdir(parents=True)
         (workdir / "src" / "main" / "Keep.java").write_text("class Keep {}\n")
         (workdir / ".gitignore").write_text("build/\n")
-        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run([*git, "add", "-A"], check=True)
         subprocess.run(
-            git
-            + [
+            [
+                *git,
                 "-c",
                 "user.name=t",
                 "-c",
@@ -431,7 +453,7 @@ class MakePatchTest(unittest.TestCase):
         self.assertIn("Evil.java", patch)
 
 
-class ConsultationRequestsTest(unittest.TestCase):
+class ConsultationRequests(unittest.TestCase):
     """The refusal ladder's Tier B checkpoint: consultation-request records
     counted from the copied ledger."""
 
@@ -471,31 +493,32 @@ class ConsultationRequestsTest(unittest.TestCase):
     def test_deeply_nested_json_is_skipped_not_raised(self) -> None:
         out_dir = self.out_dir_with(
             [
-                "[" * 200_000,
+                DEEPLY_NESTED_JSON,
                 json.dumps({"type": "consultation-request", "author": "a"}),
             ]
         )
         self.assertEqual(consultation_requests(out_dir), 1)
 
 
-class SweepOrderTest(unittest.TestCase):
+class SweepOrder(unittest.TestCase):
     """The version-interleaved cell order of a multi-version sweep."""
 
     A = VersionRef(label="v0.1.0", kind="tag", expected_version="0.1.0")
     B = VersionRef(label="v0.2.0", kind="tag", expected_version="0.2.0")
 
     def test_versions_alternate_within_each_task(self) -> None:
-        order = sweep_order(2, ["t1", "t2"], [self.A, self.B])
+        reps, tasks, versions = 2, ["t1", "t2"], [self.A, self.B]
+        order = sweep_order(reps, tasks, versions)
         self.assertEqual(
             [(task, v.label) for task, v in order[:4]],
             [
-                ("t1", "v0.1.0"),
-                ("t1", "v0.2.0"),
-                ("t2", "v0.1.0"),
-                ("t2", "v0.2.0"),
+                ("t1", self.A.label),
+                ("t1", self.B.label),
+                ("t2", self.A.label),
+                ("t2", self.B.label),
             ],
         )
-        self.assertEqual(len(order), 8)
+        self.assertEqual(len(order), reps * len(tasks) * len(versions))
 
     def test_a_single_version_sweep_keeps_task_order(self) -> None:
         order = sweep_order(1, ["t1", "t2"], [self.A])
@@ -504,8 +527,8 @@ class SweepOrderTest(unittest.TestCase):
         )
 
 
-class LoadTasksTest(unittest.TestCase):
-    """The task loader's kind/oracle lockstep (README § Refusal tasks)."""
+class TaskLoader(unittest.TestCase):
+    """The task loader's kind/oracle lockstep."""
 
     def tasks_dir_with(self, kind: str, with_oracle: bool) -> Path:
         holder = tempfile.TemporaryDirectory()
@@ -541,12 +564,12 @@ class LoadTasksTest(unittest.TestCase):
 
     def test_the_committed_task_set_loads_clean(self) -> None:
         tasks = load_tasks()
-        self.assertIn("visit-cancel", tasks)
-        self.assertEqual(tasks["visit-cancel"].kind, "refusal")
+        self.assertIn(REFUSAL_TASK_ID, tasks)
+        self.assertEqual(tasks[REFUSAL_TASK_ID].kind, "refusal")
         self.assertIn("specialty-directory", tasks)
 
 
-class RewriteProjectSettingsTest(unittest.TestCase):
+class ProjectSettingsRewrite(unittest.TestCase):
     """The settings scrub that pins the workspace to the eval marketplace."""
 
     def workdir_with(
@@ -574,41 +597,32 @@ class RewriteProjectSettingsTest(unittest.TestCase):
         workdir = self.workdir_with(
             {
                 "extraKnownMarketplaces": {"agent-team": {}},
-                "enabledPlugins": {"agent-team-spring-boot@agent-team": True},
+                "enabledPlugins": {OPERATOR_PLUGIN: True},
             }
         )
-        rewrite_project_settings("agent-team-spring-boot", workdir)
+        rewrite_project_settings(SUT_PLUGIN, workdir)
         settings = self.settings_of(workdir, "settings.json")
         self.assertNotIn("extraKnownMarketplaces", settings)
-        self.assertEqual(
-            settings["enabledPlugins"],
-            {"agent-team-spring-boot@agent-team-eval": True},
-        )
+        self.assertEqual(settings["enabledPlugins"], {EVAL_PLUGIN: True})
 
     def test_foreign_plugins_survive_the_rewrite(self) -> None:
         workdir = self.workdir_with(
             {"enabledPlugins": {"other-plugin@somewhere": True}}
         )
-        rewrite_project_settings("agent-team-spring-boot", workdir)
+        rewrite_project_settings(SUT_PLUGIN, workdir)
         enabled = self.settings_of(workdir, "settings.json")["enabledPlugins"]
         self.assertTrue(enabled["other-plugin@somewhere"])
-        self.assertTrue(enabled["agent-team-spring-boot@agent-team-eval"])
+        self.assertTrue(enabled[EVAL_PLUGIN])
 
     def test_operator_plugins_are_pinned_off_in_the_workspace(self) -> None:
         workdir = self.workdir_with({"enabledPlugins": {}})
         rewrite_project_settings(
-            "agent-team-spring-boot",
-            workdir,
-            pin_off=("agent-team-spring-boot@agent-team", "other@somewhere"),
+            SUT_PLUGIN, workdir, pin_off=(OPERATOR_PLUGIN, "other@somewhere")
         )
         enabled = self.settings_of(workdir, "settings.json")["enabledPlugins"]
         self.assertEqual(
             enabled,
-            {
-                "agent-team-spring-boot@agent-team-eval": True,
-                "agent-team-spring-boot@agent-team": False,
-                "other@somewhere": False,
-            },
+            {EVAL_PLUGIN: True, OPERATOR_PLUGIN: False, "other@somewhere": False},
         )
 
     def test_a_committed_local_layer_cannot_reenable_a_pinned_plugin(self) -> None:
@@ -616,26 +630,20 @@ class RewriteProjectSettingsTest(unittest.TestCase):
             {"enabledPlugins": {}},
             local={"enabledPlugins": {"other@somewhere": True}},
         )
-        rewrite_project_settings(
-            "agent-team-spring-boot", workdir, pin_off=("other@somewhere",)
-        )
+        rewrite_project_settings(SUT_PLUGIN, workdir, pin_off=("other@somewhere",))
         local = self.settings_of(workdir, "settings.local.json")["enabledPlugins"]
         self.assertEqual(local, {"other@somewhere": False})
-        self.assertNotIn(
-            "agent-team-spring-boot@agent-team-eval",
-            local,
-            "the eval enablement stays a settings.json-only pin",
-        )
+        self.assertNotIn(EVAL_PLUGIN, local)
 
     def test_the_local_layer_is_scrubbed_but_never_gains_the_pin(self) -> None:
         workdir = self.workdir_with(
             {"enabledPlugins": {}},
             local={
                 "extraKnownMarketplaces": {"agent-team": {}},
-                "enabledPlugins": {"agent-team-spring-boot@agent-team": True},
+                "enabledPlugins": {OPERATOR_PLUGIN: True},
             },
         )
-        rewrite_project_settings("agent-team-spring-boot", workdir)
+        rewrite_project_settings(SUT_PLUGIN, workdir)
         local = self.settings_of(workdir, "settings.local.json")
         self.assertNotIn("extraKnownMarketplaces", local)
         self.assertEqual(local["enabledPlugins"], {})
@@ -659,7 +667,7 @@ class RewriteProjectSettingsTest(unittest.TestCase):
         )
 
 
-class ResolvePluginTest(unittest.TestCase):
+class PluginResolution(unittest.TestCase):
     """Per-version plugin-id resolution against the source's marketplace.json."""
 
     def source_with(self, *names: str) -> Path:
@@ -673,38 +681,36 @@ class ResolvePluginTest(unittest.TestCase):
         return src
 
     def test_the_configured_id_wins_when_the_source_offers_it(self) -> None:
-        src = self.source_with("agent-team-spring-boot", "spring-boot-claude")
-        self.assertEqual(
-            resolve_plugin("agent-team-spring-boot", src), "agent-team-spring-boot"
-        )
+        src = self.source_with(SUT_PLUGIN, "spring-boot-claude")
+        self.assertEqual(resolve_plugin(SUT_PLUGIN, src), SUT_PLUGIN)
 
     def test_a_pre_repackage_source_falls_back_to_the_legacy_spelling(self) -> None:
         src = self.source_with("spring-boot-claude", "go-claude")
         with redirect_stdout(io.StringIO()):
-            resolved = resolve_plugin("agent-team-spring-boot", src)
+            resolved = resolve_plugin(SUT_PLUGIN, src)
         self.assertEqual(resolved, "spring-boot-claude")
 
     def test_a_source_offering_neither_spelling_stops_loudly(self) -> None:
         src = self.source_with("something-else")
         with self.assertRaises(RuntimeError) as caught:
-            resolve_plugin("agent-team-spring-boot", src)
+            resolve_plugin(SUT_PLUGIN, src)
         self.assertIn("something-else", str(caught.exception))
 
 
-class JudgeArgvTest(unittest.TestCase):
+class JudgeArgv(unittest.TestCase):
     def test_the_host_executor_invokes_the_cli_directly(self) -> None:
-        argv = judge_argv("grade this", "claude-opus-5", use_claude_dev=False)
+        argv = judge_argv(SOME_PROMPT, SOME_MODEL, use_claude_dev=False)
         self.assertEqual(argv[0], "claude")
         self.assertNotIn("--dangerously-skip-permissions", argv)
 
     def test_the_container_executor_wraps_the_same_claude_args(self) -> None:
-        argv = judge_argv("grade this", "claude-opus-5", use_claude_dev=True)
+        argv = judge_argv(SOME_PROMPT, SOME_MODEL, use_claude_dev=True)
         self.assertEqual(argv[:2], ["claude-dev", "--"])
         self.assertIn("--dangerously-skip-permissions", argv)
-        self.assertIn("grade this", argv)
+        self.assertIn(SOME_PROMPT, argv)
 
 
-class JudgeRunsTest(unittest.TestCase):
+class JudgeRuns(unittest.TestCase):
     """The post-hoc judge sweep over recorded run folders."""
 
     EPOCH = "a" * 40
@@ -722,10 +728,9 @@ class JudgeRunsTest(unittest.TestCase):
         *,
         judged: bool = False,
         status: str = "complete",
-        patch: bool = True,
         kind: str = "feature",
     ) -> Path:
-        out = self.runs / "v0.2.0" / name
+        out = self.runs / SOME_VERSION_LABEL / name
         out.mkdir(parents=True)
         result: dict[str, Any] = {"status": status}
         if judged:
@@ -734,15 +739,14 @@ class JudgeRunsTest(unittest.TestCase):
         (out / "manifest.json").write_text(
             json.dumps(
                 {
-                    "prompt": "Fix it.",
+                    "prompt": SOME_PROMPT,
                     "sut": {"sha": self.EPOCH},
-                    "task": {"id": "visit-edit", "kind": kind},
+                    "task": {"id": FEATURE_TASK_ID, "kind": kind},
                 }
             ),
             encoding="utf-8",
         )
-        if patch:
-            (out / "change.patch").write_text("diff --git\n", encoding="utf-8")
+        (out / "change.patch").write_text("diff --git\n", encoding="utf-8")
         return out
 
     def invoke(
@@ -750,14 +754,13 @@ class JudgeRunsTest(unittest.TestCase):
         verdict: dict[str, Any] | None,
         *,
         epoch_in_clone: bool = True,
-        versions: tuple[str, ...] = (),
-        tasks: tuple[str, ...] = (),
+        scope: run_eval.JudgeScope = run_eval.ALL_RUNS,
     ) -> int:
-        def fake_judge(*args: Any) -> dict[str, Any] | None:
+        def fake_judge(*args: Any, **_kwargs: Any) -> dict[str, Any] | None:
             self.calls.append(args)
             return dict(verdict) if verdict is not None else None
 
-        def fake_sh(*args: Any, **kwargs: Any) -> Any:
+        def fake_sh(*_args: Any, **_kwargs: Any) -> Any:
             return SimpleNamespace(returncode=0 if epoch_in_clone else 1)
 
         real_judge, real_sh = run_eval.run_judge, run_eval.sh
@@ -765,14 +768,12 @@ class JudgeRunsTest(unittest.TestCase):
         self.addCleanup(setattr, run_eval, "run_judge", real_judge)
         self.addCleanup(setattr, run_eval, "sh", real_sh)
         with redirect_stdout(io.StringIO()):
-            return do_judge_runs(
-                self.cfg, runs_dir=self.runs, versions=versions, tasks=tasks
-            )
+            return do_judge_runs(self.cfg, runs_dir=self.runs, scope=scope)
 
     @staticmethod
     def verdict(**overrides: Any) -> dict[str, Any]:
         base: dict[str, Any] = {
-            "median": {facet: 3 for facet in JUDGE_FACETS},
+            "median": dict.fromkeys(JUDGE_FACETS, 3),
             "cost_usd": 1.0,
         }
         base.update(overrides)
@@ -796,10 +797,10 @@ class JudgeRunsTest(unittest.TestCase):
     def test_the_briefs_read_from_the_sut_clone_at_the_epoch_commit(self) -> None:
         self.record("r1")
         self.invoke(self.verdict())
-        _cfg, prompt, workdir, sha, _out, _log, _use_dev = self.calls[0]
-        self.assertEqual(prompt, "Fix it.")
-        self.assertEqual(workdir, self.cfg.clone)
-        self.assertEqual(sha, self.EPOCH)
+        (judge,) = self.calls[0]
+        self.assertEqual(judge.task_prompt, SOME_PROMPT)
+        self.assertEqual(judge.brief_repo, self.cfg.clone)
+        self.assertEqual(judge.brief_commit, self.EPOCH)
 
     def test_a_missing_epoch_commit_fails_and_judges_nothing(self) -> None:
         out = self.record("r1")
@@ -816,11 +817,25 @@ class JudgeRunsTest(unittest.TestCase):
 
     def test_version_and_task_filters_scope_the_sweep(self) -> None:
         self.record("r1")
-        self.assertEqual(self.invoke(self.verdict(), versions=("v9.9.9",)), 0)
+        self.assertEqual(
+            self.invoke(
+                self.verdict(),
+                scope=run_eval.JudgeScope(versions=(UNMEASURED_VERSION,)),
+            ),
+            0,
+        )
         self.assertEqual(self.calls, [])
-        self.assertEqual(self.invoke(self.verdict(), tasks=("owners-page-param",)), 0)
+        self.assertEqual(
+            self.invoke(
+                self.verdict(), scope=run_eval.JudgeScope(tasks=(PAGED_TASK_ID,))
+            ),
+            0,
+        )
         self.assertEqual(self.calls, [])
-        self.invoke(self.verdict(), versions=("v0.2.0",), tasks=("visit-edit",))
+        self.invoke(
+            self.verdict(),
+            scope=run_eval.JudgeScope((SOME_VERSION_LABEL,), (FEATURE_TASK_ID,)),
+        )
         self.assertEqual(len(self.calls), 1)
 
     def test_a_refusal_run_is_never_judged(self) -> None:
@@ -847,7 +862,7 @@ class JudgeRunsTest(unittest.TestCase):
         self.assertTrue(self.result_of(out)["quality_judge"]["post_hoc"])
 
 
-class JudgeContractTest(unittest.TestCase):
+class JudgeContract(unittest.TestCase):
     def test_the_pinned_rubric_output_contract_carries_every_runner_facet(self) -> None:
         rubric = load_config().judge.rubric.read_text(encoding="utf-8")
         for facet in JUDGE_FACETS:
@@ -859,60 +874,65 @@ class JudgeContractTest(unittest.TestCase):
         self.assertEqual(rubric.parent, (EVALS / "judge").resolve())
 
 
-class PluginEnabledTest(unittest.TestCase):
-    """The prep-time enablement gate's parser over `claude plugin list
-    --json`. Every degraded input reads as not-enabled: the gate fails
-    closed."""
-
-    PLUGIN = "agent-team-spring-boot@agent-team-eval"
+class PluginEnabledGate(unittest.TestCase):
+    """The prep-time enablement gate's parser over `claude plugin list --json`,
+    reading every degraded input as not-enabled."""
 
     @staticmethod
     def listing(**overrides: Any) -> str:
         entry: dict[str, Any] = {
-            "id": PluginEnabledTest.PLUGIN,
-            "version": "0.2.0",
+            "id": EVAL_PLUGIN,
+            "version": SOME_PLUGIN_VERSION,
             "enabled": True,
         }
         entry.update(overrides)
         return json.dumps([entry])
 
     def test_an_enabled_plugin_at_the_expected_version_passes(self) -> None:
-        self.assertTrue(plugin_enabled(self.listing(), self.PLUGIN, "0.2.0"))
+        self.assertTrue(
+            plugin_enabled(self.listing(), EVAL_PLUGIN, SOME_PLUGIN_VERSION)
+        )
 
     def test_a_disabled_plugin_fails(self) -> None:
         self.assertFalse(
-            plugin_enabled(self.listing(enabled=False), self.PLUGIN, "0.2.0")
+            plugin_enabled(
+                self.listing(enabled=False), EVAL_PLUGIN, SOME_PLUGIN_VERSION
+            )
         )
 
     def test_a_load_error_fails_even_when_enabled(self) -> None:
         self.assertFalse(
             plugin_enabled(
                 self.listing(error="marketplace failed to load: cache-miss"),
-                self.PLUGIN,
-                "0.2.0",
+                EVAL_PLUGIN,
+                SOME_PLUGIN_VERSION,
             )
         )
 
     def test_a_version_mismatch_fails(self) -> None:
-        self.assertFalse(plugin_enabled(self.listing(), self.PLUGIN, "0.3.0"))
+        self.assertFalse(
+            plugin_enabled(self.listing(), EVAL_PLUGIN, OTHER_PLUGIN_VERSION)
+        )
 
     def test_an_absent_plugin_fails(self) -> None:
-        self.assertFalse(plugin_enabled("[]", self.PLUGIN, "0.2.0"))
+        self.assertFalse(plugin_enabled("[]", EVAL_PLUGIN, SOME_PLUGIN_VERSION))
 
     def test_a_name_extending_the_target_never_matches(self) -> None:
-        listing = json.dumps(
-            [{"id": self.PLUGIN + "-x", "version": "0.2.0", "enabled": True}]
-        )
-        self.assertFalse(plugin_enabled(listing, self.PLUGIN, "0.2.0"))
+        listing = self.listing(id=EVAL_PLUGIN + "-x")
+        self.assertFalse(plugin_enabled(listing, EVAL_PLUGIN, SOME_PLUGIN_VERSION))
 
     def test_unparseable_output_fails_closed(self) -> None:
-        self.assertFalse(plugin_enabled("Installed plugins:", self.PLUGIN, "0.2.0"))
+        self.assertFalse(
+            plugin_enabled("Installed plugins:", EVAL_PLUGIN, SOME_PLUGIN_VERSION)
+        )
 
     def test_a_non_list_document_fails_closed(self) -> None:
-        self.assertFalse(plugin_enabled('{"id": "x"}', self.PLUGIN, "0.2.0"))
+        self.assertFalse(
+            plugin_enabled('{"id": "x"}', EVAL_PLUGIN, SOME_PLUGIN_VERSION)
+        )
 
 
-class EnabledPluginIdsTest(unittest.TestCase):
+class EnabledPluginIds(unittest.TestCase):
     """The stowaway gate's enumeration over `claude plugin list --json`."""
 
     def test_only_enabled_entries_are_reported(self) -> None:
@@ -934,7 +954,7 @@ class EnabledPluginIdsTest(unittest.TestCase):
         self.assertEqual(enabled_plugin_ids('{"id": "x"}'), ())
 
 
-class InstalledPluginIdsTest(unittest.TestCase):
+class InstalledPluginIds(unittest.TestCase):
     """The pin pass's enumeration: every installed id, enabled or not."""
 
     def test_disabled_and_flagless_entries_are_reported(self) -> None:
@@ -956,7 +976,7 @@ class InstalledPluginIdsTest(unittest.TestCase):
         self.assertEqual(installed_plugin_ids('{"id": "x"}'), ())
 
 
-class UnpinnedEnabledTest(unittest.TestCase):
+class UnpinnedEnabled(unittest.TestCase):
     """The leak gate's filter: enabled ids minus the version under test and
     the pinned set."""
 
@@ -994,7 +1014,7 @@ class UnpinnedEnabledTest(unittest.TestCase):
         )
 
 
-class WriteSessionPinsTest(unittest.TestCase):
+class SessionPins(unittest.TestCase):
     """The judge session root's plugin pins."""
 
     def test_every_id_lands_as_a_false_pin(self) -> None:
@@ -1011,30 +1031,29 @@ class WriteSessionPinsTest(unittest.TestCase):
             self.assertFalse((Path(root) / ".claude").exists())
 
 
-class FormatLedgerRecordTest(unittest.TestCase):
+class LedgerRecordLine(unittest.TestCase):
     """The live view's one-line rendering of an agent-authored ledger record."""
 
     def test_a_prd_entry_shows_author_type_and_title(self) -> None:
+        author, title = "product-requirements-expert", "Owner paging"
         line = format_ledger_record(
-            {
-                "type": "prd-entry",
-                "author": "product-requirements-expert",
-                "title": "Owner paging",
-            }
+            {"type": "prd-entry", "author": author, "title": title}
         )
-        self.assertEqual(line, "product-requirements-expert · prd-entry — Owner paging")
+        self.assertEqual(line, f"{author} · prd-entry — {title}")
 
     def test_review_feedback_shows_verdict_and_finding_count(self) -> None:
+        findings = [{}, {}]
         line = format_ledger_record(
             {
                 "type": "review-feedback",
                 "author": "test-reviewer",
                 "verdict": "approve",
-                "findings": [{}, {}],
+                "findings": findings,
             }
         )
         self.assertEqual(
-            line, "test-reviewer · review-feedback — approve · 2 finding(s)"
+            line,
+            f"test-reviewer · review-feedback — approve · {len(findings)} finding(s)",
         )
 
     def test_a_design_block_shows_verdict_and_effort_rating(self) -> None:
@@ -1074,9 +1093,9 @@ class FormatLedgerRecordTest(unittest.TestCase):
 
     def test_a_long_detail_truncates(self) -> None:
         line = format_ledger_record(
-            {"type": "prd-entry", "author": "a", "title": "x" * 500}
+            {"type": "prd-entry", "author": "a", "title": "x" * (2 * DETAIL_CHARS)}
         )
-        self.assertLess(len(line), 140)
+        self.assertLessEqual(len(line), len("a · prd-entry — ") + DETAIL_CHARS)
         self.assertTrue(line.endswith("…"))
 
     def test_an_unknown_type_still_names_author_and_type(self) -> None:
@@ -1088,9 +1107,9 @@ class FormatLedgerRecordTest(unittest.TestCase):
 
     def test_a_req_id_joins_the_line(self) -> None:
         line = format_ledger_record(
-            {"type": "dispatch-start", "author": "a", "req_id": "REQ-OWN-005"}
+            {"type": "dispatch-start", "author": "a", "req_id": SOME_REQ_ID}
         )
-        self.assertEqual(line, "a · dispatch-start · REQ-OWN-005")
+        self.assertEqual(line, f"a · dispatch-start · {SOME_REQ_ID}")
 
     def test_a_lone_surrogate_renders_printable_and_encodable(self) -> None:
         line = format_ledger_record(
@@ -1110,7 +1129,7 @@ class FormatLedgerRecordTest(unittest.TestCase):
 
     def test_an_oversized_author_cannot_flood_the_line(self) -> None:
         line = format_ledger_record({"type": "prd-entry", "author": "a" * 100_000})
-        self.assertLessEqual(len(line), 160)
+        self.assertLessEqual(len(line), LIVE_LINE_CHARS)
         self.assertTrue(line.endswith("…"))
 
     def test_a_boolean_retry_is_not_a_retry_count(self) -> None:
@@ -1125,7 +1144,7 @@ class FormatLedgerRecordTest(unittest.TestCase):
         self.assertEqual(line, "a · build-failure — test")
 
 
-class LedgerTailTest(unittest.TestCase):
+class LedgerTailPoll(unittest.TestCase):
     """The live view's incremental ledger reader: each record prints once,
     partial lines wait for their newline, and the collection cap stops it."""
 
@@ -1161,13 +1180,13 @@ class LedgerTailTest(unittest.TestCase):
         ledger = ws / ".scratch" / "handoff.jsonl"
         ledger.write_text(
             '{"type": "dispatch-start", "author": "feature-implementer",'
-            ' "req_id": "REQ-A-001"}\n'
+            f' "req_id": "{SOME_REQ_ID}"}}\n'
         )
         lines = LedgerTail(ledger).poll()
         self.assertEqual(
             lines,
             [
-                "feature-implementer · dispatch-start · REQ-A-001"
+                f"feature-implementer · dispatch-start · {SOME_REQ_ID}"
                 " — tier: routine (fix-round:all-autofix)"
             ],
         )
@@ -1177,10 +1196,11 @@ class LedgerTailTest(unittest.TestCase):
         # nothing, the line still prints.
         self.append(
             '{"type": "dispatch-start", "author": "feature-implementer",'
-            ' "req_id": "REQ-A-001"}\n'
+            f' "req_id": "{SOME_REQ_ID}"}}\n'
         )
         self.assertEqual(
-            self.tail.poll(), ["feature-implementer · dispatch-start · REQ-A-001"]
+            self.tail.poll(),
+            [f"feature-implementer · dispatch-start · {SOME_REQ_ID}"],
         )
         self.append('{"type": "build-pass", "author": "b", "gate_checks_run": ["t"]}\n')
         self.assertEqual(self.tail.poll(), ["b · build-pass — 1 check(s) green"])
@@ -1214,19 +1234,20 @@ class LedgerTailTest(unittest.TestCase):
         self.assertEqual(self.tail.poll(), ["b · dispatch-start"])
 
     def test_deeply_nested_json_is_skipped_not_raised(self) -> None:
-        self.append("[" * 200_000 + "\n")
+        self.append(DEEPLY_NESTED_JSON + "\n")
         self.append('{"type": "dispatch-start", "author": "a"}\n')
         self.assertEqual(self.tail.poll(), ["a · dispatch-start"])
 
     def test_a_record_flood_collapses_to_the_per_poll_cap(self) -> None:
-        for index in range(LIVE_MAX_LINES_PER_POLL + 10):
+        overflow = 10
+        for index in range(LIVE_MAX_LINES_PER_POLL + overflow):
             self.append(f'{{"type": "dispatch-start", "author": "a{index}"}}\n')
         lines = self.tail.poll()
         self.assertEqual(len(lines), LIVE_MAX_LINES_PER_POLL + 1)
-        self.assertEqual(lines[-1], "(+10 more record(s) this poll)")
+        self.assertEqual(lines[-1], f"(+{overflow} more record(s) this poll)")
 
 
-class ParseJsonObjectTest(unittest.TestCase):
+class JsonObjectParse(unittest.TestCase):
     def test_a_fenced_object_parses(self) -> None:
         parsed = parse_json_object('```json\n{"design_fit": 4}\n```')
         self.assertEqual(parsed, {"design_fit": 4})
@@ -1239,7 +1260,7 @@ class ParseJsonObjectTest(unittest.TestCase):
         self.assertIsNone(parse_json_object("no json here"))
 
 
-class ScrubTest(unittest.TestCase):
+class Scrub(unittest.TestCase):
     """Host identity never reaches a committed run folder as text."""
 
     def test_every_host_prefix_rewrites_to_its_label(self) -> None:
@@ -1266,7 +1287,7 @@ class ScrubTest(unittest.TestCase):
         self.assertEqual(scrub("BUILD SUCCESSFUL (61s)"), "BUILD SUCCESSFUL (61s)")
 
 
-class LoginRegexTest(unittest.TestCase):
+class LoginRegex(unittest.TestCase):
     def test_a_distinctive_login_matches_case_insensitively(self) -> None:
         pattern = run_eval.login_regex("bw")
         assert pattern is not None
@@ -1280,15 +1301,14 @@ class LoginRegexTest(unittest.TestCase):
         self.assertIsNone(run_eval.login_regex(""))
 
 
-class ListingDigestTest(unittest.TestCase):
+class ListingDigest(unittest.TestCase):
     """The run log's plugin listing carries no operator-machine facts."""
 
-    QUALIFIED = "agent-team-spring-boot@agent-team-eval"
     LISTING = json.dumps(
         [
             {
-                "id": "agent-team-spring-boot@agent-team-eval",
-                "version": "0.2.0",
+                "id": EVAL_PLUGIN,
+                "version": SOME_PLUGIN_VERSION,
                 "enabled": True,
                 "loadError": None,
                 "installPath": "/Users/someone/.claude/plugins/cache/x",
@@ -1296,8 +1316,8 @@ class ListingDigestTest(unittest.TestCase):
                 "lastUpdated": "2026-08-03T14:40:12.961Z",
             },
             {
-                "id": "agent-team-spring-boot@agent-team",
-                "version": "0.2.0",
+                "id": OPERATOR_PLUGIN,
+                "version": SOME_PLUGIN_VERSION,
                 "enabled": False,
                 "installPath": "/Users/someone/.claude/plugins/cache/y",
             },
@@ -1305,27 +1325,27 @@ class ListingDigestTest(unittest.TestCase):
     )
 
     def test_the_version_under_test_keeps_its_verdict_facts(self) -> None:
-        digest = listing_digest(self.LISTING, self.QUALIFIED)
-        self.assertIn(self.QUALIFIED, digest)
-        self.assertIn('"version": "0.2.0"', digest)
+        digest = listing_digest(self.LISTING, EVAL_PLUGIN)
+        self.assertIn(EVAL_PLUGIN, digest)
+        self.assertIn(f'"version": "{SOME_PLUGIN_VERSION}"', digest)
         self.assertIn('"loadError": null', digest)
 
     def test_machine_facts_and_operator_ids_never_appear(self) -> None:
-        digest = listing_digest(self.LISTING, self.QUALIFIED)
+        digest = listing_digest(self.LISTING, EVAL_PLUGIN)
         self.assertNotIn("installPath", digest)
         self.assertNotIn("installedAt", digest)
         self.assertNotIn("lastUpdated", digest)
-        self.assertNotIn('agent-team-spring-boot@agent-team"', digest)
+        self.assertNotIn(f'{OPERATOR_PLUGIN}"', digest)
         self.assertIn("1 other installed plugin(s)", digest)
 
     def test_unparseable_output_reads_as_such(self) -> None:
         self.assertEqual(
-            listing_digest("Installed plugins:", self.QUALIFIED),
+            listing_digest("Installed plugins:", EVAL_PLUGIN),
             "(no parseable plugin entries)",
         )
 
 
-class LeakScanTest(unittest.TestCase):
+class LeakScan(unittest.TestCase):
     """The gate behind the scrub: a surviving host token fails the folder."""
 
     def setUp(self) -> None:
@@ -1373,8 +1393,7 @@ class LeakScanTest(unittest.TestCase):
 
     def test_a_time_of_day_range_is_not_a_hit(self) -> None:
         # Reviewer prose citing an mtime range: the second time reads as a
-        # zone offset without the right boundary. A quarantined v0.2.1 rep
-        # hit exactly this shape.
+        # zone offset without the right boundary.
         (self.out_dir / "handoff.jsonl").write_text(
             '{"note": "all mtimes fall in the 00:47:43-00:51:08 range"}\n'
         )
@@ -1398,7 +1417,7 @@ class LeakScanTest(unittest.TestCase):
         )
 
 
-class CommitBaselineTest(unittest.TestCase):
+class BaselineCommit(unittest.TestCase):
     """The runner's own commit carries no host zone: an agent quoting its
     date must emit a UTC stamp, or the leak gate would read the host clock."""
 
@@ -1420,7 +1439,11 @@ class CommitBaselineTest(unittest.TestCase):
                 self.assertTrue(stamp.endswith(("Z", "+00:00")), stamp)
 
 
-class RescueUtcTest(unittest.TestCase):
+HOST_ZONED_STAMP = "2026-08-27T19:24:23+02:00"
+SAME_INSTANT_UTC = "2026-08-27T17:24:23Z"
+
+
+class UtcRescue(unittest.TestCase):
     """A leak-gated folder whose only host identity is the runner's own
     host-zoned baseline stamp comes back with the stamps in UTC."""
 
@@ -1441,17 +1464,17 @@ class RescueUtcTest(unittest.TestCase):
         return folder
 
     def test_a_stamp_keeps_its_instant_in_utc(self) -> None:
-        self.assertEqual(utc_stamp("2026-08-27T19:24:23+02:00"), "2026-08-27T17:24:23Z")
+        self.assertEqual(utc_stamp(HOST_ZONED_STAMP), SAME_INSTANT_UTC)
 
     def test_the_rescue_normalizes_and_clears_the_leak(self) -> None:
         folder = self.folder(
-            '{"note": "after the last commit (2026-08-27T19:24:23+02:00)"}\n'
+            f'{{"note": "after the last commit ({HOST_ZONED_STAMP})"}}\n'
         )
         repairs = rescue_utc(folder)
         self.assertEqual(
             repairs, ["handoff.jsonl: 1 non-UTC stamp(s) normalized to UTC"]
         )
-        self.assertIn("2026-08-27T17:24:23Z", (folder / "handoff.jsonl").read_text())
+        self.assertIn(SAME_INSTANT_UTC, (folder / "handoff.jsonl").read_text())
         result = json.loads((folder / "result.json").read_text())
         self.assertEqual(result["status"], "complete")
         self.assertNotIn("leaks", result)
@@ -1469,22 +1492,25 @@ class RescueUtcTest(unittest.TestCase):
             rescue_utc(folder)
 
 
-class SutCommitStampsTest(unittest.TestCase):
-    """The SUT's own offsets, which the timestamp gate must not read as host
-    identity. `TZ=UTC` cannot normalize them: git renders the offset stored
-    in the commit object."""
+COMMIT_TIME = "16:36:18"
+HOST_OFFSET = "+02:00"
+
+
+class SutCommitStamps(unittest.TestCase):
+    """The SUT's own commit offsets, which git renders as stored and the
+    timestamp gate must not read as host identity."""
 
     def a_repo_committed_at(self, offset: str) -> Path:
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
         workdir = Path(holder.name)
         git = ["git", "-C", str(workdir)]
-        subprocess.run(git + ["init", "--quiet"], check=True)
+        subprocess.run([*git, "init", "--quiet"], check=True)
         (workdir / "doc.md").write_text("brief\n")
-        subprocess.run(git + ["add", "-A"], check=True)
+        subprocess.run([*git, "add", "-A"], check=True)
         subprocess.run(
-            git
-            + [
+            [
+                *git,
                 "-c",
                 "user.name=t",
                 "-c",
@@ -1493,22 +1519,25 @@ class SutCommitStampsTest(unittest.TestCase):
                 "--quiet",
                 "-m",
                 "baseline",
-                f"--date=2026-08-03T16:36:18{offset}",
+                f"--date=2026-08-03T{COMMIT_TIME}{offset}",
             ],
             check=True,
-            env={**os.environ, "GIT_COMMITTER_DATE": f"2026-08-03T16:36:18{offset}"},
+            env={
+                **os.environ,
+                "GIT_COMMITTER_DATE": f"2026-08-03T{COMMIT_TIME}{offset}",
+            },
         )
         return workdir
 
     def test_a_stored_offset_is_collected(self) -> None:
-        stamps = sut_commit_stamps(self.a_repo_committed_at("+02:00"))
-        self.assertEqual(stamps, frozenset({"16:36:18+02:00"}))
+        stamps = sut_commit_stamps(self.a_repo_committed_at(HOST_OFFSET))
+        self.assertEqual(stamps, frozenset({COMMIT_TIME + HOST_OFFSET}))
 
     def test_tz_utc_does_not_normalize_a_stored_offset(self) -> None:
-        workdir = self.a_repo_committed_at("+02:00")
-        os.environ["TZ"] = "UTC"
-        self.addCleanup(os.environ.pop, "TZ", None)
-        self.assertEqual(sut_commit_stamps(workdir), frozenset({"16:36:18+02:00"}))
+        workdir = self.a_repo_committed_at(HOST_OFFSET)
+        with mock.patch.dict(os.environ, {"TZ": "UTC"}):
+            stamps = sut_commit_stamps(workdir)
+        self.assertEqual(stamps, frozenset({COMMIT_TIME + HOST_OFFSET}))
 
     def test_a_utc_history_collects_nothing(self) -> None:
         self.assertEqual(
@@ -1521,7 +1550,7 @@ class SutCommitStampsTest(unittest.TestCase):
         self.assertEqual(sut_commit_stamps(Path(holder.name)), frozenset())
 
 
-class RecordedSutStampsTest(unittest.TestCase):
+class RecordedSutStamps(unittest.TestCase):
     """The bridge to the offline re-scan: `--leak-scan` runs from the
     committed tree with no SUT clone, so the folder records its own
     exemptions."""
@@ -1563,7 +1592,7 @@ class RecordedSutStampsTest(unittest.TestCase):
         self.assertEqual(recorded_sut_stamps(self.out_dir), frozenset())
 
 
-class EgressRecordFilterTest(unittest.TestCase):
+class EgressRecordFilter(unittest.TestCase):
     """Only the proxy's per-request access records reach the run folder."""
 
     def test_access_records_match_and_startup_narration_never_does(self) -> None:
@@ -1584,10 +1613,9 @@ class EgressRecordFilterTest(unittest.TestCase):
         self.assertFalse(run_eval.EGRESS_RECORD_RE.search(startup))
 
 
-class SeedIntakeTest(unittest.TestCase):
+class SeedIntake(unittest.TestCase):
     """The headless intake front door: prep seeds one intake-decision from the
-    task manifest when the installed version ships the record's schema, and
-    skips silently when it does not — backfill arms route exactly as before."""
+    task manifest when the installed version ships the record's schema."""
 
     def _workspace(self, with_schema: bool = True) -> Path:
         ws = Path(tempfile.mkdtemp(prefix="seed-intake-"))
@@ -1600,8 +1628,8 @@ class SeedIntakeTest(unittest.TestCase):
         return ws
 
     def test_every_task_seeds_a_schema_valid_record(self) -> None:
-        # Covers the req_id minting for every real task id: append validates
-        # the record (pattern included), so a bad mint fails the seed.
+        # Append validates the record against the schema, so a bad req_id
+        # mint fails the seed.
         log = Path(tempfile.mkdtemp(prefix="seed-log-")) / "run.log"
         self.addCleanup(shutil.rmtree, log.parent, ignore_errors=True)
         for task in run_eval.load_tasks().values():
@@ -1618,10 +1646,8 @@ class SeedIntakeTest(unittest.TestCase):
             self.assertEqual(record["req_id"], f"REQ-{task.req_prefix}-001")
 
     def test_the_seed_mints_one_past_the_highest_id_under_the_prefix(self) -> None:
-        # The bench mints as the intake skill does: the task's capability
-        # prefix plus one past the highest number in the SUT's PRD at the
-        # epoch (a gap is never refilled), so the id follows the PRD's
-        # vocabulary instead of the task name. Lowercase anchors count.
+        # The mint follows the PRD's vocabulary: prefix plus one past its
+        # highest number, gaps never refilled, lowercase anchors counted.
         ws = self._workspace()
         log = ws / "run.log"
         (ws / "docs").mkdir()
@@ -1629,7 +1655,7 @@ class SeedIntakeTest(unittest.TestCase):
             '[REQ-OWN-004] first; <a id="req-own-006"></a> [REQ-PET-009] other.',
             encoding="utf-8",
         )
-        task = run_eval.load_tasks()["owners-page-param"]
+        task = run_eval.load_tasks()[PAGED_TASK_ID]
         self.assertEqual(task.req_prefix, "OWN")
         run_eval.seed_intake(task, ws, log)
         record = json.loads((ws / ".scratch" / "handoff.jsonl").read_text())
@@ -1661,13 +1687,14 @@ class SeedIntakeTest(unittest.TestCase):
     def test_a_seeded_workspace_routes_intake_ready(self) -> None:
         ws = self._workspace()
         log = ws / "run.log"
-        task = run_eval.load_tasks()["visit-edit"]
+        task = run_eval.load_tasks()[FEATURE_TASK_ID]
         run_eval.seed_intake(task, ws, log)
         proc = subprocess.run(
             ["python3", "scripts/handoff.py", "route"],
             cwd=ws,
             capture_output=True,
             text=True,
+            check=False,
         )
         decision = json.loads(proc.stdout)
         self.assertEqual(decision["rule"], "intake-ready")
@@ -1676,21 +1703,19 @@ class SeedIntakeTest(unittest.TestCase):
     def test_a_version_without_the_schema_is_not_seeded(self) -> None:
         ws = self._workspace(with_schema=False)
         log = ws / "run.log"
-        task = run_eval.load_tasks()["visit-edit"]
+        task = run_eval.load_tasks()[FEATURE_TASK_ID]
         self.assertIsNone(run_eval.seed_intake(task, ws, log))
         self.assertFalse((ws / ".scratch" / "handoff.jsonl").exists())
 
     def test_decision_clauses_are_verbatim_prompt_quotes(self) -> None:
-        # The loader enforces the quote contract; this pins it for the
-        # committed manifests, refusal task included (it declares none).
         tasks = run_eval.load_tasks()
         for task in tasks.values():
             for clause in task.decisions:
                 self.assertIn(clause, task.prompt, task.id)
-        self.assertEqual(tasks["visit-cancel"].decisions, ())
+        self.assertEqual(tasks[REFUSAL_TASK_ID].decisions, ())
 
 
-class EraContractTest(unittest.TestCase):
+class EraContract(unittest.TestCase):
     def _src(self, root: Path) -> Path:
         stack = root / "src" / "harness" / "init" / "stacks" / "java-spring-boot"
         (stack / "scripts").mkdir(parents=True)
@@ -1703,7 +1728,9 @@ class EraContractTest(unittest.TestCase):
         )
         return root / "src"
 
-    def test_replaces_both_files_and_fills_the_placeholders(self) -> None:
+    def test_the_contract_replaces_both_files_and_fills_the_placeholders(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             src = self._src(root)
@@ -1739,7 +1766,7 @@ class EraContractTest(unittest.TestCase):
                 era_project_contract(root / "work", root / "src", root / "run.log")
 
 
-class EraRootModelTest(unittest.TestCase):
+class EraRootModel(unittest.TestCase):
     def _src(self, root: Path, frontmatter: str) -> Path:
         agents = root / "src" / "plugins" / "spring-boot-claude" / "agents"
         agents.mkdir(parents=True)
@@ -1771,54 +1798,64 @@ class EraRootModelTest(unittest.TestCase):
                 era_root_model(Path(tmp) / "src", "spring-boot-claude")
 
 
-class AgentClaudeArgsTest(unittest.TestCase):
+class AgentClaudeArgs(unittest.TestCase):
     def test_the_frozen_prompt_passes_verbatim(self) -> None:
-        args = agent_claude_args("fix the bug", "opus", True, False)
+        args = agent_claude_args("fix the bug", "opus", dangerous=True, era_entry=False)
         self.assertEqual(args[:2], ["-p", "fix the bug"])
         self.assertIn("--dangerously-skip-permissions", args)
         self.assertNotIn("--append-system-prompt", args)
 
     def test_the_era_entry_arm_appends_the_system_prompt(self) -> None:
-        args = agent_claude_args("fix the bug", "opus", True, True)
+        args = agent_claude_args("fix the bug", "opus", dangerous=True, era_entry=True)
         i = args.index("--append-system-prompt")
         self.assertEqual(args[i + 1], run_eval.ERA_ENTRY_PROMPT)
         self.assertIn("pipeline-coordinator", args[i + 1])
         self.assertEqual(args[:2], ["-p", "fix the bug"])
 
 
-class NoPipelineRunTest(unittest.TestCase):
+class NoPipelineRun(unittest.TestCase):
     def test_a_complete_run_with_an_empty_ledger_trips_the_gate(self) -> None:
-        self.assertTrue(no_pipeline_run("complete", 0, False, "feature"))
-
-    def test_a_run_with_ledger_records_never_trips(self) -> None:
-        self.assertFalse(no_pipeline_run("complete", 19, False, "feature"))
-
-    def test_a_non_complete_run_keeps_its_own_status(self) -> None:
-        self.assertFalse(no_pipeline_run("timeout", 0, False, "feature"))
-
-    def test_an_oversize_ledger_reads_as_a_pipeline_run(self) -> None:
-        self.assertFalse(no_pipeline_run("complete", 0, True, "feature"))
-
-    def test_a_correct_refusal_may_write_no_record(self) -> None:
-        self.assertFalse(no_pipeline_run("complete", 0, False, "refusal"))
-
-
-class AttemptNameTest(unittest.TestCase):
-    def test_the_attempt_suffixes_the_run_name_with_time_of_day(self) -> None:
-        now = datetime.datetime(2026, 8, 22, 14, 32, 7)
-        self.assertEqual(
-            attempt_name("2026-08-22-owners-page-param-r2", now),
-            "2026-08-22-owners-page-param-r2-T143207",
+        self.assertTrue(
+            no_pipeline_run("complete", 0, "feature", ledger_oversize=False)
         )
 
+    def test_a_run_with_ledger_records_never_trips(self) -> None:
+        self.assertFalse(
+            no_pipeline_run(
+                "complete", SOME_RECORD_COUNT, "feature", ledger_oversize=False
+            )
+        )
+
+    def test_a_non_complete_run_keeps_its_own_status(self) -> None:
+        self.assertFalse(
+            no_pipeline_run("timeout", 0, "feature", ledger_oversize=False)
+        )
+
+    def test_an_oversize_ledger_reads_as_a_pipeline_run(self) -> None:
+        self.assertFalse(
+            no_pipeline_run("complete", 0, "feature", ledger_oversize=True)
+        )
+
+    def test_a_correct_refusal_may_write_no_record(self) -> None:
+        self.assertFalse(
+            no_pipeline_run("complete", 0, "refusal", ledger_oversize=False)
+        )
+
+
+class AttemptName(unittest.TestCase):
+    def test_the_attempt_suffixes_the_run_name_with_time_of_day(self) -> None:
+        now = datetime.datetime(2026, 8, 22, 14, 32, 7, tzinfo=datetime.UTC)
+        run = f"2026-08-22-{PAGED_TASK_ID}-r2"
+        self.assertEqual(attempt_name(run, now), f"{run}-T{now:%H%M%S}")
+
     def test_two_attempts_at_one_cell_get_distinct_names(self) -> None:
-        a = datetime.datetime(2026, 8, 22, 14, 32, 7)
-        b = datetime.datetime(2026, 8, 22, 15, 1, 44)
-        run = "2026-08-22-visit-edit-r1"
+        a = datetime.datetime(2026, 8, 22, 14, 32, 7, tzinfo=datetime.UTC)
+        b = datetime.datetime(2026, 8, 22, 15, 1, 44, tzinfo=datetime.UTC)
+        run = f"2026-08-22-{FEATURE_TASK_ID}-r1"
         self.assertNotEqual(attempt_name(run, a), attempt_name(run, b))
 
 
-class NextRepTest(unittest.TestCase):
+class NextRep(unittest.TestCase):
     def test_existing_reps_count_toward_the_next_number(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vdir = Path(tmp) / "v0.1.1"
@@ -1838,7 +1875,7 @@ class NextRepTest(unittest.TestCase):
             self.assertEqual(next_rep("v9.9.9", "visit-edit", Path(tmp)), 1)
 
 
-class SliceAbandonedTest(unittest.TestCase):
+class SliceAbandoned(unittest.TestCase):
     def _out_dir(self, root: Path, types: list[str]) -> Path:
         out = root / "out"
         out.mkdir()
@@ -1869,7 +1906,24 @@ class SliceAbandonedTest(unittest.TestCase):
             self.assertFalse(slice_abandoned(out, "feature", "timeout"))
 
 
-class PipelineIncompleteTest(unittest.TestCase):
+def a_step_failing_with_a_terminal_escape() -> None:
+    raise RuntimeError(f"probe said {A_TERMINAL_ESCAPE}hidden")
+
+
+class BestEffortGuard(unittest.TestCase):
+    def test_a_failing_step_records_its_error_without_terminal_escapes(self) -> None:
+        result: dict[str, Any] = {}
+        with tempfile.TemporaryDirectory() as tmp:
+            outcome = best_effort(result, Path(tmp) / "run.log", "probe")(
+                a_step_failing_with_a_terminal_escape
+            )
+        self.assertIsNone(outcome)
+        (recorded,) = result["collection_errors"]
+        self.assertIn("probe: probe said", recorded)
+        self.assertNotIn("\x1b", recorded)
+
+
+class PipelineIncomplete(unittest.TestCase):
     def _out_dir(self, root: Path, records: list[dict[str, Any]]) -> Path:
         out = root / "out"
         out.mkdir()
@@ -1878,7 +1932,7 @@ class PipelineIncompleteTest(unittest.TestCase):
         return out
 
     @staticmethod
-    def _review(author: str, verdict: str, req: str = "REQ-1") -> dict[str, Any]:
+    def _review(author: str, verdict: str, req: str = SOME_REQ_ID) -> dict[str, Any]:
         return {
             "type": "review-feedback",
             "req_id": req,
@@ -1942,6 +1996,15 @@ class PipelineIncompleteTest(unittest.TestCase):
                 pipeline_incomplete(out, "feature", "complete", implemented=True),
                 "built but never reviewed",
             )
+
+    def test_a_non_object_ledger_line_fails_loud_with_its_line_number(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), [{"type": "build-pass"}])
+            ledger = out / "handoff.jsonl"
+            ledger.write_text(ledger.read_text() + "123\n", encoding="utf-8")
+            with self.assertRaisesRegex(TypeError, "handoff.jsonl: line 2") as raised:
+                pipeline_incomplete(out, "feature", "complete")
+        self.assertIn("not an object", str(raised.exception))
 
     def test_a_refusal_task_reviews_nothing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

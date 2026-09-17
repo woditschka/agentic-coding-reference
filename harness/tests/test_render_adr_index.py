@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for render-adr-index.py (stdlib only).
-
-Run: python3 harness/tests/test_render_adr_index.py
-
-Pins the generator guards: a malformed ADR filename, a file without an H1
-or status line, a control character or link-breaking bracket in a derived
-cell, image syntax in a status, and any non-table line after '## Index'
-all fail loudly
-(never a partial or truncating render); the live tree renders drift-free
-with a plausible row count; and the row shape derives date, title link,
-and status exactly. Guard fixtures live in a temp directory — the tests
-never write into the live docs/adr/ tree.
-"""
+"""The ADR index renderer: every malformed input fails loud, the live tree renders drift-free, and rows derive their shape exactly."""
 
 import shutil
 import sys
@@ -20,16 +8,18 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _loader import load  # noqa: E402
+from _loader import load
 
 rai = load("render_adr_index", "render-adr-index.py")
+
+DECISION_FLOOR = 94
 
 
 class RowDerivation(unittest.TestCase):
     def test_live_rows_have_the_derived_shape(self):
+        # The decision log only grows, so its count never drops below the floor.
         rows = rai.adr_rows()
-        # The 2026-08-21 log holds 94 decisions; the log only grows.
-        self.assertGreaterEqual(len(rows), 94)
+        self.assertGreaterEqual(len(rows), DECISION_FLOOR)
         for row in rows:
             self.assertRegex(
                 row, r"^\| \d{4}-\d{2}-\d{2} \| \[[^]]+\]\([a-z0-9.-]+\.md\) \| .+ \|$"
@@ -83,8 +73,7 @@ class Guards(unittest.TestCase):
             rai.adr_rows(self._adr_dir_with("2026-08-21-image-status.md", content))
 
     def test_a_status_link_stays_allowed(self):
-        # Supersession pointers legitimately render as links in the status
-        # cell; the injection guards must not refuse them.
+        # A supersession pointer legitimately renders as a link in the status cell.
         content = "# Title\n\n**Status:** Superseded by [x](2026-01-01-x.md)\n"
         (row,) = rai.adr_rows(
             self._adr_dir_with("2026-08-21-linked-status.md", content)
@@ -94,8 +83,6 @@ class Guards(unittest.TestCase):
 
 class RenderAndCheck(unittest.TestCase):
     def test_the_live_tree_is_drift_free(self):
-        # The committed README must equal a fresh render — the same
-        # comparison battery step 3l runs.
         self.assertEqual(rai.render(), rai.README.read_text(encoding="utf-8"))
 
     def _render_with_tail(self, extra):
@@ -112,8 +99,8 @@ class RenderAndCheck(unittest.TestCase):
         self._render_with_tail("\nA stray sentence.\n")
 
     def test_a_status_legend_after_the_index_fails_loud(self):
-        # A regenerate rebuilds the tail from the rows alone; a waved-through
-        # legend line would vanish silently, so it must refuse instead.
+        # A regenerate rebuilds the tail from the rows alone, so a waved-through
+        # legend line would vanish silently.
         self._render_with_tail("\n**Status:** values are Accepted or Superseded.\n")
 
 

@@ -1,33 +1,37 @@
-"""Tests for refresh_trend.py — the one-command trend refresh.
-
-Pins the composition contract: the steps run in order, and a failing
-step stops the chain with its exit code. Steps inject as parameters
-(no patching); the real steps are summarize and render_figure, each
-tested in its own suite."""
-
-from __future__ import annotations
+"""Unit suite for the one-command trend refresh's step composition."""
 
 import unittest
+from collections.abc import Callable
 
 import refresh_trend
 
+VIEWS_STEP = "views"
+FIGURE_STEP = "figure"
+SOME_FAILURE_CODE = 3
 
-class CompositionTest(unittest.TestCase):
+
+def a_step(ran: list[str], name: str, code: int = 0) -> Callable[[], int]:
+    def step() -> int:
+        ran.append(name)
+        return code
+
+    return step
+
+
+class Composition(unittest.TestCase):
     def test_steps_run_in_order(self) -> None:
         ran: list[str] = []
-        rc = refresh_trend.main(
-            [lambda: (ran.append("views"), 0)[1], lambda: (ran.append("figure"), 0)[1]]
-        )
+        rc = refresh_trend.main([a_step(ran, VIEWS_STEP), a_step(ran, FIGURE_STEP)])
         self.assertEqual(rc, 0)
-        self.assertEqual(ran, ["views", "figure"])
+        self.assertEqual(ran, [VIEWS_STEP, FIGURE_STEP])
 
     def test_a_failing_step_stops_the_chain_with_its_code(self) -> None:
         ran: list[str] = []
         rc = refresh_trend.main(
-            [lambda: (ran.append("views"), 3)[1], lambda: (ran.append("figure"), 0)[1]]
+            [a_step(ran, VIEWS_STEP, SOME_FAILURE_CODE), a_step(ran, FIGURE_STEP)]
         )
-        self.assertEqual(rc, 3)
-        self.assertEqual(ran, ["views"])
+        self.assertEqual(rc, SOME_FAILURE_CODE)
+        self.assertEqual(ran, [VIEWS_STEP])
 
     def test_the_default_steps_are_the_two_renderers(self) -> None:
         self.assertEqual(len(refresh_trend.default_steps()), 2)

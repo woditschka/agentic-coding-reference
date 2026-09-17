@@ -1,20 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for accounting.py (stdlib only).
-
-Run (from scripts/): python3 -m unittest tests.test_accounting
-
-Covers the pricing table (family rates, the Sonnet 5 override precedence, an
-unknown model priced at zero), the usage fold (token totals, list-price cost,
-cache-hit and cache-savings percentages, the 5m/1h TTL fallback), timestamp
-parsing, transcript reading under malformed input, session discovery, and the
-window index the board queries — including whole-file attribution (a window
-selects dispatches and sums each whole), the roll-up's deliberate
-message-windowing, and the premise the whole model rests on: no two dispatches
-of one agentType overlap in time.
-
-All fixtures are synthetic: round token counts, invented agentTypes and session
-ids. No real Claude Code transcript is read here.
-"""
+"""The accounting module over synthetic transcripts: pricing, the usage fold, and the window index."""
 
 import importlib.util
 import io
@@ -26,7 +11,7 @@ import unittest.mock
 from contextlib import redirect_stdout
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent.parent  # the scripts dir (tests live under it)
+_HERE = Path(__file__).resolve().parent.parent
 
 
 def _load():
@@ -38,11 +23,70 @@ def _load():
 
 cc = _load()
 
+OPUS = "claude-opus-4-8"
+OPUS_5 = "claude-opus-5"
+OPUS_DISPLAY_NAME = "Opus 4.8"
+SONNET = "claude-sonnet-4-6"
+SONNET_5 = "claude-sonnet-5-20260101"
+HAIKU = "claude-haiku-4-5"
+FABLE = "claude-fable-5"
+FABLE_5_1 = "claude-fable-5-1"
+FABLE_5_1_DISPLAY_NAME = "Fable 5.1"
+MYTHOS_5_1 = "claude-mythos-5-1"
+AN_UNKNOWN_MODEL = "gpt-9"
 
-def usage(inp=0, out=0, read=0, cc5=None, cc1=None, flat=None):
-    """A synthetic usage dict. When cc5/cc1 are given the TTL split is written;
-    when only `flat` is given the pre-split cache_creation_input_tokens form is
-    written (no cache_creation dict)."""
+# The published list prices ($ per million input, output tokens) and cache
+# multipliers, pinned here independently of the production table.
+OPUS_RATE = (5.00, 25.00)
+SONNET_RATE = (3.00, 15.00)
+HAIKU_RATE = (1.00, 5.00)
+FABLE_RATE = (10.00, 50.00)
+SONNET_5_RATE = (2.00, 10.00)
+NO_RATE = (0.0, 0.0)
+CACHE_READ_MULT = 0.10
+CACHE_WRITE_5M_MULT = 1.25
+CACHE_WRITE_1H_MULT = 2.00
+FABLE_5_1_READ_MULT = 0.025
+MTOK = 1_000_000
+PERCENT = 100
+COST_PLACES = 9
+
+INPUT_TOKENS = 1000
+OUTPUT_TOKENS = 500
+CACHE_READ_TOKENS = 2000
+WRITE_5M_TOKENS = 400
+WRITE_1H_TOKENS = 100
+FLAT_WRITE_TOKENS = 700
+SOME_TOKENS = 100
+
+IMPLEMENTER = "feature-implementer"
+IMPLEMENTER_VARIANT = IMPLEMENTER + cc.VARIANT_SUFFIX
+REVIEWER = "code-quality-reviewer"
+DOC_REVIEWER = "doc-reviewer"
+AN_UNDISPATCHED_TYPE = "review-plan-engine"
+SOME_SESSION = "s1"
+A_LATER_SESSION = "s2"
+SOME_TS = "2026-07-06T10:00:00Z"
+A_LATER_TS = "2026-07-06T10:05:00Z"
+A_NON_STRING = 1234
+
+WINDOW_START = "2026-07-06T10:00:00Z"
+WINDOW_END = "2026-07-06T10:10:00Z"
+INSIDE_WINDOW = "2026-07-06T10:05:00Z"
+ALSO_INSIDE_WINDOW = "2026-07-06T10:06:00Z"
+BEFORE_WINDOW = "2026-07-06T09:55:00Z"
+AFTER_WINDOW = "2026-07-06T11:00:00Z"
+INSIDE_INPUT = 1000
+OTHER_INSIDE_INPUT = 2000
+OUTSIDE_INPUT = 8000
+UNPLACEABLE_INPUT = 50000
+STALE_MTIME = 1000.0
+
+
+def a_usage(inp=0, out=0, read=0, **cache):
+    """A synthetic usage dict; cc5 and cc1 write the TTL split, flat writes the pre-split form."""
+    assert set(cache) <= {"cc5", "cc1", "flat"}, cache
+    cc5, cc1, flat = cache.get("cc5"), cache.get("cc1"), cache.get("flat")
     u = {"input_tokens": inp, "output_tokens": out, "cache_read_input_tokens": read}
     if flat is not None:
         u["cache_creation_input_tokens"] = flat
@@ -56,73 +100,131 @@ def usage(inp=0, out=0, read=0, cc5=None, cc1=None, flat=None):
     return u
 
 
-class TestPricing(unittest.TestCase):
-    def test_family_rates(self):
-        self.assertEqual(cc._rate("claude-opus-4-8"), (5.00, 25.00))
-        self.assertEqual(cc._rate("claude-opus-5"), (5.00, 25.00))
-        self.assertEqual(cc._rate("claude-sonnet-4-6"), (3.00, 15.00))
-        self.assertEqual(cc._rate("claude-haiku-4-5"), (1.00, 5.00))
-        self.assertEqual(cc._rate("claude-fable-5"), (10.00, 50.00))
-        self.assertEqual(cc._rate("claude-fable-5-1"), (10.00, 50.00))
+def a_mixed_opus_usage():
+    return a_usage(
+        inp=INPUT_TOKENS,
+        out=OUTPUT_TOKENS,
+        read=CACHE_READ_TOKENS,
+        cc5=WRITE_5M_TOKENS,
+        cc1=WRITE_1H_TOKENS,
+    )
 
-    def test_display_name_casing(self):
-        # Claude Code's display_name form ("Opus 4.8") must price like the id.
-        self.assertEqual(cc._rate("Opus 4.8"), (5.00, 25.00))
+
+def mixed_opus_cost():
+    input_rate, output_rate = OPUS_RATE
+    return (
+        INPUT_TOKENS * input_rate
+        + OUTPUT_TOKENS * output_rate
+        + CACHE_READ_TOKENS * input_rate * CACHE_READ_MULT
+        + WRITE_5M_TOKENS * input_rate * CACHE_WRITE_5M_MULT
+        + WRITE_1H_TOKENS * input_rate * CACHE_WRITE_1H_MULT
+    ) / MTOK
+
+
+def plain_cost(rate, inp, out):
+    input_rate, output_rate = rate
+    return (inp * input_rate + out * output_rate) / MTOK
+
+
+def savings_pct(base, actual):
+    return round((base - actual) * PERCENT / base)
+
+
+class Pricing(unittest.TestCase):
+    def test_the_table_carries_the_published_rates_and_multipliers(self):
+        self.assertEqual(
+            cc.PRICE,
+            {
+                "fable": FABLE_RATE,
+                "opus": OPUS_RATE,
+                "sonnet": SONNET_RATE,
+                "haiku": HAIKU_RATE,
+            },
+        )
+        self.assertEqual(dict(cc.PRICE_OVERRIDE), {"sonnet-5": SONNET_5_RATE})
+        self.assertEqual(cc.CACHE_READ_MULT, CACHE_READ_MULT)
+        self.assertEqual(cc.CACHE_WRITE_5M_MULT, CACHE_WRITE_5M_MULT)
+        self.assertEqual(cc.CACHE_WRITE_1H_MULT, CACHE_WRITE_1H_MULT)
+        self.assertEqual(
+            {
+                needle: mult
+                for needles, mult in cc.CACHE_READ_MULT_OVERRIDE
+                for needle in needles
+            },
+            {
+                "fable-5-1": FABLE_5_1_READ_MULT,
+                "fable 5.1": FABLE_5_1_READ_MULT,
+                "mythos-5-1": FABLE_5_1_READ_MULT,
+                "mythos 5.1": FABLE_5_1_READ_MULT,
+            },
+        )
+        self.assertEqual(cc.TOKENS_PER_MILLION, MTOK)
+
+    def test_each_family_prices_at_its_rate(self):
+        self.assertEqual(cc._rate(OPUS), OPUS_RATE)
+        self.assertEqual(cc._rate(OPUS_5), OPUS_RATE)
+        self.assertEqual(cc._rate(SONNET), SONNET_RATE)
+        self.assertEqual(cc._rate(HAIKU), HAIKU_RATE)
+        self.assertEqual(cc._rate(FABLE), FABLE_RATE)
+        self.assertEqual(cc._rate(FABLE_5_1), FABLE_RATE)
+
+    def test_a_display_name_prices_like_its_id(self):
+        self.assertEqual(cc._rate(OPUS_DISPLAY_NAME), OPUS_RATE)
 
     def test_sonnet5_override_beats_family(self):
-        # sonnet-5 carries the intro rate; a plain sonnet does not.
-        self.assertEqual(cc._rate("claude-sonnet-5-20260101"), (2.00, 10.00))
-        self.assertEqual(cc._rate("claude-sonnet-4-6"), (3.00, 15.00))
+        self.assertEqual(cc._rate(SONNET_5), SONNET_5_RATE)
+        self.assertEqual(cc._rate(SONNET), SONNET_RATE)
 
     def test_unknown_model_prices_zero(self):
-        # A new model surfaces as $0, never a wrong guess.
-        self.assertEqual(cc._rate("gpt-9"), (0.0, 0.0))
-        self.assertEqual(cc._rate(None), (0.0, 0.0))
+        self.assertEqual(cc._rate(AN_UNKNOWN_MODEL), NO_RATE)
+        self.assertEqual(cc._rate(None), NO_RATE)
 
 
-class TestCacheReadMult(unittest.TestCase):
+class CacheReadMultiplier(unittest.TestCase):
     def test_standard_models_read_at_flat_mult(self):
-        self.assertEqual(cc._read_mult("claude-fable-5"), 0.10)
-        self.assertEqual(cc._read_mult("claude-opus-5"), 0.10)
-        self.assertEqual(cc._read_mult(None), 0.10)
+        self.assertEqual(cc._read_mult(FABLE), CACHE_READ_MULT)
+        self.assertEqual(cc._read_mult(OPUS_5), CACHE_READ_MULT)
+        self.assertEqual(cc._read_mult(None), CACHE_READ_MULT)
 
-    def test_fable_5_1_reads_at_quarter_dollar(self):
-        # Fable 5.1 / Mythos 5.1 cache reads price at 0.025x base input;
-        # both the id and the display-name form must match.
-        self.assertEqual(cc._read_mult("claude-fable-5-1"), 0.025)
-        self.assertEqual(cc._read_mult("Fable 5.1"), 0.025)
-        self.assertEqual(cc._read_mult("claude-mythos-5-1"), 0.025)
+    def test_fable_5_1_reads_at_its_override_by_id_and_display_name(self):
+        self.assertEqual(cc._read_mult(FABLE_5_1), FABLE_5_1_READ_MULT)
+        self.assertEqual(cc._read_mult(FABLE_5_1_DISPLAY_NAME), FABLE_5_1_READ_MULT)
+        self.assertEqual(cc._read_mult(MYTHOS_5_1), FABLE_5_1_READ_MULT)
 
 
-class TestUsageFields(unittest.TestCase):
+class UsageFields(unittest.TestCase):
     def test_ttl_split_read_when_present(self):
-        ci, co, cr, ccx, c5, c1 = cc._usage_fields(usage(read=10, cc5=400, cc1=100))
-        self.assertEqual((c5, c1, ccx), (400, 100, 500))
+        _, _, _, ccx, c5, c1 = cc._usage_fields(
+            a_usage(read=SOME_TOKENS, cc5=WRITE_5M_TOKENS, cc1=WRITE_1H_TOKENS)
+        )
+        self.assertEqual(
+            (c5, c1, ccx),
+            (WRITE_5M_TOKENS, WRITE_1H_TOKENS, WRITE_5M_TOKENS + WRITE_1H_TOKENS),
+        )
 
     def test_flat_cache_creation_treated_as_5m(self):
-        # No cache_creation dict: the flat total is a 5-minute write.
-        _, _, _, ccx, c5, c1 = cc._usage_fields(usage(flat=700))
-        self.assertEqual((c5, c1, ccx), (700, 0, 700))
+        _, _, _, ccx, c5, c1 = cc._usage_fields(a_usage(flat=FLAT_WRITE_TOKENS))
+        self.assertEqual((c5, c1, ccx), (FLAT_WRITE_TOKENS, 0, FLAT_WRITE_TOKENS))
 
     def test_missing_5m_key_derives_from_flat_minus_1h(self):
-        # The 5m count is the flat total minus the 1h count — falling back to
-        # the flat total would price the 1h tokens twice (once at 1.25x, once
-        # at 2.0x) and double the write volume in the savings baseline.
+        # Falling back to the flat total would price the 1h tokens twice and
+        # double the write volume in the savings baseline.
         u = {
-            "cache_creation_input_tokens": 700,
-            "cache_creation": {"ephemeral_1h_input_tokens": 100},
+            "cache_creation_input_tokens": FLAT_WRITE_TOKENS,
+            "cache_creation": {"ephemeral_1h_input_tokens": WRITE_1H_TOKENS},
         }
         _, _, _, ccx, c5, c1 = cc._usage_fields(u)
-        self.assertEqual((c5, c1), (600, 100))
-        self.assertEqual(c5 + c1, ccx)  # the documented invariant
+        self.assertEqual(
+            (c5, c1), (FLAT_WRITE_TOKENS - WRITE_1H_TOKENS, WRITE_1H_TOKENS)
+        )
+        self.assertEqual(c5 + c1, ccx)
 
     def test_absent_fields_default_zero(self):
         self.assertEqual(cc._usage_fields({}), (0, 0, 0, 0, 0, 0))
 
     def test_non_numeric_counts_read_as_zero(self):
-        # A malformed transcript value (string, float, bool, negative) must
-        # degrade to 0, never raise mid-render — accounting reads, it never
-        # gates the consumer.
+        # Accounting reads, it never gates the consumer, so a malformed value
+        # degrades to zero instead of raising mid-render.
         u = {
             "input_tokens": "1200",
             "output_tokens": 3.5,
@@ -130,88 +232,94 @@ class TestUsageFields(unittest.TestCase):
             "cache_creation_input_tokens": -5,
         }
         self.assertEqual(cc._usage_fields(u), (0, 0, 0, 0, 0, 0))
-        t = cc.aggregate([("claude-opus-4-8", u)])  # must not raise
+        t = cc.aggregate([(OPUS, u)])
         self.assertEqual(t["cost"], 0.0)
 
 
-class TestAggregate(unittest.TestCase):
-    def test_single_opus_message_cost_and_percentages(self):
-        # (1000*5 + 500*25 + 2000*5*.10 + 400*5*1.25 + 100*5*2.0)/1e6
-        # = (5000 + 12500 + 1000 + 2500 + 1000)/1e6 = 0.022
-        t = cc.aggregate(
-            [("claude-opus-4-8", usage(inp=1000, out=500, read=2000, cc5=400, cc1=100))]
+class Aggregate(unittest.TestCase):
+    def test_one_message_prices_each_token_class_at_its_multiplier(self):
+        t = cc.aggregate([(OPUS, a_mixed_opus_usage())])
+        total_input = (
+            INPUT_TOKENS + CACHE_READ_TOKENS + WRITE_5M_TOKENS + WRITE_1H_TOKENS
         )
-        self.assertAlmostEqual(t["cost"], 0.022, places=9)
-        self.assertEqual(t["total_input"], 3500)  # 1000 + 2000 + 500
-        self.assertEqual(t["hit_pct"], 57)  # round(2000*100/3500)
-        # base 2500, actual 200+500+200=900 -> round(1600*100/2500)=64
-        self.assertEqual(t["savings_pct"], 64)
+        cache_base = CACHE_READ_TOKENS + WRITE_5M_TOKENS + WRITE_1H_TOKENS
+        cache_actual = (
+            CACHE_READ_TOKENS * CACHE_READ_MULT
+            + WRITE_5M_TOKENS * CACHE_WRITE_5M_MULT
+            + WRITE_1H_TOKENS * CACHE_WRITE_1H_MULT
+        )
+        self.assertAlmostEqual(t["cost"], mixed_opus_cost(), places=COST_PLACES)
+        self.assertEqual(t["total_input"], total_input)
+        self.assertEqual(t["hit_pct"], round(CACHE_READ_TOKENS * PERCENT / total_input))
+        self.assertEqual(t["savings_pct"], savings_pct(cache_base, cache_actual))
 
     def test_mixed_fleet_prices_per_row(self):
-        # Opus row (0.022) + a no-cache Haiku row (1000*1 + 1000*5)/1e6 = 0.006.
         t = cc.aggregate(
             [
-                (
-                    "claude-opus-4-8",
-                    usage(inp=1000, out=500, read=2000, cc5=400, cc1=100),
-                ),
-                ("claude-haiku-4-5", usage(inp=1000, out=1000)),
+                (OPUS, a_mixed_opus_usage()),
+                (HAIKU, a_usage(inp=INPUT_TOKENS, out=INPUT_TOKENS)),
             ]
         )
-        self.assertAlmostEqual(t["cost"], 0.028, places=9)
-        self.assertEqual(t["output"], 1500)
-        self.assertEqual(t["total_input"], 4500)  # +1000 plain input
+        haiku_cost = plain_cost(HAIKU_RATE, INPUT_TOKENS, INPUT_TOKENS)
+        self.assertAlmostEqual(
+            t["cost"], mixed_opus_cost() + haiku_cost, places=COST_PLACES
+        )
+        self.assertEqual(t["output"], OUTPUT_TOKENS + INPUT_TOKENS)
+        self.assertEqual(
+            t["total_input"],
+            INPUT_TOKENS * 2 + CACHE_READ_TOKENS + WRITE_5M_TOKENS + WRITE_1H_TOKENS,
+        )
 
     def test_fable_5_1_row_prices_reads_at_override(self):
-        # 1M cache-read tokens on Fable 5.1: 10 * 0.025 = $0.25.
-        t = cc.aggregate([("claude-fable-5-1", usage(read=1_000_000))])
-        self.assertAlmostEqual(t["cost"], 0.25, places=9)
-        # savings vs plain-input baseline: (1 - 0.025) * 100 -> 98
-        self.assertEqual(t["savings_pct"], 98)
+        t = cc.aggregate([(FABLE_5_1, a_usage(read=MTOK))])
+        input_rate, _ = FABLE_RATE
+        self.assertAlmostEqual(
+            t["cost"], input_rate * FABLE_5_1_READ_MULT, places=COST_PLACES
+        )
+        self.assertEqual(
+            t["savings_pct"], savings_pct(MTOK, MTOK * FABLE_5_1_READ_MULT)
+        )
 
     def test_savings_baseline_uses_per_row_read_mult(self):
-        # A Fable 5.1 row and a Fable 5 row: actual = 100*0.025 + 100*0.10
-        # = 12.5 over base 200 -> round(93.75) = 94.
         t = cc.aggregate(
             [
-                ("claude-fable-5-1", usage(read=100)),
-                ("claude-fable-5", usage(read=100)),
+                (FABLE_5_1, a_usage(read=SOME_TOKENS)),
+                (FABLE, a_usage(read=SOME_TOKENS)),
             ]
         )
-        self.assertEqual(t["savings_pct"], 94)
+        actual = SOME_TOKENS * FABLE_5_1_READ_MULT + SOME_TOKENS * CACHE_READ_MULT
+        self.assertEqual(t["savings_pct"], savings_pct(SOME_TOKENS * 2, actual))
 
     def test_no_cache_activity_savings_is_none(self):
-        t = cc.aggregate([("claude-opus-4-8", usage(inp=100, out=100))])
+        t = cc.aggregate([(OPUS, a_usage(inp=SOME_TOKENS, out=SOME_TOKENS))])
         self.assertIsNone(t["savings_pct"])
 
     def test_hit_pct_zero_when_no_cache_read(self):
-        t = cc.aggregate([("claude-opus-4-8", usage(inp=100, out=100))])
+        t = cc.aggregate([(OPUS, a_usage(inp=SOME_TOKENS, out=SOME_TOKENS))])
         self.assertEqual(t["hit_pct"], 0)
 
-    def test_empty_rows(self):
+    def test_no_rows_total_to_zero(self):
         t = cc.aggregate([])
         self.assertEqual(t["cost"], 0.0)
         self.assertEqual(t["hit_pct"], 0)
         self.assertIsNone(t["savings_pct"])
 
 
-class TestParseTs(unittest.TestCase):
-    def test_zulu_and_offset_and_bare(self):
-        a = cc.parse_ts("2026-07-06T10:00:00Z")
-        b = cc.parse_ts("2026-07-06T10:00:00+00:00")
-        d = cc.parse_ts("2026-07-06T10:00:00")  # bare -> UTC
-        self.assertEqual(a, b)
-        self.assertEqual(a, d)
+class TimestampParsing(unittest.TestCase):
+    def test_zulu_offset_and_bare_forms_parse_alike(self):
+        zulu = cc.parse_ts("2026-07-06T10:00:00Z")
+        offset = cc.parse_ts("2026-07-06T10:00:00+00:00")
+        bare = cc.parse_ts("2026-07-06T10:00:00")
+        self.assertEqual(zulu, offset)
+        self.assertEqual(zulu, bare)
 
-    def test_ordering(self):
-        self.assertLess(
-            cc.parse_ts("2026-07-06T10:00:00Z"), cc.parse_ts("2026-07-06T10:05:00Z")
-        )
+    def test_a_later_stamp_parses_larger(self):
+        self.assertLess(cc.parse_ts(SOME_TS), cc.parse_ts(A_LATER_TS))
 
-    def test_invalid(self):
+    def test_an_invalid_stamp_parses_to_none(self):
         self.assertIsNone(cc.parse_ts("not-a-time"))
         self.assertIsNone(cc.parse_ts(None))
-        self.assertIsNone(cc.parse_ts(1234))
+        self.assertIsNone(cc.parse_ts(A_NON_STRING))
 
 
 class TranscriptCase(unittest.TestCase):
@@ -221,9 +329,7 @@ class TranscriptCase(unittest.TestCase):
         self.root = Path(tmp.name)
 
     def write_transcript(self, path, messages):
-        """messages: list of (model, usage, ts[, request_id]) -> assistant
-        lines, plus a stray user line and a blank line to prove they are
-        skipped."""
+        """Write (model, usage, ts[, request_id]) assistant lines behind a user line and a blank line."""
         path.parent.mkdir(parents=True, exist_ok=True)
         lines = ['{"type":"user","message":{"role":"user"}}', ""]
         for entry in messages:
@@ -239,22 +345,20 @@ class TranscriptCase(unittest.TestCase):
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def write_meta(self, transcript, agent_type):
-        meta = Path(str(transcript)[: -len(".jsonl")] + ".meta.json")
+        meta = Path(str(transcript)[: -len(cc.TRANSCRIPT_SUFFIX)] + cc.META_SUFFIX)
         payload = {} if agent_type is None else {"agentType": agent_type}
         meta.write_text(json.dumps(payload), encoding="utf-8")
 
 
-class TestIterAssistant(TranscriptCase):
-    def test_yields_only_assistant_with_usage(self):
+class AssistantCalls(TranscriptCase):
+    def test_only_an_assistant_record_with_usage_yields(self):
         p = self.root / "t.jsonl"
-        self.write_transcript(
-            p, [("claude-opus-4-8", usage(inp=5), "2026-07-06T10:00:00Z")]
-        )
+        self.write_transcript(p, [(OPUS, a_usage(inp=SOME_TOKENS), SOME_TS)])
         rows = list(cc.iter_assistant(p))
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0][0], "claude-opus-4-8")
+        self.assertEqual(rows[0][0], OPUS)
 
-    def test_skips_malformed_lines(self):
+    def test_a_malformed_line_is_skipped(self):
         p = self.root / "t.jsonl"
         p.write_text(
             '{"type":"assistant"\nnot json\n'
@@ -266,108 +370,90 @@ class TestIterAssistant(TranscriptCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][1]["input_tokens"], 7)
 
-    def test_missing_file_yields_nothing(self):
+    def test_a_missing_file_yields_nothing(self):
         self.assertEqual(list(cc.iter_assistant(self.root / "nope.jsonl")), [])
 
     def test_records_sharing_a_request_id_price_one_call(self):
-        # The runtime writes one record per content block; each repeats the
-        # call's usage. Counting every record priced this call three times.
+        # The runtime writes one record per content block, each repeating the
+        # call's usage with a partial output count; the per-field maximum is
+        # the call's full figure.
         p = self.root / "t.jsonl"
-        ts = "2026-08-22T10:00:00Z"
-        self.write_transcript(
-            p,
-            [
-                (
-                    "claude-opus-4-8",
-                    usage(inp=16, out=5, read=1000, cc1=400),
-                    ts,
-                    "req_1",
-                ),
-                (
-                    "claude-opus-4-8",
-                    usage(inp=16, out=300, read=1000, cc1=400),
-                    ts,
-                    "req_1",
-                ),
-                (
-                    "claude-opus-4-8",
-                    usage(inp=16, out=701, read=1000, cc1=400),
-                    ts,
-                    "req_1",
-                ),
-            ],
-        )
+        request = "req_1"
+        partial_output, final_output = SOME_TOKENS, OUTPUT_TOKENS
+        blocks = [
+            a_usage(out=partial_output, read=CACHE_READ_TOKENS, cc1=WRITE_1H_TOKENS),
+            a_usage(out=final_output, read=CACHE_READ_TOKENS, cc1=WRITE_1H_TOKENS),
+            a_usage(out=partial_output, read=CACHE_READ_TOKENS, cc1=WRITE_1H_TOKENS),
+        ]
+        self.write_transcript(p, [(OPUS, u, SOME_TS, request) for u in blocks])
         rows = list(cc.iter_assistant(p))
         self.assertEqual(len(rows), 1)
         u = rows[0][1]
-        self.assertEqual(u["output_tokens"], 701)
-        self.assertEqual(u["cache_read_input_tokens"], 1000)
-        self.assertEqual(u["cache_creation"]["ephemeral_1h_input_tokens"], 400)
+        self.assertEqual(u["output_tokens"], final_output)
+        self.assertEqual(u["cache_read_input_tokens"], CACHE_READ_TOKENS)
+        self.assertEqual(
+            u["cache_creation"]["ephemeral_1h_input_tokens"], WRITE_1H_TOKENS
+        )
 
     def test_distinct_request_ids_stay_separate(self):
         p = self.root / "t.jsonl"
-        ts = "2026-08-22T10:00:00Z"
         self.write_transcript(
             p,
             [
-                ("claude-opus-4-8", usage(inp=1, out=10), ts, "req_1"),
-                ("claude-opus-4-8", usage(inp=2, out=20), ts, "req_2"),
+                (OPUS, a_usage(inp=SOME_TOKENS), SOME_TS, "req_1"),
+                (OPUS, a_usage(inp=SOME_TOKENS), SOME_TS, "req_2"),
             ],
         )
         self.assertEqual(len(list(cc.iter_assistant(p))), 2)
 
     def test_records_without_ids_each_count_alone(self):
         p = self.root / "t.jsonl"
-        ts = "2026-08-22T10:00:00Z"
         self.write_transcript(
             p,
             [
-                ("claude-opus-4-8", usage(inp=1, out=10), ts),
-                ("claude-opus-4-8", usage(inp=2, out=20), ts),
+                (OPUS, a_usage(inp=SOME_TOKENS), SOME_TS),
+                (OPUS, a_usage(inp=SOME_TOKENS), SOME_TS),
             ],
         )
         self.assertEqual(len(list(cc.iter_assistant(p))), 2)
 
 
-class TestSession(TranscriptCase):
-    def test_discovers_parent_and_subagents(self):
+class SessionTree(TranscriptCase):
+    def test_the_parent_and_its_subagents_are_discovered(self):
         parent = self.root / "sess.jsonl"
-        self.write_transcript(
-            parent, [("claude-opus-4-8", usage(inp=10), "2026-07-06T10:00:00Z")]
-        )
+        self.write_transcript(parent, [(OPUS, a_usage(inp=SOME_TOKENS), SOME_TS)])
         sub = self.root / "sess" / "subagents"
         self.write_transcript(
-            sub / "agent-a.jsonl",
-            [("claude-haiku-4-5", usage(inp=20), "2026-07-06T10:01:00Z")],
+            sub / "agent-a.jsonl", [(HAIKU, a_usage(inp=SOME_TOKENS), A_LATER_TS)]
         )
-        # A non-agent file in the subagents dir is ignored.
         (sub / "notes.txt").write_text("x", encoding="utf-8")
         files = cc.session_transcripts(str(parent), "sess")
         self.assertEqual(len(files), 2)
 
-    def test_session_totals_sums_tree(self):
+    def test_session_totals_sum_the_whole_tree(self):
         parent = self.root / "sess.jsonl"
         self.write_transcript(
-            parent,
-            [("claude-opus-4-8", usage(inp=1000, out=100), "2026-07-06T10:00:00Z")],
+            parent, [(OPUS, a_usage(inp=INPUT_TOKENS, out=OUTPUT_TOKENS), SOME_TS)]
         )
         sub = self.root / "sess" / "subagents"
         self.write_transcript(
             sub / "agent-a.jsonl",
-            [("claude-haiku-4-5", usage(inp=1000, out=1000), "2026-07-06T10:01:00Z")],
+            [(HAIKU, a_usage(inp=INPUT_TOKENS, out=OUTPUT_TOKENS), A_LATER_TS)],
         )
         t = cc.session_totals(str(parent), "sess")
-        # opus (1000*5+100*25)/1e6=0.0075 + haiku (1000+5000)/1e6=0.006
-        self.assertAlmostEqual(t["cost"], 0.0135, places=9)
-        self.assertEqual(t["input"], 2000)
+        expected = plain_cost(OPUS_RATE, INPUT_TOKENS, OUTPUT_TOKENS) + plain_cost(
+            HAIKU_RATE, INPUT_TOKENS, OUTPUT_TOKENS
+        )
+        self.assertAlmostEqual(t["cost"], expected, places=COST_PLACES)
+        self.assertEqual(t["input"], INPUT_TOKENS * 2)
 
 
-class TestWindowIndex(TranscriptCase):
+class WindowQueries(TranscriptCase):
     SLUG = "-proj-x"
 
     def _agent(self, session, agent_id, agent_type, messages):
         sub = self.root / self.SLUG / session / "subagents"
-        path = sub / f"agent-{agent_id}.jsonl"
+        path = sub / f"{cc.TRANSCRIPT_PREFIX}{agent_id}{cc.TRANSCRIPT_SUFFIX}"
         self.write_transcript(path, messages)
         self.write_meta(path, agent_type)
         return path
@@ -375,577 +461,431 @@ class TestWindowIndex(TranscriptCase):
     def index(self):
         return cc.WindowIndex(projects_root=str(self.root), slug=self.SLUG)
 
+    def totals(self, agent_type, start=WINDOW_START, end=WINDOW_END, idx=None):
+        idx = idx or self.index()
+        return idx.totals(agent_type, cc.parse_ts(start), cc.parse_ts(end))
+
+    def slice_totals(self, agent_types, start=WINDOW_START, end=WINDOW_END):
+        return self.index().slice_totals(
+            agent_types, cc.parse_ts(start), cc.parse_ts(end)
+        )
+
     def test_window_attributes_by_type_and_time(self):
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000, out=500), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INPUT_TOKENS, out=OUTPUT_TOKENS), INSIDE_WINDOW)],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "rev",
-            "code-quality-reviewer",
-            [("claude-opus-4-8", usage(inp=9999), "2026-07-06T10:05:30Z")],
+            REVIEWER,
+            [(OPUS, a_usage(inp=OUTSIDE_INPUT), INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        t = self.totals(IMPLEMENTER)
+        self.assertAlmostEqual(
+            t["cost"],
+            plain_cost(OPUS_RATE, INPUT_TOKENS, OUTPUT_TOKENS),
+            places=COST_PLACES,
         )
-        # (1000*5 + 500*25)/1e6 = 0.0175 — the reviewer's 9999 is excluded.
-        self.assertAlmostEqual(t["cost"], 0.0175, places=9)
-        self.assertEqual(t["output"], 500)
+        self.assertEqual(t["output"], OUTPUT_TOKENS)
 
     def test_effort_variant_attributes_to_its_base_type(self):
-        # The router's tier derivation runs the routine variant, whose
-        # transcript carries agentType feature-implementer-routine while the
-        # ledger records keep the base author. The window join attributes the
-        # variant's rows to the base type; an unrelated -routine type never
-        # bleeds elsewhere.
+        # The variant's transcript carries its own agentType while the ledger
+        # records keep the base author, so the join folds it into the base.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl-routine",
-            "feature-implementer-routine",
-            [("claude-opus-4-8", usage(inp=1000, out=500), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER_VARIANT,
+            [(OPUS, a_usage(inp=INPUT_TOKENS, out=OUTPUT_TOKENS), INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(t["output"], 500)
-        self.assertIsNone(
-            idx.totals(
-                "doc-reviewer",
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:10:00Z"),
-            )
-        )
-        s = idx.slice_totals(
-            ["feature-implementer"],
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(s["output"], 500)
+        self.assertEqual(self.totals(IMPLEMENTER)["output"], OUTPUT_TOKENS)
+        self.assertIsNone(self.totals(DOC_REVIEWER))
+        self.assertEqual(self.slice_totals([IMPLEMENTER])["output"], OUTPUT_TOKENS)
 
     def test_dispatch_overlapping_the_window_sums_whole_file(self):
-        # The window bounds a step; the transcript bounds the dispatch. One
-        # dispatch straddling the window's end attributes in full — summing
-        # only the messages between the bounds is what undercounted a step.
+        # The window bounds a step; the transcript bounds the dispatch, so one
+        # dispatch straddling the window's end attributes in full.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),  # inside
-                ("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z"),  # after
+                (OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW),
+                (OPUS, a_usage(inp=OUTSIDE_INPUT), AFTER_WINDOW),
             ],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        self.assertEqual(
+            self.totals(IMPLEMENTER)["input"], INSIDE_INPUT + OUTSIDE_INPUT
         )
-        self.assertEqual(t["input"], 9000)
 
     def test_dispatch_front_before_the_window_attributes(self):
-        # The shape that motivated whole-file attribution: an agent's first
-        # message (system prompt + context — its most expensive) lands before
-        # its first tool call can append dispatch-start, so the window opens
-        # mid-dispatch. That front is the step's cost, not nobody's.
+        # An agent's first message lands before its first tool call can append
+        # dispatch-start, so the window opens mid-dispatch; that front is the
+        # step's cost.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=7000), "2026-07-06T10:04:00Z"),  # before
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:06:00Z"),  # inside
+                (OPUS, a_usage(inp=OUTSIDE_INPUT), BEFORE_WINDOW),
+                (OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW),
             ],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:05:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        self.assertEqual(
+            self.totals(IMPLEMENTER)["input"], OUTSIDE_INPUT + INSIDE_INPUT
         )
-        self.assertEqual(t["input"], 8000)
 
     def test_dispatch_wholly_outside_the_window_excluded(self):
-        # The exclusion that survives: a dispatch whose transcript lies wholly
-        # outside the window belongs to another step and never attributes here.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl1",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl2",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=OUTSIDE_INPUT), AFTER_WINDOW)],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(t["input"], 1000)
+        self.assertEqual(self.totals(IMPLEMENTER)["input"], INSIDE_INPUT)
 
     def test_retries_within_one_session_sum(self):
-        # An implementer re-dispatched (a build retry) writes a second
-        # transcript in the SAME session; the window total sums both.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl1",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl2",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:08:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=OTHER_INSIDE_INPUT), ALSO_INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        self.assertEqual(
+            self.totals(IMPLEMENTER)["input"], INSIDE_INPUT + OTHER_INSIDE_INPUT
         )
-        self.assertEqual(t["input"], 3000)
 
     def test_cross_session_window_sums(self):
-        # A slice resumed in a later session: its dispatches live under two
-        # session dirs. Sessions are sequential (two at once is outside the
-        # harness's design space), so a file is its dispatch's whatever
-        # session wrote it, and the window sums both rather than declining.
+        # Sessions are sequential, so a file is its dispatch's whatever session
+        # wrote it, and a slice resumed in a later session sums both.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         self._agent(
-            "s2",
+            A_LATER_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=OTHER_INSIDE_INPUT), ALSO_INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        self.assertEqual(
+            self.totals(IMPLEMENTER)["input"], INSIDE_INPUT + OTHER_INSIDE_INPUT
         )
-        self.assertEqual(t["input"], 3000)
 
     def test_unparseable_stamp_still_counts_toward_its_file(self):
         # The file is the unit: once overlap selects a dispatch, a message it
-        # could not place still belongs to it. Dropping the row here would
-        # reinstate the undercount whole-file attribution exists to remove —
-        # and a dispatch's costly first message is exactly what carries it.
+        # could not place still belongs to it.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=50000), None),  # unplaceable
-                (
-                    "claude-opus-4-8",
-                    usage(inp=1000),
-                    "2026-07-06T10:05:00Z",
-                ),  # places the file
+                (OPUS, a_usage(inp=UNPLACEABLE_INPUT), None),
+                (OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW),
             ],
         )
         idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(t["input"], 51000)
-        # rows stays the timestamped-message view: the unplaceable one is absent.
+        t = self.totals(IMPLEMENTER, idx=idx)
+        self.assertEqual(t["input"], UNPLACEABLE_INPUT + INSIDE_INPUT)
         self.assertEqual(len(idx.rows), 1)
 
     def test_file_with_no_placeable_stamp_is_dropped(self):
-        # No parseable timestamp anywhere means no span, so no window can
-        # select the file. Dropping it beats guessing where it belongs.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=9000), None)],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=UNPLACEABLE_INPUT), None)],
         )
-        idx = self.index()
-        self.assertIsNone(
-            idx.totals(
-                "feature-implementer",
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:10:00Z"),
-            )
-        )
+        self.assertIsNone(self.totals(IMPLEMENTER))
 
     def test_slice_totals_aggregates_across_types(self):
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000, out=500), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT, out=OUTPUT_TOKENS), INSIDE_WINDOW)],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "rev",
-            "code-quality-reviewer",
-            [("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z")],
+            REVIEWER,
+            [(OPUS, a_usage(inp=OTHER_INSIDE_INPUT), ALSO_INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.slice_totals(
-            ["feature-implementer", "code-quality-reviewer", "review-plan-engine"],
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        # Both types sum; the engine author has no transcript and adds nothing.
-        self.assertEqual(t["input"], 3000)
-        self.assertEqual(t["output"], 500)
+        t = self.slice_totals([IMPLEMENTER, REVIEWER, AN_UNDISPATCHED_TYPE])
+        self.assertEqual(t["input"], INSIDE_INPUT + OTHER_INSIDE_INPUT)
+        self.assertEqual(t["output"], OUTPUT_TOKENS)
 
     def test_slice_totals_counts_duplicate_types_once(self):
-        # The caller passes the slice's raw author column — repeats are expected.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.slice_totals(
-            ["feature-implementer", "feature-implementer"],
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(t["input"], 1000)
+        t = self.slice_totals([IMPLEMENTER, IMPLEMENTER])
+        self.assertEqual(t["input"], INSIDE_INPUT)
 
     def test_slice_totals_stays_message_windowed(self):
-        # The roll-up is deliberately NOT whole-file (see slice_totals): its
-        # window bounds a SLICE, not a dispatch, so whole-file selection would
-        # price a dispatch that also served a batched sibling on both boards.
-        # The out-of-window message stays out, so the header prices a dispatch
-        # by a different rule than the lines and the two do not reconcile.
+        # The roll-up's window bounds a slice, not a dispatch, so whole-file
+        # selection would price a dispatch that also served a batched sibling
+        # on both boards.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),  # inside
-                ("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z"),  # outside
+                (OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW),
+                (OPUS, a_usage(inp=OUTSIDE_INPUT), AFTER_WINDOW),
             ],
         )
-        idx = self.index()
-        t = idx.slice_totals(
-            ["feature-implementer"],
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
+        self.assertEqual(self.slice_totals([IMPLEMENTER])["input"], INSIDE_INPUT)
+        self.assertEqual(
+            self.totals(IMPLEMENTER)["input"], INSIDE_INPUT + OUTSIDE_INPUT
         )
-        self.assertEqual(t["input"], 1000)
-        # The same dispatch, priced as a STEP, does sum whole.
-        s = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(s["input"], 9000)
 
     def test_slice_totals_cross_session_sums(self):
-        # The roll-up's half of test_cross_session_window_sums: the retired
-        # multi-session decline used to null this whole figure.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         self._agent(
-            "s2",
+            A_LATER_SESSION,
             "impl2",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=OTHER_INSIDE_INPUT), ALSO_INSIDE_WINDOW)],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "rev",
-            "code-quality-reviewer",
-            [("claude-opus-4-8", usage(inp=100), "2026-07-06T10:07:00Z")],
+            REVIEWER,
+            [(OPUS, a_usage(inp=SOME_TOKENS), ALSO_INSIDE_WINDOW)],
         )
-        idx = self.index()
-        t = idx.slice_totals(
-            ["feature-implementer", "code-quality-reviewer"],
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:10:00Z"),
-        )
-        self.assertEqual(t["input"], 3100)
+        t = self.slice_totals([IMPLEMENTER, REVIEWER])
+        self.assertEqual(t["input"], INSIDE_INPUT + OTHER_INSIDE_INPUT + SOME_TOKENS)
 
     def test_slice_totals_nothing_matched_returns_none(self):
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         idx = self.index()
+        self.assertIsNone(self.slice_totals([AN_UNDISPATCHED_TYPE]))
+        self.assertIsNone(self.slice_totals([]))
         self.assertIsNone(
-            idx.slice_totals(
-                ["review-plan-engine"],
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:10:00Z"),
-            )
-        )
-        self.assertIsNone(
-            idx.slice_totals(
-                [],
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:10:00Z"),
-            )
-        )
-        self.assertIsNone(
-            idx.slice_totals(
-                ["feature-implementer"], None, cc.parse_ts("2026-07-06T10:10:00Z")
-            )
+            idx.slice_totals([IMPLEMENTER], None, cc.parse_ts(WINDOW_END))
         )
 
-    def test_no_match_returns_none(self):
+    def test_no_matching_dispatch_returns_none(self):
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
-        idx = self.index()
-        self.assertIsNone(
-            idx.totals(
-                "change-grader",
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:10:00Z"),
-            )
-        )
+        self.assertIsNone(self.totals(AN_UNDISPATCHED_TYPE))
 
-    def test_bad_window_returns_none(self):
+    def test_an_unbounded_or_reversed_window_returns_none(self):
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         idx = self.index()
-        self.assertIsNone(idx.totals("feature-implementer", None, 10.0))
-        self.assertIsNone(idx.totals("feature-implementer", 10.0, 5.0))  # out of order
+        start, end = cc.parse_ts(WINDOW_START), cc.parse_ts(WINDOW_END)
+        self.assertIsNone(idx.totals(IMPLEMENTER, None, end))
+        self.assertIsNone(idx.totals(IMPLEMENTER, end, start))
 
     def test_missing_agent_type_is_dropped(self):
-        # A transcript whose meta has no agentType cannot be attributed.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
             None,
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
-        idx = self.index()
-        self.assertEqual(idx.rows, [])
+        self.assertEqual(self.index().rows, [])
 
-    def test_missing_project_dir(self):
+    def test_a_missing_project_dir_indexes_nothing(self):
         idx = cc.WindowIndex(projects_root=str(self.root), slug="-nope")
         self.assertEqual(idx.rows, [])
-        self.assertIsNone(idx.totals("feature-implementer", 0.0, 10.0))
+        self.assertIsNone(self.totals(IMPLEMENTER, idx=idx))
 
     def test_since_secs_prunes_transcripts_older_than_the_window(self):
-        # A transcript whose file mtime predates since_secs cannot hold
-        # in-window messages (messages cannot postdate the last write) — it
-        # is skipped unread, keeping the build proportional to recent
-        # activity instead of the project's whole history.
+        # A transcript last written before the bound cannot hold in-window
+        # messages, so it is skipped unread.
         path = self._agent(
-            "s1",
+            SOME_SESSION,
             "old",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
-        os.utime(path, (1000.0, 1000.0))
+        os.utime(path, (STALE_MTIME, STALE_MTIME))
         idx = cc.WindowIndex(
-            projects_root=str(self.root), slug=self.SLUG, since_secs=2000.0
+            projects_root=str(self.root), slug=self.SLUG, since_secs=STALE_MTIME + 1
         )
         self.assertEqual(idx.rows, [])
-        # Without the bound the same transcript is indexed.
         self.assertEqual(len(self.index().rows), 1)
 
     def test_since_secs_keeps_a_dispatch_that_began_before_the_bound(self):
-        # ADR 2026-07-15 calls this invariant load-bearing: the bound prunes on
-        # mtime (the LAST write), so a dispatch that started before the
-        # earliest window but ran into it survives with its front intact. A
-        # refactor to prune on the first message would silently restore the
-        # undercount whole-file attribution exists to remove, so pin it here.
+        # The bound prunes on the last write, so a dispatch that started before
+        # the earliest window but ran into it survives with its front intact.
         path = self._agent(
-            "s1",
+            SOME_SESSION,
             "straddler",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=50000), "2026-07-06T09:55:00Z"),  # before
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),  # inside
+                (OPUS, a_usage(inp=UNPLACEABLE_INPUT), BEFORE_WINDOW),
+                (OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW),
             ],
         )
-        start = cc.parse_ts("2026-07-06T10:00:00Z")
-        last_write = cc.parse_ts("2026-07-06T10:05:00Z")
+        start = cc.parse_ts(WINDOW_START)
+        last_write = cc.parse_ts(INSIDE_WINDOW)
         os.utime(path, (last_write, last_write))
         idx = cc.WindowIndex(
             projects_root=str(self.root), slug=self.SLUG, since_secs=start
         )
-        t = idx.totals(
-            "feature-implementer", start, cc.parse_ts("2026-07-06T10:10:00Z")
-        )
-        self.assertEqual(t["input"], 51000)
+        t = idx.totals(IMPLEMENTER, start, cc.parse_ts(WINDOW_END))
+        self.assertEqual(t["input"], UNPLACEABLE_INPUT + INSIDE_INPUT)
 
     def test_concurrent_same_type_dispatches_double_count(self):
-        # The premise whole-file attribution rests on, pinned by the case that
-        # breaks it: two dispatches of ONE type overlapping in time. Every
-        # window over either selects both, so each line prints their sum. The
-        # pipeline fans out across DISTINCT types, so its boards never render
-        # this — a property of the roster, not of this code. Pinned so a roster
-        # that fans out two of one type fails here first, loudly, instead of
-        # printing identical figures on every line.
+        # Two dispatches of one type overlapping in time are unrankable: every
+        # window over either selects both. The roster fans out across distinct
+        # types, so a roster that fans out two of one type fails here first.
+        first_start, first_end = "2026-07-06T10:05:00Z", "2026-07-06T10:07:00Z"
+        second_start, second_end = "2026-07-06T10:06:00Z", "2026-07-06T10:08:00Z"
+        first_inputs = (INSIDE_INPUT, 1)
+        second_inputs = (OTHER_INSIDE_INPUT, 2)
         self._agent(
-            "s1",
+            SOME_SESSION,
             "rev1",
-            "doc-reviewer",
+            DOC_REVIEWER,
             [
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),
-                ("claude-opus-4-8", usage(inp=1), "2026-07-06T10:07:00Z"),
+                (OPUS, a_usage(inp=first_inputs[0]), first_start),
+                (OPUS, a_usage(inp=first_inputs[1]), first_end),
             ],
         )
         self._agent(
-            "s1",
+            SOME_SESSION,
             "rev2",
-            "doc-reviewer",
+            DOC_REVIEWER,
             [
-                ("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z"),
-                ("claude-opus-4-8", usage(inp=2), "2026-07-06T10:08:00Z"),
+                (OPUS, a_usage(inp=second_inputs[0]), second_start),
+                (OPUS, a_usage(inp=second_inputs[1]), second_end),
             ],
         )
+        both = sum(first_inputs) + sum(second_inputs)
         idx = self.index()
-        # rev1's own window (10:05 → its record) returns BOTH dispatches.
-        t = idx.totals(
-            "doc-reviewer",
-            cc.parse_ts("2026-07-06T10:05:00Z"),
-            cc.parse_ts("2026-07-06T10:07:00Z"),
+        self.assertEqual(
+            self.totals(DOC_REVIEWER, first_start, first_end, idx=idx)["input"], both
         )
-        self.assertEqual(t["input"], 3003)
-        # ...and so does rev2's. Both lines print the same figure — the two
-        # dispatches are unrankable, not merely mispriced.
-        t2 = idx.totals(
-            "doc-reviewer",
-            cc.parse_ts("2026-07-06T10:06:00Z"),
-            cc.parse_ts("2026-07-06T10:08:00Z"),
+        self.assertEqual(
+            self.totals(DOC_REVIEWER, second_start, second_end, idx=idx)["input"], both
         )
-        self.assertEqual(t2["input"], 3003)
 
     def test_window_touching_the_span_edge_selects_the_file(self):
         # Overlap is closed at both ends: a window ending exactly at the file's
-        # first message still names that dispatch. One second earlier does not.
+        # first message still names that dispatch; one second earlier does not.
+        one_second_before = "2026-07-06T10:04:59Z"
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
-            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")],
+            IMPLEMENTER,
+            [(OPUS, a_usage(inp=INSIDE_INPUT), INSIDE_WINDOW)],
         )
         idx = self.index()
-        t = idx.totals(
-            "feature-implementer",
-            cc.parse_ts("2026-07-06T10:00:00Z"),
-            cc.parse_ts("2026-07-06T10:05:00Z"),
-        )
-        self.assertEqual(t["input"], 1000)
+        t = self.totals(IMPLEMENTER, WINDOW_START, INSIDE_WINDOW, idx=idx)
+        self.assertEqual(t["input"], INSIDE_INPUT)
         self.assertIsNone(
-            idx.totals(
-                "feature-implementer",
-                cc.parse_ts("2026-07-06T10:00:00Z"),
-                cc.parse_ts("2026-07-06T10:04:59Z"),
-            )
+            self.totals(IMPLEMENTER, WINDOW_START, one_second_before, idx=idx)
         )
 
     def test_zero_width_window_inside_a_span_selects_the_file(self):
-        # A step whose dispatch-start and record share a timestamp still prices:
-        # the window is a point, and a point inside the span overlaps it.
         self._agent(
-            "s1",
+            SOME_SESSION,
             "impl",
-            "feature-implementer",
+            IMPLEMENTER,
             [
-                ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:00:00Z"),
-                ("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:10:00Z"),
+                (OPUS, a_usage(inp=INSIDE_INPUT), WINDOW_START),
+                (OPUS, a_usage(inp=OTHER_INSIDE_INPUT), WINDOW_END),
             ],
         )
-        idx = self.index()
-        at = cc.parse_ts("2026-07-06T10:05:00Z")
-        t = idx.totals("feature-implementer", at, at)
-        self.assertEqual(t["input"], 3000)
+        t = self.totals(IMPLEMENTER, INSIDE_WINDOW, INSIDE_WINDOW)
+        self.assertEqual(t["input"], INSIDE_INPUT + OTHER_INSIDE_INPUT)
 
-    def test_projects_root_env_override(self):
-        # default_projects_root honors CLAUDE_PROJECTS_ROOT (the seam the board
-        # tests use to stay hermetic and non-default configs use to relocate).
+    def test_the_projects_root_honors_the_environment_override(self):
         with unittest.mock.patch.dict(
             os.environ, {"CLAUDE_PROJECTS_ROOT": "/some/where/projects"}
         ):
             self.assertEqual(cc.default_projects_root(), "/some/where/projects")
 
 
-class TestSlugAndFormat(unittest.TestCase):
-    def test_slug_encoding(self):
+class SlugAndFormatting(unittest.TestCase):
+    def test_every_non_alphanumeric_character_maps_to_a_dash(self):
         self.assertEqual(
             cc.slug_for("/home/user/work/my-project"), "-home-user-work-my-project"
         )
 
-    def test_format_tokens(self):
+    def test_tokens_format_compactly(self):
         self.assertEqual(cc.format_tokens(567), "567")
-        self.assertEqual(cc.format_tokens(34000), "34k")
-        self.assertEqual(cc.format_tokens(1_200_000), "1.2M")
+        self.assertEqual(cc.format_tokens(34 * cc.TOKENS_PER_THOUSAND), "34k")
+        self.assertEqual(cc.format_tokens(1.2 * MTOK), "1.2M")
 
-    def test_format_cost(self):
+    def test_cost_formats_to_the_cent(self):
         self.assertEqual(cc.format_cost(1.7138), "1.71")
         self.assertEqual(cc.format_cost(0), "0.00")
 
 
-class TestCli(TranscriptCase):
+class CommandLine(TranscriptCase):
     def _run(self, argv):
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = cc._main(argv)
+            rc = cc.main(argv)
         return rc, json.loads(buf.getvalue())
 
-    def test_session_cli_emits_json(self):
+    def test_the_session_mode_emits_json_totals(self):
         parent = self.root / "sess.jsonl"
         self.write_transcript(
-            parent,
-            [("claude-opus-4-8", usage(inp=1000, out=100), "2026-07-06T10:00:00Z")],
+            parent, [(OPUS, a_usage(inp=INPUT_TOKENS, out=OUTPUT_TOKENS), SOME_TS)]
         )
         rc, out = self._run(
             ["session", "--parent", str(parent), "--session-id", "sess"]
         )
         self.assertEqual(rc, 0)
-        self.assertEqual(out["input"], 1000)
+        self.assertEqual(out["input"], INPUT_TOKENS)
         self.assertIn("cost", out)
 
-    def test_window_cli_emits_null_on_no_match(self):
-        # --cwd derives the slug (its leading '/' keeps argparse from reading
-        # the value as a flag, unlike a bare --slug beginning with '-').
+    def test_the_window_mode_emits_null_on_no_match(self):
+        # --cwd derives the slug; its leading '/' keeps argparse from reading
+        # the value as a flag, unlike a bare --slug beginning with '-'.
         rc, out = self._run(
             [
                 "window",
                 "--agent-type",
-                "feature-implementer",
+                IMPLEMENTER,
                 "--start",
-                "2026-07-06T10:00:00Z",
+                WINDOW_START,
                 "--end",
-                "2026-07-06T10:10:00Z",
+                WINDOW_END,
                 "--projects-root",
                 str(self.root),
                 "--cwd",

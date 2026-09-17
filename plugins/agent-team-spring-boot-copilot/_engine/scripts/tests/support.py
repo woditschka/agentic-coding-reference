@@ -15,7 +15,6 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-import handoff as handoff  # re-exported to the suites; the API surface
 from handoff import (
     ROSTER_FLOOR,
     Baseline,

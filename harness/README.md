@@ -108,6 +108,12 @@ A greenfield setup runs both. The `/init` and `/materialize` skills are the inte
 | `init.py <stack> <target> <name> <description> [harness-version] [tools-csv] [channel]` | project-owned files | yes (committed) |
 | `materialize.py <stack> <target> [--no-verify] [--dry-run \| --show-plan]` | the runtime, verified by its installed suites | yes under the copy channel (default); no under manifest (gitignored) |
 
+## Adding a stack or a tool
+
+A stack starts in `registry.py`: its `STACKS` entry and its `STACK_MARKERS` row, without which detection falls back to generic. It then needs its `stacks/<stack>/` tree, its `init/stacks/<stack>/` skeletons, a `BUILD_BINDINGS` row in `verify_harness/checks/suites.py`, its `STACK_LABELS` and `PLUGIN_STACK_TOKENS` rows in `package-marketplace.py`, and an entry in the install simulation of `tests/test-marketplace.sh`. Two edits are conditional. `PH_ALLOW` in `verify_harness/checks/sync.py` gains a row when the stack keeps template tokens in a committed file. The stack's build tokens join that module's `CORE_STACK_TOKENS` and the leak regex of `tests/test-generic-stack.sh`, so the stack-agnostic guards see them.
+
+A tool is one `TOOLS` row in `registry.py`: every producer-side mapping from tool to directory derives from it. Two authored steps follow: the per-agent mirror frontmatters, and the shipped doctor roster (`RUNTIME_PATHS` in the doctor plus the `.gitignore` skeleton). `tests/test_materialize.py` gates the registry against the roster.
+
 ## The stack-agnostic invariant
 
 `core/` carries no stack-specific fact. Anything that varies by language lives in `stacks/<stack>/`, in a brief, or in `scripts/layout.toml` (engine-read), never branched in core runtime code. The same rule applies to `init/`: `init/core/` holds only files byte-identical across stacks. Keeping this line lets the core converge toward one universal runtime (phase 3 in the ADR).

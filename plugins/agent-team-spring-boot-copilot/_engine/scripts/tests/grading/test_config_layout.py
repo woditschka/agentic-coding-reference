@@ -1,12 +1,4 @@
-"""The loaded layout of this stack's real layout.toml (Java Spring Boot).
-
-The suite reads this project's own scripts/layout.toml and skips on a pre-init
-tree; every scaffolded project runs it in full. The stack-agnostic validation
-walls pin in core (tests/grading/test_config.py).
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_config_layout
-Stdlib only.
-"""
+"""The loaded layout of this stack's real layout.toml (Java Spring Boot); skips on a pre-init tree."""
 
 import unittest
 from pathlib import Path

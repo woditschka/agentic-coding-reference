@@ -1,47 +1,57 @@
 #!/usr/bin/env python3
-"""Tests for the confinement gate — verify_harness/checks/confinement.py
-(stdlib only).
-
-Run: python3 harness/tests/test_confinement.py
-
-Three levels, matching the gate's own layers. Unit: the detectors on synthetic
-sources — argv rules, alias/from-import resolution, write-mode parsing, the
-bash line scan. Policy: the manifest loads into an immutable record, malformed
-fails loud, stale sanctions fail. Integration: both steps pass on today's live
-tree — the premise the ADR 2026-07-19 gate rests on. The runtime half of the
-pairing (write_guard) is pinned by test_write_guard.py.
-"""
+"""Pin the confinement gate's detectors, policy manifest, and live-tree premise."""
 
 import ast
+import contextlib
+import io
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from _loader import ROOT
 
 sys.path.insert(0, str(ROOT))
 
-from verify_harness import battery  # noqa: E402
-from verify_harness.checks import confinement, confinement_ast  # noqa: E402
+from verify_harness import battery
+from verify_harness.checks import confinement, confinement_ast
+
+SOME_FILE = Path("harness/x.py")
+SOME_SCRIPT = Path("harness/x.sh")
+SOME_LINE_NO = 1
+GIT_ONLY = frozenset({"git"})
+SYS_EXECUTABLE_ONLY = frozenset({"sys.executable"})
+GITHUB_LS_REMOTE = frozenset({("ls-remote", "https://github.com/")})
+SPAWNER_FLAGS: dict[str, object] = {"is_spawner": True, "allowed": GIT_ONLY}
+
+
+def quiet_battery(check, policy=None) -> tuple[bool, str]:
+    b = battery.Battery(quick=True, strict=False)
+    err = io.StringIO()
+    patch = (
+        mock.patch.object(confinement, "_policy", policy)
+        if policy is not None
+        else contextlib.nullcontext()
+    )
+    with (
+        patch,
+        contextlib.redirect_stdout(io.StringIO()),
+        contextlib.redirect_stderr(err),
+    ):
+        check(b)
+    return b.failed, err.getvalue()
 
 
 class NoNetworkGate(unittest.TestCase):
-    """1h's argv rules (ADR 2026-07-19 network-write-confinement-gate): a
-    subprocess call must present a list-literal argv whose argv0 is in the
-    file's [[sanctioned_spawner]] spawns allowlist; both tiers ban network
-    CLIs; the producer tier sanctions exactly the egress pairs passed in
-    (here deps-report's `git ls-remote https://github.com/…`)."""
+    """The subprocess argv rules on synthetic calls, per tier."""
 
-    F = Path("harness/x.py")
-    GIT = frozenset({"git"})
-    EGRESS = frozenset({("ls-remote", "https://github.com/")})
-
-    def _hits(self, code, tier, allowed=GIT):
+    def _hits(self, code, tier, allowed=GIT_ONLY):
         node = ast.parse(code).body[0].value
-        return confinement_ast._check_subprocess(
-            self.F, node, tier, allowed, self.EGRESS
+        rules = confinement_ast.EgressRules(
+            tier, allowed=allowed, egress=GITHUB_LS_REMOTE
         )
+        return confinement_ast._check_subprocess(SOME_FILE, node, rules)
 
     def test_shipped_network_tool_fires_and_names_it(self):
         hits = self._hits('subprocess.run(["curl", "x"])', "shipped")
@@ -85,20 +95,18 @@ class NoNetworkGate(unittest.TestCase):
         )
 
     def test_python_m_is_allowlisted(self):
-        # -m runs a module by name; only unittest (materialize's install-time
-        # suite run) is sanctioned — pip above all must fire.
-        sysexec = frozenset({"sys.executable"})
+        # -m runs a module by name; only unittest is sanctioned, so pip fires.
         self.assertFalse(
             self._hits(
                 'subprocess.run([sys.executable, "-m", "unittest", "discover"])',
                 "producer",
-                sysexec,
+                SYS_EXECUTABLE_ONLY,
             )
         )
         hits = self._hits(
             'subprocess.run([sys.executable, "-m", "pip", "install", "x"])',
             "producer",
-            sysexec,
+            SYS_EXECUTABLE_ONLY,
         )
         self.assertTrue(any("pip" in h for h in hits))
 
@@ -124,7 +132,7 @@ class NoNetworkGate(unittest.TestCase):
     def test_producer_ls_remote_other_host_fires(self):
         self.assertTrue(
             self._hits(
-                'subprocess.run(["git", "ls-remote", "https://evil.com/x"])',
+                'subprocess.run(["git", "ls-remote", "https://other.example/x"])',
                 "producer",
             )
         )
@@ -134,7 +142,7 @@ class NoNetworkGate(unittest.TestCase):
             self._hits(
                 'subprocess.run([sys.executable, "y"])',
                 "producer",
-                frozenset({"sys.executable"}),
+                SYS_EXECUTABLE_ONLY,
             )
         )
 
@@ -183,8 +191,6 @@ class NoNetworkGate(unittest.TestCase):
         self.assertTrue(self._hits('subprocess.run(["rsync", "a", "b"])', "producer"))
 
     def test_matched_egress_pair_is_recorded(self):
-        # The sanctioned pair a call exercises lands in used_egress — the
-        # staleness check's evidence.
         node = (
             ast.parse(
                 'subprocess.run(["git", "ls-remote", "https://github.com/x/y.git"])'
@@ -195,28 +201,25 @@ class NoNetworkGate(unittest.TestCase):
         used = set()
         self.assertFalse(
             confinement_ast._check_subprocess(
-                self.F, node, "producer", self.GIT, self.EGRESS, used
+                SOME_FILE,
+                node,
+                confinement_ast.EgressRules(
+                    "producer", allowed=GIT_ONLY, egress=GITHUB_LS_REMOTE
+                ),
+                used,
             )
         )
-        self.assertEqual(used, {("ls-remote", "https://github.com/")})
+        self.assertEqual(used, set(GITHUB_LS_REMOTE))
 
 
 class EgressFileRules(unittest.TestCase):
-    """1h's per-file rules on synthetic sources (_file_egress_hits): the
-    subprocess import is a sanctioned capability — banned outside
-    [[sanctioned_spawner]] files, alias-proof because import statements name
-    the real module — and call receivers resolve through the file's import
-    bindings, so aliased and from-imported forms fire like the spelled-out
-    ones. The caller's policy arrives dissolved into flags, so these tests
-    need no manifest at all."""
-
-    SPAWNER = {"is_spawner": True, "allowed": frozenset({"git"})}
+    """The per-file egress rules on synthetic sources, with the policy dissolved into flags."""
 
     def _hits(self, code, tier="producer", **flags):
         tree = ast.parse(code)
-        return confinement_ast._file_egress_hits(
-            Path("harness/x.py"), tree, tier, **flags
-        )
+        used_egress = flags.pop("used_egress", None)
+        rules = confinement_ast.EgressRules(tier, **flags)
+        return confinement_ast._file_egress_hits(SOME_FILE, tree, rules, used_egress)
 
     def test_subprocess_import_banned_outside_spawners(self):
         hits = self._hits("import subprocess")
@@ -230,19 +233,18 @@ class EgressFileRules(unittest.TestCase):
         self.assertTrue(self._hits("from subprocess import run"))
 
     def test_sanctioned_spawner_may_import_subprocess(self):
-        self.assertFalse(self._hits("import subprocess", **self.SPAWNER))
+        self.assertFalse(self._hits("import subprocess", **SPAWNER_FLAGS))
 
     def test_aliased_call_in_spawner_is_still_argv_checked(self):
-        # Inside a sanctioned file the argv rules see through the alias.
         hits = self._hits(
-            'import subprocess as sp\nsp.run(["git", "push"])', **self.SPAWNER
+            'import subprocess as sp\nsp.run(["git", "push"])', **SPAWNER_FLAGS
         )
         self.assertEqual(len(hits), 1)
         self.assertIn("push", hits[0])
 
     def test_from_bound_call_in_spawner_is_argv_checked(self):
         hits = self._hits(
-            'from subprocess import run\nrun(["git", "push"])', **self.SPAWNER
+            'from subprocess import run\nrun(["git", "push"])', **SPAWNER_FLAGS
         )
         self.assertTrue(any("push" in h for h in hits))
 
@@ -264,23 +266,20 @@ class EgressFileRules(unittest.TestCase):
         self.assertTrue(self._hits("import urllib.request"))
 
     def test_getoutput_is_rejected_even_in_a_spawner(self):
-        # No argv to introspect: the shell-string helpers are banned outright,
-        # sanction or not, in both their spellings.
+        # No argv to introspect, so no sanction opens the shell-string helpers.
         for code in (
             'import subprocess\nsubprocess.getoutput("x")',
             'from subprocess import getstatusoutput\ngetstatusoutput("x")',
         ):
-            hits = self._hits(code, **self.SPAWNER)
+            hits = self._hits(code, **SPAWNER_FLAGS)
             self.assertTrue(any("shell string" in h for h in hits), code)
 
     def test_dynamic_subprocess_import_fires_even_in_a_spawner(self):
-        # importlib.import_module("subprocess") would bypass the argv rules —
-        # banned regardless of sanction, in both spellings.
         for code in (
             'import importlib\nimportlib.import_module("subprocess")',
             'from importlib import import_module\nimport_module("pty")',
         ):
-            for flags in ({}, self.SPAWNER):
+            for flags in ({}, SPAWNER_FLAGS):
                 hits = self._hits(code, **flags)
                 self.assertTrue(
                     any("defeats the spawn sanction" in h for h in hits),
@@ -291,10 +290,9 @@ class EgressFileRules(unittest.TestCase):
         self.assertTrue(self._hits("import webbrowser"))
 
     def test_pty_import_is_banned_even_in_a_spawner(self):
-        # pty.spawn runs a command through a pseudo-terminal — outside argv
-        # introspection, so no sanction opens it.
+        # pty.spawn runs a command outside argv introspection.
         for code in ("import pty", "from pty import spawn"):
-            for flags in ({}, self.SPAWNER):
+            for flags in ({}, SPAWNER_FLAGS):
                 self.assertTrue(self._hits(code, **flags), (code, flags))
 
     def test_clean_file_is_clean(self):
@@ -302,16 +300,13 @@ class EgressFileRules(unittest.TestCase):
 
 
 class WriteGate(unittest.TestCase):
-    """1i's write detector (ADR 2026-07-19): a capability checker, not a
-    name-matcher — it resolves module aliases and from-imports, so a write fires
-    however it is spelled. str/datetime .replace and the real write_guard module
-    stay out; a name-shadowed write_guard local does not."""
+    """The write detector resolves aliases and from-imports, so a write fires however it is spelled."""
 
     def _fires(self, code):
         tree = ast.parse(code)
         module_of, from_bind = confinement_ast._import_bindings(tree)
         return any(
-            confinement_ast._write_primitive(n, module_of, from_bind)
+            confinement_ast._write_primitive(n, (module_of, from_bind))
             for n in ast.walk(tree)
             if isinstance(n, ast.Call)
         )
@@ -392,14 +387,11 @@ class WriteGate(unittest.TestCase):
         self.assertFalse(self._fires("import zipfile\nzipfile.ZipFile(p)"))
 
     def test_tarfile_mode_suffix_is_not_a_write(self):
-        # tar modes carry a compression suffix — "r:xz" is a read despite the
-        # 'x'; only the direction before the separator counts.
+        # "r:xz" is a read despite the 'x': only the part before ':' counts.
         self.assertFalse(self._fires('import tarfile\ntarfile.open(p, "r:xz")'))
         self.assertTrue(self._fires('import tarfile\ntarfile.open(p, "w:gz")'))
 
     def test_metadata_writes_fire(self):
-        # chmod/chown/utime alter filesystem entries (executability is
-        # security-relevant), in both the os and Path spellings.
         self.assertTrue(self._fires("import os\nos.chmod(p, 0o755)"))
         self.assertTrue(self._fires("from os import utime\nutime(p)"))
         self.assertTrue(self._fires("Path(p).chmod(0o755)"))
@@ -414,10 +406,8 @@ class WriteGate(unittest.TestCase):
         )
 
     def test_non_literal_open_mode_fails_closed(self):
-        # `open(p, MODE)` cannot de-gate a write — mirrors the dynamic-argv
-        # subprocess rule. The generic `.open(` receiver stays lenient for a
-        # non-mode positional (urllib's opener.open(request)), strict for a
-        # non-literal mode= keyword.
+        # The generic `.open(` receiver stays lenient for a non-mode positional
+        # (urllib's opener.open(request)), strict for a non-literal mode=.
         self.assertTrue(self._fires("open(p, MODE)"))
         self.assertTrue(self._fires("import io\nio.open(p, m)"))
         self.assertTrue(self._fires("p.open(mode=m)"))
@@ -437,7 +427,6 @@ class WriteGate(unittest.TestCase):
         self.assertTrue(self._fires("import os\nos.pwrite(fd, b, 0)"))
 
     def test_path_replace_target_keyword_fires(self):
-        # The target= keyword spelling must not defeat the arity match.
         self.assertTrue(self._fires("Path(t).replace(target=dst)"))
 
     def test_dynamic_import_of_a_write_module_fires(self):
@@ -446,8 +435,8 @@ class WriteGate(unittest.TestCase):
         )
 
     def test_write_capability_module_imports_are_flagged(self):
-        # sqlite3/dbm/shelve create their backing file with no labelable call —
-        # the import is the capability 1i bans outside sanctioned writers.
+        # sqlite3/dbm/shelve create their backing file with no labelable call,
+        # so the import itself is the write capability.
         for code in ("import sqlite3", "from dbm import open", "import shelve"):
             self.assertTrue(
                 confinement_ast._imports_module(
@@ -463,15 +452,10 @@ class WriteGate(unittest.TestCase):
 
 
 class BashLineRules(unittest.TestCase):
-    """1h's bash scan on synthetic lines (_bash_line_hits): a network CLI or a
-    git network subcommand as an executed word fires; a comment or a quoted
-    string is data — but a $(…) substitution executes even inside double
-    quotes, so it is scanned before the quotes are stripped."""
-
-    SH = Path("harness/x.sh")
+    """The bash line scan on synthetic lines."""
 
     def _hits(self, line):
-        return confinement._bash_line_hits(self.SH, 1, line)
+        return confinement._bash_line_hits(SOME_SCRIPT, SOME_LINE_NO, line)
 
     def test_network_cli_fires(self):
         self.assertTrue(self._hits("curl http://example.com"))
@@ -486,8 +470,6 @@ class BashLineRules(unittest.TestCase):
         self.assertTrue(self._hits('git -C "$target" push'))
 
     def test_quoted_text_is_data(self):
-        # release-version.sh prints the push commands for the maintainer to
-        # run — a quoted hint, not an executed command.
         self.assertFalse(
             self._hits('echo "Next (run manually): git push origin $b && git push v$n"')
         )
@@ -502,49 +484,40 @@ class BashLineRules(unittest.TestCase):
         )
 
     def test_length_expansion_hash_does_not_cut_the_scan(self):
-        # Only a word-opening # starts a comment — the # in ${#arr[@]} must
-        # not hide the rest of the line.
         self.assertTrue(self._hits("n=${#arr[@]} && curl http://x"))
 
     def test_escaped_quote_stays_data(self):
-        # An escaped \" inside a double-quoted string must not end the mask
-        # and expose the string's tail as executed words.
         self.assertFalse(self._hits('echo "say \\"curl\\" now"'))
 
     def test_quote_adjacent_hash_is_not_a_comment(self):
         # Masking turns quotes into spaces; the comment cut judges the
-        # ORIGINAL line, so `""#` cannot hide the rest of the line.
-        self.assertTrue(self._hits('echo ""# && curl http://evil.com'))
+        # original line.
+        self.assertTrue(self._hits('echo ""# && curl http://other.example'))
 
     def test_backtick_substitution_is_scanned(self):
-        # Backticks execute inside double quotes, like $(…).
-        self.assertTrue(self._hits('msg="hello `curl http://evil`"'))
+        self.assertTrue(self._hits('msg="hello `curl http://other.example`"'))
         self.assertTrue(self._hits("x=`git push`"))
 
     def test_continuation_folds_into_one_logical_line(self):
-        # A wrapped command scans as the one command it is — the subcommand
-        # cannot hide behind a backslash-newline.
         folded = confinement._folded_lines('git -C "$d" \\\n  push origin\necho ok\n')
         self.assertEqual(folded, [(1, 'git -C "$d"    push origin'), (3, "echo ok")])
         self.assertTrue(
-            any("push" in h for h in confinement._bash_line_hits(self.SH, *folded[0]))
+            any(
+                "push" in h
+                for h in confinement._bash_line_hits(SOME_SCRIPT, *folded[0])
+            )
         )
 
 
 class StaleSanctions(unittest.TestCase):
-    """The gates fail a sanction no code exercises (ADR 2026-07-19): a writer
-    with no raw write, a spawner with no subprocess import, a network file with
-    no network-module import, an egress pair no call matches. The manifest
-    stays the exact sanctioned surface, never an accumulating one."""
+    """The gates fail a sanction no scanned code exercises."""
 
-    # registry.py is real, scanned, and clean — sanctioning it must read stale.
+    # A real, scanned, clean file: sanctioning it must read stale.
     CLEAN = "harness/registry.py"
+    # A real file the gate never scans: a sanction on it would be dead.
+    UNSCANNED = "harness/tests/test_write_guard.py"
 
     def _run(self, check, **overrides):
-        import contextlib
-        import io
-        from unittest import mock
-
         base = confinement._load_confinement_policy()
         fake = confinement.ConfinementPolicy(
             writers=dict(base.writers) | overrides.get("writers", {}),
@@ -552,15 +525,7 @@ class StaleSanctions(unittest.TestCase):
             network=dict(base.network) | overrides.get("network", {}),
             spawners=dict(base.spawners) | overrides.get("spawners", {}),
         )
-        b = battery.Battery(quick=True, strict=False)
-        err = io.StringIO()
-        with (
-            mock.patch.object(confinement, "_policy", lambda: fake),
-            contextlib.redirect_stdout(io.StringIO()),
-            contextlib.redirect_stderr(err),
-        ):
-            check(b)
-        return b.failed, err.getvalue()
+        return quiet_battery(check, lambda: fake)
 
     def test_stale_writer_fails(self):
         failed, err = self._run(
@@ -571,7 +536,7 @@ class StaleSanctions(unittest.TestCase):
 
     def test_stale_spawner_fails(self):
         failed, err = self._run(
-            confinement.check_no_network, spawners={self.CLEAN: frozenset({"git"})}
+            confinement.check_no_network, spawners={self.CLEAN: GIT_ONLY}
         )
         self.assertTrue(failed)
         self.assertIn("stale sanctioned_spawner", err)
@@ -590,10 +555,6 @@ class StaleSanctions(unittest.TestCase):
         self.assertTrue(failed)
         self.assertIn("stale sanctioned_egress", err)
 
-    # A real file the gate deliberately never scans (test scaffolding) — a
-    # sanction on it would be dead: never enforced, never probed stale.
-    UNSCANNED = "harness/tests/test_write_guard.py"
-
     def test_writer_sanction_on_unscanned_file_fails(self):
         failed, err = self._run(
             confinement.check_confined_writes, writers={self.UNSCANNED: "dead"}
@@ -604,28 +565,18 @@ class StaleSanctions(unittest.TestCase):
     def test_spawner_sanction_on_unscanned_file_fails(self):
         failed, err = self._run(
             confinement.check_no_network,
-            spawners={self.UNSCANNED: frozenset({"git"})},
+            spawners={self.UNSCANNED: GIT_ONLY},
         )
         self.assertTrue(failed)
         self.assertIn("outside the gate's scan targets", err)
 
 
 class ConfinementGateLiveTree(unittest.TestCase):
-    """The two confinement checks (1h, 1i) pass on today's tree — the premise
-    the ADR 2026-07-19 gate rests on. A new egress or raw write anywhere in
-    the scanned tiers fails here before it fails the battery."""
+    """Both confinement checks pass on the live tree."""
 
     def _run(self, check):
-        import contextlib
-        import io
-
-        b = battery.Battery(quick=True, strict=False)
-        with (
-            contextlib.redirect_stdout(io.StringIO()),
-            contextlib.redirect_stderr(io.StringIO()),
-        ):
-            check(b)
-        return b.failed
+        failed, _err = quiet_battery(check)
+        return failed
 
     def test_live_tree_has_no_network_egress(self):
         self.assertFalse(self._run(confinement.check_no_network))
@@ -635,9 +586,7 @@ class ConfinementGateLiveTree(unittest.TestCase):
 
 
 class ConfinementGateScope(unittest.TestCase):
-    """1h/1i scope (ADR 2026-07-19): both user-level tools under tools/ are
-    scanned on the producer tier, and claude-dev's network-facing preflight is
-    a recorded SANCTIONED_NETWORK exception, not a blanket carve-out."""
+    """The user-level tools are scanned on the producer tier with one recorded network exception."""
 
     def test_both_tools_are_scanned(self):
         _shipped, producer = confinement._gate_targets()
@@ -652,23 +601,18 @@ class ConfinementGateScope(unittest.TestCase):
         )
 
     def test_a_non_probe_tool_file_carries_no_exemption(self):
-        # accounting.py is scanned like any producer file — no network pass.
         self.assertNotIn(
             "tools/harness-stats/accounting.py", confinement._policy().network
         )
 
 
 class ConfinementPolicyManifest(unittest.TestCase):
-    """The policy is loaded from one explicit manifest (ADR 2026-07-19): a frozen
-    record whose every path resolves, and a malformed manifest fails loud rather
-    than silently disarming the gate."""
+    """The policy loads from one manifest into a frozen record, or fails loud."""
 
     def test_policy_is_a_frozen_record(self):
         self.assertTrue(confinement.ConfinementPolicy.__dataclass_params__.frozen)
 
     def test_policy_mappings_are_read_only(self):
-        # Frozen all the way down: the mapping fields are proxies, so an
-        # entry cannot be slipped in after the parse boundary.
         with self.assertRaises(TypeError):
             confinement._policy().writers["x"] = "y"  # type: ignore[index]
 
@@ -682,8 +626,7 @@ class ConfinementPolicyManifest(unittest.TestCase):
             self.assertTrue((confinement.ROOT / relp).is_file(), relp)
 
     def test_spawner_allowlists_are_nonempty(self):
-        # An entry with spawns = [] would sanction the import while banning
-        # every call — a contradiction that means the entry is stale.
+        # spawns = [] would sanction the import while banning every call.
         for relp, spawns in confinement._policy().spawners.items():
             self.assertTrue(spawns, relp)
 
@@ -696,8 +639,7 @@ class ConfinementPolicyManifest(unittest.TestCase):
 
     def test_unbounded_egress_prefix_raises(self):
         # An empty prefix sanctions every host; a slash-less one admits
-        # lookalike domains (github.com.evil.com). Both fail at the parse
-        # boundary, before the gate trusts them.
+        # lookalike domains (github.com.other.example).
         for prefix in ("", "https://github.com", "http://github.com/"):
             with tempfile.TemporaryDirectory() as td:
                 bad = Path(td) / "confinement-policy.toml"
@@ -711,26 +653,13 @@ class ConfinementPolicyManifest(unittest.TestCase):
                     confinement._load_confinement_policy(bad)
 
     def test_unloadable_manifest_is_a_step_fail_not_a_crash(self):
-        # The two gate steps convert a loader error into an aggregated FAIL,
-        # honoring the battery contract (aggregate; the sole sanctioned abort
-        # stays the materialize-samples crash in step 3).
-        import contextlib
-        import io
-        from unittest import mock
-
-        def boom():
+        def unreadable():
             raise RuntimeError("confinement policy unreadable (test)")
 
         for check in (confinement.check_no_network, confinement.check_confined_writes):
             with self.subTest(check=check.__name__):
-                b = battery.Battery(quick=True, strict=False)
-                with (
-                    mock.patch.object(confinement, "_policy", boom),
-                    contextlib.redirect_stdout(io.StringIO()),
-                    contextlib.redirect_stderr(io.StringIO()),
-                ):
-                    check(b)
-                self.assertTrue(b.failed)
+                failed, _err = quiet_battery(check, unreadable)
+                self.assertTrue(failed)
 
 
 if __name__ == "__main__":

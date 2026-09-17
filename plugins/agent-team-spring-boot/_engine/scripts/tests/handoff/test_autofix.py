@@ -44,6 +44,11 @@ AN_OVERRIDE = {
 LINES_OUTSIDE_THE_CAP = f"lines_changed outside the 1-{AUTOFIX_LINE_CAP} autofix cap"
 CHARS_OUTSIDE_THE_CAP = f"chars_changed outside the 1-{AUTOFIX_CHAR_CAP} autofix cap"
 A_MALFORMED_OVERRIDE = {"NG-1": "narrowed"}
+FIX_MISMATCH = "new_content is not byte-identical to source_finding.fix"
+
+
+def covered_note(count):
+    return f"{count} dirty design-doc path(s) covered"
 
 
 def an_autofix(record_type="design-doc-autofix", file=A_DESIGN_DOC, **fields):
@@ -60,7 +65,7 @@ def an_autofix(record_type="design-doc-autofix", file=A_DESIGN_DOC, **fields):
             "old_content": "old text",
             "new_content": FIX_TEXT,
             "lines_changed": 1,
-            "chars_changed": 8,
+            "chars_changed": len(FIX_TEXT),
             **fields,
         },
     )
@@ -117,7 +122,7 @@ class BoundErrors(unittest.TestCase):
         )
         self.assertEqual(
             bound_errors(parse_record(an_autofix(lines_changed=AUTOFIX_LINE_CAP + 1))),
-            [f"lines_changed outside the 1-{AUTOFIX_LINE_CAP} autofix cap"],
+            [LINES_OUTSIDE_THE_CAP],
         )
 
     def test_zero_lines_is_outside_the_cap(self):
@@ -136,15 +141,13 @@ class BoundErrors(unittest.TestCase):
         )
         self.assertEqual(
             bound_errors(parse_record(an_autofix(chars_changed=AUTOFIX_CHAR_CAP + 1))),
-            [f"chars_changed outside the 1-{AUTOFIX_CHAR_CAP} autofix cap"],
+            [CHARS_OUTSIDE_THE_CAP],
         )
 
     def test_zero_chars_is_outside_the_cap(self):
         errors = bound_errors(parse_record(an_autofix(chars_changed=0)))
 
-        self.assertEqual(
-            errors, [f"chars_changed outside the 1-{AUTOFIX_CHAR_CAP} autofix cap"]
-        )
+        self.assertEqual(errors, [CHARS_OUTSIDE_THE_CAP])
 
     def test_errors_are_listed_in_path_category_lines_chars_order(self):
         record = parse_record(
@@ -235,16 +238,12 @@ class ContentErrors(unittest.TestCase):
     def test_new_content_must_equal_the_finding_fix(self):
         errors = content_errors(parse_record(an_autofix(new_content="paraphrased")))
 
-        self.assertEqual(
-            errors, ["new_content is not byte-identical to source_finding.fix"]
-        )
+        self.assertEqual(errors, [FIX_MISMATCH])
 
     def test_a_missing_source_finding_is_a_fix_mismatch(self):
         errors = content_errors(parse_record(an_autofix(source_finding=None)))
 
-        self.assertEqual(
-            errors, ["new_content is not byte-identical to source_finding.fix"]
-        )
+        self.assertEqual(errors, [FIX_MISMATCH])
 
     def test_non_string_contents_read_as_empty(self):
         raw = an_autofix(
@@ -258,10 +257,7 @@ class ContentErrors(unittest.TestCase):
 
         self.assertEqual(
             static_errors(record),
-            [
-                f"lines_changed outside the 1-{AUTOFIX_LINE_CAP} autofix cap",
-                "new_content is not byte-identical to source_finding.fix",
-            ],
+            [LINES_OUTSIDE_THE_CAP, FIX_MISMATCH],
         )
 
 
@@ -468,17 +464,14 @@ class DesignDocCoverage(unittest.TestCase):
     def test_a_clean_tree_needs_no_baseline(self):
         repository = FakeRepository(dirty=(), baseline=Baseline(False))
 
-        self.assertEqual(
-            self.coverage(repository),
-            DesignDocAudit((), "0 dirty design-doc path(s) covered"),
-        )
+        self.assertEqual(self.coverage(repository), DesignDocAudit((), covered_note(0)))
 
     def test_a_covered_dirty_path_reports_the_count(self):
-        audit = self.coverage(FakeRepository(dirty=(A_DESIGN_DOC,)), an_autofix())
+        dirty = (A_DESIGN_DOC,)
 
-        self.assertEqual(
-            audit, DesignDocAudit((), "1 dirty design-doc path(s) covered")
-        )
+        audit = self.coverage(FakeRepository(dirty=dirty), an_autofix())
+
+        self.assertEqual(audit, DesignDocAudit((), covered_note(len(dirty))))
 
     def test_an_uncovered_dirty_path_is_named(self):
         audit = self.coverage(
@@ -501,9 +494,7 @@ class AuditLog(unittest.TestCase):
     def test_a_clean_log_and_tree_audit_clean(self):
         audit = audit_log(entries(an_autofix()), FakeRepository())
 
-        self.assertEqual(
-            audit, AutofixAudit((), 1, "0 dirty design-doc path(s) covered")
-        )
+        self.assertEqual(audit, AutofixAudit((), 1, covered_note(0)))
 
     def test_static_failures_precede_coverage_failures_and_carry_their_line(self):
         log = entries(a_record("build-pass"), an_autofix(lines_changed=0))
@@ -512,10 +503,7 @@ class AuditLog(unittest.TestCase):
 
         self.assertEqual(
             audit.failures,
-            (
-                f"line 2: lines_changed outside the 1-{AUTOFIX_LINE_CAP} autofix cap",
-                f"{AN_ADR}: {UNCOVERED_MESSAGE}",
-            ),
+            (f"line 2: {LINES_OUTSIDE_THE_CAP}", f"{AN_ADR}: {UNCOVERED_MESSAGE}"),
         )
 
     def test_superseded_records_are_neither_validated_nor_counted(self):
@@ -523,9 +511,7 @@ class AuditLog(unittest.TestCase):
 
         audit = audit_log(log, FakeRepository())
 
-        self.assertEqual(
-            audit, AutofixAudit((), 0, "0 dirty design-doc path(s) covered")
-        )
+        self.assertEqual(audit, AutofixAudit((), 0, covered_note(0)))
 
     def test_an_unreadable_repository_keeps_the_static_failures_and_drops_the_note(
         self,

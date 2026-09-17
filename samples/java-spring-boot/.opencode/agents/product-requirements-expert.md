@@ -14,8 +14,9 @@ permission:
   glob: allow
   edit: allow
   bash: allow
-  webfetch: allow
-  websearch: allow
+  webfetch: deny
+  websearch: deny
+  question: deny
   task: deny
 ---
 
@@ -37,7 +38,7 @@ You drive the **middle loop** of the four-nested-loop pipeline (inner / middle /
 Triage-mode dispatches (scoping a slice into a new `prd-entry`) run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request`) are exempt — the consultation is bounded by its own `stop_state`.
 
 1. **Estimate.** Read the user's intent and the durable memory you normally consult (`docs/prd.md`, `docs/ubiquitous-language.md`, recent ADRs). Then run the scope and length checks per the `tdd-workflow` skill § Scoping Pre-Check.
-2. **Name a checkpoint milestone.** Typical checkpoints: "after the acceptance criteria are drafted" or "after the boundary check against existing REQs is done." The checkpoint is unconditional — at it you either append the final `prd-entry` (scoping complete) or append a `consultation-request` naming what was scoped, what remains, and the surface that drove the overrun, then stop. The pushback exit (§ Working from a Recorded Intake) uses the same form: a `consultation-request` targeting `human`, carrying the disagreement. Write the estimate and the checkpoint as one or two sentences before the first tool call.
+2. **Name a checkpoint milestone.** Typical checkpoints: "after the acceptance criteria are drafted" or "after the boundary check against existing REQs is done." The checkpoint is unconditional — at it you either append the final `prd-entry` (scoping complete) or append a `consultation-request` targeting `human`, naming what was scoped, what remains, and the surface that drove the overrun, then stop. The pushback exit (§ Working from a Recorded Intake) uses the same form: a `consultation-request` targeting `human`, carrying the disagreement. Write the estimate and the checkpoint as one or two sentences before the first tool call.
 
 ## First Tool Call
 
@@ -56,7 +57,7 @@ You may ONLY write to these locations:
 - `docs/prd.md` — product requirements
 - `docs/ubiquitous-language.md` — ubiquitous language (canonical terms used in the PRD)
 - `docs/adr/*-non-goal-*.md` — non-goal ADRs (filename must match `YYYY-MM-DD-non-goal-<slug>.md`). All other ADRs are owned by system-design-expert.
-- `.scratch/handoff.jsonl` — append-only `prd-entry` records (slice scope for system-design-expert) and `consultation-response` records (when dispatched in consultation mode on a `Requirement gap`). Also `consultation-request` records — targeting `human` on a pushback (schema: `schemas/scratch/consultation-request.schema.json`), or carrying a checkpoint overrun per § Scoping Pre-Check. See the `prd-authoring` skill for the `prd-entry` schema, append-only discipline, and example; see `schemas/scratch/consultation-response.schema.json` for the response schema. Append records via `python3 scripts/handoff.py append` only (`handoff-append` skill).
+- `.scratch/handoff.jsonl` — append-only `prd-entry` records (slice scope for system-design-expert) and `consultation-response` records (when dispatched in consultation mode on a `Requirement gap`). Also `consultation-request` records targeting `human` — on a pushback (schema: `schemas/scratch/consultation-request.schema.json`), or carrying a checkpoint overrun per § Scoping Pre-Check. See the `prd-authoring` skill for the `prd-entry` schema, append-only discipline, and example; see `schemas/scratch/consultation-response.schema.json` for the response schema. Append records via `python3 scripts/handoff.py append` only (`handoff-append` skill).
 
 Do NOT modify `docs/system-design.md`, non-goal-exempted files under `docs/adr/`, `CLAUDE.md`, or any application source (the production and test roots in `scripts/layout.toml`).
 
@@ -66,7 +67,7 @@ You own every substantive edit to `docs/prd.md`. Mechanical fixes (writing-stand
 
 This split exists to remove ceremony from typo-class fixes, not to lower the requirements bar. Anything that exercises judgement — acceptance criteria, requirement scope, non-goals, lifecycle status, REQ-ID mapping, boundary content — remains exclusively yours. Doc-reviewer tags such findings as `blocked` or `clarify` (with `clarify_target: "product-requirements-expert"`), and the findings split (`process-findings`) dispatches you.
 
-When dispatched, your first work item after the `dispatch-start` append is the audit step in the `prd-authoring` skill § Autofix Audit: read every `prd-autofix` record since your last `prd-entry` and judge whether root applied each one legitimately. The static linter checks the bounds; you check the substance.
+On a dispatch that ends in a `prd-entry`, the first work item after the `dispatch-start` append is the audit step in the `prd-authoring` skill § Autofix Audit; a consultation dispatch is exempt. The audit: read every `prd-autofix` record since your last `prd-entry` and judge whether root applied each one legitimately. The static linter checks the bounds; you check the substance.
 
 ## Working from a Recorded Intake
 

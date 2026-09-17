@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import unittest
 import unittest.mock
+from datetime import datetime
 from pathlib import Path
 
 from handoff import (
@@ -17,8 +18,10 @@ from handoff import (
 from tests.support import A_DESIGN_DOC
 
 COMMIT_DATE = "2026-01-01T00:00:00Z"
-COMMIT_SECONDS = 1_767_225_600.0
+COMMIT_SECONDS = datetime.fromisoformat(COMMIT_DATE).timestamp()
+A_LATER_DATE = "2026-02-01T00:00:00Z"
 AN_ADR = "docs/adr/0001-x.md"
+PRD_TEXT = "prd\n"
 GIT_ENV = {
     **os.environ,
     "GIT_COMMITTER_DATE": COMMIT_DATE,
@@ -121,14 +124,16 @@ class WorktreePrd(RepositoryCase):
         self.assertEqual(self.repository.worktree_prd_text(), "")
 
     def test_a_prd_at_the_size_cap_is_read(self):
-        write(PRD_PATH, "prd\n")
+        write(PRD_PATH, PRD_TEXT)
+        at_cap = GitRepository(prd_size_cap=len(PRD_TEXT))
 
-        self.assertEqual(GitRepository(prd_size_cap=4).worktree_prd_text(), "prd\n")
+        self.assertEqual(at_cap.worktree_prd_text(), PRD_TEXT)
 
     def test_a_prd_over_the_size_cap_reads_as_none(self):
-        write(PRD_PATH, "prd\n")
+        write(PRD_PATH, PRD_TEXT)
+        under_cap = GitRepository(prd_size_cap=len(PRD_TEXT) - 1)
 
-        self.assertIsNone(GitRepository(prd_size_cap=3).worktree_prd_text())
+        self.assertIsNone(under_cap.worktree_prd_text())
 
 
 class DirtyDesignDocs(RepositoryCase):
@@ -182,8 +187,8 @@ class DesignDocsBaseline(RepositoryCase):
         write("unrelated.txt", "x\n")
         later = {
             **GIT_ENV,
-            "GIT_COMMITTER_DATE": "2026-02-01T00:00:00Z",
-            "GIT_AUTHOR_DATE": "2026-02-01T00:00:00Z",
+            "GIT_COMMITTER_DATE": A_LATER_DATE,
+            "GIT_AUTHOR_DATE": A_LATER_DATE,
         }
         git("add", ".", env=later)
         git("commit", "-q", "-m", "x", env=later)

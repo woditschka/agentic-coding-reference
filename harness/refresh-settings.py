@@ -1,33 +1,13 @@
 #!/usr/bin/env python3
 """Ensure the harness-owned keys of a consumer's .claude/settings.json.
 
-The deterministic, marker-free analogue of refresh-chapters.py for settings:
-it makes the harness-owned keys current without any sentinel, identifying
-ownership by the shipped template rather than by a recorded region.
-
     refresh-settings.py <target-settings.json> <template-settings.json> <target-root>
 
-Harness-owned in settings.json, and all this touches:
-  - every `env` key the template declares (the agent-teams flag);
-  - each hook matcher, per event type the template declares (`PreToolUse`,
-    `Stop`, ...), whose command targets a `.claude/hooks/*.py` the install
-    actually delivered into the target tree.
-
-The operation is ENSURE-PRESENT, and only that. A harness key or matcher the
-target lacks is added; a key the project set itself, a matcher it wrote, and
-every other part of the file are left untouched. It never rewrites a project
-value and never removes a matcher — a hook renamed away leaves an inert matcher
-for the advisory pass or a human to prune. Registering only hooks that exist in
-the tree makes it channel-correct for free: on the marketplace channel the hooks
-ship in the plugin, not `.claude/hooks/`, so no matcher is added there.
-
-Robustness: a target that is missing, unparseable, or not a JSON object is
-skipped with a message and a zero exit — never a traceback that would abort the
-materialize mid-run. A project value that is the wrong shape (e.g. a non-object
-`env`) is left untouched rather than overwritten.
-
-Idempotent: the file is rewritten only when something actually changed, so a
-re-materialize on an up-to-date project produces no diff (and no reformat).
+The marker-free analogue of the chapter refresh for settings: ownership is
+the shipped template, and the operation is ensure-present only. Every env key
+the template declares and every hook matcher whose script the install
+delivered are added when absent; a project value, a project matcher, and the
+rest of the file are never rewritten or removed. Stdlib only.
 """
 
 import json
@@ -37,25 +17,25 @@ from pathlib import Path
 from typing import Any
 
 USAGE = "usage: refresh-settings.py <target-settings.json> <template-settings.json> <target-root>"
-# .py is the current hook form; .sh is parsed too so a legacy matcher forms a
-# recognized (matcher, name) pair — re-runs stay idempotent on it. Pair-keying
-# means a legacy .sh pair never suppresses adding the delivered .py matcher;
-# the stale entry lingers inert for the advisory pass or a human to prune.
+ARGS = 4
+USAGE_EXIT = 2
+# .sh is parsed too, so a legacy matcher forms a recognized pair and a re-run
+# stays idempotent on it; the stale entry lingers for a human to prune.
 HOOK_RE = re.compile(r"\.claude/hooks/([A-Za-z0-9._-]+\.(?:py|sh))")
+
+Settings = dict[str, Any]
 
 
 def hook_filename(command: str | None) -> str | None:
+    """Return the hook script a matcher command names, or None."""
     m = HOOK_RE.search(command or "")
     return m.group(1) if m else None
 
 
 def registered_hooks(pre_entries: list[Any]) -> set[tuple[str, str]]:
-    """Every (matcher, hook-script basename) pair already registered.
-
-    Keyed by the pair, not the basename alone: one script may legitimately
-    register under two matchers (handoff-log-guard.py guards both the
-    Write/Edit tools and Bash), and basename-only keying would silently drop
-    the second entry."""
+    """Return every (matcher, hook script) pair the entries already register."""
+    # Keyed by the pair: one script may guard two matchers, and basename-only
+    # keying would silently drop the second entry.
     pairs: set[tuple[str, str]] = set()
     for entry in pre_entries:
         if not isinstance(entry, dict):
@@ -69,96 +49,111 @@ def registered_hooks(pre_entries: list[Any]) -> set[tuple[str, str]]:
     return pairs
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) != 4:
-        print(USAGE, file=sys.stderr)
-        return 2
-    target_path, template_path, root = argv[1], argv[2], Path(argv[3])
-
-    # The template is harness-owned — a parse error there is a harness bug, so let it raise.
-    template = json.loads(Path(template_path).read_text(encoding="utf-8"))
-
-    # The target is the project's — tolerate every shape it might be in.
+def _read_target(path: Path) -> Settings | None:
+    # The target is the project's: every shape is tolerated, and a skip is a
+    # message with a zero exit, never a traceback mid-materialize.
     try:
-        target = json.loads(Path(target_path).read_text(encoding="utf-8"))
+        target = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
-        target = {}
+        return {}
     except json.JSONDecodeError:
         print("settings: skipped (target settings.json is not valid JSON)")
-        return 0
+        return None
     if not isinstance(target, dict):
         print("settings: skipped (target settings.json is not a JSON object)")
-        return 0
+        return None
+    return target
 
-    changed: list[str] = []
 
-    # 1. env flags — ensure-present-if-absent; never overwrite a project value,
-    #    and never clobber a project's non-object env.
+def _ensure_env(target: Settings, template: Settings) -> list[str]:
+    # A project value is never overwritten, and a project's non-object env is
+    # left alone.
     env = target.get("env")
-    if isinstance(env, dict) or env is None:
-        env = env if isinstance(env, dict) else {}
-        added_env = False
-        for key, value in template.get("env", {}).items():
-            if key not in env:
-                env[key] = value
-                changed.append(f"env.{key}")
-                added_env = True
-        if added_env:
-            target["env"] = env
+    if env is not None and not isinstance(env, dict):
+        return []
+    env = env if isinstance(env, dict) else {}
+    changed: list[str] = []
+    for key, value in template.get("env", {}).items():
+        if key not in env:
+            env[key] = value
+            changed.append(f"env.{key}")
+    if changed:
+        target["env"] = env
+    return changed
 
-    # 2. Hook matchers for delivered hooks the target has not registered —
-    #    per event type the template declares. A matcher-less event (Stop)
-    #    keys its pairs on the empty matcher.
+
+def _ensure_hooks(target: Settings, template: Settings, root: Path) -> list[str]:
+    # Per event type the template declares; a matcher-less event keys its
+    # pairs on the empty matcher. Registering only a script the target
+    # carries makes this channel-correct: marketplace hooks ship in the plugin.
     template_hooks = template.get("hooks", {})
     hooks = target.get("hooks")
-    if isinstance(template_hooks, dict) and (isinstance(hooks, dict) or hooks is None):
-        hooks = hooks if isinstance(hooks, dict) else {}
-        for event, template_entries in template_hooks.items():
-            if not isinstance(template_entries, list) or not template_entries:
-                continue
-            entries = hooks.get(event)
-            entries = (
-                entries
-                if isinstance(entries, list)
-                else ([] if entries is None else None)
-            )
-            if entries is None:
-                continue
-            already = registered_hooks(entries)
-            added_hook = False
-            for entry in template_entries:
-                matcher = entry.get("matcher", "")
-                missing = []
-                for hook in entry.get("hooks", []):
-                    name = hook_filename(hook.get("command", ""))
-                    # Register only a hook the project carries, once per
-                    # (matcher, script) pair — a script may guard two matchers.
-                    if not name or (matcher, name) in already:
-                        continue
-                    if not (root / ".claude" / "hooks" / name).is_file():
-                        continue
-                    missing.append(hook)
-                    already.add((matcher, name))
-                    changed.append(
-                        f"hook:{matcher}:{name}" if matcher else f"hook:{event}:{name}"
-                    )
-                    added_hook = True
-                # Append only the unregistered hooks: appending the whole
-                # entry would re-register a hook the target already carries
-                # under the same matcher, and it would then run twice.
-                if missing:
-                    entries.append({**entry, "hooks": missing})
-            if added_hook:
-                hooks[event] = entries
-                target["hooks"] = hooks
+    if not isinstance(template_hooks, dict):
+        return []
+    if hooks is not None and not isinstance(hooks, dict):
+        return []
+    hooks = hooks if isinstance(hooks, dict) else {}
+    changed: list[str] = []
+    for event, template_entries in template_hooks.items():
+        if not isinstance(template_entries, list) or not template_entries:
+            continue
+        entries = hooks.get(event)
+        if entries is None:
+            entries = []
+        elif not isinstance(entries, list):
+            continue
+        added = _add_missing_matchers(entries, template_entries, event, root)
+        if added:
+            changed.extend(added)
+            hooks[event] = entries
+            target["hooks"] = hooks
+    return changed
 
+
+def _add_missing_matchers(
+    entries: list[Any], template_entries: list[Any], event: str, root: Path
+) -> list[str]:
+    # Only the unregistered hooks of an entry are appended: the whole entry
+    # would re-register a hook the target already carries under the same
+    # matcher, and it would run twice.
+    already = registered_hooks(entries)
+    changed: list[str] = []
+    for entry in template_entries:
+        matcher = entry.get("matcher", "")
+        missing = []
+        for hook in entry.get("hooks", []):
+            name = hook_filename(hook.get("command", ""))
+            if not name or (matcher, name) in already:
+                continue
+            if not (root / ".claude" / "hooks" / name).is_file():
+                continue
+            missing.append(hook)
+            already.add((matcher, name))
+            changed.append(
+                f"hook:{matcher}:{name}" if matcher else f"hook:{event}:{name}"
+            )
+        if missing:
+            entries.append({**entry, "hooks": missing})
+    return changed
+
+
+def main(argv: list[str]) -> int:
+    """Refresh the target settings from the command line and return the exit code."""
+    if len(argv) != ARGS:
+        print(USAGE, file=sys.stderr)
+        return USAGE_EXIT
+    target_path, template_path, root = Path(argv[1]), Path(argv[2]), Path(argv[3])
+    # The template is harness-owned: a parse error there is a harness bug and raises.
+    template = json.loads(template_path.read_text(encoding="utf-8"))
+    target = _read_target(target_path)
+    if target is None:
+        return 0
+    changed = _ensure_env(target, template) + _ensure_hooks(target, template, root)
     if changed:
-        Path(target_path).write_text(
-            json.dumps(target, indent=2) + "\n", encoding="utf-8"
-        )
+        target_path.write_text(json.dumps(target, indent=2) + "\n", encoding="utf-8")
     print("settings: " + (", ".join(changed) if changed else "no change"))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

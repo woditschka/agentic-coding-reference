@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Local deterministic gate for the harness + samples: the mechanical,
-no-judgment half of an audit-harness review. This header is the authoritative
-step list — docs reference it rather than re-enumerating:
+"""Run the deterministic gate over the harness and the samples.
+
+This header is the authoritative step list; docs reference it rather than
+re-enumerating:
   1  shellcheck (harness/ + tools/)      3d  placeholder gate
-  1b bandit (python security lint)       3e  handbook delta + self-containment
+  1b bandit (python security lint)       3e  handbook delta (root vs core copy)
   1c stdlib-only shipped runtime         3f  verdict-enum sync (schemas)
   1d ruff format --check                 3g  stack-agnostic core
   1e ruff check (lint)                   3h  root link integrity
@@ -12,71 +13,47 @@ step list — docs reference it rather than re-enumerating:
   1h no-network egress (glue)            3k  retired-paths manifest
   1i confined writes (glue)              3l  adr-index sync
                                          3m  gitignore-block sync
+                                         3n  shipped prose self-containment
+                                         3o  runtime-number-free prose
   2  python syntax                       4   sample test suites
   2a annotation evaluation (runtime)     4b  sample build-file script refs
   2b agent body parity (per-tool copies)
-  2c agent-body renderer self-test       4c  pinned-version sync (deps-report)
+  2c agent-mirror renderer self-test     4c  pinned-version sync (deps-report)
   2d accounting vendored-copy sync       5   sample doctors
   2e frontmatter vocabulary (per-tool)   6   harness unit suites
   2f spec-version sync                   6a  tools install completeness
   2g bundled-skill-name collision        6b  tools unit suites
-  3  materialization faithfulness        6bb pod toolchain pins
+  3  materialization faithfulness        6bb claude-dev toolchain and confinement pins
   3b sample layout invariants            6bc eval bench unit suites
   3c project-owned roster sync           6c  generic-stack self-test
                                          7   marketplace faithfulness
                                          8   marketplace acceptance
                                          9   real plugin install (claude CLI)
-Aggregates failures (does not stop at the first) and exits non-zero if any
-check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
-the sample checks that follow read the tree it produces.
-Tier 0 of the maintainer loop (root CLAUDE.md): run it after
-every edit — via propagate-harness.sh after a /harness edit. Two push-time gates
-mirror it: the .githooks/pre-push hook blocks an unscanned local push, and the
-.github/workflows/checks.yml GitHub Actions workflow attests every push and
-pull request. Both invoke --strict. See
-docs/adr/2026-07-13-server-side-battery-enforcement.md.
+
+Failures aggregate and the run exits non-zero once at the end. The sole
+abort is a materialize-samples crash in step 3, since the sample checks that
+follow read the tree it produces. Tier 0 of the maintainer loop runs it after
+every edit, via propagate-harness.sh after a /harness edit; the pre-push hook
+and the GitHub Actions workflow run it with --strict.
 
     harness/verify-harness.py [--quick] [--strict]
 
 --quick is tier 0 for an edit that touches none of harness/, samples/,
-plugins/, .claude-plugin/ (i.e. docs, root skills, tools/, evals/). It REFUSES
-to run while any of those trees is dirty vs HEAD; only then does it skip — with
-a loud SKIP line each — the steps that re-render or execute those trees
-(2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. The tools/ and evals/ unit
-suites (6b, 6bc) run whenever either tree carries a pending change — --quick
-is the tier-0 mode for those edits — and skip jointly, with a loud SKIP naming
-the proof, when both trees are clean vs HEAD (the same git-proof mechanism as
-the guard; the skip is joint because the eval suites are the only executable
-coverage of tools/harness-stats/accounting.py). One 6bc input is git-invisible:
-the gitignored dev-run artifacts (TREND-dev.md, results/runs/dev-*). When any
-exists, 6bc still validates the derived views before skipping the rest. Steps
-4c, 6a, and 6bb always run: 4c reads README.md and .github/workflows/, which
-sit outside the guard; 6a and 6bb are static reads over tools/. A /harness
-edit takes the full battery via propagate-harness.sh, unchanged; an
-/audit-harness run always uses the full battery.
+plugins/, or .claude-plugin/. It refuses to run while any of those trees is
+dirty against HEAD; only then does it skip, with a loud SKIP line each, the
+steps that re-render or execute those trees (2c, 3, 4, 5, 6, 6c, 7, 8, 9).
+Every static check still runs. The tools/ and evals/ suites (6b, 6bc) run
+whenever either tree carries a pending change and skip jointly when both are
+clean; a gitignored dev-run artifact still has its derived views validated
+before 6bc skips. Steps 4c, 6a, and 6bb always run, since their inputs sit
+outside the guard.
 
---strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a SKIP;
-the two push-time gates set it so the lint and type steps cannot silently
-no-op. Without it an absent tool skips with a note — the dev-machine default.
-
-Needs git and python3; bash for the shell sub-suites; shellcheck, bandit,
-ruff, and mypy if present (each skipped with a note if not, or failed under
---strict). The ruff and mypy config lives in the root pyproject.toml (the only
-manifest the stdlib-only scan permits, kept outside every shipped tree). No
-Go/Java toolchain required.
-The faithfulness
-step re-materializes the samples in place: it is dirty-tree-safe — it flags
-only changes the re-materialize *introduces* (a /harness edit not yet
-materialized, or a hand-edited sample), never already-pending work.
-
-Pure helpers are unit-tested by test_verify_harness.py (battery step 6).
+--strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a
+SKIP. Needs git and python3, bash for the shell sub-suites, and the four
+static tools when present; the ruff and mypy config lives in the root
+pyproject.toml. The faithfulness step re-materializes the samples in place
+and flags only the changes the render introduces, never pending work.
 """
-
-# The steps live in the verify_harness/ package (ADR 2026-07-18
-# check-sync-decomposition): text (pure helpers), battery (aggregator + run
-# harness), checks/ (the step functions grouped by the evidence they read).
-# This launcher keeps the header above and the ordered dispatch below.
 
 import sys
 from pathlib import Path
@@ -124,53 +101,49 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_layout_invariants,
     check_parity_gates,
     check_placeholder_gate,
+    check_prose_self_containment,
     check_retired_paths,
     check_root_links,
     check_roster_sync,
     check_route_rules,
+    check_runtime_number_free_prose,
     check_spec_version_sync,
     check_stack_agnostic_core,
     check_verdict_enums,
 )
 
+FLAGS = ("--quick", "--strict")
+GUARDED_TREES = ("harness/", "samples/", "plugins/", ".claude-plugin/")
+SHOWN_DIRTY_LINES = 10
+USAGE_EXIT = 2
 
-def main(argv: list[str]) -> int:
-    # Line-buffer both streams so step headers (stdout) and FAIL details
-    # (stderr) interleave in true order when the battery is redirected to a
-    # file or a pipe — block-buffered stdout would otherwise reorder them.
-    # typeshed declares sys.stdout/stderr as TextIO, which lacks reconfigure;
-    # at runtime both are io.TextIOWrapper, which has it.
-    sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
-    sys.stderr.reconfigure(line_buffering=True)  # type: ignore[union-attr]
-    flags = argv[1:]
-    quick = "--quick" in flags
-    strict = "--strict" in flags
-    if any(f not in ("--quick", "--strict") for f in flags):
-        print("usage: harness/verify-harness.py [--quick] [--strict]", file=sys.stderr)
-        return 2
 
-    # The --quick guard. Quick mode is sound only while the derived-surface
-    # inputs are untouched: any pending change under them — staged, unstaged,
-    # or untracked — means a skipped step could be the one that catches it.
-    # Refuse rather than weaken the gate.
-    if quick:
-        dirty = git_status("harness/", "samples/", "plugins/", ".claude-plugin/")
-        if dirty:
-            print(
-                "FAIL: --quick refused — pending changes touch the derived "
-                "surfaces it would skip:",
-                file=sys.stderr,
-            )
-            for line in dirty.splitlines()[:10]:
-                print(f"    {line}", file=sys.stderr)
-            print(
-                "Run the full battery: harness/verify-harness.py (or "
-                "harness/propagate-harness.sh after a /harness edit).",
-                file=sys.stderr,
-            )
-            return 1
+def _line_buffer(stream: object) -> None:
+    """Flush a stream per line so step headers and failure details interleave in order."""
+    # typeshed types the streams as TextIO, which lacks reconfigure; a
+    # redirected StringIO lacks it at runtime too.
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(line_buffering=True)
 
-    b = Battery(quick, strict)
+
+def _quick_refusal() -> str | None:
+    """Return the refusal for --quick when a guarded tree carries a pending change."""
+    # A skipped step could be the one that catches a change under it, so the
+    # guard refuses rather than weakening the gate.
+    dirty = git_status(*GUARDED_TREES)
+    if not dirty:
+        return None
+    shown = "\n".join(f"    {line}" for line in dirty.splitlines()[:SHOWN_DIRTY_LINES])
+    return (
+        "--quick refused — pending changes touch the derived surfaces it would "
+        f"skip:\n{shown}\nRun the full battery: harness/verify-harness.py (or "
+        "harness/propagate-harness.sh after a /harness edit)."
+    )
+
+
+def _run_steps(b: Battery) -> None:
+    """Dispatch every step in the header's order."""
     check_shellcheck(b)
     check_bandit(b)
     check_stdlib_only(b)
@@ -203,6 +176,8 @@ def main(argv: list[str]) -> int:
     check_retired_paths(b)
     check_adr_index(b)
     check_gitignore_block(b)
+    check_prose_self_containment(b)
+    check_runtime_number_free_prose(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)
@@ -222,11 +197,14 @@ def main(argv: list[str]) -> int:
         skip_label="skip (no claude CLI)",
     )
 
+
+def _verdict(b: Battery) -> int:
+    """Print the run's verdict line and return its exit code."""
     print()
     if b.failed:
-        print("FAIL verify-harness: see failures above", file=sys.stderr)
+        b.fail("verify-harness: see failures above")
         return 1
-    if quick:
+    if b.quick:
         print(
             "PASS verify-harness --quick: static checks green (re-render and "
             "sub-suite steps skipped — guard proved their inputs untouched)"
@@ -239,5 +217,23 @@ def main(argv: list[str]) -> int:
     return 0
 
 
+def main(argv: list[str]) -> int:
+    """Run the battery and return its exit code."""
+    for stream in (sys.stdout, sys.stderr):
+        _line_buffer(stream)
+    flags = argv[1:]
+    b = Battery(quick="--quick" in flags, strict="--strict" in flags)
+    if any(flag not in FLAGS for flag in flags):
+        b.fail("usage: harness/verify-harness.py [--quick] [--strict]")
+        return USAGE_EXIT
+    if b.quick:
+        refusal = _quick_refusal()
+        if refusal:
+            b.fail(refusal)
+            return 1
+    _run_steps(b)
+    return _verdict(b)
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    raise SystemExit(main(sys.argv))

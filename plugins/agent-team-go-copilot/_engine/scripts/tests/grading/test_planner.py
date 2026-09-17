@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from grading.config import REVIEWERS, SURFACE_REVIEWERS, Layout, ReviewConfig
 from grading.planner import (
+    NOISY_RETRIES,
     GitReaders,
     OpenFinding,
     PlanContext,
@@ -30,6 +31,11 @@ SOME_LINE = 1
 SIZE_THRESHOLD = 80
 SOME_LINES = 3
 MANY_LINES = SIZE_THRESHOLD + 1
+ONE_BINARY_FILE = 1
+A_SECOND_MODULE = 2
+A_DESIGN_REVISION = 1
+A_NON_STRING = 7
+A_LINE_AND_COLUMN = "12:3"
 A_PROD_FILE = "src/a.txt"
 ANOTHER_PROD_FILE = "src/new.txt"
 A_SENSITIVE_FILE = "src/auth/s.txt"
@@ -117,27 +123,24 @@ def a_delta(paths, kinds, **fields):
     }
 
 
-def derive(
-    features,
-    context=None,
-    history=None,
-    delta=None,
-    tree_files=None,
-    review=None,
-    tree=SOME_TREE,
-):
-    """Run the ladder with fakes for the injected git reads."""
-    inputs = PlanInputs(
+def plan_inputs(features, **over):
+    """The ladder's inputs with irrelevant defaults, and the fields a test cares about replaced."""
+    defaults = PlanInputs(
         features,
-        history or a_history(),
-        context or PlanContext("first"),
+        a_history(),
+        PlanContext("first"),
         a_layout(),
-        review or a_review_config(),
-        tree,
+        a_review_config(),
+        SOME_TREE,
         SOME_BASE,
     )
+    return replace(defaults, **over)
+
+
+def derive(features, *, delta=None, tree_files=None, **inputs):
+    """Run the ladder with fakes for the injected git reads."""
     readers = GitReaders(lambda _prev, _cur: delta, lambda _base, _tree: tree_files)
-    return derive_plan(inputs, readers)
+    return derive_plan(plan_inputs(features, **inputs), readers)
 
 
 class SurfaceRoster(unittest.TestCase):
@@ -209,16 +212,19 @@ class SliceTriggers(unittest.TestCase):
 
     def test_a_binary_file_is_a_trigger(self):
         self.assertEqual(
-            self.triggers(features_of([A_PROD_FILE], binary_files=1)), ["binary"]
+            self.triggers(features_of([A_PROD_FILE], binary_files=ONE_BINARY_FILE)),
+            ["binary"],
         )
 
     def test_a_second_module_is_a_trigger(self):
-        features = features_of([A_PROD_FILE], module_count=2)
+        features = features_of([A_PROD_FILE], module_count=A_SECOND_MODULE)
 
         self.assertEqual(self.triggers(features), ["multi-module"])
 
     def test_lines_over_the_threshold_are_a_trigger(self):
-        features = features_of([A_PROD_FILE], prod_lines=SIZE_THRESHOLD, test_lines=1)
+        features = features_of(
+            [A_PROD_FILE], prod_lines=SIZE_THRESHOLD, test_lines=SOME_LINES
+        )
 
         self.assertEqual(self.triggers(features), ["oversize"])
 
@@ -227,8 +233,8 @@ class SliceTriggers(unittest.TestCase):
 
         self.assertEqual(self.triggers(features), [])
 
-    def test_two_build_retries_are_a_trigger(self):
-        history = {**a_history(), "build_retries": 2}
+    def test_noisy_build_retries_are_a_trigger(self):
+        history = {**a_history(), "build_retries": NOISY_RETRIES}
 
         self.assertEqual(
             self.triggers(features_of([A_PROD_FILE]), history=history),
@@ -236,7 +242,7 @@ class SliceTriggers(unittest.TestCase):
         )
 
     def test_a_design_revision_is_a_trigger(self):
-        history = {**a_history(), "design_revisions": 1}
+        history = {**a_history(), "design_revisions": A_DESIGN_REVISION}
 
         self.assertEqual(
             self.triggers(features_of([A_PROD_FILE]), history=history),
@@ -356,7 +362,7 @@ class FirstPassLadder(unittest.TestCase):
         )
 
     def test_an_unresolved_tree_fails_closed_to_the_full_battery(self):
-        plan = derive(features_of([A_PROD_FILE]), tree=None)
+        plan = derive(features_of([A_PROD_FILE]), tree_sha=None)
 
         self.assertEqual((plan.risk, plan.triggers), ("high", ("null-features",)))
 
@@ -564,10 +570,16 @@ class FixCycle(unittest.TestCase):
             reviewed_files=(A_PROD_FILE,),
             open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
         )
-        history = {**a_history(), "build_retries": 2, "design_revisions": 1}
+        history = {
+            **a_history(),
+            "build_retries": NOISY_RETRIES,
+            "design_revisions": A_DESIGN_REVISION,
+        }
 
         plan = derive(
-            features_of([A_PROD_FILE], prod_lines=MANY_LINES, module_count=3),
+            features_of(
+                [A_PROD_FILE], prod_lines=MANY_LINES, module_count=A_SECOND_MODULE
+            ),
             context=context,
             history=history,
             delta=a_delta([A_PROD_FILE], ["prod"]),
@@ -1083,7 +1095,9 @@ class OpenFindings(unittest.TestCase):
         self.assertFalse(replace(a_finding(), tag="clarify").critical)
 
     def test_the_path_is_the_text_before_the_first_colon(self):
-        self.assertEqual(replace(a_finding(), location=f"{A_DOC}:12:3").path, A_DOC)
+        self.assertEqual(
+            replace(a_finding(), location=f"{A_DOC}:{A_LINE_AND_COLUMN}").path, A_DOC
+        )
 
     def test_a_non_string_location_has_no_path(self):
         self.assertIsNone(replace(a_finding(), location=None).path)
@@ -1097,7 +1111,9 @@ class OpenFindings(unittest.TestCase):
         self.assertIsNone(replace(a_finding(), bar_clause="bogus").implicated_reviewer)
 
     def test_a_non_string_clause_implicates_nobody(self):
-        self.assertIsNone(replace(a_finding(), bar_clause=4).implicated_reviewer)
+        self.assertIsNone(
+            replace(a_finding(), bar_clause=A_NON_STRING).implicated_reviewer
+        )
 
     def test_the_record_form_carries_every_field(self):
         self.assertEqual(
@@ -1134,7 +1150,7 @@ class PlaceablePath(unittest.TestCase):
         self.assertIsNone(placeable_path(located("docs\\prd.md")))
 
     def test_a_non_string_is_not(self):
-        self.assertIsNone(placeable_path(7))
+        self.assertIsNone(placeable_path(A_NON_STRING))
 
 
 if __name__ == "__main__":

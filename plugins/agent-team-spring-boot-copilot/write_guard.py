@@ -1,19 +1,9 @@
-"""Confined filesystem writes for the producer tools that rewrite whole trees
-(materialize.py, package-marketplace.py, init.py, render-agent-mirrors.py).
+"""Confine the filesystem writes of the producer tools to the roots each declares.
 
-Every write goes through _guard, which resolves the target and rejects anything
-outside the roots the tool declared with write_scope(). The verify-harness write
-gate (verify_harness/checks/confinement.py) bans raw write primitives outside this
-module's sanctioned-writers allowlist, so the choke-point cannot be bypassed:
-static proves every write funnels here, and _guard proves the resolved path is
-in a declared root. Together they confine each tool to an enumerated destination
-(ADR 2026-07-19 network-write-confinement-gate).
-
-Pure producer: never copied into a plugin. The marketplace refreshers write a
-single argv target and stay stdlib-only sanctioned sites, so they never import
-this module."""
-
-from __future__ import annotations
+Every write resolves its target and refuses one outside the declared scope; the
+battery's write gate proves every producer write funnels through here. Pure
+producer: never copied into a plugin.
+"""
 
 import os
 import shutil
@@ -24,12 +14,12 @@ from pathlib import Path
 
 __all__ = [
     "WriteOutsideScopeError",
-    "write_scope",
-    "mkdir",
     "copy",
-    "write_text",
+    "mkdir",
     "remove_tree",
     "unlink",
+    "write_scope",
+    "write_text",
 ]
 
 
@@ -45,10 +35,9 @@ _scope: ContextVar[tuple[Path, ...]] = ContextVar("write_scope", default=())
 
 @contextmanager
 def write_scope(*roots: Path) -> Iterator[None]:
-    """Declare the directory roots the enclosed code may write under. An inner
-    scope REPLACES the outer roots until exit (narrowing, not union); exit
-    restores the outer scope. A write to any path not at or under one of these
-    resolved roots raises WriteOutsideScopeError."""
+    """Declare the directory roots the enclosed code may write under."""
+    # An inner scope replaces the outer roots until exit, narrowing rather
+    # than widening; a write outside them raises WriteOutsideScopeError.
     resolved = tuple(root.resolve() for root in roots)
     token = _scope.set(resolved)
     try:
@@ -58,11 +47,9 @@ def write_scope(*roots: Path) -> Iterator[None]:
 
 
 def _guard(dst: Path, *, follow: bool = True) -> Path:
-    """Resolve dst and confirm it is at or under a declared root, else raise.
-    Returns the resolved path so callers write to the canonical location.
-    follow=False resolves only the parent: the delete verbs act on the entry
-    itself — a symlink is removed as a link, never dereferenced into its
-    target (which may sit outside the scope)."""
+    # follow=False resolves only the parent: a delete verb acts on the entry
+    # itself, so a symlink is removed as a link and never dereferenced into a
+    # target outside the scope.
     p = Path(dst)
     real = p.resolve() if follow else p.parent.resolve() / p.name
     roots = _scope.get()
@@ -75,22 +62,20 @@ def _guard(dst: Path, *, follow: bool = True) -> Path:
 
 
 def mkdir(dst: Path, *, parents: bool = False, exist_ok: bool = False) -> None:
+    """Create a directory inside the declared scope."""
     _guard(dst).mkdir(parents=parents, exist_ok=exist_ok)
 
 
 def copy(src: Path, dst: Path) -> None:
-    """Copy one file to dst, metadata included (shutil.copy2 — the materialized
-    copies keep source mtimes). src is a read, so only dst is guarded."""
+    """Copy one file to dst with its metadata, so a materialized copy keeps the source mtime."""
     shutil.copy2(src, _guard(dst))
 
 
 def write_text(dst: Path, data: str, *, encoding: str = "utf-8") -> None:
-    """Atomically write text to dst: stage a sibling temp under the same
-    (guarded) directory, then replace onto the target, so an interrupted write
-    never truncates an existing file. An existing target keeps its mode — a
-    filled executable skeleton keeps its +x; a fresh target takes the umask
-    default. The pid-suffixed temp cannot collide across concurrent runs and
-    is cleaned up on failure."""
+    """Write text to dst atomically through a sibling temp file, keeping an existing target's mode."""
+    # An interrupted write never truncates an existing file; a filled
+    # executable skeleton keeps its +x; the pid-suffixed temp cannot collide
+    # across concurrent runs.
     real = _guard(dst)
     tmp = real.with_name(f"{real.name}.write_guard.{os.getpid()}.tmp")
     try:
@@ -106,14 +91,10 @@ def write_text(dst: Path, data: str, *, encoding: str = "utf-8") -> None:
 
 
 def remove_tree(dst: Path) -> None:
-    """Recursively delete a tree (ignore_errors, matching the call sites it
-    replaces). A delete is a write, so the target is guarded — as the entry
-    itself (follow=False): rmtree refuses a symlink, so a link is never a
-    door to a tree outside the scope."""
+    """Delete a tree inside the declared scope, ignoring errors."""
     shutil.rmtree(_guard(dst, follow=False), ignore_errors=True)
 
 
 def unlink(dst: Path, *, missing_ok: bool = False) -> None:
-    """Remove one entry. A symlink is removed as the link itself, never
-    dereferenced — pruning a linked mirror must not delete its target."""
+    """Remove one entry inside the declared scope; a symlink is removed as the link itself."""
     _guard(dst, follow=False).unlink(missing_ok=missing_ok)

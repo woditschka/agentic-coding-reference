@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for replay-ledgers.py (stdlib only).
-
-Run: python3 harness/tests/test_replay_ledgers.py
-
-Pins the replay's contract:
-  1. Every line-count prefix of a ledger is replayed, each newline-terminated.
-  2. Ledgers are found by the run-folder layout, in path order.
-  3. A tree replayed against itself yields no difference; a bad baseline or
-     an empty runs directory is a usage error.
-"""
+"""The ledger replay: every prefix in path order, and a tree replayed against itself yields no difference."""
 
 import sys
 import tempfile
@@ -23,6 +14,7 @@ REPO = ROOT.parent
 replay = load("replay_ledgers", "replay-ledgers.py")
 differential = load("differential", "differential.py")
 
+USAGE_EXIT = 2
 A_LINE = '{"type": "prd-entry", "req_id": "REQ-A-001", "author": "product-requirements-expert"}'
 ANOTHER_LINE = '{"type": "design-block", "req_id": "REQ-A-001", "verdict": "covered"}'
 
@@ -90,7 +82,9 @@ class Replay(unittest.TestCase):
 
     def test_a_tree_without_the_entry_is_a_usage_error(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertEqual(replay.main(["replay-ledgers.py", "--baseline", tmp]), 2)
+            self.assertEqual(
+                replay.main(["replay-ledgers.py", "--baseline", tmp]), USAGE_EXIT
+            )
 
     def test_an_empty_runs_directory_is_a_usage_error(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,7 +92,7 @@ class Replay(unittest.TestCase):
                 ["replay-ledgers.py", "--baseline", str(REPO), "--ledgers", tmp]
             )
 
-            self.assertEqual(code, 2)
+            self.assertEqual(code, USAGE_EXIT)
 
 
 if __name__ == "__main__":

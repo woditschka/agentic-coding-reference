@@ -1,14 +1,4 @@
-"""The loaded layout of this stack's real layout.toml (generic).
-
-The suite reads this project's own scripts/layout.toml and skips on a pre-init
-tree. The generic stack ships a placeholder layout.toml the project replaces,
-so the suite asserts what the loader decides, never any particular glob, and
-stays green after the project fills in its real layout. The stack-agnostic
-validation walls pin in core (tests/grading/test_config.py).
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_config_layout
-Stdlib only.
-"""
+"""The loaded placeholder layout.toml of the generic stack, asserting only what the loader decides; skips on a pre-init tree."""
 
 import unittest
 from pathlib import Path

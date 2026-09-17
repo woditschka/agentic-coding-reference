@@ -18,6 +18,7 @@ from handoff import (
 from tests.support import a_record, entries
 
 REVIEWER = "code-quality-reviewer"
+TRIAGE_LINE = 1
 A_CODE_AUTOFIX = {
     "tag": "autofix",
     "location": "src/widget.py:1",
@@ -202,7 +203,7 @@ class ImplementerTier(unittest.TestCase):
             a_dissent(A_CODE_AUTOFIX),
             an_implementer_start(),
             a_build_failure(),
-            a_rated_design(supersedes_record_at=1),
+            a_rated_design(supersedes_record_at=TRIAGE_LINE),
         )
 
         self.assertEqual(tier_of(*log), TierChoice(IMPLEMENTER, RETIRED_REASON))
@@ -213,7 +214,7 @@ class ImplementerTier(unittest.TestCase):
             an_implementer_start(),
             a_build_pass(),
             a_dissent(A_CODE_BLOCKER),
-            a_rated_design(supersedes_record_at=1),
+            a_rated_design(supersedes_record_at=TRIAGE_LINE),
         )
 
         self.assertEqual(tier_of(*log), TierChoice(IMPLEMENTER, "initial"))
@@ -231,21 +232,24 @@ class ImplementerTier(unittest.TestCase):
 
 class WindowTiers(unittest.TestCase):
     def test_each_first_start_of_a_window_is_mapped_to_its_predicted_tier(self):
+        first_start, second_start = 2, 5
         log = (
-            a_rated_design(),  # 1
-            an_implementer_start(),  # 2
-            a_build_pass(),  # 3
-            a_dissent(A_CODE_AUTOFIX),  # 4
-            an_implementer_start(),  # 5
-            an_implementer_start(),  # 6 a continuation inside the same window
-            a_build_pass(),  # 7
+            a_rated_design(),
+            an_implementer_start(),
+            a_build_pass(),
+            a_dissent(A_CODE_AUTOFIX),
+            an_implementer_start(),
+            an_implementer_start(),
+            a_build_pass(),
         )
 
         self.assertEqual(
-            window_tiers(entries(*log)), {2: IMPLEMENTER, 5: ROUTINE_IMPLEMENTER}
+            window_tiers(entries(*log)),
+            {first_start: IMPLEMENTER, second_start: ROUTINE_IMPLEMENTER},
         )
 
     def test_an_unrated_slice_maps_every_window_to_the_base(self):
+        first_start, second_start = 2, 5
         log = (
             an_unrated_design(),
             an_implementer_start(),
@@ -254,7 +258,10 @@ class WindowTiers(unittest.TestCase):
             an_implementer_start(),
         )
 
-        self.assertEqual(window_tiers(entries(*log)), {2: IMPLEMENTER, 5: IMPLEMENTER})
+        self.assertEqual(
+            window_tiers(entries(*log)),
+            {first_start: IMPLEMENTER, second_start: IMPLEMENTER},
+        )
 
     def test_no_starts_map_nothing(self):
         self.assertEqual(window_tiers(entries(a_rated_design())), {})

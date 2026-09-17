@@ -145,3 +145,6 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-12** — Make reviewers catch what the blind judge docks: an out-of-slice fix routes to the requirements owner; restated counts, picked-field tests, and template duplication are findings.
 - **2026-09-12** — Hold the build-pass until a PRD change made in consultation reaches the design doc; the design-sync gate replaces a coherence critical and two re-triages.
 - **2026-09-13** — Decide the product-workspace shape for multi-repository products: an umbrella owns the product truth, members are worktrees checked out on demand; implementation pending.
+- **2026-09-13** — Map every pinned model to an open-weight provider in `docs/open-weight-models.md`, a version-stamped surface `update-research` refreshes (v0.4.2).
+- **2026-09-14** — Hold the harness's own Python to the bar it ships: three root briefs state the design, code, and testing standards, the battery gates the mechanical half, and contract nets replay ledgers and fuzz records against the last commit.
+- **2026-09-17** — Finish the quality program: every Python tree and test suite meets the bar, the debt list is empty, and the handbook's self-containment and runtime-number invariants become battery gates.

@@ -31,6 +31,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 ## Reference Documents
 
 - **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
+- **Architecture Principles:** `docs/architecture-principles.md` — module boundaries, patterns, naming
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria, non-goals
 - **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names must use
@@ -53,7 +54,7 @@ If the stack adopts an external style guide, record it in the `code-quality-revi
 1. Run `scripts/gate.sh lint` and capture output.
 2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 3. Identify changed/new files.
-4. Check each file against `docs/architecture-principles.md`, this project's CLAUDE.md conventions, and the `code-quality-review` skill — its Design Placement and Scope and Vocabulary sections first, then the checklist.
+4. Check each file against the `code-quality-review` skill: its Design Placement and Scope and Vocabulary sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include lint issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

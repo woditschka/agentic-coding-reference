@@ -1,33 +1,22 @@
-"""The confinement gate — battery steps 1h (no network egress) and 1i
-(confined writes) over the harness glue (ADR 2026-07-19
-network-write-confinement-gate).
-
-The gate is two confinement-owned modules: this one holds the POLICY side —
-the manifest record and loader, the scan targets, the bash scan, and the two
-check steps the battery calls — while checks/confinement_ast.py holds the
-policy-free Python detectors it drives. The public surface is check_no_network
-and check_confined_writes; everything else is internal. Replacing the gate
-some day (a query engine, a kernel sandbox) means replacing this pair and
-rewiring those two calls — nothing else in the battery knows how the gate
-works. The runtime half of the pairing is harness/write_guard.py.
-"""
+"""Gate network egress and raw writes in the harness glue against one sanctioned-exception manifest."""
 
 import ast
 import functools
 import re
-import sys
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any
 
-from verify_harness.battery import Battery, _shell_scripts
+from verify_harness.battery import Battery, shell_scripts
 from verify_harness.checks.confinement_ast import (
     GIT_NETWORK_SUBCOMMANDS,
     NETWORK_MODULES,
     NETWORK_TOOL_RE,
     WRITE_MODULES,
+    EgressRules,
     _file_egress_hits,
     _import_bindings,
     _imports_module,
@@ -35,37 +24,19 @@ from verify_harness.checks.confinement_ast import (
 )
 from verify_harness.text import HERE, ROOT, read_text, rel
 
-# --- 1h/1i inputs: the confinement gate (ADR 2026-07-19 network-write-confinement-gate).
-# Scanned tiers: the SHIPPED runtime (core/ + stacks/, minus tests) that runs on a
-# consumer machine; the PRODUCER tooling (the loose harness/*.py plus the
-# managed-chapter python); and every user-level tool under tools/ (enumerated,
-# so a new tool cannot land unscanned), held to the producer ruleset with their
-# own recorded exceptions — claude-dev is network-facing by design, so its
-# preflight probe is a confinement-policy.toml network entry rather than a
-# blanket exemption. Only the battery's
-# own verify_harness package stays out of scope: it is the checker. The sanctioned
-# exceptions live in one explicit manifest — harness/confinement-policy.toml — not
-# in code; the steps below load it once and dissolve it into the flag parameters
-# of the policy-free detectors (checks/confinement_ast.py).
-
-# --- Policy ------------------------------------------------------------------
-# The sanctioned exceptions, loaded once from the manifest.
+SHOWN_HITS = 15
+# The scanned tiers: the shipped runtime that runs on a consumer machine,
+# and the producer tooling with every user-level tool under tools/. The
+# battery's own package is the checker and stays out.
+# core and stacks are the shipped tier, scanned on their own; verify_harness
+# is the checker itself; init holds project-owned skeletons, not glue.
+UNSCANNED_TOP_DIRS = frozenset({"core", "stacks", "verify_harness", "init"})
+HTTPS_PREFIX = "https://"
 
 
-# The sanctioned exceptions are POLICY, not mechanism, and they span parts
-# (harness core, producer, tools/). They live in ONE explicit manifest —
-# harness/confinement-policy.toml — not buried here as code. The loader reads that
-# manifest at the parse boundary into a frozen record; everything below is
-# mechanism.
 @dataclass(frozen=True)
 class ConfinementPolicy:
-    """The sanctioned exceptions to the 1h/1i gates, loaded from
-    harness/confinement-policy.toml. writers and network map a ROOT-relative path
-    to its justification; spawners maps a path to the argv0 tokens it may spawn
-    ("sys.executable" names the interpreter) — importing subprocess anywhere else
-    is banned; egress is the set of (git subcommand, URL prefix) pairs producer
-    git may reach. Mappings are read-only proxies, so the record is immutable
-    all the way down, not just frozen at the field level."""
+    """The sanctioned exceptions to the egress and write gates, immutable all the way down."""
 
     writers: Mapping[str, str]
     egress: frozenset[tuple[str, str]]
@@ -73,49 +44,54 @@ class ConfinementPolicy:
     spawners: Mapping[str, frozenset[str]]
 
 
+def _sanctioned_egress(data: Any, path: Path) -> frozenset[tuple[str, str]]:  # noqa: ANN401
+    """Parse the egress pairs of the loaded manifest, refusing a prefix that is not origin-bounded."""
+    pairs = frozenset(
+        (str(entry["subcommand"]), str(entry["url_prefix"]))
+        for entry in data.get("sanctioned_egress", [])
+    )
+    for subcommand, prefix in pairs:
+        # An empty prefix sanctions every host and a slash-less one admits
+        # lookalike domains.
+        if (
+            not subcommand
+            or not prefix.startswith(HTTPS_PREFIX)
+            or "/" not in prefix[len(HTTPS_PREFIX) :]
+        ):
+            raise RuntimeError(
+                f"confinement policy malformed ({path}): egress pair "
+                f"({subcommand!r}, {prefix!r}) — the prefix must be https:// and "
+                "extend past the host (origin-bounded), the subcommand non-empty"
+            )
+    return pairs
+
+
 def _load_confinement_policy(path: Path | None = None) -> ConfinementPolicy:
-    """Parse harness/confinement-policy.toml into a ConfinementPolicy. Raises on a
-    missing, malformed, or incomplete manifest — the gate cannot run without its
-    policy. path overrides the default only for tests."""
+    """Parse the confinement manifest into a policy, raising on any malformed entry."""
     path = path or HERE / "confinement-policy.toml"
     try:
         data = tomllib.loads(read_text(path))
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise RuntimeError(f"confinement policy unreadable ({path}): {exc}") from exc
     try:
-        egress = frozenset(
-            (str(e["subcommand"]), str(e["url_prefix"]))
-            for e in data.get("sanctioned_egress", [])
-        )
-        for sub, prefix in egress:
-            # Origin-bound the prefix at the parse boundary: an empty prefix
-            # sanctions every host ("".startswith is always true) and a
-            # slash-less one admits lookalike domains (github.com.evil.com).
-            if not sub or not prefix.startswith("https://") or "/" not in prefix[8:]:
-                raise RuntimeError(
-                    f"confinement policy malformed ({path}): egress pair "
-                    f"({sub!r}, {prefix!r}) — the prefix must be https:// and "
-                    "extend past the host (origin-bounded), the subcommand "
-                    "non-empty"
-                )
         return ConfinementPolicy(
             writers=MappingProxyType(
                 {
-                    str(e["path"]): str(e["why"])
-                    for e in data.get("sanctioned_writer", [])
+                    str(entry["path"]): str(entry["why"])
+                    for entry in data.get("sanctioned_writer", [])
                 }
             ),
             network=MappingProxyType(
                 {
-                    str(e["path"]): str(e["why"])
-                    for e in data.get("sanctioned_network", [])
+                    str(entry["path"]): str(entry["why"])
+                    for entry in data.get("sanctioned_network", [])
                 }
             ),
-            egress=egress,
+            egress=_sanctioned_egress(data, path),
             spawners=MappingProxyType(
                 {
-                    str(e["path"]): frozenset(str(s) for s in e["spawns"])
-                    for e in data.get("sanctioned_spawner", [])
+                    str(entry["path"]): frozenset(str(s) for s in entry["spawns"])
+                    for entry in data.get("sanctioned_spawner", [])
                 }
             ),
         )
@@ -127,84 +103,57 @@ def _load_confinement_policy(path: Path | None = None) -> ConfinementPolicy:
 
 @functools.cache
 def _policy() -> ConfinementPolicy:
-    """The loaded manifest, cached after the first successful parse. Lazy so a
-    missing or malformed manifest surfaces as an aggregated step FAIL in the
-    two gate steps (which fetch it first, under try) — never an import-time
-    crash that aborts the battery before any step runs. The battery's sole
-    sanctioned abort stays the materialize-samples crash in step 3."""
+    """Return the loaded manifest, parsed once and lazily."""
+    # Lazy, so a broken manifest surfaces as a step failure inside the two
+    # gate steps rather than an import-time crash before any step runs.
     return _load_confinement_policy()
 
 
-# --- Scan targets ------------------------------------------------------------
-# Which files the two steps read, by tier.
+def _is_test_file(path: Path) -> bool:
+    """Tell whether a file is test scaffolding, which spawns and writes freely."""
+    return "tests" in path.parts or path.name.startswith("test_")
 
 
-def _is_test_file(f: Path) -> bool:
-    """Test scaffolding — under a tests/ dir or a test_*.py by name (the hook
-    tests sit beside the hooks, not in a tests/ dir). Tests legitimately spawn
-    sys.executable and write tempfiles; the battery runs them separately."""
-    return "tests" in f.parts or f.name.startswith("test_")
-
-
-def _gate_targets() -> tuple[list[Path], list[Path]]:
-    """The (shipped, producer) file lists the confinement gate scans, minus
-    __pycache__ and test scaffolding."""
-    shipped: list[Path] = []
-    for root in (HERE / "core", HERE / "stacks"):
-        if root.exists():
-            shipped += [
-                f
-                for f in root.rglob("*.py")
-                if "__pycache__" not in f.parts and not _is_test_file(f)
-            ]
-    # Producer = every harness/*.py NOT under a scanned-elsewhere or excluded
-    # subtree. Recursive, so a future writer at harness/<newdir>/foo.py cannot
-    # escape the scan. core/ and stacks/ are the shipped tier above;
-    # verify_harness/ is the checker itself; init/ holds project-owned skeletons.
-    skip_top = {"core", "stacks", "verify_harness", "init"}
-    producer = [
-        f
-        for f in HERE.rglob("*.py")
-        if "__pycache__" not in f.parts
-        and not _is_test_file(f)
-        and f.relative_to(HERE).parts[0] not in skip_top
-    ]
-    # Every user-level tool rides the producer ruleset (network-facing
-    # exceptions are recorded in confinement-policy.toml), so a stray egress or
-    # write in tools/ is caught the same way. Enumerated, not hardcoded — a
-    # third tool joins the scan the day its directory lands, the same
-    # future-proofing the producer rglob gives harness/.
-    producer += [
-        f
-        for troot in _tool_dirs()
-        for f in troot.rglob("*.py")
-        if "__pycache__" not in f.parts and not _is_test_file(f)
-    ]
-    return sorted(set(shipped)), sorted(set(producer))
+def _python_under(root: Path) -> Iterator[Path]:
+    """Yield the non-test Python files under root."""
+    for path in root.rglob("*.py"):
+        if "__pycache__" not in path.parts and not _is_test_file(path):
+            yield path
 
 
 def _tool_dirs() -> list[Path]:
-    """Every directory under tools/ — the user-level tools tier, enumerated so
-    a new tool cannot land outside the scan."""
-    troot = ROOT / "tools"
-    if not troot.is_dir():
+    """List every directory under tools/, so a new tool cannot land unscanned."""
+    tools = ROOT / "tools"
+    if not tools.is_dir():
         return []
-    return sorted(p for p in troot.iterdir() if p.is_dir())
+    return sorted(path for path in tools.iterdir() if path.is_dir())
 
 
-# --- Bash scan (1h) ----------------------------------------------------------
-# Network CLIs and git network subcommands as executed shell words.
+def _gate_targets() -> tuple[list[Path], list[Path]]:
+    """Return the (shipped, producer) file lists the gate scans."""
+    shipped = [
+        path
+        for root in (HERE / "core", HERE / "stacks")
+        if root.exists()
+        for path in _python_under(root)
+    ]
+    producer = [
+        path
+        for path in _python_under(HERE)
+        if path.relative_to(HERE).parts[0] not in UNSCANNED_TOP_DIRS
+    ]
+    producer.extend(path for tool in _tool_dirs() for path in _python_under(tool))
+    return sorted(set(shipped)), sorted(set(producer))
 
-# A git network subcommand in one bash pipeline segment: `git`, any options and
-# arguments, then the subcommand. Quotes are stripped before the search, so an
-# option's quoted argument (`git -C "$target" push`) cannot hide the subcommand.
+
+# A git network subcommand in one bash pipeline segment, after any options
+# and arguments; quotes are stripped before the search.
 GIT_NETWORK_RE = re.compile(
     r"(?<![\w-])git\b[^|;&]*?(?<![\w-])("
     + "|".join(sorted(GIT_NETWORK_SUBCOMMANDS))
     + r")(?![\w-])"
 )
-# Escape-aware for double quotes (\" inside a string must not end the mask);
-# bash single quotes admit no escapes, so their branch stays simple.
+# Escape-aware for double quotes; bash single quotes admit no escapes.
 _QUOTED_RE = re.compile(r'"(?:\\.|[^"\\])*"|\'[^\']*\'')
 # Both command-substitution forms execute even inside double quotes.
 _SUBSHELL_RE = re.compile(r"\$\(([^)]*)\)")
@@ -212,237 +161,219 @@ _BACKTICK_RE = re.compile(r"`([^`]*)`")
 
 
 def _folded_lines(text: str) -> list[tuple[int, str]]:
-    """(first-lineno, logical line) pairs with backslash continuations folded,
-    so a wrapped `git -C x \\` + `push` scans as the one command it is."""
-    out: list[tuple[int, str]] = []
-    buf, start = "", 1
-    for i, ln in enumerate(text.splitlines(), 1):
-        if not buf:
-            start = i
-        if ln.endswith("\\") and not ln.endswith("\\\\"):
-            buf += ln[:-1] + " "
+    """Return (first line number, logical line) pairs with backslash continuations folded."""
+    folded: list[tuple[int, str]] = []
+    buffer, start = "", 1
+    for number, line in enumerate(text.splitlines(), 1):
+        if not buffer:
+            start = number
+        if line.endswith("\\") and not line.endswith("\\\\"):
+            buffer += line[:-1] + " "
             continue
-        out.append((start, buf + ln))
-        buf = ""
-    if buf:
-        out.append((start, buf))
-    return out
+        folded.append((start, buffer + line))
+        buffer = ""
+    if buffer:
+        folded.append((start, buffer))
+    return folded
 
 
-def _bash_line_hits(sh: Path, lineno: int, line: str) -> list[str]:
-    """The 1h hits for one bash line: a network CLI or a git network subcommand
-    as an executed word. A quoted string is data (the printed `git push` hint
-    in release-version.sh), but a `$(…)` or backtick substitution executes even
-    inside double quotes, so its content is scanned before the quotes are
-    stripped. Quotes are masked length-preserving BEFORE the comment cut, so a
-    `#` inside a string cannot hide the rest of the line; the cut fires only
-    where the ORIGINAL line opens a word with `#` (neither `${#arr[@]}` nor a
-    quote-adjacent `""#` comments the tail away). The remaining ceiling: a
-    quoted command word reaching execution (`"curl" url`, eval, `bash -c`) and
-    a `)` literal inside a substitution truncating its extraction — deliberate
-    construction, review's to catch."""
+def _uncommented(line: str) -> tuple[str, str]:
+    """Return (quote-masked line, original line) cut at the first word-opening `#`."""
+    # Quotes are masked length-preserving before the comment cut, so a `#`
+    # inside a string cannot hide the rest of the line; the cut is judged on
+    # the original line, so masking never promotes `""#` into a comment.
     masked = _QUOTED_RE.sub(lambda m: " " * len(m.group()), line)
     for hash_mark in re.finditer("#", masked):
-        i = hash_mark.start()
-        # Word-opening judged on the original line: masking turns quotes into
-        # spaces and must not promote `""#` into a comment opener.
-        if i == 0 or line[i - 1] in " \t":
-            masked, line = masked[:i], line[:i]
-            break
-    hits: list[str] = []
-    subs = [
-        _QUOTED_RE.sub(" ", s)
-        for pat in (_SUBSHELL_RE, _BACKTICK_RE)
-        for s in pat.findall(line)
+        index = hash_mark.start()
+        if index == 0 or line[index - 1] in " \t":
+            return masked[:index], line[:index]
+    return masked, line
+
+
+def _bash_line_hits(script: Path, lineno: int, line: str) -> list[str]:
+    """List the network CLIs and git network subcommands one bash line executes."""
+    # A quoted string is data, but a substitution executes even inside
+    # double quotes, so its content is scanned before the quotes go. The
+    # ceiling: a quoted command word reaching execution (`"curl" url`, eval,
+    # `bash -c`) and a `)` literal truncating a substitution stay invisible.
+    masked, line = _uncommented(line)
+    substitutions = [
+        _QUOTED_RE.sub(" ", inner)
+        for pattern in (_SUBSHELL_RE, _BACKTICK_RE)
+        for inner in pattern.findall(line)
     ]
-    for seg in [*subs, masked]:
-        m = NETWORK_TOOL_RE.search(seg)
-        if m:
-            hits.append(f"{rel(sh)}:{lineno}: shell network tool {m.group(1)!r}")
-        g = GIT_NETWORK_RE.search(seg)
-        if g:
+    hits: list[str] = []
+    for segment in [*substitutions, masked]:
+        tool = NETWORK_TOOL_RE.search(segment)
+        if tool:
+            hits.append(f"{rel(script)}:{lineno}: shell network tool {tool.group(1)!r}")
+        git = GIT_NETWORK_RE.search(segment)
+        if git:
             hits.append(
-                f"{rel(sh)}:{lineno}: shell git subcommand {g.group(1)!r} "
+                f"{rel(script)}:{lineno}: shell git subcommand {git.group(1)!r} "
                 "reaches the network"
             )
     return list(dict.fromkeys(hits))
 
 
-# --- The two battery steps ---------------------------------------------------
-# The gate's public surface — all the battery sees.
+def _dead_sanction_hits(paths: list[str], scanned: set[str], kind: str) -> list[str]:
+    """Flag a sanction naming a file that is missing or outside the scan targets."""
+    hits = []
+    for relpath in paths:
+        if not (ROOT / relpath).is_file():
+            hits.append(
+                f"{relpath}: {kind} in confinement-policy.toml names a missing file"
+            )
+        elif relpath not in scanned:
+            # A sanction the gate never reads is never enforced and never
+            # probed stale.
+            hits.append(
+                f"{relpath}: confinement-policy.toml sanctions a file outside the "
+                "gate's scan targets — dead entry"
+            )
+    return hits
+
+
+def _parsed(path: Path) -> ast.Module | None:
+    """Parse one file, or None when the syntax step owns its failure."""
+    try:
+        return ast.parse(read_text(path), str(path))
+    except (SyntaxError, ValueError, UnicodeDecodeError):
+        return None
+
+
+def _file_network_hits(
+    path: Path, tier: str, policy: ConfinementPolicy, used_egress: set[tuple[str, str]]
+) -> list[str]:
+    """Judge one Python file's imports and spawns, then probe its sanctions for staleness."""
+    tree = _parsed(path)
+    if tree is None:
+        return []
+    relpath = path.relative_to(ROOT).as_posix()
+    rules = EgressRules(
+        tier,
+        net_exempt=relpath in policy.network,
+        is_spawner=relpath in policy.spawners,
+        allowed=policy.spawners.get(relpath, frozenset()),
+        egress=policy.egress,
+    )
+    hits = _file_egress_hits(path, tree, rules, used_egress)
+    if rules.is_spawner and not _imports_module(tree, frozenset({"subprocess"})):
+        hits.append(f"{relpath}: stale sanctioned_spawner — no subprocess import")
+    if rules.net_exempt and not _imports_module(tree, NETWORK_MODULES):
+        hits.append(f"{relpath}: stale sanctioned_network — no network-module import")
+    return hits
+
+
+def _bash_network_hits() -> list[str]:
+    """Scan every harness and tools shell script for network CLIs and git network subcommands."""
+    hits = []
+    for base in [HERE, *_tool_dirs()]:
+        for script in shell_scripts(base):
+            # init/ holds project-owned skeletons, not harness glue.
+            if base == HERE and "init" in script.relative_to(HERE).parts:
+                continue
+            for lineno, line in _folded_lines(read_text(script)):
+                hits.extend(_bash_line_hits(script, lineno, line))
+    return hits
+
+
+def _report_hits(b: Battery, header: str, hits: list[str]) -> None:
+    """Fail once with the first hits listed and the overflow counted."""
+    shown = [f"    {hit}" for hit in hits[:SHOWN_HITS]]
+    if len(hits) > SHOWN_HITS:
+        shown.append(f"    … and {len(hits) - SHOWN_HITS} more")
+    b.fail(header + "\n" + "\n".join(shown))
 
 
 def check_no_network(b: Battery) -> None:
-    """1h. No network egress from the harness glue (ADR 2026-07-19
-    network-write-confinement-gate). Over the shipped runtime and the producer
-    tooling (which also covers every tools/ user-level tool): no network-module
-    import; importing subprocess (or an os exec/spawn name) only in a
-    [[sanctioned_spawner]] file — an import statement names the real module, so
-    this rule is alias-proof; inside a spawner, argv0 must be a sanctioned token
-    (_check_subprocess). Call sites resolve receiver aliases through
-    _import_bindings, so `import subprocess as sp` / `from subprocess import run`
-    fire like the spelled-out forms. A policy-sanctioned network file (claude-dev's
-    MCP probe) is exempt from the import check. Bash is scanned for the network
-    CLIs and for git network subcommands (_bash_line_hits; quoted text is data).
-    A git network subcommand fires anywhere in argv, so an option like -C
-    cannot hide it; pty (spawn outside argv introspection) is banned outright.
-    Sanctions must stay exercised: a spawner without a subprocess import, a
-    network file without a network-module import, an egress pair no call
-    matches, or an entry naming a missing or unscanned file is dead and fails.
-    Static — runs in --quick."""
+    """Refuse network egress from the shipped runtime and the producer tooling."""
     b.note("no network egress (imports, subprocess, shell tools)")
     try:
         policy = _policy()
     except RuntimeError as exc:
-        # A missing/malformed manifest is a step FAIL, not an import-time
-        # crash — the rest of the battery still runs and reports.
         b.fail(str(exc))
         return
     shipped, producer = _gate_targets()
-    scanned = {p.relative_to(ROOT).as_posix() for p in [*shipped, *producer]}
-    hits: list[str] = []
+    scanned = {path.relative_to(ROOT).as_posix() for path in [*shipped, *producer]}
+    hits = _dead_sanction_hits(
+        [*policy.network, *policy.spawners], scanned, "sanctioned entry"
+    )
     used_egress: set[tuple[str, str]] = set()
-    for relp in list(policy.network) + list(policy.spawners):
-        if not (ROOT / relp).is_file():
-            hits.append(f"{relp}: confinement-policy.toml sanctions a missing file")
-        elif relp not in scanned:
-            # A sanction on an unscanned file (test scaffolding, the checker)
-            # is dead: never enforced, never probed stale. Fail it here so the
-            # manifest cannot outgrow the surface the gate actually reads.
-            hits.append(
-                f"{relp}: confinement-policy.toml sanctions a file outside the "
-                "gate's scan targets — dead entry"
-            )
-    for f, tier in [(p, "shipped") for p in shipped] + [
-        (p, "producer") for p in producer
-    ]:
-        try:
-            tree = ast.parse(read_text(f), str(f))
-        except (SyntaxError, ValueError, UnicodeDecodeError):
-            continue  # step 2 owns syntax (a superset scan) and aggregates it
-        relpath = f.relative_to(ROOT).as_posix()
-        # Dissolve the policy record into the detector's flag parameters — the
-        # detectors are policy-free; this loop is the only place the two meet.
-        hits += _file_egress_hits(
-            f,
-            tree,
-            tier,
-            net_exempt=relpath in policy.network,
-            is_spawner=relpath in policy.spawners,
-            allowed=policy.spawners.get(relpath, frozenset()),
-            egress=policy.egress,
-            used_egress=used_egress,
-        )
-        if relpath in policy.spawners and not _imports_module(
-            tree, frozenset({"subprocess"})
-        ):
-            hits.append(f"{relpath}: stale sanctioned_spawner — no subprocess import")
-        if relpath in policy.network and not _imports_module(tree, NETWORK_MODULES):
-            hits.append(
-                f"{relpath}: stale sanctioned_network — no network-module import"
-            )
-    for sub, prefix in sorted(policy.egress - used_egress):
-        hits.append(
-            f"confinement-policy.toml: stale sanctioned_egress "
-            f"({sub!r}, {prefix!r}) — no call exercises it"
-        )
-    for sh_base in [HERE, *_tool_dirs()]:
-        for sh in _shell_scripts(sh_base):
-            if sh_base == HERE and "init" in sh.relative_to(HERE).parts:
-                continue  # init/ holds project-owned skeletons, not harness glue
-            for i, line in _folded_lines(read_text(sh)):
-                hits += _bash_line_hits(sh, i, line)
+    tiers = [
+        *((path, "shipped") for path in shipped),
+        *((path, "producer") for path in producer),
+    ]
+    for path, tier in tiers:
+        hits.extend(_file_network_hits(path, tier, policy, used_egress))
+    hits.extend(
+        f"confinement-policy.toml: stale sanctioned_egress "
+        f"({subcommand!r}, {prefix!r}) — no call exercises it"
+        for subcommand, prefix in sorted(policy.egress - used_egress)
+    )
+    hits.extend(_bash_network_hits())
     if hits:
-        b.fail("network egress is not permitted from the harness glue:")
-        for h in hits[:15]:
-            print(f"    {h}", file=sys.stderr)
-        if len(hits) > 15:
-            print(f"    … and {len(hits) - 15} more", file=sys.stderr)
+        _report_hits(b, "network egress is not permitted from the harness glue:", hits)
     else:
-        print(
-            f"  no network egress ({len(shipped)} shipped + {len(producer)} producer)"
+        b.record_pass(
+            f"no network egress ({len(shipped)} shipped + {len(producer)} producer)"
         )
+
+
+def _file_write_hits(path: Path, policy: ConfinementPolicy) -> list[str]:
+    """Judge one Python file's raw writes, or probe its writer sanction for staleness."""
+    tree = _parsed(path)
+    if tree is None:
+        return []
+    relpath = path.relative_to(ROOT).as_posix()
+    bindings = _import_bindings(tree)
+    raw = [
+        (node.lineno, hit)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and (hit := _write_primitive(node, bindings))
+    ]
+    # A WRITE_MODULES import is itself the write capability, so it keeps a
+    # sanction exercised even with no labelable call.
+    if relpath in policy.writers:
+        if not raw and not _imports_module(tree, WRITE_MODULES):
+            return [f"{relpath}: stale sanctioned_writer — no raw write left"]
+        return []
+    hits = []
+    if _imports_module(tree, WRITE_MODULES):
+        hits.append(
+            f"{relpath}: imports a file-creating module "
+            f"({'/'.join(sorted(WRITE_MODULES))}) — route through "
+            "write_guard or sanction the file"
+        )
+    hits.extend(
+        f"{rel(path)}:{lineno}: raw write {hit} — route through write_guard"
+        for lineno, hit in raw
+    )
+    return hits
 
 
 def check_confined_writes(b: Battery) -> None:
-    """1i. Writes are confined (ADR 2026-07-19 network-write-confinement-gate).
-    Over the shipped runtime and the producer tooling, every raw filesystem write
-    must sit in a policy-sanctioned file (confinement-policy.toml); every other file routes writes through
-    write_guard, whose runtime guard confines each to its declared roots.
-    _write_primitive resolves module aliases and from-imports, so shutil/os/
-    tempfile/compression writes, metadata writes (chmod/chown/utime), logging
-    file handlers, Path methods (including .rename/.replace/.touch), io.open,
-    and open() in a write mode fire however they are spelled — a capability
-    check, not a name match. Importing a module whose import IS the write
-    capability (sqlite3/dbm/shelve) fires too. A sanctioned_writer with no raw
-    write left, or naming a missing or unscanned file, is a dead entry and
-    fails. Genuine reflection (getattr, dynamic import) is the ceiling. Runs
-    in --quick."""
+    """Confine raw filesystem writes to the sanctioned writer files."""
     b.note("confined writes (raw writes only in sanctioned files)")
     try:
         policy = _policy()
     except RuntimeError as exc:
-        # Same contract as check_no_network: aggregate, do not abort.
         b.fail(str(exc))
         return
     shipped, producer = _gate_targets()
     scanned = sorted(set(shipped) | set(producer))
-    scanned_rel = {p.relative_to(ROOT).as_posix() for p in scanned}
-    hits: list[str] = []
-    for relp in policy.writers:
-        if not (ROOT / relp).is_file():
-            hits.append(
-                f"{relp}: sanctioned_writer in confinement-policy.toml names a "
-                "missing file"
-            )
-        elif relp not in scanned_rel:
-            # Same rule as 1h: a sanction the gate never reads is a dead entry.
-            hits.append(
-                f"{relp}: confinement-policy.toml sanctions a file outside the "
-                "gate's scan targets — dead entry"
-            )
-    for f in scanned:
-        relpath = f.relative_to(ROOT).as_posix()
-        try:
-            tree = ast.parse(read_text(f), str(f))
-        except (SyntaxError, ValueError, UnicodeDecodeError):
-            continue
-        module_of, from_bind = _import_bindings(tree)
-        raw = [
-            (node.lineno, hit)
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            and (hit := _write_primitive(node, module_of, from_bind))
-        ]
-        if relpath in policy.writers:
-            # A WRITE_MODULES import is itself the write capability, so it
-            # keeps a sanction exercised even with no labelable call.
-            if not raw and not _imports_module(tree, WRITE_MODULES):
-                hits.append(f"{relpath}: stale sanctioned_writer — no raw write left")
-            continue
-        if _imports_module(tree, WRITE_MODULES):
-            # sqlite3/dbm/shelve create their backing file with no call the
-            # write detector labels — the import is the capability.
-            hits.append(
-                f"{relpath}: imports a file-creating module "
-                f"({'/'.join(sorted(WRITE_MODULES))}) — route through "
-                "write_guard or sanction the file"
-            )
-        hits += [
-            f"{rel(f)}:{lineno}: raw write {hit} — route through write_guard"
-            for lineno, hit in raw
-        ]
+    scanned_rel = {path.relative_to(ROOT).as_posix() for path in scanned}
+    hits = _dead_sanction_hits(list(policy.writers), scanned_rel, "sanctioned_writer")
+    for path in scanned:
+        hits.extend(_file_write_hits(path, policy))
     if hits:
-        b.fail(
+        _report_hits(
+            b,
             "raw filesystem writes must route through write_guard "
-            "(or the file be sanctioned in confinement-policy.toml):"
+            "(or the file be sanctioned in confinement-policy.toml):",
+            hits,
         )
-        for h in hits[:15]:
-            print(f"    {h}", file=sys.stderr)
-        if len(hits) > 15:
-            print(f"    … and {len(hits) - 15} more", file=sys.stderr)
     else:
-        print(
-            f"  writes confined ({len(policy.writers)} sanctioned, "
-            "all others via write_guard)"
+        b.record_pass(
+            f"writes confined ({len(policy.writers)} sanctioned, all others via write_guard)"
         )

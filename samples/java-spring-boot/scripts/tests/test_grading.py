@@ -1,5 +1,4 @@
-"""Tests for the grading application's own composition: the review-plan
-basis the engine records. The ladder itself is tested under grading/."""
+"""The grading application's own composition: the review-plan basis the engine records."""
 
 import importlib.util
 import shutil
@@ -9,13 +8,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent.parent  # the scripts dir (tests live under it)
+_HERE = Path(__file__).resolve().parent.parent
 _SCHEMAS = _HERE.parent / "schemas" / "scratch"
 
 
 def _load():
-    """Load grading.py as "grading_entry" so `from grading.…` in it resolves to
-    the installed package, not to the entry file being executed."""
+    """Load grading.py under a name that keeps its `from grading.…` imports on the package."""
     if str(_HERE) not in sys.path:
         sys.path.insert(0, str(_HERE))
     spec = importlib.util.spec_from_file_location("grading_entry", _HERE / "grading.py")
@@ -34,23 +32,19 @@ from grading.config import REVIEWERS, Layout, validate_review  # noqa: E402
 from grading.planner import Plan, PlanContext, PlanInputs  # noqa: E402
 from handoff import schema  # noqa: E402
 
-
-def _features(**overrides):
-    base = {
-        "files": [
-            {"path": "src/a.txt", "kind": "prod", "module": "src", "sensitive": False}
-        ],
-        "prod_lines": 5,
-        "test_lines": 3,
-        "hunks": 2,
-        "module_count": 1,
-        "security_surface_paths": [],
-    }
-    base.update(overrides)
-    return base
-
-
 SOME_REQ_ID = "REQ-XX-001"
+SOME_TS = "2026-09-09T00:00:00Z"
+SOME_TREE = "a" * 40
+A_PROD_FILE = "src/a.txt"
+SOME_LINES = 3
+SOME_HUNKS = 2
+HOST_PATHS = (
+    "/Users/someone/repo/src/a.txt",
+    "C:\\repo\\src\\a.txt",
+    "../outside/a.txt",
+    "src/../../a.txt",
+    "src/a\nb.txt",
+)
 THE_LAYOUT_FAULT = (
     "layout.toml: test must be a list of non-empty strings (got 'not a list')"
 )
@@ -72,49 +66,65 @@ _REVIEW = validate_review(
 )
 
 
+def a_features(**overrides):
+    return {
+        "files": [
+            {"path": A_PROD_FILE, "kind": "prod", "module": "src", "sensitive": False}
+        ],
+        "prod_lines": SOME_LINES,
+        "test_lines": SOME_LINES,
+        "hunks": SOME_HUNKS,
+        "module_count": 1,
+        "security_surface_paths": [],
+        **overrides,
+    }
+
+
+def a_review_plan_record(basis):
+    return {
+        "type": "review-plan",
+        "req_id": SOME_REQ_ID,
+        "ts": SOME_TS,
+        "author": "review-plan-engine",
+        "risk": "gray",
+        "scope": "full-diff",
+        "basis": basis,
+        "rationale": "small clean production change; planner judges the roster",
+    }
+
+
 class PlanBasisSecuritySurface(unittest.TestCase):
-    """The basis carries the probe's result on every plan (ADR 2026-09-07,
-    amendment 2026-09-09) so the planner reads the fact the high-plan rule
-    reads instead of re-deriving it."""
+    """The basis carries the probe's result on every plan, so the planner reads the fact instead of re-deriving it."""
 
     def _basis(self, features, review=_REVIEW):
-        inputs = PlanInputs(features, _HISTORY, _CTX, _LAYOUT, review, "a" * 40)
+        inputs = PlanInputs(features, _HISTORY, _CTX, _LAYOUT, review, SOME_TREE)
         return grading.plan_basis(inputs, _PLAN)
 
     def test_declared_probe_with_no_hit_records_an_empty_list(self):
-        surface = self._basis(_features())["security_surface"]
+        surface = self._basis(a_features())["security_surface"]
         self.assertEqual(surface, {"declared": True, "paths": []})
 
     def test_probe_hits_ride_through(self):
-        surface = self._basis(_features(security_surface_paths=["src/a.txt"]))[
+        surface = self._basis(a_features(security_surface_paths=[A_PROD_FILE]))[
             "security_surface"
         ]
-        self.assertEqual(surface, {"declared": True, "paths": ["src/a.txt"]})
+        self.assertEqual(surface, {"declared": True, "paths": [A_PROD_FILE]})
 
     def test_undeclared_probe_reads_declared_false(self):
         review = replace(_REVIEW, security_surface=())
-        surface = self._basis(_features(), review)["security_surface"]
+        surface = self._basis(a_features(), review)["security_surface"]
         self.assertEqual(surface, {"declared": False, "paths": []})
 
     def test_unreadable_diff_keeps_paths_null(self):
         # A null probe result is a hit for the planner: the field never
         # collapses None into an empty list.
-        surface = self._basis(_features(security_surface_paths=None))[
+        surface = self._basis(a_features(security_surface_paths=None))[
             "security_surface"
         ]
         self.assertEqual(surface, {"declared": True, "paths": None})
 
     def test_basis_validates_against_the_shipped_schema(self):
-        record = {
-            "type": "review-plan",
-            "req_id": "REQ-XX-001",
-            "ts": "2026-09-09T00:00:00Z",
-            "author": "review-plan-engine",
-            "risk": "gray",
-            "scope": "full-diff",
-            "basis": self._basis(_features()),
-            "rationale": "small clean production change; planner judges the roster",
-        }
+        record = a_review_plan_record(self._basis(a_features()))
         loaded = schema.load_schema(str(_SCHEMAS), "review-plan")
         self.assertEqual(schema.validate_record(record, loaded), [])
         bad = dict(record, basis={**record["basis"], "security_surface": {"paths": []}})
@@ -122,53 +132,22 @@ class PlanBasisSecuritySurface(unittest.TestCase):
 
     def test_schema_rejects_a_host_path_in_the_surface(self):
         # The ledger is published: a path is repo-relative as the change set
-        # names it, never a host path. The schema pins the invariant at
-        # append time, ahead of the eval bench's leak gate.
+        # names it, never a host path, and the schema pins that at append time.
         loaded = schema.load_schema(str(_SCHEMAS), "review-plan")
-        for leaked in (
-            "/Users/someone/repo/src/a.txt",
-            "C:\\repo\\src\\a.txt",
-            "../outside/a.txt",
-            "src/../../a.txt",
-            "src/a\nb.txt",
-        ):
+        for leaked in HOST_PATHS:
             with self.subTest(path=leaked):
-                record = {
-                    "type": "review-plan",
-                    "req_id": "REQ-XX-001",
-                    "ts": "2026-09-09T00:00:00Z",
-                    "author": "review-plan-engine",
-                    "risk": "gray",
-                    "scope": "full-diff",
-                    "basis": self._basis(_features(security_surface_paths=[leaked])),
-                    "rationale": "small clean production change; planner judges the roster",
-                }
-                self.assertTrue(schema.validate_record(record, loaded))
-        relative = self._basis(_features(security_surface_paths=["src/a.txt"]))
+                basis = self._basis(a_features(security_surface_paths=[leaked]))
+                self.assertTrue(
+                    schema.validate_record(a_review_plan_record(basis), loaded)
+                )
+        relative = self._basis(a_features(security_surface_paths=[A_PROD_FILE]))
         self.assertEqual(
-            schema.validate_record(
-                {
-                    "type": "review-plan",
-                    "req_id": "REQ-XX-001",
-                    "ts": "2026-09-09T00:00:00Z",
-                    "author": "review-plan-engine",
-                    "risk": "gray",
-                    "scope": "full-diff",
-                    "basis": relative,
-                    "rationale": "small clean production change; planner judges the roster",
-                },
-                loaded,
-            ),
-            [],
+            schema.validate_record(a_review_plan_record(relative), loaded), []
         )
 
 
 class BrokenLayoutFailsLoud(unittest.TestCase):
-    """An install whose layout does not parse as the engine needs, beside a copy of the entry.
-
-    The command also carries a committed head with no base, an argument fault
-    on its own; the install fault must win.
-    """
+    """An install whose layout does not parse as the engine needs, beside a copy of the entry."""
 
     def setUp(self):
         self.tree = Path(tempfile.mkdtemp())
@@ -183,6 +162,8 @@ class BrokenLayoutFailsLoud(unittest.TestCase):
         self.entry = scripts / "grading.py"
 
     def _run(self, command):
+        # A committed head with no base is an argument fault on its own; the
+        # install fault must win over it.
         return subprocess.run(
             [
                 sys.executable,

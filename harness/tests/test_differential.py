@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for differential.py (stdlib only).
-
-Run: python3 harness/tests/test_differential.py
-
-Pins the runner's contract:
-  1. Normalization masks stamped timestamps and collapses a crash to its
-     exception line, so two trees that fail alike agree.
-  2. A command through one tree twice is no difference; a tree without the
-     handoff entry is refused.
-"""
+"""The differential runner: normalization masks stamps and crashes, and one tree against itself is no difference."""
 
 import sys
 import tempfile
@@ -22,15 +13,18 @@ REPO = ROOT.parent
 
 differential = load("differential", "differential.py")
 
-A_STAMPED_LINE = '{"type": "build-pass", "ts": "2026-06-11T10:00:00Z"}'
+STAMP_MASK = "T"
+SOME_STAMP = "2026-06-11T10:00:00Z"
+A_STAMPED_LINE = f'{{"type": "build-pass", "ts": "{SOME_STAMP}"}}'
 A_TRACEBACK = "Traceback (most recent call last):\n  File x\nValueError: boom\n"
+A_LABEL = "ledger 1 route"
 
 
 class Normalization(unittest.TestCase):
     def test_a_stamped_timestamp_is_masked(self):
         self.assertEqual(
             differential.normalize(A_STAMPED_LINE),
-            '{"type": "build-pass", "ts": "T"}',
+            A_STAMPED_LINE.replace(SOME_STAMP, STAMP_MASK),
         )
 
     def test_a_traceback_collapses_to_its_exception_line(self):
@@ -61,17 +55,15 @@ class Comparison(unittest.TestCase):
         self.assertEqual(differential.resolve_tree(str(REPO)), REPO.resolve())
 
     def test_a_report_names_the_label_and_both_outcomes(self):
-        difference = differential.Difference(
-            "ledger 1 route",
-            differential.Outcome(0, "a", ""),
-            differential.Outcome(1, "b", "err"),
-        )
+        baseline = differential.Outcome(0, "a", "")
+        candidate = differential.Outcome(1, "b", "err")
+        difference = differential.Difference(A_LABEL, baseline, candidate)
 
         text = differential.report(difference)
 
-        self.assertIn("DIFF ledger 1 route", text)
-        self.assertIn("baseline:  rc=0", text)
-        self.assertIn("candidate: rc=1", text)
+        self.assertIn(f"DIFF {A_LABEL}", text)
+        self.assertIn(f"baseline:  rc={baseline.code}", text)
+        self.assertIn(f"candidate: rc={candidate.code}", text)
 
 
 if __name__ == "__main__":

@@ -108,7 +108,9 @@ When dispatched on a `consultation-request`, your task is to answer the specific
 - Do not over-write memory. If the answer points to existing patterns, `memory_updates` is empty.
 - Do not exceed the question. Broad questions belong in triage, not consultation.
 
-## Autofix Audit (Run First on Every Dispatch)
+## Autofix Audit (Run First on Every Triage Dispatch)
+
+Dispatches that end in a `design-block` — triage, re-triage, and fix — run this audit. Consultation-mode dispatches are exempt: consultation produces no `design-block`, so a finding would have no record to ride.
 
 Before working on the active prd-entry, audit every `type: "design-doc-autofix"` record in `.scratch/handoff.jsonl` whose `ts` is later than your most recent `type: "design-block"` record (or any such record if you have not yet been dispatched for the active `req_id`). `handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) has already re-checked the allowlist bounds mechanically; your job is the judgement check.
 

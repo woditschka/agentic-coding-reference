@@ -106,7 +106,9 @@ A requirement is **active** by being in the narrative — there is no per-requir
 
 On a derived PRD (the `derive-briefs` skill), an inline `(confirmed <date>)` clause is a provenance mark, not a status field; a rewrite keeps the mark with its requirement. A derived PRD may also carry `## Known Defects` — observed behavior that breaches or serves no requirement, recorded for a later slice.
 
-## Autofix Audit (Run First on Every Dispatch)
+## Autofix Audit (Run First on Every Entry Dispatch)
+
+Dispatches that end in a `prd-entry` run this audit. Consultation-mode dispatches are exempt: consultation produces no `prd-entry`, so a finding would have no record to ride.
 
 Before working on the dispatch's main task, audit every `type: "prd-autofix"` record in `.scratch/handoff.jsonl` whose `ts` is later than your most recent `type: "prd-entry"` record (or any such record if you have not yet appended one). `handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) has already re-checked the allowlist bounds mechanically; your job is the judgement check.
 

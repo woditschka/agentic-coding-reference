@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for claude_dev_scrub — the container-private ~/.claude.json replica.
-
-The scrub is the mount boundary's one transformation, so the suite pins its
-two load-bearing properties: only cwd-overlapping ``projects`` entries cross,
-and every input defect degrades to ``{}`` (state loss, never exposure).
-"""
+"""Tests for claude_dev_scrub: only cwd-overlapping projects cross, every defect degrades to {}."""
 
 import json
 import pathlib
@@ -13,61 +8,78 @@ import unittest
 
 import claude_dev_scrub as s
 
-CWD = "/home/u/work/proj"
+SOME_ANCESTOR = "/home/u"
+SOME_CWD = SOME_ANCESTOR + "/work/proj"
+SOME_SIBLING = SOME_ANCESTOR + "/work/other"
+SOME_DESCENDANT = SOME_CWD + "/worktree"
+# A path-string prefix of the cwd that is not one of its ancestors.
+STRING_PREFIX_TWIN = SOME_CWD + "2"
+SOME_SETTINGS = {"theme": "dark"}
+SOME_PROJECT_STATE = {"trust": True}
+# Written without whitespace: the replica of a projects-free file is its bytes.
+SOME_COMPACT_JSON = '{"a":1,"b":[1,2]}'
 
 
 class Overlaps(unittest.TestCase):
-    def test_equal_ancestor_descendant(self):
-        self.assertTrue(s.overlaps(CWD, CWD))
-        self.assertTrue(s.overlaps("/home/u", CWD))
-        self.assertTrue(s.overlaps(CWD + "/sub", CWD))
+    def test_the_cwd_its_ancestor_and_its_descendant_overlap(self):
+        self.assertTrue(s.overlaps(SOME_CWD, SOME_CWD))
+        self.assertTrue(s.overlaps(SOME_ANCESTOR, SOME_CWD))
+        self.assertTrue(s.overlaps(SOME_DESCENDANT, SOME_CWD))
 
-    def test_sibling_and_prefix_confusion(self):
-        self.assertFalse(s.overlaps("/home/u/work/other", CWD))
-        # A path-string prefix that is not a path ancestor must not overlap.
-        self.assertFalse(s.overlaps("/home/u/work/proj2", CWD))
+    def test_a_sibling_and_a_string_prefix_twin_do_not_overlap(self):
+        self.assertFalse(s.overlaps(SOME_SIBLING, SOME_CWD))
+        self.assertFalse(s.overlaps(STRING_PREFIX_TWIN, SOME_CWD))
 
 
 class ScrubReplica(unittest.TestCase):
-    def test_keeps_cwd_ancestors_and_subtrees_only(self):
+    def test_only_cwd_ancestors_and_subtrees_cross_and_other_keys_pass_through(self):
         data = {
-            "theme": "dark",
+            **SOME_SETTINGS,
             "projects": {
-                "/home/u": {"trust": True},
-                CWD: {"mcpServers": {"ide": {}}},
-                CWD + "/worktree": {},
-                "/home/u/work/other": {"secret": "sibling"},
+                SOME_ANCESTOR: SOME_PROJECT_STATE,
+                SOME_CWD: SOME_PROJECT_STATE,
+                SOME_DESCENDANT: {},
+                SOME_SIBLING: SOME_PROJECT_STATE,
             },
         }
-        out = s.scrub_replica(data, CWD)
-        self.assertEqual(set(out["projects"]), {"/home/u", CWD, CWD + "/worktree"})
-        self.assertEqual(out["theme"], "dark")
+        out = s.scrub_replica(data, SOME_CWD)
+        self.assertEqual(
+            set(out["projects"]), {SOME_ANCESTOR, SOME_CWD, SOME_DESCENDANT}
+        )
+        self.assertEqual({k: out[k] for k in SOME_SETTINGS}, SOME_SETTINGS)
 
-    def test_non_dict_projects_passes_through(self):
-        data = {"projects": "corrupt", "theme": "dark"}
-        self.assertEqual(s.scrub_replica(data, CWD), data)
+    def test_a_non_dict_projects_value_passes_through(self):
+        data = {**SOME_SETTINGS, "projects": "corrupt"}
+        self.assertEqual(s.scrub_replica(data, SOME_CWD), data)
 
 
 class ReplicaText(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = pathlib.Path(tmp.name)
+
     def _write(self, text):
-        d = tempfile.mkdtemp()
-        p = pathlib.Path(d) / "claude.json"
-        p.write_text(text, encoding="utf-8")
-        return p
+        path = self.dir / "claude.json"
+        path.write_text(text, encoding="utf-8")
+        return path
 
-    def test_scrubs_and_compacts(self):
-        src = self._write(json.dumps({"projects": {CWD: {}, "/elsewhere": {}}, "a": 1}))
-        out = json.loads(s.replica_text(src, CWD))
-        self.assertEqual(out, {"projects": {CWD: {}}, "a": 1})
+    def test_the_replica_drops_foreign_projects_and_compacts(self):
+        src = self._write(
+            json.dumps({"projects": {SOME_CWD: {}, SOME_SIBLING: {}}, **SOME_SETTINGS})
+        )
+        out = json.loads(s.replica_text(src, SOME_CWD))
+        self.assertEqual(out, {"projects": {SOME_CWD: {}}, **SOME_SETTINGS})
 
-    def test_projects_free_file_is_byte_identical(self):
-        text = json.dumps({"a": 1, "b": [1, 2]}, separators=(",", ":"))
-        self.assertEqual(s.replica_text(self._write(text), CWD), text)
+    def test_a_projects_free_file_is_byte_identical(self):
+        self.assertEqual(
+            s.replica_text(self._write(SOME_COMPACT_JSON), SOME_CWD), SOME_COMPACT_JSON
+        )
 
-    def test_absent_unparseable_and_non_object_degrade_to_empty(self):
-        missing = pathlib.Path(tempfile.mkdtemp()) / "absent.json"
+    def test_an_absent_unparseable_or_non_object_file_degrades_to_empty(self):
+        missing = self.dir / "absent.json"
         for src in (missing, self._write("not json"), self._write("[1,2]")):
-            self.assertEqual(s.replica_text(src, CWD), "{}")
+            self.assertEqual(s.replica_text(src, SOME_CWD), "{}")
 
 
 if __name__ == "__main__":

@@ -20,37 +20,48 @@ JAVA = validate_conventions(
     }
 )
 
-DIFF = """\
-diff --git a/src/main/app.txt b/src/main/app.txt
---- a/src/main/app.txt
-+++ b/src/main/app.txt
-@@ -1,0 +1,4 @@
+PROD_FILE = "src/main/app.txt"
+TEST_FILE = "src/test/app_test.txt"
+A_DOC = "docs/prd.md"
+NEW_FILE_HUNK_START = 1
+SECOND_HUNK_START = 14
+TEST_HUNK_START = 6
+A_BASE = "abc1234"
+
+DIFF = f"""\
+diff --git a/{PROD_FILE} b/{PROD_FILE}
+--- a/{PROD_FILE}
++++ b/{PROD_FILE}
+@@ -1,0 +{NEW_FILE_HUNK_START},4 @@
 +/*
 + * Copyright 2026 the original authors. Licensed under the Apache License.
 + */
 +int pageToShow = Math.max(page, FIRST_PAGE);
-@@ -10,2 +14,3 @@
+@@ -10,2 +{SECOND_HUNK_START},3 @@
  context line
 -removed line
 +// a page below the first is not a failure: the first page is listed instead
 +// and the listing presents itself as that page
 +return pageToShow;
-diff --git a/src/test/app_test.txt b/src/test/app_test.txt
---- a/src/test/app_test.txt
-+++ b/src/test/app_test.txt
-@@ -5,0 +6,6 @@
+diff --git a/{TEST_FILE} b/{TEST_FILE}
+--- a/{TEST_FILE}
++++ b/{TEST_FILE}
+@@ -5,0 +{TEST_HUNK_START},6 @@
 +private static final int FIRST_PAGE = 1;
 +@Test
 +Page<Owner> page = new PageImpl<>(List.of(george(), new Owner()));
 +mvc.perform(get("/owners").param("page", "0"));
 +Owner irrelevant = anOwner();
 +assertThat(model.currentPage()).isEqualTo(FIRST_PAGE);
-diff --git a/docs/prd.md b/docs/prd.md
---- a/docs/prd.md
-+++ b/docs/prd.md
+diff --git a/{A_DOC} b/{A_DOC}
+--- a/{A_DOC}
++++ b/{A_DOC}
 @@ -1,0 +1,1 @@
 +# a heading, not a comment
 """
+COMMENT_BLOCK_LINES = (SECOND_HUNK_START + 1, SECOND_HUNK_START + 2)
+CONSTRUCTION_LINE = TEST_HUNK_START + 2
+LITERAL_LINE = TEST_HUNK_START + 3
 
 
 def kind_of(path: str) -> str:
@@ -72,13 +83,15 @@ class AddedLines(unittest.TestCase):
 
     def test_new_file_numbers_follow_the_hunk_header(self):
         got = added_lines(DIFF)
-        self.assertEqual(got["src/main/app.txt"][0], (1, "/*"))
-        self.assertEqual(got["src/main/app.txt"][3][0], 4)
+        self.assertEqual(got[PROD_FILE][0], (NEW_FILE_HUNK_START, "/*"))
+        self.assertEqual(got[PROD_FILE][3][0], NEW_FILE_HUNK_START + 3)
 
     def test_context_advances_and_removal_does_not(self):
         got = added_lines(DIFF)
-        numbers = [no for no, _ in got["src/main/app.txt"]]
-        self.assertEqual(numbers[4:], [15, 16, 17])
+        numbers = [no for no, _ in got[PROD_FILE]]
+        self.assertEqual(
+            numbers[4:], [SECOND_HUNK_START + offset for offset in (1, 2, 3)]
+        )
 
     def test_content_that_mimics_a_header_stays_content(self):
         diff = (
@@ -99,10 +112,10 @@ class AddedLines(unittest.TestCase):
 
 class CommentBlocks(unittest.TestCase):
     def test_license_header_is_dropped_and_runs_collapse(self):
-        lines = added_lines(DIFF)["src/main/app.txt"]
-        blocks = comment_blocks(lines, ("//", "/*", "*", "*/"))
+        lines = added_lines(DIFF)[PROD_FILE]
+        blocks = comment_blocks(lines, JAVA.comment_markers)
         self.assertEqual(len(blocks), 1)
-        self.assertEqual((blocks[0].start, blocks[0].end), (15, 16))
+        self.assertEqual((blocks[0].start, blocks[0].end), COMMENT_BLOCK_LINES)
         self.assertTrue(blocks[0].text.startswith("// a page below"))
 
 
@@ -112,37 +125,40 @@ class ConventionsMapRows(unittest.TestCase):
         self.by_path = {f.path: f for f in self.cm.files}
 
     def test_non_code_paths_are_not_listed(self):
-        self.assertNotIn("docs/prd.md", self.by_path)
+        self.assertNotIn(A_DOC, self.by_path)
 
     def test_prod_file_lists_comments_only(self):
-        rows = self.by_path["src/main/app.txt"]
+        rows = self.by_path[PROD_FILE]
         self.assertEqual(len(rows.comments), 1)
         self.assertEqual(rows.constructions, ())
         self.assertEqual(rows.literals, ())
 
     def test_test_file_lists_the_domain_construction_not_the_framework_one(self):
-        rows = self.by_path["src/test/app_test.txt"]
-        self.assertEqual([no for no, _ in rows.constructions], [8])
+        rows = self.by_path[TEST_FILE]
+        self.assertEqual([no for no, _ in rows.constructions], [CONSTRUCTION_LINE])
         self.assertIn("new Owner()", rows.constructions[0][1])
 
     def test_literal_lines_skip_constants_annotations_and_named_values(self):
-        rows = self.by_path["src/test/app_test.txt"]
-        self.assertEqual([no for no, _ in rows.literals], [9])
+        rows = self.by_path[TEST_FILE]
+        self.assertEqual([no for no, _ in rows.literals], [LITERAL_LINE])
 
     def test_no_construction_pattern_lists_none_and_says_so(self):
         cm = conventions_map(
             DIFF, kind_of, validate_conventions({"comment_markers": ["//"]})
         )
-        rows = {f.path: f for f in cm.files}["src/test/app_test.txt"]
+        rows = {f.path: f for f in cm.files}[TEST_FILE]
         self.assertEqual(rows.constructions, ())
         self.assertTrue(any("construction" in n for n in cm.notes))
 
     def test_render_is_printable_and_names_the_base(self):
-        text = render(self.cm, "abc1234")
-        self.assertIn("conventions-map: 2 code file(s) with rows", text)
-        self.assertIn("(base abc1234)", text)
-        self.assertIn("15-16: // a page below", text)
-        self.assertIn("9: mvc.perform", text)
+        text = render(self.cm, A_BASE)
+        start, end = COMMENT_BLOCK_LINES
+        self.assertIn(
+            f"conventions-map: {len(self.cm.files)} code file(s) with rows", text
+        )
+        self.assertIn(f"(base {A_BASE})", text)
+        self.assertIn(f"{start}-{end}: // a page below", text)
+        self.assertIn(f"{LITERAL_LINE}: mvc.perform", text)
 
 
 class ConventionsConfigValidation(unittest.TestCase):

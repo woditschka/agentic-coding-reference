@@ -91,17 +91,16 @@ class OwnerSplit(unittest.TestCase):
         self.assertEqual(split.root_autofix, 0)
 
     def test_doc_autofixes_are_counted_for_root_instead_of_owned(self):
+        doc_autofixes = [a_finding(location=A_PRD_ROW), a_finding(location=AN_ADR)]
         dissent = a_record(
-            "review-feedback",
-            verdict="changes_requested",
-            findings=[a_finding(location=A_PRD_ROW), a_finding(location=AN_ADR)],
+            "review-feedback", verdict="changes_requested", findings=doc_autofixes
         )
         verdicts = verdicts_of(dissent)
 
         split = owner_split(verdicts, verdicts)
 
         self.assertEqual(split.owners, ())
-        self.assertEqual(split.root_autofix, 2)
+        self.assertEqual(split.root_autofix, len(doc_autofixes))
 
     def test_an_escalate_finding_on_an_approved_record_joins_the_split(self):
         approved = a_record(
@@ -136,20 +135,21 @@ class OwnerSplit(unittest.TestCase):
 
 class EscalateCount(unittest.TestCase):
     def test_escalate_tags_are_counted_across_every_verdict(self):
+        approved_findings = [a_finding(tag="escalate"), a_finding()]
+        dissent_findings = [a_finding(tag="escalate")]
         verdicts = verdicts_of(
-            a_record(
-                "review-feedback",
-                verdict="approved",
-                findings=[a_finding(tag="escalate"), a_finding()],
-            ),
+            a_record("review-feedback", verdict="approved", findings=approved_findings),
             a_record(
                 "review-feedback",
                 verdict="changes_requested",
-                findings=[a_finding(tag="escalate")],
+                findings=dissent_findings,
             ),
         )
+        escalations = [
+            f for f in approved_findings + dissent_findings if f["tag"] == "escalate"
+        ]
 
-        self.assertEqual(escalate_count(verdicts), 2)
+        self.assertEqual(escalate_count(verdicts), len(escalations))
 
 
 class RawFindings(unittest.TestCase):
@@ -251,10 +251,10 @@ class CarriesCappedDissent(unittest.TestCase):
             with self.subTest(tag=tag):
                 self.assertTrue(carries_capped_dissent([a_finding(tag=tag)]))
 
-    def test_a_non_critical_fix_finding_does_not(self):
+    def test_a_non_critical_fix_finding_carries_no_dissent(self):
         self.assertFalse(carries_capped_dissent([a_finding(severity="minor")]))
 
-    def test_an_empty_list_or_non_object_items_do_not(self):
+    def test_an_empty_list_or_non_object_items_carry_no_dissent(self):
         self.assertFalse(carries_capped_dissent([]))
         self.assertFalse(carries_capped_dissent(["critical"]))
 
