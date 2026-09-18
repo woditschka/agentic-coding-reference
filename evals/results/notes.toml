@@ -402,3 +402,21 @@ constants-table question to the design expert, who re-triaged twice
 on all three reps and no rep re-litigated the page clamp's placement,
 the dispute the SUT brief's 2026-09-12 sentence closed."""
 
+
+[[note]]
+date = 2026-09-18
+task = "owners-page-param"
+version = "v0.4.3"
+text = """
+Cost per pass falls $6.88 to $4.57 against v0.4.1 on two mechanisms,
+neither a harness change on this task. First, v0.4.1's r3 outlier
+($10.51 over three build passes and six review rounds, the v0.4.1
+note) has no counterpart: every v0.4.3 rep runs one or two build
+passes and three or four review rounds, $3.75 to $5.82. Without that
+rep the v0.4.1 cell reads $5.07, a 10% fall. Second, both v0.4.3 and
+v0.4.4 ran on Claude Code 2.1.274 against v0.4.1's 2.1.269, and every
+feature task processes the same tokens per rep in fewer minutes:
+owners-page-param 5.1M to 4.1M tokens at 0.31 to 0.35M per minute,
+so the two September 18 reps clear in 8 and 11 minutes against
+v0.4.1's 14 to 15. The judge reads 5/4/4/5 on every rep of both
+cells; the security reviewer stays trimmed on every rep."""

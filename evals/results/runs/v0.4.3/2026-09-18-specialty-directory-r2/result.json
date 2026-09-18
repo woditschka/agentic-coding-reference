@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 623085,
+      "cache_read": 7074659,
+      "cc1": 45303,
+      "cc5": 577782,
+      "cost": 7.874282399999999,
+      "hit_pct": 92,
+      "input": 344,
+      "output": 95737,
+      "savings_pct": 80,
+      "total_input": 7698088
+    },
+    "duration_ms": 70897,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 7.875534399999999
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 8,
+    "insertions": 529,
+    "src_files_changed": 6
+  },
+  "finished": "2026-09-18T01:27:46+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "skim",
+    "handoff_entries": 25,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.5147,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The grouping rule sits in an immutable `SpecialtyDirectory` record with defensive `List.copyOf` calls. `SpecialtyController` stays thin, and `SpecialtyRepository` follows the existing repository pattern. One piece of duplication costs design and maintainability: the `ORDER BY specialty.name` query and the in-memory `SPECIALTY_ORDER` sort both order specialties. The unit tests use BDD names, factories, hand-written doubles (the lambda repository and `FixedVetRepository`) and whole-object `containsExactly` comparisons. The controller tests check rendered text with `containsString`, and `\">\" + heldByNone + \"<\"` depends on the markup. The identity-matching comment explains a non-obvious choice. `prd.md` and the `system-design.md` contracts table are both updated, and the two open questions are recorded.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The grouping rule sits in the immutable `SpecialtyDirectory` record rather than the controller. `SpecialtyController.showSpecialtyDirectory` only delegates, which matches the Web controller row. Ordering is defined twice, once in `findSpecialties` (`ORDER BY specialty.name`) and again in `SPECIALTY_ORDER`, which is minor duplication. `SpecialtyDirectoryTests` has behavior-named, phase-separated unit tests with factories and whole-object `containsExactly` comparisons. It covers the unheld, multi-holder, ordering and separate-instance cases. The web tests use hand-written doubles (`FixedVetRepository`, a lambda repository), but the `\">\" + heldByNone + \"<\"` markup match is brittle. The comment on `holds` explains a non-obvious identity match. The PRD requirement text, open questions and system-design contract rows all move with the change, and no stale claim remains.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The design fits well. SpecialtyController only binds, delegates to SpecialtyDirectory.of and picks the view, so the grouping rule lives in an immutable record that can be unit-tested. SpecialtyRepository follows the VetRepository style. One redundancy: the query already orders by name (`ORDER BY specialty.name`), and SPECIALTY_ORDER sorts again. SpecialtyDirectoryTests are BDD-named and use factories with derived expectations and whole-object containsExactly. The controller test uses hand-written doubles (a lambda repository and FixedVetRepository) instead of a mock framework. Weak spots: the `\">\" + heldByNone + \"<\"` markup check is fragile, and the 'OnOnePage' test never checks pagination. The identity-match comment explains a real problem. The PRD, the edge cases, the open questions and the system-design contract rows were all updated together.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-18-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 966.7
+}

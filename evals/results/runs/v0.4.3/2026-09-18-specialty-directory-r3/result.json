@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 708848,
+      "cache_read": 7419181,
+      "cc1": 61202,
+      "cc5": 647646,
+      "cost": 8.778366300000002,
+      "hit_pct": 91,
+      "input": 356,
+      "output": 96646,
+      "savings_pct": 79,
+      "total_input": 8128385
+    },
+    "duration_ms": 291262,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 15,
+    "subtype": "success",
+    "total_cost_usd": 8.869318300000002
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 8,
+    "insertions": 392,
+    "src_files_changed": 6
+  },
+  "finished": "2026-09-18T04:01:45+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 29,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.4756,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The inversion logic sits in `SpecialtyDirectory`, an immutable record that does no I/O and can be unit-tested. `SpecialtyController.showSpecialtyDirectory` only delegates and selects the view, and `SpecialtyRepository` follows the existing repository style. Two points cost design-fit: `Listing` holds mutable `Vet` entities, and the template uses `#{specialties}` with no message-bundle change visible in the patch. `SpecialtyDirectoryTests` uses BDD names, factories, whole-object `containsExactly` comparisons, and covers edge cases. `SpecialtyControllerTests` is weaker: it relies on seeded data and bare `containsString` checks, which never show that Helen Leary appears under radiology. The docs are thorough: the PRD adds REQ-VET-003 and open questions, and system-design updates the package tree, contracts, and invariants.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The inversion logic lives in the immutable value object SpecialtyDirectory (List.copyOf in both record constructors), and it is unit-testable without the framework. SpecialtyController only binds, delegates and returns the view. The one-per-root SpecialtyRepository and the package-private types follow the catalog and naming rules. The SpecialtyDirectoryTests are good: they use BDD names, factories (createASpecialty, createAVet, createAListing), whole-object containsExactly checks, and they cover both edge cases and matching by id. The SpecialtyControllerTests are weaker. Their containsString checks on seeded data barely constrain the page, and they never check that a vet with no specialty is left out. The template joins first and last names with inline concatenation instead of a named accessor. The PRD, the contracts table, the invariants and the open questions (order, entry point) are all updated consistently.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The inversion logic is in a small immutable `SpecialtyDirectory` value object, so the rule can be tested without booting the web layer. `SpecialtyController.showSpecialtyDirectory` stays thin: it asks two repositories for data, delegates, and returns the view. The new `SpecialtyRepository` follows the style of the existing repositories. The unit tests use BDD names, factory methods, and whole-object `containsExactly` comparisons, and they cover a vet holding several specialties, a vet holding none, a specialty nobody holds, and matching by id. The controller tests are weaker. They depend on seeded data from outside the test, and `containsString(\"Helen Leary\")` never checks that she appears under radiology. `Listing` also exposes mutable `Vet` entities. The docs are current: `prd.md` adds REQ-VET-003 and records the open questions, and the rows and package tree in `system-design.md` are updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-18-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1023.4
+}

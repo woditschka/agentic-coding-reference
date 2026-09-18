@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 765575,
+      "cache_read": 9879868,
+      "cc1": 56291,
+      "cc5": 709284,
+      "cost": 10.468467450000007,
+      "hit_pct": 93,
+      "input": 454,
+      "output": 132894,
+      "savings_pct": 81,
+      "total_input": 10645897
+    },
+    "duration_ms": 79791,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 10.517342450000005
+  },
+  "diff": {
+    "deletions": 33,
+    "files_changed": 10,
+    "insertions": 330,
+    "src_files_changed": 5
+  },
+  "finished": "2026-09-18T02:35:55+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 29,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.5737,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The change sits in the right layers. VetRepository adds derived queries (findDistinctBySpecialtiesNameIgnoreCase, paged and unpaged) and leaves them uncached, and the ADR explains why. The controller only normalizes the parameter with strip and a blank filter, which counts as binding. The template gets a pageLink fragment wrapped in th:remove=\"all\"; it works but is an unusual choice. The tests follow the BDD naming school (theSpecialtyFilterShouldDisregardSurroundingSpaces) and use named constants. They still add new Mockito stubs and call new PageImpl directly. The CSV rows use seed names (\"Leary Stevens\") and a string-splitting helper, lastNames. The empty-result test checks that names are absent, not that vetList is empty. The docs are current: PRD NG-9 and the REQ-VET-003/004 rows, the Superseded entry, the removed Known Defects row, and the system-design overview, contracts and security tables.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Design fits the project: matching lives in derived repository queries (`findDistinctBySpecialtiesNameIgnoreCase`, paged and unpaged). The controller's `normalized()` only strips and blank-filters the parameter, which counts as binding under the Web controller row. The uncached choice is recorded in an ADR. Test names follow `the{Subject}Should{Outcome}`, and constants such as RADIOLOGY and HELD_BY_NO_VET are named. Weak spots: the CsvSource rows hard-code seed surnames like 'Leary Stevens', `new PageImpl` is built directly, and the no-match test checks only that names are absent, not that the list is empty. The `pageLink` fragment removes repeated markup, but the `th:remove` trick needs its own comment to explain it. The docs are thorough: PRD NG-9, REQ-VET-003 and REQ-VET-004, the Superseded entry, the stale Known Defects row removed, the system-design contracts, and the ADR index.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The whole-name, case-insensitive match lives in two derived queries in VetRepository, left uncached on purpose. VetController only normalizes the parameter (normalized(): strip, then drop blank values), which the Web controller row counts as binding. Tests use BDD names (theSpecialtyFilterShouldMatchTheWholeNameIgnoringCase), named constants and the existing helen()/james() factories. Weaknesses: new tests still use Mockito stubs, PageImpl is built directly, the CsvSource rows use bare last-name literals, and the lastNames helper branches. The no-match test only checks that names are absent, not that the list is empty. The pageLink fragment with th:remove=\"all\" is clever but dense. Docs are thorough: the NG-9 ADR, REQ-VET-003/004, the successor note on REQ-VET-002, the removed known-defect row, and updated Overview, contracts and threat rows.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-18-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1366.0
+}
