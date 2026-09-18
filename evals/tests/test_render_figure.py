@@ -147,11 +147,13 @@ class QualityPanel(unittest.TestCase):
     def test_facet_styles_follow_the_judge_roster(self) -> None:
         self.assertEqual(tuple(render_figure.FACET_STYLE), render_figure.JUDGE_FACETS)
 
-    def test_the_quality_axis_floor_is_three_or_the_lowest_mean(self) -> None:
+    def test_the_quality_axis_is_the_rubrics_fixed_range(self) -> None:
+        # The axis never zooms to the recorded means: a move reads at its
+        # true share of the 1-5 scale whatever the lowest mean is.
         text = render(from_payload(PAYLOAD), SNAPSHOT_DATE)
-        self.assertIn(f'id="ytC{int(render_figure.QUALITY_FLOOR_CAP)}"', text)
-        self.assertNotIn('id="ytC1"', text)
-        # The first version's design-fit mean becomes (2 + 3) / 2, flooring to 2.
+        self.assertIn('id="ytC1"', text)
+        self.assertIn('id="ytC3"', text)
+        self.assertIn('id="ytC5"', text)
         low = render(
             from_payload(
                 payload_with(
@@ -161,7 +163,8 @@ class QualityPanel(unittest.TestCase):
             ),
             SNAPSHOT_DATE,
         )
-        self.assertIn(f'id="ytC{LOW_SCORE}"', low)
+        self.assertIn('id="ytC1"', low)
+        self.assertNotIn(f'id="ytC{LOW_SCORE}"', low)
 
     def test_a_facet_mean_averages_the_versions_judged_reps(self) -> None:
         data = from_payload(
@@ -189,12 +192,14 @@ class KnownDefectLine(unittest.TestCase):
                 reps.append(dict(r, known_defects={"p": False}))
         return dict(PAYLOAD, reps=reps)
 
-    def test_a_payload_without_probes_draws_no_line_and_keeps_the_floor(self) -> None:
+    def test_a_payload_without_probes_draws_no_line_and_the_axis_runs_from_zero(
+        self,
+    ) -> None:
         data = from_payload(PAYLOAD)
         self.assertEqual(data.defect_clear, (None, None, None))
         text = render(data, SNAPSHOT_DATE)
         self.assertNotIn('id="dline"', text)
-        self.assertNotIn('id="ytB0"', text)
+        self.assertIn('id="ytB0"', text)
 
     def test_the_clear_rate_is_the_probed_reps_share(self) -> None:
         data = from_payload(self._payload_with_probes())
@@ -205,7 +210,7 @@ class KnownDefectLine(unittest.TestCase):
         text = render(from_payload(self._payload_with_probes()), SNAPSHOT_DATE)
         self.assertIn('id="dline"', text)
         self.assertIn('id="ytB0"', text)
-        self.assertIn(f'id="ytC{int(render_figure.QUALITY_FLOOR_CAP)}"', text)
+        self.assertIn('id="ytC1"', text)
         self.assertIn(f'id="prl_{render_figure.DEFECT_LABEL}"', text)
         self.assertIn(f'id="prl_{render_figure.BAR_LABEL}"', text)
         self.assertIn("known-defect clear rate", text)
@@ -223,11 +228,18 @@ class WallPanel(unittest.TestCase):
             round(CLEARING_SPEND / DELIVERY_MINUTES, 3),
         )
 
-    def test_the_burn_panel_mirrors_the_cost_encoding(self) -> None:
+    def test_a_refusal_cell_has_no_burn_rate(self) -> None:
+        data = from_payload(PAYLOAD)
+        self.assertIsNone(data.cells[(REFUSAL_TASK, MIDDLE)].burn)
+
+    def test_the_burn_panel_mirrors_the_cost_encoding_without_the_refusal_line(
+        self,
+    ) -> None:
         text = render(from_payload(PAYLOAD), SNAPSHOT_DATE)
         self.assertIn('id="plE"', text)
         self.assertIn(f'id="btrend_{FEATURE_TASK}"', text)
-        self.assertIn(f'id="bline_{REFUSAL_TASK}"', text)
+        self.assertNotIn(f'id="bline_{REFUSAL_TASK}"', text)
+        self.assertNotIn(f'id="brl_{REFUSAL_TASK}"', text)
         self.assertIn(f'id="brl_{FEATURE_TASK}"', text)
 
     def test_a_cell_without_a_clearing_rep_has_no_wall(self) -> None:

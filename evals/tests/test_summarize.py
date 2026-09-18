@@ -541,6 +541,11 @@ class DeltaAndBurnCell(unittest.TestCase):
     def test_burn_without_a_clearing_rep_is_a_dash(self) -> None:
         self.assertEqual(burn_cell([a_run(oracle_ok=False)]), "—")
 
+    def test_burn_on_a_refusal_row_is_a_dash(self) -> None:
+        # A refusal delivers no change, so its wall is no delivery minute.
+        runs = [a_run(task_kind="refusal", src_files_changed=0, consultations=1)]
+        self.assertEqual(burn_cell(runs), "—")
+
     def test_the_trend_table_flags_an_unexplained_settled_move(self) -> None:
         patch_notes(self, None)
         runs = [a_run(version=OLDER_VERSION, rep=r, cost=3.0) for r in (1, 2, 3)] + [

@@ -93,7 +93,9 @@ _TREND_BULLETS = (
     " a note, below).",
     "- Burn is the median spend per delivery minute over the clearing reps"
     " ($/min): cost of a clearing rep ≈ wall × burn, so a flat burn means"  # noqa: RUF001
-    " the cost moved with the pipeline's length, not its price.",
+    " the cost moved with the pipeline's length, not its price. A refusal"
+    " row shows a dash: it delivers no change, so it has no delivery"
+    " minute.",
     "- `>=` marks a lower bound: a rep's spend went unrecorded.",
 )
 
@@ -842,6 +844,11 @@ def cost_cell(cell_runs: list[Run], *, provisional: bool = False) -> str:
 
 def burn_cell(cell_runs: list[Run]) -> str:
     """Render the median spend per delivery minute over the clearing reps."""
+    # A refusal delivers no change, so it has no delivery minute: its wall
+    # is session start plus one consultation, and a 30-second stall halves
+    # the figure. The judge skips refusal runs on the same ground.
+    if any(r.task_kind == KIND_REFUSAL for r in cell_runs):
+        return "—"
     # A median of per-rep ratios, so one slow rep cannot move the figure
     # through the denominator.
     rates = [

@@ -61,9 +61,9 @@ SECONDS_PER_MINUTE = 60
 ROLLING_RADIUS = 1
 MIN_SPLINE_POINTS = 3
 SPLINE_STEPS = 12
-QUALITY_FLOOR_CAP = 3.0
+QUALITY_FLOOR = 1.0  # the rubric's lowest score
 QUALITY_TOP = 5.0
-RELIABILITY_FLOOR_CAP = 70.0
+RELIABILITY_FLOOR = 0.0
 COST_TOP_MINIMUM = 20.0
 WALL_TOP_MINIMUM = 10.0
 BURN_TOP_MINIMUM = 0.2
@@ -188,13 +188,18 @@ def _wall_minutes(reps: list[dict[str, Any]]) -> float | None:
 
 def _burn_rate(reps: list[dict[str, Any]]) -> float | None:
     """Return the median spend per delivery minute of the clearing reps of known spend."""
+    # A refusal delivers no change, so it has no delivery minute; the
+    # tables show its burn as a dash and the panel draws no refusal line.
     # A median of per-rep ratios, never a ratio of medians, so one slow rep
     # cannot move the figure through the denominator.
     rates = [
         float(rep["agent_spend_usd"])
         / (float(rep["delivery_wall_seconds"]) / SECONDS_PER_MINUTE)
         for rep in reps
-        if rep["cleared"] and rep["spend_known"] and rep["delivery_wall_seconds"]
+        if rep["task_kind"] != "refusal"
+        and rep["cleared"]
+        and rep["spend_known"]
+        and rep["delivery_wall_seconds"]
     ]
     return round(statistics.median(rates), 3) if rates else None
 
@@ -518,21 +523,9 @@ def _figure(data: TrendData) -> _Figure:
     cost_top = max(COST_TOP_MINIMUM, math.ceil(_series_max(cost_series) / 5) * 5.0)
     wall_top = max(WALL_TOP_MINIMUM, math.ceil(_series_max(wall_series) / 10) * 10.0)
     burn_top = max(BURN_TOP_MINIMUM, math.ceil(_series_max(burn_series) * 10) / 10)
-    # With the defect rate on record the reliability axis runs from 0,
-    # since the rate can sit anywhere.
-    reliability_floor = min(
-        RELIABILITY_FLOOR_CAP, math.floor(min(reliability) / 10) * 10.0
-    )
-    if any(d is not None for d in defects):
-        reliability_floor = 0.0
-    # The quality axis starts at the lowest facet mean's integer floor,
-    # capped, so the top band where the facets sit keeps its resolution.
-    means = [q for values in data.quality.values() for q in values if q is not None]
-    quality_floor = (
-        min(QUALITY_FLOOR_CAP, float(math.floor(min(means))))
-        if means
-        else QUALITY_FLOOR_CAP
-    )
+    # Every floor is fixed: reliability at 0 and quality at the rubric's
+    # lowest score. Only a ceiling adapts to the series, since a moving
+    # ceiling keeps the ratio between points and a moving floor does not.
     return _Figure(
         data=data,
         xs=xs,
@@ -546,8 +539,8 @@ def _figure(data: TrendData) -> _Figure:
         cost=_Axis(COST_BAND[1], 170, 0.0, cost_top),
         wall=_Axis(WALL_BAND[1], 170, 0.0, wall_top),
         burn=_Axis(BURN_BAND[1], 170, 0.0, burn_top),
-        reliability_axis=_Axis(RELIABILITY_BAND[1], 60, reliability_floor, 100.0),
-        quality=_Axis(QUALITY_BAND[1], 120, quality_floor, QUALITY_TOP),
+        reliability_axis=_Axis(RELIABILITY_BAND[1], 60, RELIABILITY_FLOOR, 100.0),
+        quality=_Axis(QUALITY_BAND[1], 120, QUALITY_FLOOR, QUALITY_TOP),
     )
 
 
@@ -936,12 +929,14 @@ def _caption(fig: _Figure) -> str:
         " cell is the median over its clearing reps of spend per delivery"
         " minute. A flat line means cost tracks time; a rising one, dearer"
         " minutes (concurrency, context, model era); a falling one, cheaper"
-        " minutes (cache). The quality panel draws one raw line per rubric"
+        " minutes (cache). The refusal task draws no burn line: it delivers"
+        " no change, so it has no delivery minute. The quality panel draws"
+        " one raw line per rubric"
         " facet: each point is the mean of the facet's per-rep medians over"
-        f" the version's judged reps, on an axis from {fig.quality.low:g} to 5 — the"
-        " lowest facet mean's integer floor, capped at 3. The rubric is"
-        " ordinal, so the mean is a reading aid; the tables list every score."
-        + defect_note,
+        f" the version's judged reps, on the rubric's own axis from {fig.quality.low:g}"
+        " to 5, fixed, so a move reads at its true share of the scale. The"
+        " rubric is ordinal, so the mean is a reading aid; the tables list"
+        " every score." + defect_note,
         "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;",
         Box(100, 940, 700, 140),
     )
