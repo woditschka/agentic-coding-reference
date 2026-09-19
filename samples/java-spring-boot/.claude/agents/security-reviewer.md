@@ -50,6 +50,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 ## Reference Standards
 
 - [Building Secure & Reliable Systems](https://sre.google/books/building-secure-reliable-systems/) — design principles, least privilege, defense in depth
+- `docs/security-principles.md` — this stack's trust boundaries and high-bar defaults
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) — common web vulnerabilities
 - [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) — Java, Jackson, and injection-prevention guidance
 - Where the runtime has no web tool, cite the standard by name and section and say so; a finding stands on the code, never on the link

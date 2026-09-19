@@ -11,6 +11,7 @@ from pathlib import Path
 from changeset.git_facts import ChangeSet
 from grading.config import NAMED_MODULE_LAYOUTS, Layout, ModuleRule, validate_review
 from grading.features import (
+    delta_numstat,
     diff_features,
     module_of,
     parse_numstat,
@@ -35,6 +36,7 @@ ANOTHER_PROD_ROW = (2, 0, "src/n.txt")
 A_BINARY_ROW = ("-", "-", "src/blob.bin")
 AN_UNDOCUMENTED_ROW = ("weird", "?", "src/m.txt")
 A_SENSITIVE_ROW = (1, 0, "src/auth/k.txt")
+A_MEMBER_PATH = "../product-api"
 
 
 def numstat(*rows):
@@ -206,7 +208,7 @@ class DiffFeatures(unittest.TestCase):
         row = diff_features(
             a_layout(),
             a_review_config(),
-            a_changeset(self.base, head, tip=head),
+            [a_changeset(self.base, head, tip=head)],
             churn=True,
         )
 
@@ -225,7 +227,7 @@ class DiffFeatures(unittest.TestCase):
         row = diff_features(
             a_layout(),
             a_review_config(),
-            a_changeset(self.base, self.base),
+            [a_changeset(self.base, self.base)],
             churn=False,
         )
 
@@ -260,7 +262,7 @@ class DiffFeatures(unittest.TestCase):
 
     def test_an_unresolved_base_yields_the_null_row(self):
         row = diff_features(
-            a_layout(), a_review_config(), a_changeset(None, "head"), churn=False
+            a_layout(), a_review_config(), [a_changeset(None, "head")], churn=False
         )
 
         self.assertEqual(set(row.values()), {None})
@@ -318,6 +320,88 @@ class SecuritySurfaceProbe(unittest.TestCase):
 
     def test_an_empty_probe_hits_nothing(self):
         self.assertEqual(security_surface_paths(self.DIFF, [], self.kind_of), [])
+
+
+class WorkspaceDiffFeatures(unittest.TestCase):
+    """A project repository and a sibling member, each with one committed base and one changed file."""
+
+    def setUp(self):
+        parent = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, parent)
+        self.project = parent / "product"
+        self.member = parent / "product-api"
+        self.base = {}
+        for repo in (self.project, self.member):
+            (repo / "src").mkdir(parents=True)
+            self.git(repo, "init", "-q")
+            self.git(repo, "config", "user.email", "t@example.com")
+            self.git(repo, "config", "user.name", "t")
+            (repo / "src" / "a.txt").write_text("one\n")
+            self.git(repo, "add", "-A")
+            self.git(repo, "commit", "-qm", "base")
+            self.base[repo] = self.git(repo, "rev-parse", "HEAD")
+            (repo / "src" / "a.txt").write_text("one\ntwo\n")
+            self.git(repo, "add", "-A")
+            self.git(repo, "commit", "-qm", "change")
+        cwd = Path.cwd()
+        os.chdir(self.project)
+        self.addCleanup(os.chdir, cwd)
+
+    def git(self, repo, *args):
+        done = subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        )
+        return done.stdout.strip()
+
+    def sets(self):
+        head = {repo: self.git(repo, "rev-parse", "HEAD") for repo in self.base}
+        project = a_changeset(
+            self.base[self.project], head[self.project], tip=head[self.project]
+        )
+        member = replace(
+            a_changeset(
+                self.base[self.member], head[self.member], tip=head[self.member]
+            ),
+            member_path=A_MEMBER_PATH,
+        )
+        return [project, member]
+
+    def test_the_row_spells_a_members_files_from_the_project_and_sums_both(self):
+        layout = a_layout()
+        layout = replace(
+            layout, prod_roots=(*layout.prod_roots, f"{A_MEMBER_PATH}/src/")
+        )
+
+        row = diff_features(layout, a_review_config(), self.sets(), churn=True)
+
+        self.assertEqual(
+            [f["path"] for f in row["files"]],
+            [f"{A_MEMBER_PATH}/src/a.txt", "src/a.txt"],
+        )
+        self.assertEqual((row["prod_lines"], row["hunks"]), (2, 2))
+        self.assertEqual(row["churn"], {"commits": 2, "authors": 1})
+
+    def test_one_unresolved_set_nulls_the_whole_row(self):
+        project, member = self.sets()
+
+        row = diff_features(
+            a_layout(),
+            a_review_config(),
+            [project, replace(member, head=None)],
+            churn=False,
+        )
+
+        self.assertIsNone(row["files"])
+
+    def test_a_members_delta_and_reviewed_paths_are_spelled_from_the_project(self):
+        prev = self.git(self.member, "rev-parse", "HEAD~1^{tree}")
+        cur = self.git(self.member, "rev-parse", "HEAD^{tree}")
+
+        numstat = delta_numstat(prev, cur, (), A_MEMBER_PATH)
+        reviewed = tree_files(self.base[self.member], cur, (), A_MEMBER_PATH)
+
+        self.assertEqual(numstat, f"1\t0\t{A_MEMBER_PATH}/src/a.txt\n")
+        self.assertEqual(reviewed, [f"{A_MEMBER_PATH}/src/a.txt"])
 
 
 if __name__ == "__main__":

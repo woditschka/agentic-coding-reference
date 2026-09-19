@@ -81,6 +81,18 @@ The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its 
 
 The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all three tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob: the Claude Code variant pins `effort: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch. `handoff.py tier` re-derives the tier the ledger prescribes; which agent file a tool loaded is not recorded, so adherence shows in cost, never in the ledger.
 
+### Reaching a Second Root
+
+A product workspace ([`product-workspace.md`](product-workspace.md)) starts every session in the umbrella and reaches each member repository beside it through the tool's own grant. The three grants live in different places, so an umbrella carries two of them and the operator the third.
+
+| Tool | Grant | Where it lives |
+|---|---|---|
+| Claude Code | `permissions.additionalDirectories`, plus the native sandbox's `sandbox.filesystem.allowWrite` | `.claude/settings.json`, committed |
+| OpenCode | `permission.external_directory` allow rules, one glob per member | `opencode.json`, committed; the rule has no read and write split |
+| GitHub Copilot CLI | `allowed_directories` per project location, or `/add-dir` in a session | The user's `permissions-config.json`; no launch flag replaces it |
+
+A member repository carries no rules file beyond one deferring line and no agents or skills, because Claude Code reads a granted directory's rules file once a file under it is read, and Copilot CLI loads a granted directory's `.github/agents` and `.github/skills` as trusted configuration.
+
 ### The Gotchas
 
 1. **Multiple rules files break two tools.** The failure modes and their mechanics are § 1's Decision block. The fix: `CLAUDE.md` only.

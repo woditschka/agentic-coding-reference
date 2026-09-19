@@ -43,6 +43,7 @@ The Python lives in five trees with one direction of flow. The shipped runtime u
 | `grading/conventions.py`, `grading/coverage.py` | leaf | Write-time maps over the diff and the test tree; maps, never gates |
 | `changeset.py` | composition root | The change set under review, one definition shared by reviewers and grader |
 | `changeset/config.py` | anti-corruption layer | The exclude-glob section of the layout, only |
+| `changeset/workspace.py` | anti-corruption layer | The `[workspace]` section of the layout: the members, their sibling paths, stacks, contract globs, and dependencies; empty for a single repository |
 | `changeset/git_facts.py` | gateway | Every git invocation, under one canonical environment, with untrusted-ref hardening; the `ChangeSet` record and its resolution |
 | `changeset/emit.py` | verb | The base-ref rule, the tree override a fix-delta review reads, and the emit verb |
 | `backlog.py` | application | The outer loop's candidate set through the project-owned connector |
@@ -65,6 +66,7 @@ Execution model, as it exists:
 |---|---|---|
 | Leaves | `handoff/schema.py`, `handoff/records.py`, `handoff/text.py`, `handoff/timestamps.py`, `changeset/config.py`, `grading/contracts.py`, `grading/conventions.py`, `grading/coverage.py` | standard library only |
 | Layout | `grading/config.py` | the conventions leaf, whose compiled record it validates the `[conventions]` table into |
+| Workspace | `changeset/workspace.py` | the exclude-filter leaf, whose glob predicate the contract globs share |
 | Ledger | `handoff/ledger.py` | the schema and records leaves |
 | Routing leaves | `handoff/findings.py`, `handoff/tiers.py`, `handoff/roster.py`, `handoff/ladder.py`, `handoff/scope_lock.py` | the ledger and the leaves; the ladder adds findings and the roster, the tiers add findings |
 | Repository gateway | `handoff/repository.py`, `handoff/non_goals.py` | the timestamps leaf; the Non-Goals delta reads through the gateway's protocol |
@@ -142,7 +144,7 @@ Run folders are ground truth and every view is derived; a development version's 
 | Layout table | Each package reads only its own sections through its own reader; the schema resolves named keys; the routing core reads the extra reviewers and the grading switch | `scripts/layout.toml`, the three config modules | [ADR](adr/2026-06-13-extensions-and-tool-surfaces.md), [ADR](adr/2026-07-17-module-derivation-named-layouts.md) |
 | Stack defaults | Two tables only, merged key by key under the project's layout; a foreign key fails the load | `scripts/layout-defaults.toml`, `grading/config.py` | [ADR](adr/2026-09-07-security-review-follows-the-surface.md) |
 | Review plan | An engine-authored record per build pass naming risk, scope, basis, and roster; a gray plan defers to the planner; absent or invalid plans fail closed to the full roster | `grading.py`, `grading/planner.py` | [ADR](adr/2026-07-09-risk-proportional-review.md), [ADR](adr/2026-09-01-evidence-gated-dynamic-tiering.md) |
-| Change set | One definition of the diff under review, shared by every reviewer and the grader; the snapshot never touches the real index | `changeset/emit.py`, `changeset/git_facts.py` | [ADR](adr/2026-06-21-fresh-eyes-review-changeset.md) |
+| Change set | One definition of the diff under review, shared by every reviewer and the grader; the snapshot never touches the real index. A product workspace yields one set per present member beside the project's, every path spelled from the project | `changeset/emit.py`, `changeset/git_facts.py` | [ADR](adr/2026-06-21-fresh-eyes-review-changeset.md) |
 | Grading facts | Six facts read from the ledger, every one null on an absent or unreadable log | `grading/handoff_facts.py` | [ADR](adr/2026-06-05-change-grader.md) |
 | Conventions and coverage maps | Lists for the implementer's walk and the reviewers' checklists; no exit code carries a verdict | `grading/conventions.py`, `grading/coverage.py` | [ADR](adr/2026-09-03-coverage-map-joins-the-walk.md) |
 | Contracts sync | A requirement id present in the PRD and the design doc, or a named failure | `grading/contracts.py` | [ADR](adr/2026-08-15-contracts-sync-joins-the-gate.md) |

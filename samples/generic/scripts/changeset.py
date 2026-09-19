@@ -24,6 +24,7 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
 from changeset.config import ChangeSetError, load_exclude_globs
 from changeset.emit import cmd_changeset, report
 from changeset.git_facts import WORKTREE
+from changeset.workspace import WorkspaceError, load_members
 
 SCRIPTS_DIR = Path(_HERE)
 
@@ -45,10 +46,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--base-tree",
+        action="append",
         default=None,
         dest="base_tree",
         help="diff against a raw tree object (a review-plan's tree_sha) instead "
-        "of a commit ref — the fix-delta scope a re-review reads",
+        "of a commit ref — the fix-delta scope a re-review reads; repeat with "
+        "<member>=<sha> for each present workspace member",
     )
     parser.add_argument(
         "--name-only",
@@ -59,10 +62,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         exclude_globs = load_exclude_globs(SCRIPTS_DIR)
-    except ChangeSetError as exc:
+        members = load_members(SCRIPTS_DIR)
+    except (ChangeSetError, WorkspaceError) as exc:
         report(str(exc))
         return 1
-    return cmd_changeset(args, exclude_globs)
+    return cmd_changeset(args, exclude_globs, members)
 
 
 if __name__ == "__main__":

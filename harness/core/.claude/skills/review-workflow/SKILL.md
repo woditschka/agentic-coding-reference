@@ -42,7 +42,7 @@ The engine appends a `review-plan` record (schema: [`schemas/scratch/review-plan
 **Read scope.** The plan's `scope` tells each dispatched reviewer what to read:
 
 - `full-diff` — the whole change set: `python3 scripts/changeset.py` (hunks), `python3 scripts/changeset.py --name-only` (scope).
-- `fix-delta` — only the fix hunks since the plan's basis (the tree the oldest outstanding dissent reviewed), plus your own open findings: `python3 scripts/changeset.py --base-tree <basis.prev_tree_sha>`. A re-review reads what changed since it last spoke, not the whole slice again.
+- `fix-delta` — only the fix hunks since the plan's basis (the tree the oldest outstanding dissent reviewed), plus your own open findings: `python3 scripts/changeset.py --base-tree <basis.prev_tree_sha>`, plus one `--base-tree <key>=<basis.members.<key>.prev_tree_sha>` per present member when the plan carries `basis.members`; a member whose `prev_tree_sha` is null gets no override and is read whole. A re-review reads what changed since it last spoke, not the whole slice again.
 
 A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete is `route`'s call (`route-spec.md` § Gate 5); a reviewer's part is one honest verdict. A reviewer the current pass did not dispatch keeps its prior `approved`; a superseded cycle's dissent is re-covered by the `design-revision` full battery, not by this gate.
 

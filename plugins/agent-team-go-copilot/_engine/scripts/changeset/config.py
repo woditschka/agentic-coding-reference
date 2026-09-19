@@ -27,7 +27,7 @@ def load_exclude_globs(scripts_dir: Path) -> tuple[str, ...]:
     except (OSError, tomllib.TOMLDecodeError) as exc:
         raise ChangeSetError(f"{path.name}: {exc}") from exc
     globs = raw.get("exclude_globs", [])
-    if not isinstance(globs, list) or not all(_is_glob(g) for g in globs):
+    if not isinstance(globs, list) or not all(is_glob(g) for g in globs):
         raise ChangeSetError(
             "layout.toml: exclude_globs must be a list of non-empty glob strings "
             f"(got {globs!r})"
@@ -35,6 +35,6 @@ def load_exclude_globs(scripts_dir: Path) -> tuple[str, ...]:
     return tuple(globs)
 
 
-def _is_glob(value: object) -> bool:
+def is_glob(value: object) -> bool:
     """Return whether the value is a non-empty string git can take as a pathspec."""
     return isinstance(value, str) and bool(value) and "\x00" not in value

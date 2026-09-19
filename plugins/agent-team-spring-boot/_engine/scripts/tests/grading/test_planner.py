@@ -921,9 +921,23 @@ class FixCycle(unittest.TestCase):
         self.assertEqual(plan.open_findings, (finding,))
 
 
-def a_review_plan(no, tree_sha=SOME_PREV_TREE, files=({"path": A_CONFIG_FILE},)):
+def a_review_plan(
+    no, tree_sha=SOME_PREV_TREE, files=({"path": A_CONFIG_FILE},), members=None
+):
     basis = {"tree_sha": tree_sha, "files": None if files is None else list(files)}
+    if members is not None:
+        basis["members"] = members
     return (no, {"type": "review-plan", "author": "review-plan-engine", "basis": basis})
+
+
+A_MEMBER_MAP = {
+    "api": {
+        "path": "../product-api",
+        "present": True,
+        "tree_sha": SOME_PREV_TREE,
+        "prev_tree_sha": None,
+    }
+}
 
 
 def a_feedback(no, author=CODE_REVIEWER, verdict="changes_requested", findings=()):
@@ -956,6 +970,16 @@ A_RAW_FINDING = {
 class PlanContextFold(unittest.TestCase):
     def test_no_prior_plan_is_a_first_pass(self):
         self.assertEqual(plan_context([a_build_pass(1)]), PlanContext("first"))
+
+    def test_a_single_repository_plan_carries_no_member_map(self):
+        context = plan_context([a_design_block(11), a_review_plan(12)])
+
+        self.assertIsNone(context.prev_members)
+
+    def test_the_governing_plans_member_map_is_read_into_the_context(self):
+        records = [a_design_block(11), a_review_plan(12, members=A_MEMBER_MAP)]
+
+        self.assertEqual(plan_context(records).prev_members, A_MEMBER_MAP)
 
     def test_the_sentinel_lives_in_the_global_line_domain(self):
         context = plan_context([a_design_block(11), a_review_plan(12)])

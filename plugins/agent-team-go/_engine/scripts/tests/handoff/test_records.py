@@ -277,6 +277,25 @@ class ParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.basis.prev_tree_sha)
         self.assertEqual(parsed.roster, tuple(raw["roster"]))
 
+    def test_a_review_plan_basis_lifts_the_member_map_when_present(self):
+        raw = golden_record("review-plan")
+        members = {
+            "api": {
+                "path": "../a",
+                "present": False,
+                "tree_sha": None,
+                "prev_tree_sha": None,
+            }
+        }
+        raw["basis"] = {**raw["basis"], "members": members}
+
+        self.assertEqual(handoff.parse_record(raw).basis.members, members)
+
+    def test_a_review_plan_basis_without_members_is_a_single_repository(self):
+        parsed = handoff.parse_record(golden_record("review-plan"))
+
+        self.assertIsNone(parsed.basis.members)
+
     def test_a_review_plan_basis_lifts_the_security_surface(self):
         raw = golden_record("review-plan")
         raw["basis"] = {

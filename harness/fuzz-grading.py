@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run identical synthetic projects through a baseline tree and this one, and diff every grading command.
 
-Usage: harness/fuzz-grading.py --baseline TREE [--seed N] [--count N]
+Usage: harness/fuzz-grading.py --baseline TREE [--seed N] [--count N] [--single-repository]
 
 Each project is a small git repository of one stack with a generated
 layout.toml, a change in the working tree or in a commit, a handoff ledger,
@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
@@ -44,6 +45,14 @@ FLOOR = (
 )
 MALFORMED_LAYOUT = 0.1
 COMMITTED_CHANGE = 0.4
+# A product workspace: the project declares members beside it, some checked out.
+WORKSPACE = 0.3
+MEMBER_ABSENT = 0.25
+MEMBER_NAMES = ("api", "web")
+# Replaced at install time by the fixture's directory name, so a copy of the
+# project finds the members built beside the original.
+MEMBER_ROOT = "MEMBER_ROOT"
+PREFIXED_KEYS = ("test", "prod_roots", "sensitive")
 CHURN_WANTED = 0.4
 EXCLUDES_DECLARED = 0.3
 BINARY_FILE = 0.2
@@ -207,8 +216,23 @@ GITIGNORE = "scripts/\nschemas/\n.scratch/\n"
 
 
 @dataclass(frozen=True, slots=True)
+class Member:
+    """One workspace member: its key, its files at the base, its change, and whether it is checked out."""
+
+    name: str
+    base_files: dict[str, bytes]
+    changed_files: dict[str, bytes | None]
+    present: bool
+
+    @property
+    def path(self) -> str:
+        """Return the member's declared path, with the fixture-name placeholder."""
+        return f"../{MEMBER_ROOT}-{self.name}"
+
+
+@dataclass(frozen=True, slots=True)
 class Project:
-    """One synthetic project: its stack, layout, files at the base, the change, its ledger, and its docs."""
+    """One synthetic project: its stack, layout, files at the base, the change, its ledger, its docs, and its members."""
 
     stack: str
     layout: str
@@ -218,22 +242,25 @@ class Project:
     ledger: str
     docs: dict[str, str]
     churn: bool
+    members: tuple[Member, ...] = ()
 
 
 class Fixture(NamedTuple):
-    """A materialized project: where it lives, the commit its change starts from, and that commit's tree."""
+    """A materialized project: where it lives, the commit its change starts from, that commit's tree, and each present member's base tree."""
 
     path: Path
     base: str
     base_tree: str
+    member_trees: dict[str, str]
 
 
 class Generator:
     """Random projects from one seeded source."""
 
-    def __init__(self, seed: int) -> None:
-        """Seed the source so a run is reproducible by its seed."""
+    def __init__(self, seed: int, *, workspaces: bool = True) -> None:
+        """Seed the source so a run is reproducible by its seed; without workspaces every project is one repository."""
         self.rng = random.Random(seed)
+        self.workspaces = workspaces
 
     def pick(self, options: list[Option]) -> Option:
         """Return one option."""
@@ -247,20 +274,16 @@ class Generator:
         """Return one project with a change worth grading."""
         stack = self.pick(list(STACKS))
         pool = [*PATHS[stack]["prod"], *PATHS[stack]["test"], *SHARED_PATHS]
-        base = {path: self.text() for path in self.subset(pool, MAX_BASE_FILES)}
-        if self.rng.random() < BINARY_FILE:
-            base[BINARY_PATH] = self.binary()
-        changed: dict[str, bytes | None] = {}
-        for path in self.subset(pool, MAX_CHANGED_FILES):
-            deleted = path in base and self.rng.random() < DELETED_FILE
-            changed[path] = None if deleted else self.text()
-        if self.rng.random() < BINARY_FILE:
-            changed[BINARY_PATH] = self.binary()
+        base, changed = self.files(pool)
         if self.rng.random() < LATIN1_FILE:
             changed[LATIN1_PATH] = LATIN1_TEXT
+        # The draw happens either way, so a seed yields the same single-repository
+        # projects with or without the workspace variant.
+        wanted = self.rng.random() < WORKSPACE
+        members = self.members(pool) if wanted and self.workspaces else ()
         return Project(
             stack=stack,
-            layout=self.layout(stack),
+            layout=self.layout(stack, members),
             base_files=base,
             changed_files=changed,
             committed=self.rng.random() < COMMITTED_CHANGE,
@@ -270,7 +293,33 @@ class Generator:
                 "docs/system-design.md": self.pick([DESIGN_WITH_ID, DESIGN_WITHOUT_ID]),
             },
             churn=self.rng.random() < CHURN_WANTED,
+            members=members,
         )
+
+    def files(
+        self, pool: list[str]
+    ) -> tuple[dict[str, bytes], dict[str, bytes | None]]:
+        """Return one repository's files at the base and its change, a binary sometimes in either."""
+        base = {path: self.text() for path in self.subset(pool, MAX_BASE_FILES)}
+        if self.rng.random() < BINARY_FILE:
+            base[BINARY_PATH] = self.binary()
+        changed: dict[str, bytes | None] = {}
+        for path in self.subset(pool, MAX_CHANGED_FILES):
+            deleted = path in base and self.rng.random() < DELETED_FILE
+            changed[path] = None if deleted else self.text()
+        if self.rng.random() < BINARY_FILE:
+            changed[BINARY_PATH] = self.binary()
+        return base, changed
+
+    def members(self, pool: list[str]) -> tuple[Member, ...]:
+        """Return one or two members of the project's stack, each sometimes absent."""
+        count = self.rng.randint(1, len(MEMBER_NAMES))
+        members = []
+        for name in MEMBER_NAMES[:count]:
+            base, changed = self.files(pool)
+            present = self.rng.random() >= MEMBER_ABSENT
+            members.append(Member(name, base, changed, present))
+        return tuple(members)
 
     def subset(self, pool: list[str], cap: int) -> list[str]:
         """Return a random subset of the pool, in pool order."""
@@ -284,15 +333,16 @@ class Generator:
         lines = [self.pick(LINES) for _ in range(count)]
         return ("\n".join(lines) + "\n").encode("utf-8")
 
-    def layout(self, stack: str) -> str:
-        """Return one layout.toml text for the stack, sometimes malformed."""
+    def layout(self, stack: str, members: tuple[Member, ...]) -> str:
+        """Return one layout.toml text for the stack, its members declared, sometimes malformed."""
         excludes = "[]"
         if self.rng.random() < EXCLUDES_DECLARED:
             excludes = json.dumps(self.pick(EXCLUDE_GLOBS))
         command, verbs = GATE[stack]
         text = (
-            CLASSIFICATION[stack]
+            classification(stack, members)
             + f"exclude_globs = {excludes}\n"
+            + workspace_table(stack, members)
             + "[harness]\n"
             + 'channel = "copy"\nspec_version = "0.2.0"\ntools = ["claude"]\nextensions = []\n'
             + f"extra_reviewers = [{self.pick(EXTRA_REVIEWERS)}]\nauto_grade = true\n"
@@ -421,6 +471,29 @@ _FIELDS = {
 }
 
 
+def classification(stack: str, members: tuple[Member, ...]) -> str:
+    """Return the stack's classification, each member's paths classified under its own sibling path."""
+    if not members:
+        return CLASSIFICATION[stack]
+    parsed = tomllib.loads(CLASSIFICATION[stack])
+    lines = []
+    for key in PREFIXED_KEYS:
+        patterns = list(parsed[key])
+        patterns += [f"{m.path}/{p}" for m in members for p in parsed[key]]
+        lines.append(f"{key} = {json.dumps(patterns)}\n")
+    return "".join(lines)
+
+
+def workspace_table(stack: str, members: tuple[Member, ...]) -> str:
+    """Return the [workspace.members] table declaring every member, present or not; nothing without members."""
+    if not members:
+        return ""
+    rows = "".join(
+        f'{m.name} = {{ path = "{m.path}", stack = "{stack}" }}\n' for m in members
+    )
+    return f"[workspace.members]\n{rows}"
+
+
 def git(repo: Path, *args: str) -> str:
     """Run git in the repository and return its stdout."""
     done = subprocess.run(
@@ -430,7 +503,44 @@ def git(repo: Path, *args: str) -> str:
 
 
 def build_repository(project: Project, repo: Path) -> Fixture:
-    """Materialize the project as a git repository and return where it lives."""
+    """Materialize the project as a git repository, its present members beside it, and return where it lives."""
+    docs = {path: text.encode("utf-8") for path, text in project.docs.items()}
+    base, base_tree = _build_change(
+        repo,
+        {**docs, **project.base_files},
+        project.changed_files,
+        committed=project.committed,
+    )
+    (repo / ".scratch").mkdir()
+    ledger = project.ledger.replace("BASE_TREE", base_tree)
+    (repo / ".scratch" / "handoff.jsonl").write_text(ledger, encoding="utf-8")
+    member_trees = {}
+    for member in project.members:
+        if not member.present:
+            continue
+        _base, tree = _build_change(
+            member_directory(repo, member),
+            member.base_files,
+            member.changed_files,
+            committed=project.committed,
+        )
+        member_trees[member.name] = tree
+    return Fixture(repo, base, base_tree, member_trees)
+
+
+def member_directory(repo: Path, member: Member) -> Path:
+    """Return where a member of the project at repo is built: beside it, named after it."""
+    return repo.parent / f"{repo.name}-{member.name}"
+
+
+def _build_change(
+    repo: Path,
+    base_files: dict[str, bytes],
+    changed_files: dict[str, bytes | None],
+    *,
+    committed: bool,
+) -> tuple[str, str]:
+    """Build one repository with a base commit and a change; return the base commit and its tree."""
     repo.mkdir(parents=True)
     git(repo, "init", "-q")
     git(repo, "config", "user.name", SOME_AUTHOR[0])
@@ -438,26 +548,21 @@ def build_repository(project: Project, repo: Path) -> Fixture:
     # No background maintenance: a copy of the repository must never race git.
     git(repo, "config", "gc.auto", "0")
     _write(repo, ".gitignore", GITIGNORE.encode("utf-8"))
-    for path, text in project.docs.items():
-        _write(repo, path, text.encode("utf-8"))
-    for path, body in project.base_files.items():
+    for path, body in base_files.items():
         _write(repo, path, body)
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "base")
     base = git(repo, "rev-parse", "HEAD")
     base_tree = git(repo, "rev-parse", "HEAD^{tree}")
-    for path, change in project.changed_files.items():
+    for path, change in changed_files.items():
         if change is None:
             (repo / path).unlink()
         else:
             _write(repo, path, change)
-    if project.committed:
+    if committed:
         git(repo, "add", "-A")
         git(repo, "commit", "-qm", "change")
-    (repo / ".scratch").mkdir()
-    ledger = project.ledger.replace("BASE_TREE", base_tree)
-    (repo / ".scratch" / "handoff.jsonl").write_text(ledger, encoding="utf-8")
-    return Fixture(repo, base, base_tree)
+    return base, base_tree
 
 
 def _write(repo: Path, path: str, body: bytes) -> None:
@@ -466,8 +571,10 @@ def _write(repo: Path, path: str, body: bytes) -> None:
     target.write_bytes(body)
 
 
-def install_runtime(tree: Path, project: Project, repo: Path) -> None:
-    """Copy the tree's shipped scripts and schemas into the repository, under the project's layout."""
+def install_runtime(
+    tree: Path, project: Project, repo: Path, members_root: str
+) -> None:
+    """Copy the tree's shipped scripts and schemas into the repository, under the project's layout with its members located."""
     scripts = repo / "scripts"
     shutil.copytree(
         tree / differential.SCRIPTS,
@@ -478,7 +585,8 @@ def install_runtime(tree: Path, project: Project, repo: Path) -> None:
         tree / "harness" / "stacks" / project.stack / "scripts" / "layout-defaults.toml"
     )
     shutil.copy2(defaults, scripts / "layout-defaults.toml")
-    (scripts / "layout.toml").write_text(project.layout, encoding="utf-8")
+    layout = project.layout.replace(MEMBER_ROOT, members_root)
+    (scripts / "layout.toml").write_text(layout, encoding="utf-8")
     shutil.copytree(tree / "harness" / "core" / "schemas", repo / "schemas")
 
 
@@ -505,6 +613,19 @@ def commands(project: Project, fixture: Fixture) -> list[tuple[str, str, list[st
             ["extract", "--feature", REQ_ID, "--head", "HEAD"],
         ),
     ]
+    if fixture.member_trees:
+        trees = [f"{key}={tree}" for key, tree in fixture.member_trees.items()]
+        sequence.append(
+            (
+                "changeset --base-tree members",
+                changeset,
+                [
+                    "--base-tree",
+                    fixture.base_tree,
+                    *(a for t in trees for a in ("--base-tree", t)),
+                ],
+            )
+        )
     if project.committed:
         sequence += [
             ("changeset committed", changeset, committed),
@@ -528,7 +649,7 @@ def run_project(
 ) -> list[tuple[str, differential.Outcome]]:
     """Run the project's command sequence through one tree and return every labeled outcome."""
     shutil.copytree(fixture.path, copy, symlinks=True)
-    install_runtime(tree, project, copy)
+    install_runtime(tree, project, copy, fixture.path.name)
     outcomes = []
     for label, script, argv in commands(project, fixture):
         outcome = differential.run_script(
@@ -568,6 +689,7 @@ def compare_project(
         fixture.path,
         scratch / f"baseline-{index}",
         scratch / f"candidate-{index}",
+        *(member_directory(fixture.path, m) for m in project.members if m.present),
     ):
         shutil.rmtree(path)
     return found
@@ -585,13 +707,18 @@ def main(argv: list[str]) -> int:
     parser.add_argument(
         "--count", type=int, default=DEFAULT_COUNT, help="projects to generate"
     )
+    parser.add_argument(
+        "--single-repository",
+        action="store_true",
+        help="generate no workspace projects (the net for a change that only a workspace could see)",
+    )
     args = parser.parse_args(argv[1:])
     try:
         baseline = differential.resolve_tree(args.baseline, differential.GRADING)
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 2
-    generator = Generator(args.seed)
+    generator = Generator(args.seed, workspaces=not args.single_repository)
     trees = differential.Trees(baseline, ROOT)
     differences = 0
     with tempfile.TemporaryDirectory() as scratch:

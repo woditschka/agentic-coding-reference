@@ -9,9 +9,17 @@ import fnmatch
 import re
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
-from changeset.git_facts import ChangeSet, exclude_pathspecs, resolve_tree, run_git
+from changeset.git_facts import (
+    ChangeSet,
+    exclude_pathspecs,
+    globs_for,
+    prefix_listing,
+    prefix_numstat,
+    resolve_tree,
+    run_git,
+)
 
 from .config import NAMED_MODULE_LAYOUTS, Layout, Raw, ReviewConfig
 from .conventions import changed_lines
@@ -126,18 +134,21 @@ def security_surface_paths(
 
 
 def diff_features(
-    layout: Layout, review: ReviewConfig, changeset: ChangeSet, *, churn: bool
+    layout: Layout,
+    review: ReviewConfig,
+    changesets: Sequence[ChangeSet],
+    *,
+    churn: bool,
 ) -> Raw:
-    """Return the git-derived feature row; every field is null without a resolved base and head.
+    """Return the git-derived feature row over every set; every field is null unless each set resolved both ends.
 
     Raises RuntimeError when a git command fails; the entry turns that into a
     clean error.
     """
-    if changeset.base is None or changeset.head is None:
+    if not changesets or any(c.base is None or c.head is None for c in changesets):
         return dict(_NULL_ROW)
-    ends = (changeset.base, changeset.head, *changeset.pathspecs)
-    numstat = run_git("diff", "--numstat", "--find-renames", *ends)
-    unified = run_git("diff", "--unified=0", "--find-renames", *ends)
+    numstat = "".join(_numstat_of(c) for c in changesets)
+    unified = "".join(_unified_of(c) for c in changesets)
     files = sorted(_file_rows(numstat, layout), key=lambda row: row["path"])
     counted = [
         row for row in files if row["added"] is not None and row["deleted"] is not None
@@ -162,8 +173,36 @@ def diff_features(
         "unknown_paths": [row["path"] for row in files if row["kind"] == "unknown"],
         "binary_files": len(files) - len(counted),
         "security_surface_paths": surface,
-        "churn": _churn(changeset) if churn and changeset.tip else None,
+        "churn": _churn(changesets) if churn else None,
     }
+
+
+def _numstat_of(changeset: ChangeSet) -> str:
+    """Return one set's numstat, its paths spelled from the project."""
+    out = run_git(
+        "diff",
+        "--numstat",
+        "--find-renames",
+        str(changeset.base),
+        str(changeset.head),
+        *changeset.pathspecs,
+        root=changeset.root,
+    )
+    return prefix_numstat(out, changeset.prefix)
+
+
+def _unified_of(changeset: ChangeSet) -> str:
+    """Return one set's zero-context diff, its header paths spelled from the project."""
+    return run_git(
+        "diff",
+        "--unified=0",
+        "--find-renames",
+        *changeset.diff_options,
+        str(changeset.base),
+        str(changeset.head),
+        *changeset.pathspecs,
+        root=changeset.root,
+    )
 
 
 def _file_rows(numstat: str, layout: Layout) -> Iterator[Raw]:
@@ -196,10 +235,20 @@ def _lines_of(counted: Sequence[Raw], kind: Kind) -> int:
     return sum(row["added"] + row["deleted"] for row in counted if row["kind"] == kind)
 
 
-def _churn(changeset: ChangeSet) -> dict[str, int]:
-    """Count the commits and distinct authors between the base and the tip."""
-    log = run_git("log", "--format=%an", f"{changeset.base}..{changeset.tip}")
-    authors = [a for a in log.splitlines() if a]
+def _churn(changesets: Sequence[ChangeSet]) -> dict[str, int] | None:
+    """Count the commits and distinct authors between base and tip across the sets that have a tip; None when none has."""
+    with_tip = [c for c in changesets if c.tip]
+    if not with_tip:
+        return None
+    authors: list[str] = []
+    for changeset in with_tip:
+        log = run_git(
+            "log",
+            "--format=%an",
+            f"{changeset.base}..{changeset.tip}",
+            root=changeset.root,
+        )
+        authors.extend(a for a in log.splitlines() if a)
     return {"commits": len(authors), "authors": len(set(authors))}
 
 
@@ -240,60 +289,88 @@ def _line_count(added: str, deleted: str) -> int:
 
 
 def delta_numstat(
-    prev_tree: object, cur_tree: object, exclude_globs: Sequence[str]
+    prev_tree: object,
+    cur_tree: object,
+    exclude_globs: Sequence[str],
+    member_path: str | None = None,
 ) -> str | None:
-    """Return the numstat between two snapshot trees; None when it cannot be read.
+    """Return the numstat between two snapshot trees of one repository, paths spelled from the project; None when it cannot be read.
 
     Both trees resolve through the gateway before reaching git, so an
     agent-authored value never smuggles an option into the diff.
     """
-    if not prev_tree or not cur_tree:
+    tree_range = _tree_diff(prev_tree, cur_tree, exclude_globs, member_path)
+    listing = None if tree_range is None else tree_range.listing("--numstat")
+    if listing is None:
         return None
-    prev = resolve_tree(prev_tree)
-    cur = resolve_tree(cur_tree)
-    if prev is None or cur is None:
-        return None
-    try:
-        numstat = run_git(
-            "diff",
-            "--numstat",
-            "--find-renames",
-            prev,
-            cur,
-            *exclude_pathspecs(exclude_globs),
-        )
-    except RuntimeError:
-        return None
-    return _intact(numstat)
+    return prefix_numstat(listing, _prefix(member_path))
 
 
 def tree_files(
-    base: object, tree: object, exclude_globs: Sequence[str]
+    base: object,
+    tree: object,
+    exclude_globs: Sequence[str],
+    member_path: str | None = None,
 ) -> list[str] | None:
-    """Return every path changed between the slice base and a prior pass's tree; None on failure."""
-    if not base or not tree:
+    """Return every path changed between the slice base and a prior pass's tree of one repository; None on failure."""
+    tree_range = _tree_diff(base, tree, exclude_globs, member_path)
+    listing = None if tree_range is None else tree_range.listing("--name-only")
+    if listing is None:
         return None
-    resolved_base = resolve_tree(base)
-    resolved_tree = resolve_tree(tree)
-    if resolved_base is None or resolved_tree is None:
-        return None
-    try:
-        out = run_git(
-            "diff",
-            "--name-only",
-            "--find-renames",
-            resolved_base,
-            resolved_tree,
-            *exclude_pathspecs(exclude_globs),
-        )
-    except RuntimeError:
-        return None
-    return None if _intact(out) is None else [p for p in out.splitlines() if p]
+    spelled = prefix_listing(listing, _prefix(member_path))
+    return [p for p in spelled.splitlines() if p]
+
+
+def _prefix(member_path: str | None) -> str:
+    return "" if member_path is None else f"{member_path}/"
+
+
+class _TreeRange(NamedTuple):
+    """Two resolved trees of one repository and the pathspecs their diff drops."""
+
+    left: str
+    right: str
+    root: Path | None
+    pathspecs: list[str]
+
+    def listing(self, form: str) -> str | None:
+        """Return the diff in the given listing form; None when git fails or a path did not decode."""
+        try:
+            out = run_git(
+                "diff",
+                form,
+                "--find-renames",
+                self.left,
+                self.right,
+                *self.pathspecs,
+                root=self.root,
+            )
+        except RuntimeError:
+            return None
+        return _intact(out)
 
 
 def _intact(listing: str) -> str | None:
     """Return the listing, or None when a path did not decode: a replaced path can alias another, so the fix cycle fails closed."""
     return None if "\ufffd" in listing else listing
+
+
+def _tree_diff(
+    left: object,
+    right: object,
+    exclude_globs: Sequence[str],
+    member_path: str | None,
+) -> _TreeRange | None:
+    """Resolve two trees of one repository and the globs that apply inside it; None on any unresolved end, so a fix cycle fails closed."""
+    if not left or not right:
+        return None
+    root = None if member_path is None else Path(member_path)
+    resolved_left = resolve_tree(left, root)
+    resolved_right = resolve_tree(right, root)
+    if resolved_left is None or resolved_right is None:
+        return None
+    globs = globs_for(exclude_globs, _prefix(member_path))
+    return _TreeRange(resolved_left, resolved_right, root, exclude_pathspecs(globs))
 
 
 def basis_files(

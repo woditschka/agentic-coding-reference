@@ -27,13 +27,13 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
     sys.path.insert(0, _HERE)
 
 from changeset.config import ChangeSetError, load_exclude_globs
-from changeset.emit import default_base
+from changeset.emit import changesets_for
 from changeset.git_facts import (
     WORKTREE,
     ChangeSet,
-    resolve_changeset,
     run_git,
 )
+from changeset.workspace import Member, WorkspaceError, load_members
 from grading.config import Layout, LayoutError, Raw, ReviewConfig, load_layout
 from grading.contracts import check_contracts_sync
 from grading.conventions import conventions_map, render as render_conventions
@@ -65,12 +65,26 @@ from grading.planner import (
 SCRIPTS_DIR = Path(_HERE)
 
 
+class Install(NamedTuple):
+    """What a gate command loads before it reads an argument or git: the layout, its review table, the exclude filter."""
+
+    layout: Layout
+    review: ReviewConfig
+    exclude_globs: tuple[str, ...]
+    members: tuple[Member, ...]
+
+    def changesets(self, args: argparse.Namespace) -> tuple[ChangeSet, ...]:
+        """Return the project's change set and one per present member, resolved from the arguments."""
+        return changesets_for(args, self.exclude_globs, self.members)
+
+
 def cmd_extract(args: argparse.Namespace) -> int:
     """Append the change's grader-features record and return the exit code."""
     req_id = args.feature
-    layout, review, exclude_globs = load_install()
-    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
-    if args.head == WORKTREE and changeset.head is None:
+    install = load_install()
+    changesets = install.changesets(args)
+    changeset = changesets[0]
+    if args.head == WORKTREE and any(c.head is None for c in changesets):
         report(
             "extract",
             "warning — could not snapshot the working tree; diff features are null",
@@ -86,7 +100,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
         "head_kind": changeset.head_kind,
     }
     try:
-        features.update(diff_features(layout, review, changeset, churn=args.churn))
+        features.update(
+            diff_features(install.layout, install.review, changesets, churn=args.churn)
+        )
     except RuntimeError as exc:
         report("extract", f"git command failed: {exc}")
         return 1
@@ -140,35 +156,43 @@ def cmd_conventions_map(args: argparse.Namespace) -> int:
     """Print the change's conventions map and return the exit code."""
     layout = load_layout(SCRIPTS_DIR)
     exclude_globs = load_exclude_globs(SCRIPTS_DIR)
-    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
-    if not changeset.resolved:
+    changesets = changesets_for(args, exclude_globs, load_members(SCRIPTS_DIR))
+    if not all(c.resolved for c in changesets):
         report("conventions-map", "base or head unresolved — nothing to map")
         return 1
     try:
         conventions = layout.conventions_config()
-        diff = run_git(
-            "diff",
-            "--unified=0",
-            "--find-renames",
-            str(changeset.base),
-            str(changeset.head),
-            *changeset.pathspecs,
-        )
+        diff = "".join(_unified_diff(c) for c in changesets)
     except (RuntimeError, ValueError) as exc:
         report("conventions-map", str(exc))
         return 1
     rows = conventions_map(diff, lambda path: classify_kind(path, layout), conventions)
-    print(render_conventions(rows, str(changeset.base)[:7]))
+    print(render_conventions(rows, str(changesets[0].base)[:7]))
     return 0
+
+
+def _unified_diff(changeset: ChangeSet) -> str:
+    """Return one set's zero-context diff with its paths spelled from the project."""
+    return run_git(
+        "diff",
+        "--unified=0",
+        "--find-renames",
+        *changeset.diff_options,
+        str(changeset.base),
+        str(changeset.head),
+        *changeset.pathspecs,
+        root=changeset.root,
+    )
 
 
 def cmd_review_plan(args: argparse.Namespace) -> int:
     """Append the review-plan record for the next review pass and return the exit code."""
     req_id = args.feature
-    layout, review, exclude_globs = load_install()
-    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
+    install = load_install()
+    layout, review = install.layout, install.review
+    changesets = install.changesets(args)
     try:
-        features = diff_features(layout, review, changeset, churn=False)
+        features = diff_features(layout, review, changesets, churn=False)
     except RuntimeError as exc:
         report("review-plan", f"git command failed: {exc}")
         return 1
@@ -179,10 +203,11 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
         context,
         layout,
         review,
-        changeset.head,
-        changeset.base,
+        changesets[0].head,
+        changesets[0].base,
+        members_basis(install.members, changesets, context.prev_members),
     )
-    plan = derive_plan(inputs, _git_readers(layout, review, exclude_globs))
+    plan = derive_plan(inputs, _git_readers(install, changesets, context.prev_members))
     record: Raw = {
         "type": "review-plan",
         "req_id": req_id,
@@ -204,18 +229,71 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def members_basis(
+    members: Sequence[Member],
+    changesets: Sequence[ChangeSet],
+    prev_members: Raw | None,
+) -> Raw | None:
+    """Return the plan's member map: each declared member's path, presence, snapshot, and the governing plan's snapshot; None without members."""
+    if not members:
+        return None
+    by_path = {c.member_path: c for c in changesets if c.member_path is not None}
+    previous = prev_members or {}
+    basis: Raw = {}
+    for member in members:
+        current = by_path.get(member.path)
+        earlier = previous.get(member.key)
+        basis[member.key] = {
+            "path": member.path,
+            "present": current is not None,
+            "tree_sha": None if current is None else current.head,
+            "prev_tree_sha": earlier.get("tree_sha")
+            if isinstance(earlier, dict)
+            else None,
+        }
+    return basis
+
+
 def _git_readers(
-    layout: Layout, review: ReviewConfig, exclude_globs: Sequence[str]
+    install: Install, changesets: Sequence[ChangeSet], prev_members: Raw | None
 ) -> GitReaders:
-    """Bind the planner's two git-backed reads; every agent-authored tree resolves through the gateway first."""
+    """Bind the planner's two git-backed reads over every present repository; every agent-authored tree resolves through the gateway first, and one unreadable repository fails the read closed."""
+    layout, review, exclude_globs = (
+        install.layout,
+        install.review,
+        install.exclude_globs,
+    )
+    member_sets = [c for c in changesets if c.member_path is not None]
+    by_path = {m.path: m for m in install.members}
+    previous = prev_members or {}
+
+    def prev_tree_of(changeset: ChangeSet) -> object:
+        earlier = previous.get(by_path[str(changeset.member_path)].key)
+        return earlier.get("tree_sha") if isinstance(earlier, dict) else None
 
     def delta(prev_tree: object, cur_tree: object) -> Raw | None:
-        numstat = delta_numstat(prev_tree, cur_tree, exclude_globs)
-        return None if numstat is None else parse_numstat(numstat, layout, review)
+        listings = [delta_numstat(prev_tree, cur_tree, exclude_globs)]
+        listings.extend(
+            delta_numstat(prev_tree_of(c), c.head, exclude_globs, c.member_path)
+            for c in member_sets
+        )
+        if any(listing is None for listing in listings):
+            return None
+        return parse_numstat(
+            "".join(str(listing) for listing in listings), layout, review
+        )
 
-    return GitReaders(
-        delta, lambda base_tree, tree: tree_files(base_tree, tree, exclude_globs)
-    )
+    def reviewed(base_tree: object, tree: object) -> list[str] | None:
+        listings = [tree_files(base_tree, tree, exclude_globs)]
+        listings.extend(
+            tree_files(c.base, prev_tree_of(c), exclude_globs, c.member_path)
+            for c in member_sets
+        )
+        if any(listing is None for listing in listings):
+            return None
+        return [path for listing in listings for path in (listing or [])]
+
+    return GitReaders(delta, reviewed)
 
 
 def plan_basis(inputs: PlanInputs, plan: Plan) -> Raw:
@@ -226,6 +304,7 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> Raw:
         "pass": context.pass_,
         "prev_tree_sha": context.prev_tree_sha,
         "files": basis_files(features, inputs.layout, inputs.review),
+        **({} if inputs.members is None else {"members": inputs.members}),
         "size": {
             "prod_lines": features.get("prod_lines"),
             "test_lines": features.get("test_lines"),
@@ -250,18 +329,15 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> Raw:
     }
 
 
-class Install(NamedTuple):
-    """What a gate command loads before it reads an argument or git: the layout, its review table, the exclude filter."""
-
-    layout: Layout
-    review: ReviewConfig
-    exclude_globs: tuple[str, ...]
-
-
 def load_install() -> Install:
     """Load the install first, so a broken one fails loud before any argument or git fault."""
     layout = load_layout(SCRIPTS_DIR)
-    return Install(layout, layout.review_config(), load_exclude_globs(SCRIPTS_DIR))
+    return Install(
+        layout,
+        layout.review_config(),
+        load_exclude_globs(SCRIPTS_DIR),
+        load_members(SCRIPTS_DIR),
+    )
 
 
 def report(command: str, message: str) -> None:
@@ -332,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         exit_code: int = args.func(args)
-    except (LayoutError, ChangeSetError) as exc:
+    except (LayoutError, ChangeSetError, WorkspaceError) as exc:
         # A broken layout.toml or an argument naming no range is reported the
         # way every command reports a git failure: one stderr line, exit 1.
         report(args.cmd, str(exc))

@@ -164,6 +164,7 @@ class PlanBasis:
     pass_: str | None = None
     prev_tree_sha: str | None = None
     files: tuple[object, ...] | None = None
+    members: dict[str, Any] | None = None
     size: dict[str, Any] | None = None
     history: dict[str, Any] | None = None
     open_findings: tuple[object, ...] | None = None
@@ -707,6 +708,7 @@ def _plan_basis(raw: dict[str, Any]) -> PlanBasis:
         pass_=raw.get("pass"),
         prev_tree_sha=raw.get("prev_tree_sha"),
         files=_opt_tuple(raw.get("files")),
+        members=raw.get("members") if isinstance(raw.get("members"), dict) else None,
         size=raw.get("size"),
         history=raw.get("history"),
         open_findings=_opt_tuple(raw.get("open_findings")),

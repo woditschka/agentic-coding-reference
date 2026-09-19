@@ -94,6 +94,9 @@ class PlanContext:
     reviewed_files: tuple[object, ...] | None = ()
     dissenters: tuple[object, ...] = ()
     open_findings: tuple[OpenFinding, ...] = ()
+    # The governing plan's member map, so a fix pass diffs each member against
+    # its own previous tree; None for a single repository.
+    prev_members: Raw | None = None
 
     @property
     def fix_with_dissent(self) -> bool:
@@ -129,6 +132,7 @@ class PlanInputs:
     review: ReviewConfig
     tree_sha: str | None
     base_sha: str | None = None
+    members: Raw | None = None
 
     @property
     def roster(self) -> tuple[str, ...]:
@@ -523,12 +527,14 @@ def plan_context(records: Records) -> PlanContext:
         _latest_plan_between(records, start, oldest_dissent) if dissenters else previous
     )
     basis = (basis_plan or {}).get("basis") or {}
+    members = basis.get("members")
     return PlanContext(
         "fix",
         basis.get("tree_sha"),
         _reviewed_files(basis),
         tuple(dissenters),
         tuple(_open_findings(latest)),
+        prev_members=members if isinstance(members, dict) else None,
     )
 
 
