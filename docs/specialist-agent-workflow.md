@@ -156,8 +156,8 @@ Every agent is a shared markdown body plus tool-specific frontmatter. Canonical 
 ---
 name: pipeline-coordinator
 description: >-
-  Orchestrates the feature delivery pipeline. Use for new features
-  or when unsure which agent to invoke.
+  Use for `escalate` decisions and intake neither the `intake` skill
+  nor the `next` triage classified.
 tools:
   - Read
   - Grep
@@ -212,7 +212,7 @@ Three phases move a project from a single rules file to the full pipeline: Claud
 1. Create `CLAUDE.md` in project root with build commands, conventions, and forbidden patterns
 2. Create `.claude/skills/handoff-routing/` with SKILL.md (routing contract) and route-spec.md (the executable table)
 3. Define two agents: `pipeline-coordinator` and one specialist (start with `feature-implementer`)
-4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the routing gate validates inbound records against these
+4. Create `schemas/scratch/` and commit the seven record schemas the gates read first (`intake-decision`, `dispatch-start`, `prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the routing gate validates inbound records against these
 5. Create `.scratch/` directory (containing the empty `handoff.jsonl`) and add `.scratch/` to `.gitignore`
 6. Run the pipeline manually, without the coordinator, for two weeks to validate the pattern
 
@@ -220,7 +220,7 @@ Three phases move a project from a single rules file to the full pipeline: Claud
 - Create all eleven agents at once — start with two, add as needed
 - Skip the manual phase — routing decisions must be observed before they are automated
 - Skip schema validation — without the gate, malformed records reach the next agent unchecked (see §1 *Why JSONL over per-stage markdown*)
-- Over-engineer record schemas — start with the five canonical types, add fields when needed
+- Over-engineer record schemas — start with the seven types the gates read, add fields when needed
 
 ### Phase 2: Add Remaining Specialists (Week 3–4)
 

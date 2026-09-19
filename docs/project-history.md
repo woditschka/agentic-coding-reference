@@ -149,3 +149,6 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-14** — Hold the harness's own Python to the bar it ships: three root briefs state the design, code, and testing standards, the battery gates the mechanical half, and contract nets replay ledgers and fuzz records against the last commit.
 - **2026-09-17** — Finish the quality program: every Python tree and test suite meets the bar, the debt list is empty, and the handbook's self-containment and runtime-number invariants become battery gates.
 - **2026-09-17** — Put workload fit inside the bar: the design owner records each scaling path's size and access pattern in the brief; implementer and reviewer work from that row; buy before build.
+- **2026-09-18** — Place workspace members beside the umbrella as siblings, each reached through its tool's own directory grant; nesting is the fallback, and a spike precedes the build.
+- **2026-09-19** — Fan the change set, the grading features, and the review plan out over workspace members, each spelled from the umbrella by its real relative path; a single repository stays byte-identical.
+- **2026-09-19** — Add the bookstore product-workspace sample: a materialized umbrella with three sibling Spring Boot members over gRPC, two tiers of docs, and the workspace decision's worked example.

@@ -140,5 +140,5 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-09-10 | [Retire the Junie Target](2026-09-10-retire-the-junie-target.md) | Accepted |
 | 2026-09-12 | [The Outer Loop Reads the Team's Board Through a Project-Owned Connector](2026-09-12-backlog-connector.md) | Accepted |
 | 2026-09-12 | [A PRD Change Made in Consultation Reaches the Design Doc Before Review](2026-09-12-design-sync-gate.md) | Accepted |
-| 2026-09-13 | [A Product Workspace Holds the Product Truth; Module Repositories Are Members Checked Out on Demand](2026-09-13-product-workspace-with-member-modules.md) | Accepted (implementation pending; see Implementation) |
+| 2026-09-13 | [A Product Workspace Holds the Product Truth; Module Repositories Are Members Checked Out on Demand](2026-09-13-product-workspace-with-member-modules.md) | Accepted (member placement decided 2026-09-18; spike half run 2026-09-18; change 1 of 3 landed 2026-09-19; see Implementation) |
 | 2026-09-17 | [Workload Fit Lives Inside the Existing Bar, Not as a New Reviewer, Slug, or Brief](2026-09-17-workload-fit-inside-the-bar.md) | Accepted |

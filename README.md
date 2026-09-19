@@ -128,7 +128,7 @@ Go and Spring Boot represent different paradigms: explicit versus convention-dri
 | **Skills** | 25 portable skills (incl. 2 GoLand oracle skills) | 25 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
-Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all three tools. Agent bodies are identical per tool; only frontmatter differs. Matrices, IDE paths, and gotchas are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md).
+Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all three tools. Agent bodies are identical per tool; only frontmatter differs. Matrices, IDE paths, and gotchas are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md). A fourth directory, [`samples/product-workspace/`](samples/product-workspace/), holds the bookstore: an umbrella and three sibling Spring Boot members talking gRPC, the worked example for the [product-workspace decision](docs/adr/2026-09-13-product-workspace-with-member-modules.md). The umbrella carries the generic runtime and declares its members; a scratch materialization places the four as sibling repositories for a real run.
 
 ## The Eval Bench
 
@@ -150,6 +150,7 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Understand the machinery in depth | [`agentic-harness.md`](docs/agentic-harness.md) — the four-loop model, slice definition, agent roster, handoff contract, grading, recovery |
 | Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, distribution channels, the ownership contract, optional tooling |
 | Run it with more than one person | [`human-teams.md`](docs/human-teams.md) — one checkout and one slice per person; claims live in the team's tracker; what to serialize, how to merge |
+| Run one product across more than one repository | [`product-workspace.md`](docs/product-workspace.md) — the umbrella and its members: roles, operating modes, the two tiers of truth, layout, placement, the cross-repository change set |
 | Connect `/next` to the team's tracker | [`backlog-connector.md`](docs/backlog-connector.md) — the `scripts/backlog.sh` contract: board order ranks, claims exclude, intake and stale items surface; solo is the unbound default |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
 | Compare or configure the three agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
@@ -176,7 +177,8 @@ The loop closes on this repository itself. The bench caught its first cost regre
 ├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
 │   ├── java-spring-boot/              # Spring Boot reference implementation
-│   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
+│   ├── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
+│   └── product-workspace/             # Bookstore: an umbrella and three sibling Spring members over gRPC — the product-workspace ADR's worked example, harness support pending
 ├── evals/                             # Harness eval bench: frozen tasks vs. a fixed SUT, per version (results/TREND.md)
 ├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
 │   ├── harness-stats/                 # Cache-efficiency statusline + report

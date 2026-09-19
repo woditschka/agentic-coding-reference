@@ -23,6 +23,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── harness-code-standards.md  # The shipped code bar realized for the harness's own Python
 │   ├── harness-testing-principles.md  # The shipped testing brief applied to the harness's own suites
 │   ├── harness-project-api.md
+│   ├── product-workspace.md       # One product across repositories: umbrella, members, tiers, layout (design; the change set and review plan fan out, the rest is pending)
 │   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
 │   ├── open-weight-models.md      # Pinned-model mapping to open-weight providers (version-stamped; update-research refreshes)
 │   ├── ddd-principles.md
@@ -47,7 +48,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── java-spring-boot/          # Materialized Spring Boot instance
 │   │   ├── CLAUDE.md              # Spring Boot-specific agent instructions (authoritative)
 │   │   └── ...
-│   └── generic/                   # Materialized generic-stack instance (no build toolchain; binds via scripts/stack.sh)
+│   ├── generic/                   # Materialized generic-stack instance (no build toolchain; binds via scripts/stack.sh)
+│   └── product-workspace/         # Bookstore: a materialized generic umbrella + three sibling Spring members over gRPC; the product-workspace ADR's worked example
 ├── .claude-plugin/                # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                       # Generated: per-tool plugins, rendered by package-marketplace.py
 └── README.md
@@ -60,6 +62,8 @@ The `samples/go/`, `samples/java-spring-boot/`, and `samples/generic/` directori
 - Follow that project's `CLAUDE.md` — it is the authoritative source for build commands, conventions, and agent workflow.
 - Do not apply Go conventions to Java or vice versa.
 - The per-tool runtime (`.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`) is materialized from `/harness` and committed on the copy channel. Edit the source in `/harness` and re-materialize; never hand-edit a sample's runtime copy.
+
+`samples/product-workspace/` is the bookstore, the product-workspace ADR's worked example: an umbrella and three sibling Spring Boot members over gRPC. The umbrella is a generic-stack consumer on the copy channel, materialized with the stack samples; its `scripts/layout.toml` declares the members and its `.claude/settings.json` carries the directory grants. The members carry no runtime and are ordinary Gradle projects. In this tree the four directories are one repository's subdirectories, so a harness run needs `materialize-workspace.sh`, which places them beside one another as four repositories in a scratch location. `bookstore/bookstore.sh` builds and runs the members from either place.
 
 ## What to Do at the Root Level
 
@@ -86,7 +90,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `update-research` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, `docs/open-weight-models.md`, and the workflow doc's stamped sections |
 | `update-history` | Update the milestone timeline in `docs/project-history.md` with executive-level milestones since the last entry |
 | `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc, eval trend, claude-dev egress, human teams) when the harness changes or a sweep changes the eval story, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
-| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the init skeletons and root README restating them, the CI workflow's SHA-pinned actions, and the harness-stats pricing override |
+| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the bookstore workspace members, the init skeletons and root README restating them, the CI workflow's SHA-pinned actions, and the harness-stats pricing override |
 | `install-harness-statusline` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `install-claude-dev` | Install or update the user-level claude-dev tooling into `~/.local/bin` and `~/.config/claude-dev` (front-end for `tools/claude-dev/install.sh`) |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, backlog.sh, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
