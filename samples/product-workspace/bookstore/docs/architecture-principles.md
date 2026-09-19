@@ -1,0 +1,127 @@
+<!-- harness: 2026-06-26 -->
+# Architecture Principles
+
+This document carries the tactical pattern catalog this project builds with. It specializes the strategic properties the harness works from — one canonical vocabulary, bounded modules, an isolated unit-testable domain core, and the state-vs-history document split.
+
+**This brief is the single surface for adapting the architecture style**, and it has two layers. The **closed properties** under *Domain Core* are the kernel every brief realizes but does not rewrite. The **open pattern catalog** below them ships an opinionated default the project is free to adapt. The `design-validation` skill reads this file and enforces it as written — it holds no competing copy, so changing a pattern here changes what is enforced.
+
+## Design Principles
+
+The high-level laws designs are evaluated against. The `design-validation` skill enforces them at triage.
+
+1. **Pipeline integrity** — the processing pipeline is the backbone; features must fit within it.
+2. **Consistency over novelty** — match existing patterns unless there is a compelling reason.
+3. **Explicit dependencies** — every integration point documented.
+4. **Granular failure** — errors should be as granular as possible.
+5. **Records for data, components for behavior** — keep the data model clean.
+6. **Test-data driven** — every input handling change must work against test data.
+
+## Module Boundaries
+
+The unit of architecture is the module: a bounded context with a public API and hidden internals.
+
+| Rule | Rationale |
+|------|-----------|
+| Modules depend only on other modules' public APIs | Internal implementation changes don't cascade |
+| No circular dependencies between modules | Keeps the dependency graph a hierarchy; cycles make modules un-reasonable in isolation |
+| Each module owns its configuration | Prevents god-config; the module stays independently understandable |
+| Cross-module orchestration lives in a dedicated service or the entry point | Modules stay independent of each other's execution order |
+
+**Default shape: modulith.** A single deployable unit with enforced internal module boundaries. It provides the separation of microservices without network boundaries, deployment pipelines, or distributed consistency problems — costs that outweigh the benefits at single-team scale.
+
+**Enforcement.** Module boundaries are verified at test time: a modularity test fails the build when a module reaches into another's internals or a dependency cycle appears. Boundaries are not advisory.
+
+**Module = bounded context.** Each module typically maps to one bounded context. If two modules share domain types, decide explicitly: they are one context, or they are two contexts needing a translation layer between them.
+
+## Domain Core
+
+Business logic lives in the domain core, isolated from infrastructure and testable without it. Orchestration stays thin: services coordinate sequencing and error handling; the core decides. When logic leaks into orchestration, it stops being unit-testable in isolation — that is the failure signal.
+
+These properties are **closed**: adapt the *how* in the Pattern Catalog, not these.
+
+| Property | Rationale |
+|----------|-----------|
+| Domain objects are immutable; collections use defensive copies; no setters | Eliminates shared-mutable-state bugs; safe to pass between pipeline steps without synchronization |
+| Invariants are enforced when a domain object is first constructed; rebuilding one from stored state restores an already-valid instance | The domain is valid by construction, and only valid states are ever persisted |
+| The domain core holds no infrastructure logic — no I/O, queries, transactions, or DI wiring | The same model runs under any infrastructure; swap the store and the domain is unchanged |
+| Aggregates are the consistency boundary: outside code enters only through the root, and aggregates reference each other by identity | Invariants enforced in one place; boundaries stay boundaries |
+| Anti-corruption guards every boundary the project does not control; infrastructure mechanics never dictate domain shape | The domain is the fixed point; infrastructure is a swappable boundary |
+| Configuration is typed and immutable, validated at startup | Fail fast on invalid configuration; no hidden defaults buried in code |
+| Errors flow outward; each layer wraps with context; log only at boundaries | Callers decide handling; no double-logging; per-item failure never aborts a batch |
+
+## Pattern Catalog
+
+The tactical patterns in force in this project — the harness's **opinionated default**, and **open** to adapt. Replace a pattern only with one that still realizes the closed properties above.
+
+| Pattern | Rule | Realizes |
+|---------|------|----------|
+| **Value object** | Immutable data defined by its attributes; equality by value; no identity | Cheap real objects for tests; no shared mutable state |
+| **Aggregate** | Root owns the consistency boundary for its children; outside code enters only through the root | Invariants enforced in one place |
+| **Repository** | Persistence gateway, one per aggregate root; the default persistence boundary | The core never touches I/O directly |
+| **Domain service** | Stateless; business logic that belongs to no single entity | Logic stays in the testable core |
+| **Application service** | Thin; sequences the use case and owns the transaction boundary; no business logic | Orchestration never absorbs the core; one place opens and closes the transaction |
+| **Anti-corruption mapper** | A single pure function taking the source values as arguments and returning the mapped object, or an error / fallback; imports no foreign type | A foreign-format change touches one mapper, never the domain |
+| **Construction and update** | One entry point per type, taking every mandatory parameter; `with` copies for the attributes that vary, routed through it; rule-governed changes as named operations; no builder | Invariants at construction with one validation home; one API shared by production, mapping, and tests |
+
+### Persistence and boundary mapping
+
+Persistence is a spectrum; choose per project, and the domain core is identical across all of them:
+
+1. **Event-sourced / in-memory** — the model object graph is materialized by folding an event stream (e.g. a log or broker), with no other persistence layer. A relational store is equally valid; neither is privileged.
+2. **Repository with an anti-corruption mapper** — the default when the store's shape diverges from the model.
+3. **Direct mapping** — when the project **owns both ends** and persistence **follows the model closely**, the model may carry persistence or serialization mapping metadata directly. This is the sanctioned substitute for a hand-written mapper at that controlled boundary — compliant, not a missing anti-corruption layer.
+
+Direct mapping has two gates: the project owns both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
+
+## Java Realization
+
+How this project implements the catalog:
+
+| Pattern | Implementation |
+|---------|----------------|
+| Value object, aggregate | Immutable Java `record`; collections via `List.copyOf()` / `Map.copyOf()` |
+| Repository | Spring `@Component` |
+| Domain service | Spring `@Component`, stateless |
+| Anti-corruption mapper | Static method, `from{Source}()` / `to{Target}()`; source values in, mapped object or fallback out |
+| Configuration | `@ConfigurationProperties` record, validated at startup |
+
+| Principle | Rule | Rationale |
+|-----------|------|-----------|
+| **Map domain types directly when the project owns both ends** | Value objects stay immutable `record`s (or `@Embeddable`); an aggregate may be Hibernate-mapped via field access and a reconstitution constructor — a `protected` no-arg the mapper uses, while the business constructors still enforce invariants. Reserve a DTO/mapper layer for external API or schema contracts. | No boilerplate mapping for owned types; the domain keeps its invariants and stays free of the ORM lifecycle. |
+| **Prefer specification annotations over vendor annotations** | Use Jakarta Persistence and Jakarta Validation (`jakarta.persistence.*`, `jakarta.validation.*`); reach for vendor-specific annotations (`org.hibernate.*`, Hibernate Validator extras) only where the specification cannot express the requirement. For serialization, rely on native `record` support and add `@Json*` only when the wire contract requires it. | Standard annotations keep the domain portable across implementations; vendor lock-in is a deliberate exception, not the default. |
+| **Modern Java idioms** | Use current Java features: `record` for value objects, `var` for local type inference, `Stream` pipelines over `for`-loops, `Optional` over null checks, pattern matching over type casting, text blocks for multi-line strings. | Modern idioms reduce boilerplate and make intent explicit. |
+| **Fluent method chaining** | Prefer chained fluent calls over imperative step-by-step mutation: Stream pipelines, `Optional` chains, AssertJ chains. | Fluent chains read as a single declarative expression with fewer intermediate variables. |
+
+These principles apply equally to production code and test code. Tests are first-class code: they use the same immutable records, streams, fluent chains, and modern Java idioms.
+
+## Naming
+
+Names come from the project's canonical vocabulary (`ubiquitous-language.md`): if the PRD calls it a "feed item", the code says `FeedItem`, never `Entry` or `Record`.
+
+| Concept | Rule |
+|---------|------|
+| Value objects, aggregates | Domain noun, no suffix |
+| Repositories | Suffix `Repository`, one per aggregate root |
+| Domain services | Verb or action name, stateless |
+| Anti-corruption mappers | `from{Source}()` / `to{Target}()`, static, pure; source values in, mapped object or fallback out |
+| Configuration | Suffix `Properties` or `Config`, immutable after construction |
+| Optional attributes, named creators | `with{Attribute}(...)` returning a copy; `of(...)` or a domain verb (`place`, `reconstitute`) for a named creator |
+
+**Prohibited suffixes:** `Manager`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a type suffix). These names are vague, attract unrelated responsibilities, and grow into god objects. Use specific domain nouns and verbs instead.
+
+**`Helper` is allowed for one shape only:** Bloch's utility class from Effective Java, a non-instantiable class of pure static functions, narrowed here to one type the project does not own. Bloch names the class with the plural noun of its subject (`Strings`); `StringHelper` is the accepted alternative. `Helper` is the one suffix that marks the shape, so `Utility` and `Util` stay prohibited. The class is statically imported so the call reads as a verb. Behavior over a type the project owns lives on that type. A name that carries no subject (`Common`, `Misc`) is prohibited because it attracts everything. Where the language has a native form, an extension function or a subject-named package of functions, that form is used instead.
+
+## Design Validation Checklist
+
+Before approving a design, verify:
+
+- [ ] Placement follows the module structure; no reach into another module's internals
+- [ ] No circular dependencies introduced; the modularity test passes
+- [ ] New types follow the naming rules; no prohibited suffixes
+- [ ] Value objects immutable and equal by value; aggregates enforce invariants at construction, entered only through the root, referenced by identity
+- [ ] One construction entry point per type taking every mandatory parameter; optional attributes as `with` copies routed through it; rule-governed changes as named operations; no builder and no test-only construction path
+- [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+- [ ] Persistence/serialization choices follow this brief's catalog; the domain core holds no infrastructure logic
+- [ ] Domain logic testable without framework context; real objects usable in tests
+- [ ] New dependencies justified against the dependency policy
+- [ ] Terms match the canonical vocabulary

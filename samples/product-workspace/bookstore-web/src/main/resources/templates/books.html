@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bookstore</title>
+  <link rel="stylesheet" th:href="@{/bookstore.css}" href="../static/bookstore.css">
+</head>
+<body>
+  <main>
+    <h1>Books</h1>
+    <p class="notice" th:if="${unavailable}">The catalog is unavailable right now. Please try again shortly.</p>
+    <ul class="books">
+      <li th:each="book : ${books}">
+        <span class="title" th:text="${book.title}">Title</span>
+        <span class="subtitle" th:if="${!book.subtitle.isEmpty()}" th:text="${book.subtitle}">Subtitle</span>
+      </li>
+    </ul>
+  </main>
+</body>
+</html>

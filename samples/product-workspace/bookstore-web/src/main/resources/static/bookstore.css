@@ -1,0 +1,89 @@
+:root {
+  --ink: #1f2933;
+  --muted: #616e7c;
+  --paper: #f8f6f1;
+  --card: #ffffff;
+  --line: #e4e0d8;
+  --accent: #8a5a2b;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 3rem 1rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 1.5rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1::before {
+  content: "";
+  display: inline-block;
+  width: 0.6rem;
+  height: 1.4rem;
+  margin-right: 0.6rem;
+  vertical-align: -0.2rem;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.notice {
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--muted);
+}
+
+.books {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.books li {
+  padding: 0.9rem 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.books li:first-child {
+  border-top: 0;
+}
+
+.books .title {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.books .subtitle {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.books:empty {
+  display: none;
+}

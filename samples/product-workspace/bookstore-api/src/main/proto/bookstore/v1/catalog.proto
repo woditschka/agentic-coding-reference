@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package bookstore.v1;
+
+option java_package = "bookstore.api";
+option java_multiple_files = true;
+option java_outer_classname = "CatalogProto";
+
+// The catalog contract: the one call the web module makes against the backend.
+service Catalog {
+  rpc ListBooks(ListBooksRequest) returns (ListBooksResponse);
+}
+
+message ListBooksRequest {}
+
+message ListBooksResponse {
+  repeated Book books = 1;
+}
+
+message Book {
+  string title = 1;
+  string subtitle = 2;
+}

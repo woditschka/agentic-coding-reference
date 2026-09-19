@@ -29,6 +29,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# The bookstore workspace sample: three Gradle members that restate the Java
+# sample's pins. The contract member has no Spring plugin.
+WORKSPACE = "samples/product-workspace"
+WORKSPACE_MEMBERS = ("bookstore-api", "bookstore-backend", "bookstore-web")
+SPRING_MEMBERS = ("bookstore-backend", "bookstore-web")
+JAVA_TOOLCHAIN_RE = r"JavaLanguageVersion\.of\((\d+)\)"
+GRADLE_DIST_RE = r"gradle-([0-9][0-9.]*)-bin\.zip"
+SPRING_BOOT_PLUGIN_RE = r"id 'org\.springframework\.boot' version '([^']+)'"
+DEPENDENCY_MANAGEMENT_RE = r"id 'io\.spring\.dependency-management' version '([^']+)'"
+SPOTLESS_RE = r"id 'com\.diffplug\.spotless' version '([^']+)'"
+GOOGLE_JAVA_FORMAT_RE = r"googleJavaFormat\('([^']+)'\)"
+MODULITH_BOM_RE = r"spring-modulith-bom:([^']+)'"
+
 # item → the locations that restate its pin (the upgrade-deps skill's
 # "Pinned In" columns, including the init skeletons). Every location must
 # exist and match; the first capture group is the version string.
@@ -50,6 +63,11 @@ ITEMS: dict[str, list[tuple[str, str]]] = {
         ("samples/java-spring-boot/README.md", r"^\| Java \| ([^|]+?) \|"),
         ("samples/java-spring-boot/CLAUDE.md", r"^\| Java \| ([^|]+?) \|"),
         ("harness/init/stacks/java-spring-boot/CLAUDE.md", r"^\| Java \| ([^|]+?) \|"),
+        *(
+            (f"{WORKSPACE}/{m}/build.gradle", JAVA_TOOLCHAIN_RE)
+            for m in WORKSPACE_MEMBERS
+        ),
+        (f"{WORKSPACE}/README.md", r"\(Java (\d+), Gradle"),
     ],
     "gradle": [
         (
@@ -67,6 +85,14 @@ ITEMS: dict[str, list[tuple[str, str]]] = {
             "samples/java-spring-boot/docs/system-design.md",
             r"^\| Build tool \| Gradle[^|]*\| ([^|]+?) \|",
         ),
+        *(
+            (
+                f"{WORKSPACE}/{m}/gradle/wrapper/gradle-wrapper.properties",
+                GRADLE_DIST_RE,
+            )
+            for m in WORKSPACE_MEMBERS
+        ),
+        (f"{WORKSPACE}/README.md", r"Gradle ([0-9][0-9.]*), Spring Boot"),
     ],
     "spring-boot": [
         (
@@ -79,11 +105,20 @@ ITEMS: dict[str, list[tuple[str, str]]] = {
             "harness/init/stacks/java-spring-boot/CLAUDE.md",
             r"^\| Spring Boot \| ([^|]+?) \|",
         ),
+        *(
+            (f"{WORKSPACE}/{m}/build.gradle", SPRING_BOOT_PLUGIN_RE)
+            for m in SPRING_MEMBERS
+        ),
+        (f"{WORKSPACE}/README.md", r"Spring Boot ([0-9][0-9.]*)\)"),
     ],
     "spring-dependency-management": [
         (
             "samples/java-spring-boot/build.gradle",
             r"id 'io\.spring\.dependency-management' version '([^']+)'",
+        ),
+        *(
+            (f"{WORKSPACE}/{m}/build.gradle", DEPENDENCY_MANAGEMENT_RE)
+            for m in SPRING_MEMBERS
         ),
     ],
     "spotless": [
@@ -91,12 +126,32 @@ ITEMS: dict[str, list[tuple[str, str]]] = {
             "samples/java-spring-boot/build.gradle",
             r"id 'com\.diffplug\.spotless' version '([^']+)'",
         ),
+        *((f"{WORKSPACE}/{m}/build.gradle", SPOTLESS_RE) for m in SPRING_MEMBERS),
     ],
     "google-java-format": [
-        ("samples/java-spring-boot/build.gradle", r"googleJavaFormat\('([^']+)'\)"),
+        ("samples/java-spring-boot/build.gradle", GOOGLE_JAVA_FORMAT_RE),
+        *(
+            (f"{WORKSPACE}/{m}/build.gradle", GOOGLE_JAVA_FORMAT_RE)
+            for m in SPRING_MEMBERS
+        ),
     ],
     "spring-modulith-bom": [
-        ("samples/java-spring-boot/build.gradle", r"spring-modulith-bom:([^']+)'"),
+        ("samples/java-spring-boot/build.gradle", MODULITH_BOM_RE),
+        *((f"{WORKSPACE}/{m}/build.gradle", MODULITH_BOM_RE) for m in SPRING_MEMBERS),
+    ],
+    # The contract member carries no Spring plugin, so it restates the two
+    # versions Spring Boot manages for the other members; a Boot bump moves them.
+    "protobuf-gradle-plugin": [
+        (
+            f"{WORKSPACE}/bookstore-api/build.gradle",
+            r"id 'com\.google\.protobuf' version '([^']+)'",
+        ),
+    ],
+    "grpc-java": [
+        (f"{WORKSPACE}/bookstore-api/build.gradle", r"grpcVersion = '([^']+)'"),
+    ],
+    "protobuf-java": [
+        (f"{WORKSPACE}/bookstore-api/build.gradle", r"protobufVersion = '([^']+)'"),
     ],
 }
 

@@ -1,0 +1,3 @@
+
+# Handoff ledger (per-session, never committed)
+.scratch/

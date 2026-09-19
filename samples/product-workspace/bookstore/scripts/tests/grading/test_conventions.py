@@ -1,0 +1,189 @@
+"""The conventions map over a unified diff and its validated [conventions] table."""
+
+import unittest
+
+from grading import conventions
+from grading.config import validate_conventions
+from grading.conventions import (
+    added_lines,
+    comment_blocks,
+    conventions_map,
+    render,
+)
+
+JAVA = validate_conventions(
+    {
+        "comment_markers": ["//", "/*", "*", "*/"],
+        "construction": r"new\s+[A-Z][A-Za-z0-9_]*\s*[<(]",
+        "construction_ignore": [r"new\s+(?:PageImpl|BigDecimal|ArrayList)\b"],
+        "constant_declaration": r"\bstatic\s+final\b|\b[A-Z][A-Z0-9_]{2,}\s*=",
+    }
+)
+
+PROD_FILE = "src/main/app.txt"
+TEST_FILE = "src/test/app_test.txt"
+A_DOC = "docs/prd.md"
+NEW_FILE_HUNK_START = 1
+SECOND_HUNK_START = 14
+TEST_HUNK_START = 6
+A_BASE = "abc1234"
+
+DIFF = f"""\
+diff --git a/{PROD_FILE} b/{PROD_FILE}
+--- a/{PROD_FILE}
++++ b/{PROD_FILE}
+@@ -1,0 +{NEW_FILE_HUNK_START},4 @@
++/*
++ * Copyright 2026 the original authors. Licensed under the Apache License.
++ */
++int pageToShow = Math.max(page, FIRST_PAGE);
+@@ -10,2 +{SECOND_HUNK_START},3 @@
+ context line
+-removed line
++// a page below the first is not a failure: the first page is listed instead
++// and the listing presents itself as that page
++return pageToShow;
+diff --git a/{TEST_FILE} b/{TEST_FILE}
+--- a/{TEST_FILE}
++++ b/{TEST_FILE}
+@@ -5,0 +{TEST_HUNK_START},6 @@
++private static final int FIRST_PAGE = 1;
++@Test
++Page<Owner> page = new PageImpl<>(List.of(george(), new Owner()));
++mvc.perform(get("/owners").param("page", "0"));
++Owner irrelevant = anOwner();
++assertThat(model.currentPage()).isEqualTo(FIRST_PAGE);
+diff --git a/{A_DOC} b/{A_DOC}
+--- a/{A_DOC}
++++ b/{A_DOC}
+@@ -1,0 +1,1 @@
++# a heading, not a comment
+"""
+COMMENT_BLOCK_LINES = (SECOND_HUNK_START + 1, SECOND_HUNK_START + 2)
+CONSTRUCTION_LINE = TEST_HUNK_START + 2
+LITERAL_LINE = TEST_HUNK_START + 3
+
+
+def kind_of(path: str) -> str:
+    if path.startswith("src/test/"):
+        return "test"
+    if path.startswith("src/main/"):
+        return "prod"
+    return "unknown"
+
+
+class AddedLines(unittest.TestCase):
+    def test_a_deleted_file_is_absent_from_added_and_present_in_changed(self):
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ /dev/null\n"
+            "@@ -1,1 +0,0 @@\n-guard\n"
+        )
+        self.assertEqual(conventions.added_lines(diff), {})
+        self.assertEqual(conventions.changed_lines(diff), {"src/a.txt": ["guard"]})
+
+    def test_new_file_numbers_follow_the_hunk_header(self):
+        got = added_lines(DIFF)
+        self.assertEqual(got[PROD_FILE][0], (NEW_FILE_HUNK_START, "/*"))
+        self.assertEqual(got[PROD_FILE][3][0], NEW_FILE_HUNK_START + 3)
+
+    def test_context_advances_and_removal_does_not(self):
+        got = added_lines(DIFF)
+        numbers = [no for no, _ in got[PROD_FILE]]
+        self.assertEqual(
+            numbers[4:], [SECOND_HUNK_START + offset for offset in (1, 2, 3)]
+        )
+
+    def test_content_that_mimics_a_header_stays_content(self):
+        diff = (
+            "diff --git a/src/main/a.txt b/src/main/a.txt\n"
+            "--- a/src/main/a.txt\n+++ b/src/main/a.txt\n@@ -1,0 +1,3 @@\n"
+            "+/*\n+++ b/docs/x.md\n+exec(cmd)\n"
+        )
+        got = added_lines(diff)
+        self.assertEqual(list(got), ["src/main/a.txt"])
+        self.assertEqual(
+            [t for _, t in got["src/main/a.txt"]], ["/*", "++ b/docs/x.md", "exec(cmd)"]
+        )
+
+    def test_deleted_file_contributes_nothing(self):
+        diff = "--- a/gone.txt\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-x\n-y\n"
+        self.assertEqual(added_lines(diff), {})
+
+
+class CommentBlocks(unittest.TestCase):
+    def test_license_header_is_dropped_and_runs_collapse(self):
+        lines = added_lines(DIFF)[PROD_FILE]
+        blocks = comment_blocks(lines, JAVA.comment_markers)
+        self.assertEqual(len(blocks), 1)
+        self.assertEqual((blocks[0].start, blocks[0].end), COMMENT_BLOCK_LINES)
+        self.assertTrue(blocks[0].text.startswith("// a page below"))
+
+
+class ConventionsMapRows(unittest.TestCase):
+    def setUp(self):
+        self.cm = conventions_map(DIFF, kind_of, JAVA)
+        self.by_path = {f.path: f for f in self.cm.files}
+
+    def test_non_code_paths_are_not_listed(self):
+        self.assertNotIn(A_DOC, self.by_path)
+
+    def test_prod_file_lists_comments_only(self):
+        rows = self.by_path[PROD_FILE]
+        self.assertEqual(len(rows.comments), 1)
+        self.assertEqual(rows.constructions, ())
+        self.assertEqual(rows.literals, ())
+
+    def test_test_file_lists_the_domain_construction_not_the_framework_one(self):
+        rows = self.by_path[TEST_FILE]
+        self.assertEqual([no for no, _ in rows.constructions], [CONSTRUCTION_LINE])
+        self.assertIn("new Owner()", rows.constructions[0][1])
+
+    def test_literal_lines_skip_constants_annotations_and_named_values(self):
+        rows = self.by_path[TEST_FILE]
+        self.assertEqual([no for no, _ in rows.literals], [LITERAL_LINE])
+
+    def test_no_construction_pattern_lists_none_and_says_so(self):
+        cm = conventions_map(
+            DIFF, kind_of, validate_conventions({"comment_markers": ["//"]})
+        )
+        rows = {f.path: f for f in cm.files}[TEST_FILE]
+        self.assertEqual(rows.constructions, ())
+        self.assertTrue(any("construction" in n for n in cm.notes))
+
+    def test_render_is_printable_and_names_the_base(self):
+        text = render(self.cm, A_BASE)
+        start, end = COMMENT_BLOCK_LINES
+        self.assertIn(
+            f"conventions-map: {len(self.cm.files)} code file(s) with rows", text
+        )
+        self.assertIn(f"(base {A_BASE})", text)
+        self.assertIn(f"{start}-{end}: // a page below", text)
+        self.assertIn(f"{LITERAL_LINE}: mvc.perform", text)
+
+
+class ConventionsConfigValidation(unittest.TestCase):
+    def test_an_absent_table_reads_the_generic_defaults(self):
+        conventions = validate_conventions({})
+
+        self.assertIsNone(conventions.construction)
+        self.assertIn("//", conventions.comment_markers)
+        self.assertIsNotNone(conventions.constant_declaration)
+
+    def test_an_empty_construction_pattern_lists_no_constructions(self):
+        self.assertIsNone(validate_conventions({"construction": ""}).construction)
+
+    def test_a_malformed_table_is_rejected(self):
+        cases = {
+            "construction that does not compile": {"construction": "new ("},
+            "construction that is not a string": {"construction": 5},
+            "empty marker list": {"comment_markers": []},
+            "ignore list that is a string": {"construction_ignore": "new X"},
+            "empty ignore pattern": {"construction_ignore": [""]},
+        }
+        for label, raw in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                validate_conventions(raw)
+
+
+if __name__ == "__main__":
+    unittest.main()

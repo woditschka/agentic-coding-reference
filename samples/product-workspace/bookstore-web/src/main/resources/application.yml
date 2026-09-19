@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: bookstore-web
+  grpc:
+    client:
+      channel:
+        catalog:
+          target: static://localhost:9090

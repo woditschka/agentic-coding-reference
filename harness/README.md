@@ -32,7 +32,8 @@ harness/
 ├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime
 │                    block and settings.json harness keys current (run by materialize).
 ├── init.py          Scaffold the project-owned files into a target (never overwrites).
-├── materialize-samples.sh   Stack-agnostic: detect each target's stack, then materialize.
+├── materialize-samples.sh   Stack-agnostic: detect each target's stack, then materialize;
+│                    the default targets are the three stack samples and the bookstore umbrella.
 ├── render-agent-mirrors.py  Render the per-tool agent mirror bodies from each .claude
 │                    base and prune orphaned mirrors (propagate-harness step 1).
 ├── render-route-rules.py  Render the route-rule inventory (route-rules.md) from the

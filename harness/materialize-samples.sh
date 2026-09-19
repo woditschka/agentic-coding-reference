@@ -37,6 +37,9 @@ print("\n".join(STACKS))' "$here")
     exit 1
   fi
   for s in "${stacks[@]}"; do targets+=("$here/../samples/$s"); done
+  # The bookstore umbrella is a generic-stack consumer beside the stack samples:
+  # its members carry no runtime, so only the umbrella materializes.
+  targets+=("$here/../samples/product-workspace/bookstore")
 fi
 
 skipped=0

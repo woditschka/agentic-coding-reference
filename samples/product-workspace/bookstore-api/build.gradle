@@ -1,0 +1,60 @@
+plugins {
+	id 'java-library'
+	id 'maven-publish'
+	id 'com.google.protobuf' version '0.10.0'
+}
+
+group = 'bookstore'
+version = '0.2.0'
+description = 'Bookstore contract: the catalog proto and its generated stubs'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+// The versions Spring Boot 4.1.1 manages, restated here because the contract
+// library carries no Spring dependency of its own.
+ext {
+	grpcVersion = '1.83.1'
+	protobufVersion = '4.35.1'
+}
+
+dependencies {
+	api "io.grpc:grpc-protobuf:${grpcVersion}"
+	api "io.grpc:grpc-stub:${grpcVersion}"
+	api "com.google.protobuf:protobuf-java:${protobufVersion}"
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:${protobufVersion}"
+	}
+	plugins {
+		grpc {
+			artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}"
+		}
+	}
+	generateProtoTasks {
+		all().configureEach { task ->
+			task.plugins {
+				grpc {}
+			}
+		}
+	}
+}
+
+// Consumers read the contract from the local Maven repository:
+// ./gradlew publishToMavenLocal
+publishing {
+	publications {
+		maven(MavenPublication) {
+			from components.java
+		}
+	}
+}

@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/prd-autofix.schema.json",
+  "title": "Root→audit-trail handoff record (prd-autofix)",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by root after applying an autofix-tagged finding to docs/prd.md. The record exists so (a) product-requirements-expert can audit the trail on its next dispatch, (b) handoff.py audit-autofix (the code-quality-gate skill's autofix audit) can statically re-validate the change against the autofix allowlist. It keeps a doc-only PRD fix in the current review round: without it, the only resolution path is a fresh prd-entry, which re-enters the pipeline at design triage.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "file",
+    "category",
+    "source_finding",
+    "old_content",
+    "new_content",
+    "lines_changed",
+    "chars_changed"
+  ],
+  "properties": {
+    "type": {
+      "const": "prd-autofix"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "description": "Pinned to root. Only root may apply autofixes on docs/prd.md; specialist agents (product-requirements-expert excepted) never write to that file.",
+      "const": "root"
+    },
+    "file": {
+      "description": "The one autofix-eligible PRD path, pinned. A design-doc fix uses the design-doc-autofix record instead.",
+      "const": "docs/prd.md"
+    },
+    "category": {
+      "description": "Which autofix category the source finding falls under. The allowlist is the closed enum below — any other category is not autofix-eligible on docs/prd.md and must route to product-requirements-expert.",
+      "enum": [
+        "writing-standards",
+        "structural"
+      ]
+    },
+    "source_finding": {
+      "description": "Copy of the doc-reviewer finding that authorised this autofix. Self-contained so the audit trail does not depend on resolving back-references into review-feedback records.",
+      "type": "object",
+      "required": [
+        "review_feedback_author",
+        "review_feedback_ts",
+        "tag",
+        "location",
+        "description",
+        "fix"
+      ],
+      "properties": {
+        "review_feedback_author": {
+          "const": "doc-reviewer"
+        },
+        "review_feedback_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tag": {
+          "const": "autofix"
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fix": {
+          "description": "The literal replacement string the doc-reviewer proposed. Root applies this verbatim via Edit; it does not paraphrase or improve the fix.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "old_content": {
+      "description": "Literal pre-edit string (the Edit tool's old_string). Used by the linter to re-derive the diff for static validation.",
+      "type": "string",
+      "minLength": 1
+    },
+    "new_content": {
+      "description": "Literal post-edit string (the Edit tool's new_string). Must equal source_finding.fix byte-for-byte — root applies the doc-reviewer's fix verbatim.",
+      "type": "string",
+      "minLength": 1
+    },
+    "lines_changed": {
+      "description": "Count of lines changed by this autofix. Capped at 5 by the autofix allowlist — anything larger is not autofix-eligible.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "chars_changed": {
+      "description": "Count of characters changed by this autofix. Capped at 200 — anything larger is not autofix-eligible.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}

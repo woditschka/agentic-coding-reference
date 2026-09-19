@@ -2,7 +2,7 @@
 name: upgrade-deps
 description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
-  Java Spring Boot samples — including the init skeletons and root README
+  Java Spring Boot samples and the bookstore workspace members — including the init skeletons and root README
   that restate them — plus the SHA-pinned GitHub Actions in the root CI
   workflow and the dated pricing override in the harness-stats accounting,
   against upstream stable releases. Reports drift as a table, applies
@@ -23,7 +23,7 @@ metadata:
 |-------|---------------|
 | *(all)* | Go and Java samples, plus the root CI workflow actions |
 | `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` |
-| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row) |
+| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row), and the bookstore members under `samples/product-workspace/` (three `build.gradle`, three wrapper properties, the workspace `README.md`) |
 | `actions` | `.github/workflows/*.yml` (SHA-pinned GitHub Actions) |
 
 ## Pinned Versions (source of truth)
@@ -39,7 +39,9 @@ metadata:
 
 Note: Dockerfile tags like `golang:1.27` and `distroless/static-debian12:nonroot` are deliberate floats — they track the latest patch within a pinned minor/distro line. Bump the minor/distro suffix only when the Go directive in `go.mod` moves or when distroless upstream changes its default distro.
 
-### Java Spring Boot sample
+### Java Spring Boot sample and the bookstore members
+
+The bookstore members (`samples/product-workspace/bookstore-api`, `-backend`, `-web`) restate every Java pin below in their own `build.gradle` and wrapper properties, and the workspace `README.md` restates the toolchain line; `deps-report.py` holds them to the Java sample's value. A Java bump edits all of them together.
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
@@ -51,6 +53,9 @@ Note: Dockerfile tags like `golang:1.27` and `distroless/static-debian12:nonroot
 | google-java-format | `build.gradle` (`googleJavaFormat(...)`) | https://github.com/google/google-java-format/releases |
 | Spring Modulith BOM | `build.gradle` (`mavenBom 'org.springframework.modulith:spring-modulith-bom:X'`) | https://github.com/spring-projects/spring-modulith/releases |
 | Starter/BOM-managed deps | `build.gradle` dependencies | Spring Boot / Modulith BOM (no explicit version) |
+| protobuf Gradle plugin | `bookstore-api/build.gradle` (`com.google.protobuf`) | https://plugins.gradle.org/plugin/com.google.protobuf |
+| grpc-java | `bookstore-api/build.gradle` (`grpcVersion`) | Spring Boot's managed `io.grpc` version for the pinned Boot release (dependency-versions appendix); moves with the Boot bump, never ahead of it |
+| protobuf-java | `bookstore-api/build.gradle` (`protobufVersion`) | Spring Boot's managed `com.google.protobuf` version, same rule |
 
 ### Root CI workflow
 
@@ -137,6 +142,7 @@ After every edit in Step 5, run the affected project's full build+test gate. Thi
 |----------------|---------|----------|--------|
 | Go (`samples/go/**`) | `make ci` | `samples/go/` | tidy, fmt, vet, lint, deps-check, test, build |
 | Java (`samples/java-spring-boot/**`) | `./gradlew clean build` | `samples/java-spring-boot/` | compile, spotlessCheck, test, bootJar |
+| Bookstore (`samples/product-workspace/**`) | `bookstore/bookstore.sh build` | `samples/product-workspace/` | contract publish, then both Spring members: format, compile, test, bootJar |
 | Root CI actions (`.github/workflows/*.yml`) | see rule 8 | repo root | pin ↔ release match, YAML valid |
 
 Rules:

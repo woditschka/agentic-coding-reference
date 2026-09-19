@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: bookstore-backend
+  grpc:
+    server:
+      port: 9090

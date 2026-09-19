@@ -51,10 +51,10 @@ PH_ALLOW = re.compile(
     r"|harness/core/scripts/tests/test_doctor\.py$"
     r"|plugins/[a-z-]+/skills/doctor/"
     r"|plugins/[a-z-]+/_engine/scripts/tests/test_doctor\.py$"
-    r"|samples/[a-z-]+/\.claude/skills/doctor/"
-    r"|samples/[a-z-]+/scripts/tests/test_doctor\.py$"
-    r"|samples/[a-z-]+/CLAUDE\.md$"
-    r"|samples/[a-z-]+/docs/(prd|system-design)\.md$"
+    r"|samples/[a-z-]+/(?:[a-z-]+/)?\.claude/skills/doctor/"
+    r"|samples/[a-z-]+/(?:[a-z-]+/)?scripts/tests/test_doctor\.py$"
+    r"|samples/[a-z-]+/(?:[a-z-]+/)?CLAUDE\.md$"
+    r"|samples/[a-z-]+/(?:[a-z-]+/)?docs/(prd|system-design)\.md$"
     r"|samples/go/Makefile$"
     # The eval runner fills the init skeletons' tokens per arm; it and its
     # tests name them literally.

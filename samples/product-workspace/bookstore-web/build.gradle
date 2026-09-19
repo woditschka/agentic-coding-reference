@@ -1,0 +1,65 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '8.10.1'
+}
+
+group = 'bookstore'
+version = '0.1.0'
+description = 'Bookstore web: lists the catalog it fetches over gRPC'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenLocal()
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-grpc-client'
+	implementation 'bookstore:bookstore-api:0.2.0'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	implementation 'org.springframework.modulith:spring-modulith-api'
+	testImplementation 'org.springframework.modulith:spring-modulith-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.modulith:spring-modulith-bom:2.1.1'
+	}
+}
+
+spotless {
+	java {
+		googleJavaFormat('1.36.1')
+	}
+}
+
+// Every build formats first, so a member never carries unformatted code and the
+// spotlessCheck that `check` runs afterwards is a no-op.
+tasks.named('compileJava') {
+	dependsOn 'spotlessApply'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+tasks.register('formatJava') {
+	dependsOn 'spotlessApply'
+	description = 'Format all Java files with google-java-format'
+}
+
+tasks.register('checkJavaFormat') {
+	dependsOn 'spotlessCheck'
+	description = 'Check formatting (fails if unformatted)'
+}

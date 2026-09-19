@@ -1,0 +1,408 @@
+"""The feature model's classification and numstat folding over a synthetic layout."""
+
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from dataclasses import replace
+from pathlib import Path
+
+from changeset.git_facts import ChangeSet
+from grading.config import NAMED_MODULE_LAYOUTS, Layout, ModuleRule, validate_review
+from grading.features import (
+    delta_numstat,
+    diff_features,
+    module_of,
+    parse_numstat,
+    review_kind,
+    security_surface_paths,
+    tree_files,
+)
+
+A_PROBE = r"@\w+Mapping\("
+A_SOURCE_FILE = "app/src/main/code/pkg/file.ext"
+ITS_TEST = "app/src/test/code/pkg/file_test.ext"
+A_SIBLING_MODULE_FILE = "lib/src/main/code/pkg/file.ext"
+A_ROOT_TREE_FILE = "src/main/code/pkg/file.ext"
+A_ROOT_TREE_TEST = "src/test/code/pkg/sub/file.ext"
+A_FILE_OUTSIDE_THE_TREE = "app/notes.ext"
+A_PROD_ROW = (3, 1, "src/m.txt")
+A_TEST_ROW = (2, 2, "a_test.txt")
+A_DOCS_ROW = (40, 0, "docs/x.md")
+A_CONFIG_ROW = (5, 0, "c.toml")
+A_CONFIG_ROW_UNDER_A_PROD_ROOT = (6, 0, "src/app.toml")
+ANOTHER_PROD_ROW = (2, 0, "src/n.txt")
+A_BINARY_ROW = ("-", "-", "src/blob.bin")
+AN_UNDOCUMENTED_ROW = ("weird", "?", "src/m.txt")
+A_SENSITIVE_ROW = (1, 0, "src/auth/k.txt")
+A_MEMBER_PATH = "../product-api"
+
+
+def numstat(*rows):
+    return "".join(f"{added}\t{deleted}\t{path}\n" for added, deleted, path in rows)
+
+
+def changed_lines(*rows):
+    return sum(added + deleted for added, deleted, _ in rows)
+
+
+def a_layout():
+    return Layout(
+        test_globs=("**/*_test.txt", "*_test.txt"),
+        prod_roots=("src/",),
+        sensitive=("**/auth/**",),
+        module_rules=(),
+        extra_reviewers=(),
+        review={},
+        conventions={},
+    )
+
+
+def a_review_config():
+    return validate_review({"docs": ["*.md"], "config": ["*.toml"]}, ())
+
+
+def a_changeset(base, head, tip=None):
+    return ChangeSet(base, head, tip, "commit", None, ())
+
+
+def module_under(strategy, path):
+    """Derive the path's module through one rule that matches everything."""
+    layout = replace(a_layout(), module_rules=(ModuleRule("*", strategy),))
+    return module_of(path, layout)
+
+
+class ReviewKind(unittest.TestCase):
+    def test_precedence_is_docs_test_config_prod_unknown(self):
+        cases = [
+            ("docs/x.md", "docs"),
+            ("a_test.txt", "test"),
+            ("c.toml", "config"),
+            ("src/m.txt", "prod"),
+            ("notes.dat", "unknown"),
+            ("src/notes.md", "docs"),
+        ]
+        for path, kind in cases:
+            with self.subTest(path=path):
+                self.assertEqual(review_kind(path, a_layout(), a_review_config()), kind)
+
+
+class NamedModuleLayouts(unittest.TestCase):
+    def test_maven_and_gradle_derive_the_module_root(self):
+        self.assertEqual(module_under("maven", A_SOURCE_FILE), "app/src")
+        self.assertEqual(module_under("gradle", A_SOURCE_FILE), "app/src")
+
+    def test_a_prod_file_and_its_test_derive_one_module(self):
+        self.assertEqual(
+            module_under("gradle", A_SOURCE_FILE), module_under("gradle", ITS_TEST)
+        )
+        self.assertNotEqual(
+            module_under("gradle", A_SOURCE_FILE),
+            module_under("gradle", A_SIBLING_MODULE_FILE),
+        )
+
+    def test_a_repo_root_tree_derives_the_module_root_without_a_prefix(self):
+        self.assertEqual(module_under("gradle", A_ROOT_TREE_FILE), "src")
+        self.assertEqual(module_under("gradle", A_ROOT_TREE_TEST), "src")
+
+    def test_a_named_layout_falls_back_to_the_parent_directory(self):
+        self.assertEqual(module_under("maven", A_FILE_OUTSIDE_THE_TREE), "app")
+
+    def test_an_unparticipating_group_falls_back_to_the_parent_directory(self):
+        self.assertEqual(module_under("regex:a/foo(bar)?", "a/foox"), "a")
+
+    def test_an_empty_capture_falls_back_to_the_parent_directory(self):
+        self.assertEqual(module_under("regex:(x*)", "a/bc.ext"), "a")
+
+    def test_every_name_equals_its_expanded_regex(self):
+        paths = (A_SOURCE_FILE, "lib/src/test/code/pkg/file_test.ext", "settings.ext")
+        for name, pattern in NAMED_MODULE_LAYOUTS.items():
+            for path in paths:
+                with self.subTest(name=name, path=path):
+                    self.assertEqual(
+                        module_under(name, path), module_under(f"regex:{pattern}", path)
+                    )
+
+
+class ParseNumstat(unittest.TestCase):
+    def fold(self, numstat):
+        return parse_numstat(numstat, a_layout(), a_review_config())
+
+    def test_only_prod_and_test_lines_count_toward_the_size(self):
+        # The size metric classifies by tree, so a config file under a
+        # production root counts while its review kind stays config.
+        rows = (
+            A_PROD_ROW,
+            A_TEST_ROW,
+            A_DOCS_ROW,
+            A_CONFIG_ROW,
+            A_CONFIG_ROW_UNDER_A_PROD_ROOT,
+        )
+
+        out = self.fold(numstat(*rows))
+
+        self.assertEqual(
+            out["lines"],
+            changed_lines(A_PROD_ROW, A_TEST_ROW, A_CONFIG_ROW_UNDER_A_PROD_ROOT),
+        )
+        self.assertEqual(out["paths"], [path for _, _, path in rows])
+        self.assertEqual(out["kinds"][-1], "config")
+        self.assertFalse(out["binary"])
+
+    def test_a_binary_row_flags_and_does_not_count(self):
+        out = self.fold(numstat(A_BINARY_ROW, A_PROD_ROW))
+
+        self.assertTrue(out["binary"])
+        self.assertEqual(out["lines"], changed_lines(A_PROD_ROW))
+
+    def test_an_undocumented_shape_keeps_the_path_and_counts_nothing(self):
+        out = self.fold(numstat(AN_UNDOCUMENTED_ROW, ANOTHER_PROD_ROW))
+
+        self.assertEqual(out["lines"], changed_lines(ANOTHER_PROD_ROW))
+        self.assertEqual(out["paths"], [AN_UNDOCUMENTED_ROW[2], ANOTHER_PROD_ROW[2]])
+
+    def test_a_sensitive_path_flags_the_delta(self):
+        self.assertTrue(self.fold(numstat(A_SENSITIVE_ROW))["sensitive"])
+
+
+class DiffFeatures(unittest.TestCase):
+    """The row over a real repository: one prod file, its test, a binary, and a doc."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.repo)
+        cwd = Path.cwd()
+        os.chdir(self.repo)
+        self.addCleanup(os.chdir, cwd)
+        self.git("init", "-q")
+        self.git("config", "user.email", "t@example.com")
+        self.git("config", "user.name", "t")
+        (self.repo / "src").mkdir()
+        (self.repo / "src" / "a.txt").write_text("one\ntwo\n")
+        (self.repo / "a_test.txt").write_text("check\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        self.base = self.git("rev-parse", "HEAD")
+
+    def git(self, *args, stdin=None):
+        done = subprocess.run(
+            ["git", "-C", str(self.repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            input=stdin,
+        )
+        return done.stdout.strip()
+
+    def test_the_row_derives_its_totals_from_the_classified_files(self):
+        (self.repo / "src" / "a.txt").write_text("one\ntwo\nthree\n")
+        (self.repo / "a_test.txt").write_text("check\nagain\n")
+        (self.repo / "src" / "blob.bin").write_bytes(b"\x00\x01")
+        (self.repo / "docs").mkdir()
+        (self.repo / "docs" / "x.md").write_text("# x\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "change")
+        head = self.git("rev-parse", "HEAD")
+
+        row = diff_features(
+            a_layout(),
+            a_review_config(),
+            [a_changeset(self.base, head, tip=head)],
+            churn=True,
+        )
+
+        self.assertEqual(
+            [f["path"] for f in row["files"]],
+            ["a_test.txt", "docs/x.md", "src/a.txt", "src/blob.bin"],
+        )
+        self.assertEqual((row["prod_lines"], row["test_lines"]), (1, 1))
+        self.assertEqual(row["test_prod_ratio"], 1.0)
+        self.assertEqual((row["binary_files"], row["hunks"]), (1, 3))
+        self.assertEqual(row["unknown_paths"], ["docs/x.md"])
+        self.assertEqual((row["modules"], row["module_count"]), ([], 0))
+        self.assertEqual(row["churn"], {"commits": 1, "authors": 1})
+
+    def test_no_churn_tip_leaves_churn_null(self):
+        row = diff_features(
+            a_layout(),
+            a_review_config(),
+            [a_changeset(self.base, self.base)],
+            churn=False,
+        )
+
+        self.assertIsNone(row["churn"])
+        self.assertEqual(row["files_changed"], 0)
+
+    def test_tree_files_lists_the_paths_changed_since_the_base(self):
+        (self.repo / "src" / "a.txt").write_text("one\ntwo\nthree\n")
+        self.git("add", "-A")
+        tree = self.git("write-tree")
+
+        self.assertEqual(tree_files(self.base, tree, ()), ["src/a.txt"])
+
+    def test_a_path_git_cannot_decode_fails_the_read_closed(self):
+        blob = self.git("hash-object", "-w", "--stdin", stdin="x\n")
+        subprocess.run(
+            [
+                b"git",
+                b"-C",
+                bytes(self.repo),
+                b"update-index",
+                b"--add",
+                b"--cacheinfo",
+                b"100644," + blob.encode() + b",caf\xe9.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        tree = self.git("write-tree")
+
+        self.assertIsNone(tree_files(self.base, tree, ()))
+
+    def test_an_unresolved_base_yields_the_null_row(self):
+        row = diff_features(
+            a_layout(), a_review_config(), [a_changeset(None, "head")], churn=False
+        )
+
+        self.assertEqual(set(row.values()), {None})
+        self.assertIn("security_surface_paths", row)
+
+
+class SecuritySurfaceProbe(unittest.TestCase):
+    DIFF = (
+        "--- a/src/app/handler.txt\n+++ b/src/app/handler.txt\n@@ -1,0 +1,2 @@\n"
+        '+@GetMapping("/owners")\n+int x = 1;\n'
+        "--- a/src/app/handler_test.txt\n+++ b/src/app/handler_test.txt\n@@ -1,0 +1,1 @@\n"
+        '+@GetMapping("/nope")\n'
+        "--- a/src/app/quiet.txt\n+++ b/src/app/quiet.txt\n@@ -1,0 +1,1 @@\n+int y = 2;\n"
+    )
+
+    @staticmethod
+    def kind_of(path):
+        return "test" if path.endswith("_test.txt") else "prod"
+
+    def test_hits_only_production_files(self):
+        hits = security_surface_paths(self.DIFF, [A_PROBE], self.kind_of)
+
+        self.assertEqual(hits, ["src/app/handler.txt"])
+
+    def test_header_mimicking_content_cannot_reroute_the_probe(self):
+        diff = (
+            "diff --git a/src/app/h.txt b/src/app/h.txt\n"
+            "--- a/src/app/h.txt\n+++ b/src/app/h.txt\n@@ -1,0 +1,2 @@\n"
+            '+++ b/README.md\n+@GetMapping("/x")\n'
+        )
+
+        hits = security_surface_paths(diff, [A_PROBE], self.kind_of)
+
+        self.assertEqual(hits, ["src/app/h.txt"])
+
+    def test_a_removed_match_hits_like_an_added_one(self):
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ b/src/a.txt\n"
+            "@@ -1,2 +1,1 @@\n-@PreAuthorize(x)\n context\n"
+        )
+
+        hits = security_surface_paths(diff, [r"@PreAuthorize"], self.kind_of)
+
+        self.assertEqual(hits, ["src/a.txt"])
+
+    def test_a_deleted_production_file_still_hits(self):
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n-@PreAuthorize(x)\n-body\n"
+        )
+
+        hits = security_surface_paths(diff, [r"@PreAuthorize"], self.kind_of)
+
+        self.assertEqual(hits, ["src/a.txt"])
+
+    def test_an_empty_probe_hits_nothing(self):
+        self.assertEqual(security_surface_paths(self.DIFF, [], self.kind_of), [])
+
+
+class WorkspaceDiffFeatures(unittest.TestCase):
+    """A project repository and a sibling member, each with one committed base and one changed file."""
+
+    def setUp(self):
+        parent = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, parent)
+        self.project = parent / "product"
+        self.member = parent / "product-api"
+        self.base = {}
+        for repo in (self.project, self.member):
+            (repo / "src").mkdir(parents=True)
+            self.git(repo, "init", "-q")
+            self.git(repo, "config", "user.email", "t@example.com")
+            self.git(repo, "config", "user.name", "t")
+            (repo / "src" / "a.txt").write_text("one\n")
+            self.git(repo, "add", "-A")
+            self.git(repo, "commit", "-qm", "base")
+            self.base[repo] = self.git(repo, "rev-parse", "HEAD")
+            (repo / "src" / "a.txt").write_text("one\ntwo\n")
+            self.git(repo, "add", "-A")
+            self.git(repo, "commit", "-qm", "change")
+        cwd = Path.cwd()
+        os.chdir(self.project)
+        self.addCleanup(os.chdir, cwd)
+
+    def git(self, repo, *args):
+        done = subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+        )
+        return done.stdout.strip()
+
+    def sets(self):
+        head = {repo: self.git(repo, "rev-parse", "HEAD") for repo in self.base}
+        project = a_changeset(
+            self.base[self.project], head[self.project], tip=head[self.project]
+        )
+        member = replace(
+            a_changeset(
+                self.base[self.member], head[self.member], tip=head[self.member]
+            ),
+            member_path=A_MEMBER_PATH,
+        )
+        return [project, member]
+
+    def test_the_row_spells_a_members_files_from_the_project_and_sums_both(self):
+        layout = a_layout()
+        layout = replace(
+            layout, prod_roots=(*layout.prod_roots, f"{A_MEMBER_PATH}/src/")
+        )
+
+        row = diff_features(layout, a_review_config(), self.sets(), churn=True)
+
+        self.assertEqual(
+            [f["path"] for f in row["files"]],
+            [f"{A_MEMBER_PATH}/src/a.txt", "src/a.txt"],
+        )
+        self.assertEqual((row["prod_lines"], row["hunks"]), (2, 2))
+        self.assertEqual(row["churn"], {"commits": 2, "authors": 1})
+
+    def test_one_unresolved_set_nulls_the_whole_row(self):
+        project, member = self.sets()
+
+        row = diff_features(
+            a_layout(),
+            a_review_config(),
+            [project, replace(member, head=None)],
+            churn=False,
+        )
+
+        self.assertIsNone(row["files"])
+
+    def test_a_members_delta_and_reviewed_paths_are_spelled_from_the_project(self):
+        prev = self.git(self.member, "rev-parse", "HEAD~1^{tree}")
+        cur = self.git(self.member, "rev-parse", "HEAD^{tree}")
+
+        numstat = delta_numstat(prev, cur, (), A_MEMBER_PATH)
+        reviewed = tree_files(self.base[self.member], cur, (), A_MEMBER_PATH)
+
+        self.assertEqual(numstat, f"1\t0\t{A_MEMBER_PATH}/src/a.txt\n")
+        self.assertEqual(reviewed, [f"{A_MEMBER_PATH}/src/a.txt"])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
