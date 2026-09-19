@@ -145,4 +145,4 @@ Format: `<type>(<scope>): <subject>`
 
 Scopes: `go`, `java`, `docs`, `root`. Omit for cross-cutting changes.
 
-Subject line: imperative mood, lowercase, no period, max 50 characters.
+Subject line: imperative mood, lowercase, no period, max 50 characters. The subject names the capability or outcome a reader would search the log for, never the mechanism: `feat: add product workspaces to the harness engine`, not `feat: fan the change set out over members`. The body opens with one sentence on what changed and for whom, then one bullet per touched area, then how it was verified.
