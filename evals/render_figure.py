@@ -891,54 +891,24 @@ def _version_labels(fig: _Figure) -> list[str]:
 
 
 def _caption(fig: _Figure) -> str:
-    """Render the reading guide beneath the panels."""
+    """Render the three-line key beneath the panels: how to read the marks, and where the method lives."""
     defect_note = (
-        " The reliability panel's dashed line is the known-defect clear"
-        " rate: the share of probed reps whose recorded diff clears every"
-        " named defect their task declares, dots per version and the"
-        " same rolling mean as the cost trends, since three reps a cell"
-        " make a raw curve move one lucky rep apart."
+        " the dashed reliability line is the known-defect clear rate, a rolling mean."
         if fig.has_defects
         else ""
     )
     return text_cell(
         "caption",
-        "Cost and reliability decompose the trend tables' headline metric: cost per pass"
-        " ≈ cost of a clearing rep ÷ share of reps clearing. Dots are recorded cells"
-        " from evals/results/trend-data.json, the machine-readable view the tables"
-        " render from — the cost value is cell spend minus waste over clearing"
-        " reps, and a quality dot is the version's facet mean. Feature-task trends are"
-        " centered three-version rolling means with symmetric windows, so the"
-        " line starts and ends exactly on the recorded first and last cells."
-        " Every line is drawn as a monotone cubic through its points, which"
-        " cannot overshoot them."
-        " Refusal lines are raw"
-        " and dashed (their bar inverts — a correct outcome is a refusal; a cell"
-        " with no clearing rep renders no point; a hollow dot marks a"
-        " lower-bound cell — part of its spend went unrecorded). Failures"
-        " live in the reliability"
-        " panel, so no waste hides. The x-axis is ordinal — only measured"
-        " versions"
-        " appear. A dashed vertical rule marks a change of the requested"
-        " root model between adjacent versions; its label names the models"
-        " the later version resolved, read from the same data. The wall"
-        " panel is context beside the cost: each task's median delivery"
-        " wall over its clearing reps, the grader hop excluded — it absorbs"
-        " API latency and retries that cost does not. Burn rate closes a"
-        " second identity, cost of a clearing rep ≈ wall × burn rate: each"  # noqa: RUF001
-        " cell is the median over its clearing reps of spend per delivery"
-        " minute. A flat line means cost tracks time; a rising one, dearer"
-        " minutes (concurrency, context, model era); a falling one, cheaper"
-        " minutes (cache). The refusal task draws no burn line: it delivers"
-        " no change, so it has no delivery minute. The quality panel draws"
-        " one raw line per rubric"
-        " facet: each point is the mean of the facet's per-rep medians over"
-        f" the version's judged reps, on the rubric's own axis from {fig.quality.low:g}"
-        " to 5, fixed, so a move reads at its true share of the scale. The"
-        " rubric is ordinal, so the mean is a reading aid; the tables list"
-        " every score." + defect_note,
-        "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;",
-        Box(100, 940, 700, 140),
+        "Dots are recorded cells from evals/results/trend-data.json; feature lines"
+        " are three-version rolling means, refusal and quality lines are raw; the"
+        " x-axis is ordinal, only measured versions appear."
+        " A hollow dot is a lower bound (part of its spend went unrecorded); a"
+        " dashed vertical rule is a change of the requested root model;"
+        + defect_note
+        + " Method and definitions: evals/README.md § Reading the figure; every"
+        " score: evals/results/TREND.md.",
+        "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontStyle=2;fontColor=#9AA5B1;",
+        Box(100, 940, 700, 60),
     )
 
 
