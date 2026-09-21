@@ -31,7 +31,7 @@ Complete replacement of the harness-owned runtime makes onboarding and upgrading
 | Command | Direction | What it does |
 |---------|-----------|--------------|
 | `/materialize <project-path>` | Reference → project | Detect the stack; scaffold project-owned files via `/init` if missing; **completely replace** the runtime from `/harness`; remove stale orphans; keep project extensions (ask when unsure); respect the project's declared channel; verify the installed suites; validate with the doctor. |
-| `/harvest <project-path>` | Project → reference | Diff a real project against the materialized harness. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`); route language-agnostic improvements to `core/`. |
+| `/harvest <project-path>` | Project → reference | Diff a real project against the materialized harness. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`); route language-agnostic improvements to `core/`, stack-specific ones to `stacks/<stack>/`, and a brief's Language Realization rules to the stack's fragment. |
 
 ### Onboard or upgrade: the steps
 

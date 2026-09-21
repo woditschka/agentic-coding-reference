@@ -2,12 +2,14 @@
 name: harvest
 description: >-
   Pull generic improvements from a downstream project back into the /harness
-  source tree. Detects the source project's stack (Go, Java Spring Boot, or the generic fallback),
-  diffs its harness runtime (.claude/, schemas, scripts) against the
-  materialized harness (core plus the stack slice), classifies each change as
-  harvest, skip, or ask, generalizes domain patterns on the way back, and
-  routes language-agnostic changes to core/ and stack-specific ones to
-  stacks/<stack>/. Load when the user invokes `/harvest <project-path>`.
+  source tree. Detects the source project's stack (Go, Java Spring Boot, or the generic fallback)
+  and diffs its harness runtime (.claude/, schemas, scripts) against the
+  materialized harness (core plus the stack slice), plus the Language
+  Realization section of each brief whose stack ships a fragment. Classifies
+  each change as harvest, skip, or ask, generalizes domain patterns on the way
+  back, and routes language-agnostic changes to core/, stack-specific ones to
+  stacks/<stack>/, and realization rules to the stack's fragment. Load when
+  the user invokes `/harvest <project-path>`.
 compatibility:
   - claude-code
 metadata:
@@ -33,7 +35,7 @@ Compare the source project's harness runtime against the materialized harness (c
 
 Source projects may be set up with any subset of the three supported tools (the `init` skill selects them via `[harness] tools`). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
 
-Read `[harness] channel` from the source's `scripts/layout.toml` first. On the marketplace channel only the engine sliver lives in the tree (`scripts/`, `schemas/scratch/`, `.claude/templates/`) — compare only those categories. Every absent skill, agent, or hook reflects the channel, not a deletion.
+Read `[harness] channel` from the source's `scripts/layout.toml` first. On the marketplace channel only the engine sliver lives in the tree (`scripts/`, `schemas/scratch/`, `.claude/templates/`) — compare only those categories. The brief realization row is channel-independent, because every channel carries `docs/`. Every absent skill, agent, or hook reflects the channel, not a deletion.
 
 | Category | Source | Harness (core ∪ stacks/<stack>) |
 |---|---|---|
@@ -46,8 +48,9 @@ Read `[harness] channel` from the source's `scripts/layout.toml` first. On the m
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |
 | Harness scripts | `<project>/scripts/*.py` | `scripts/*.py` |
 | Rules | `<project>/CLAUDE.md` | *(stack-specific; compare against `stacks/<stack>` only if carried there)* |
+| Brief realization | `<project>/docs/<brief>.md` § Language Realization | `.claude/skills/doctor/templates/<brief>.realization.md` under `stacks/<stack>`, where the stack ships one; no fragment, no comparison |
 
-The source project's `docs/` is **not compared file-to-file** — briefs are project-owned and their divergence from the harness defaults is the design, not drift. Two harvest signals still come from there; route them by the table below.
+The source project's `docs/` is **not compared file-to-file** — briefs are project-owned and their divergence from the harness defaults is the design, not drift. Harvest signals still come from there; route them by the table below. The brief realization row is section-level: a project's `## Language Realization` against the fragment its stack ships. That section is the one place a stack default lives in a brief.
 
 `settings.json` (agent-teams flag plus hook registration) and `settings.local.json` (permission list) are project-owned config in the manifest channel, not materialized runtime — they are not harvested.
 
@@ -59,7 +62,8 @@ Every harvested change lands in the harness layer it belongs to. Core vs stack i
 |---|---|
 | Harness mechanics, language-agnostic (skill process, cross-stack agent structure, script logic, schema shape) | `harness/core/` — every stack inherits it on the next materialize |
 | Harness mechanics, stack-specific (lint rules, build commands, naming regexes, a stack's agent prose) | `harness/stacks/<stack>/` |
-| Policy insight (a better *default* value, section, or wording for a brief) | `harness/core/.claude/skills/doctor/templates/` — the shipped defaults; consumer briefs are never touched. No stack-level template overlay exists today; creating one is a deliberate structural change, not a harvest edit |
+| Policy insight (a better *default* value, section, or wording for a brief) | `harness/core/.claude/skills/doctor/templates/` — the shipped defaults; consumer briefs are never touched |
+| Stack realization insight (a placement rule, a stereotype mapping, a package convention that holds for every project on the stack) | `harness/stacks/<stack>/.claude/skills/doctor/templates/<brief>.realization.md` — the stack's fragment. A fragment edit trips the battery's realization pin until the stack sample's section is copied from it. A change of the shipped default's stance is the maintainer's call and lands with a root ADR |
 | Project-specific content | Stays downstream; not harvested |
 | Kernel- or spec-level change (roster, required sections, ownership or channel rule) | Root ADR + `docs/harness-project-api.md` + spec version bump — never a silent core edit |
 | Generic harness *decision* recorded downstream | Root `docs/adr/` (the handbook decision log) — consumers no longer ship harness ADRs |
@@ -77,6 +81,7 @@ For every difference found, classify it. Decide by one principle: harvest what g
 - New template file
 - Bugfix or improvement in a harness script
 - Improved wording that isn't domain-specific
+- A rule in a brief's `## Language Realization` that holds for every project on the stack: a placement rule, a stereotype mapping, a sub-package convention. Generalize it on the way back: the rule stays, the project's own type and module names go
 
 ### Domain-Specific (do NOT harvest)
 - A downstream-only path covered by `harness/retired-paths.txt` — a stale orphan the project never pruned, not a new unit; skip it and recommend pruning
@@ -88,9 +93,11 @@ For every difference found, classify it. Decide by one principle: harvest what g
 - Specific container/deployment details
 - References to project-specific config fields
 - Trimmed tool-surface prose (a claude-only downstream dropping cross-tool references is its opt-out, not an improvement)
+- Realization prose that only names the project's own types, modules, or worked cases — the rule behind it may harvest; the example never does
 
 ### Ambiguous (ask the user)
 - Content that mixes generic structure with domain examples
+- A realization rule that takes a different stance from the shipped fragment (another stereotype mapping, another package convention). A preference, not a defect; adopting it changes the default for every consumer on the stack
 - Changes to existing wording where intent is unclear
 - Removed sections (might be intentional cleanup or accidental)
 
@@ -107,8 +114,8 @@ Procedure: list every harness-only file alongside the harvest report. For each, 
 
 1. Read the source project path from the argument: `$ARGUMENTS`
 2. Verify the source project exists and has a `.claude/` directory; detect `<stack>` per Stack Selection.
-3. For each category in the table above, diff the source against the materialized harness (core ∪ `stacks/<stack>`).
-4. **Detect deletions:** for each harness file in every category, check whether the source has the same file. Files present in the harness but missing in source are candidates for "Deleted in Source".
+3. For each category in the table above, diff the source against the materialized harness (core ∪ `stacks/<stack>`). For the brief realization row, diff the section body only, and only where the stack ships a fragment.
+4. **Detect deletions:** for each harness file in every category, check whether the source has the same file. Files present in the harness but missing in source are candidates for "Deleted in Source". The brief realization row is exempt: a brief without the section, or one still under an older heading, is materialize's outward proposal, never a fragment-deletion candidate.
 5. Classify every difference using the rules above; for each, decide its destination layer (core vs stack) per Routing by Kind.
 6. Present findings to the user in four groups:
    - **Harvest** — generic improvements to apply, each tagged with its destination layer. Show the diff.
@@ -117,7 +124,7 @@ Procedure: list every harness-only file alongside the harvest report. For each, 
    - **Deleted in Source** — harness-only files. For each, ask delete / keep / skip-category.
 7. Wait for user confirmation before applying any changes.
 8. Apply confirmed changes to the harness, each to its destination layer: language-agnostic → `harness/core/`; stack-specific → `harness/stacks/<stack>/`. Perform any layer move noted in step 5. There is no cross-sample copying — `core/` is the one shared place.
-9. **Verify:** re-materialize the affected samples (`harness/materialize-samples.sh`) and run their doctors and script-test suites to confirm the harvest did not break a stack. A change applied to `core/` must leave *both* stacks passing.
+9. **Verify:** re-materialize the affected samples (`harness/materialize-samples.sh`) and run their doctors and script-test suites to confirm the harvest did not break a stack. A change applied to `core/` must leave *both* stacks passing. After a fragment change, copy the fragment verbatim into the stack sample's `## Language Realization` section; the battery's realization pin fails until they match.
 
 ## Generalization Rules
 
