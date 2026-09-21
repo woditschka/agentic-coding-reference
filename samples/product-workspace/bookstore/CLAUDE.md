@@ -211,6 +211,7 @@ Use the module or component name. Omit scope for cross-cutting changes: `refacto
 - No period at end
 - Maximum 50 characters
 - Complete the sentence: "This commit will ___"
+- Name the capability or outcome a reader would search the log for, never the mechanism: `feat: add product workspaces`, not `feat: fan the change set out over members`
 
 ### Breaking Changes
 
