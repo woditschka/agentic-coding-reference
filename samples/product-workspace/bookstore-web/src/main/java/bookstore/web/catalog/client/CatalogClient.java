@@ -1,4 +1,4 @@
-package bookstore.web.catalog.internal;
+package bookstore.web.catalog.client;
 
 import bookstore.web.catalog.Book;
 import java.util.List;

@@ -1,6 +1,6 @@
 package bookstore.web.catalog;
 
-import bookstore.web.catalog.internal.CatalogClient;
+import bookstore.web.catalog.client.CatalogClient;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

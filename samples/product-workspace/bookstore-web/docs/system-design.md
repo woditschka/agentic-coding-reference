@@ -5,7 +5,7 @@
 
 ## Overview
 
-A Spring Boot application with two Modulith modules. `catalog` holds the `Book` value, `CatalogService`, and under `internal/` the outbound port `CatalogClient` with its gRPC adapter, whose static mapper keeps the wire shape out of the domain. `books` holds the page controller, which sees only the service. The adapter carries the product's resilience rules: a deadline per call, a retry with backoff because the read is idempotent, a concurrency limit, and a `CatalogUnavailable` failure the page turns into a notice.
+A Spring Boot application with two Modulith modules. `catalog` holds the `Book` value and `CatalogService`. Under `client/` sit the outbound port `CatalogClient` and its adapter, whose static mapper keeps the wire shape out of the domain; `config/` imports the stub. `books` holds the page controller, which sees only the service. The adapter carries the product's resilience rules: a deadline per call, a retry with backoff because the read is idempotent, and a concurrency limit. A `CatalogUnavailable` failure is what the page turns into a notice.
 
 ## Package Structure
 
@@ -14,12 +14,13 @@ bookstore.web
 ├── WebApplication                @SpringBootApplication @Modulithic
 ├── catalog/
 │   ├── Book                      Value: a title, never blank, and a subtitle
-│   ├── CatalogService            The module's public face
+│   ├── CatalogService            @Service: the module's public face
 │   ├── CatalogUnavailable        The domain failure the page degrades on
-│   └── internal/
-│       ├── CatalogClient         The outbound port
-│       ├── GrpcCatalogClient     The adapter: deadline, @Retryable, @ConcurrencyLimit; fromResponse() maps inward
-│       └── GrpcCatalogConfig     Imports the stub on the channel named in application.yml
+│   ├── client/
+│   │   ├── CatalogClient         The outbound port
+│   │   └── GrpcCatalogClient     @Component: the adapter: deadline, @Retryable, @ConcurrencyLimit; fromResponse() maps inward
+│   └── config/
+│       └── GrpcCatalogConfig     @Configuration: imports the stub on the channel named in application.yml; class proxies for the resilience annotations
 └── books/
     └── BookController            GET / renders books.html; catches CatalogUnavailable
 ```

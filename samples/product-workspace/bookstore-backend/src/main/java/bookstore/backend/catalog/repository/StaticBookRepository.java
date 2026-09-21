@@ -1,4 +1,4 @@
-package bookstore.backend.catalog.internal;
+package bookstore.backend.catalog.repository;
 
 import bookstore.backend.catalog.Book;
 import java.util.List;
@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 /** The sample's whole stock, fixed at build time; a store replaces this class, nothing else. */
 @Repository
-class StaticBookRepository implements BookRepository {
+public class StaticBookRepository implements BookRepository {
 
   private static final List<Book> BOOKS =
       List.of(

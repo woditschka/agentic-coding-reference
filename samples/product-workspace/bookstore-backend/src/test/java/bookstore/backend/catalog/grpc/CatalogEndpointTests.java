@@ -1,4 +1,4 @@
-package bookstore.backend.catalog.internal;
+package bookstore.backend.catalog.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;

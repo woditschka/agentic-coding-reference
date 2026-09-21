@@ -79,6 +79,10 @@ BRIEF_CITATION = re.compile(
 )
 REALIZATION_SUFFIX = ".realization.md"
 REALIZATION_HEADING = "## Language Realization"
+# A sample outside samples/<stack>/ that carries a stack's fragment in its
+# brief: the bookstore umbrella is a generic-stack consumer whose members are
+# Spring, so its brief realizes the Java default and is pinned to it.
+FRAGMENT_CARRIERS = (("java-spring-boot", Path("samples/product-workspace/bookstore")),)
 CORE_STACK_TOKENS = re.compile(
     r"\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b"
     r"|golangci|spotless|JUnit|com/example"
@@ -968,25 +972,37 @@ def _section_body(text: str, heading: str) -> str | None:
 
 def _realization_problems(stack: str) -> list[str]:
     """Pin each sample's Language Realization to the fragment its stack ships."""
+    carriers = [
+        Path("samples") / stack,
+        *(root for carrier_stack, root in FRAGMENT_CARRIERS if carrier_stack == stack),
+    ]
+    return [
+        problem
+        for carrier in carriers
+        for problem in _carrier_realization_problems(stack, carrier)
+    ]
+
+
+def _carrier_realization_problems(stack: str, carrier: Path) -> list[str]:
+    """Compare one sample's realization sections against the stack's fragments."""
     fragments = sorted(
         (HERE / "stacks" / stack / TEMPLATES_REL).glob(f"*{REALIZATION_SUFFIX}")
     )
     problems = []
     for fragment in fragments:
         template = fragment.name.removesuffix(REALIZATION_SUFFIX) + ".md"
-        brief = _brief_path(template)
-        path = ROOT / "samples" / stack / brief
-        if not path.is_file():
-            continue  # _brief_problems reports the missing brief
-        body = _section_body(read_text(path), REALIZATION_HEADING)
+        brief = carrier / _brief_path(template)
+        if not (ROOT / brief).is_file():
+            continue  # _brief_problems reports a stack sample's missing brief
+        body = _section_body(read_text(ROOT / brief), REALIZATION_HEADING)
         if body is None:
             problems.append(
-                f"samples/{stack}/{brief} has no '{REALIZATION_HEADING}' section "
+                f"{brief.as_posix()} has no '{REALIZATION_HEADING}' section "
                 f"— the stack ships {fragment.name}"
             )
         elif body != read_text(fragment).strip("\n"):
             problems.append(
-                f"samples/{stack}/{brief} § Language Realization differs from "
+                f"{brief.as_posix()} § Language Realization differs from "
                 f"{rel(fragment)} — the sample carries the fragment verbatim"
             )
     return problems

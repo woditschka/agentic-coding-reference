@@ -1,4 +1,4 @@
-package bookstore.web.catalog.internal;
+package bookstore.web.catalog.config;
 
 import bookstore.api.CatalogGrpc;
 import org.springframework.context.annotation.Configuration;
@@ -12,4 +12,4 @@ import org.springframework.resilience.annotation.EnableResilientMethods;
 @Configuration(proxyBeanMethods = false)
 @ImportGrpcClients(target = "catalog", types = CatalogGrpc.CatalogBlockingStub.class)
 @EnableResilientMethods(proxyTargetClass = true)
-class GrpcCatalogConfig {}
+public class GrpcCatalogConfig {}

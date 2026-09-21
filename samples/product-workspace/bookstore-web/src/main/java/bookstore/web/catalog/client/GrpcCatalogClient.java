@@ -1,4 +1,4 @@
-package bookstore.web.catalog.internal;
+package bookstore.web.catalog.client;
 
 import bookstore.api.CatalogGrpc;
 import bookstore.api.ListBooksRequest;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  * backend cannot absorb every request thread; the mapper keeps the wire shape out of the domain.
  */
 @Component
-class GrpcCatalogClient implements CatalogClient {
+public class GrpcCatalogClient implements CatalogClient {
 
   static final long DEADLINE_SECONDS = 2;
   static final int MAX_RETRIES = 2;

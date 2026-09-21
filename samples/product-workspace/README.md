@@ -13,7 +13,7 @@ The shape follows the [product-workspace design](../../docs/product-workspace.md
 
 ## Shape
 
-Each Spring member is a Spring Modulith application with one `catalog` module. The module's root holds its public face, the `Book` value and `CatalogService`; `internal/` holds the adapters. In the backend the gRPC endpoint and the fixed-list repository are adapters behind the service. In the web module the gRPC client is an adapter behind an outbound port, and the page controller sees only the service. A static `from…`/`to…` mapper at each adapter is the anti-corruption layer: the generated contract types never cross into a domain type. `ModularityTests` in each member fails the build on a boundary breach.
+Each Spring member is a Spring Modulith application with one `catalog` module. The module's root holds its public face, the `Book` value and `CatalogService`; role-named sub-packages hold the adapters. In the backend the gRPC endpoint and the fixed-list repository are adapters behind the service. In the web module the gRPC client is an adapter behind an outbound port, and the page controller sees only the service. A static `from…`/`to…` mapper at each adapter is the anti-corruption layer: the generated contract types never cross into a domain type. `ModularityTests` in each member fails the build on a boundary breach.
 
 The web adapter carries the minimum distributed-system discipline for one remote call, from Spring Framework 7 and gRPC alone. A per-call deadline bounds the wait. A retry with backoff is safe because the read is idempotent. A concurrency limit keeps a slow backend from absorbing every request thread. A domain failure lets the page show a notice instead of an error.
 

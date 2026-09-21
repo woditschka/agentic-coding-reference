@@ -1,6 +1,6 @@
 package bookstore.backend.catalog;
 
-import bookstore.backend.catalog.internal.BookRepository;
+import bookstore.backend.catalog.repository.BookRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

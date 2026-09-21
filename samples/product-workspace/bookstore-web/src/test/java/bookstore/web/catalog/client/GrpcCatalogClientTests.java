@@ -1,4 +1,4 @@
-package bookstore.web.catalog.internal;
+package bookstore.web.catalog.client;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

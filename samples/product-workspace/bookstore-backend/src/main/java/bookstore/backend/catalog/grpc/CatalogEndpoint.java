@@ -1,4 +1,4 @@
-package bookstore.backend.catalog.internal;
+package bookstore.backend.catalog.grpc;
 
 import bookstore.api.CatalogGrpc;
 import bookstore.api.ListBooksRequest;
@@ -11,7 +11,7 @@ import org.springframework.grpc.server.service.GrpcService;
 
 /** Serves the catalog contract over gRPC; the mapper keeps the wire shape out of the domain. */
 @GrpcService
-class CatalogEndpoint extends CatalogGrpc.CatalogImplBase {
+public class CatalogEndpoint extends CatalogGrpc.CatalogImplBase {
 
   private final CatalogService catalog;
 

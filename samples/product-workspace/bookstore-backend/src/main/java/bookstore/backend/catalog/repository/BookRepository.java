@@ -1,4 +1,4 @@
-package bookstore.backend.catalog.internal;
+package bookstore.backend.catalog.repository;
 
 import bookstore.backend.catalog.Book;
 import java.util.List;

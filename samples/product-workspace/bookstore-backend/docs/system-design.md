@@ -5,7 +5,7 @@
 
 ## Overview
 
-A Spring Boot application with one Modulith module, `catalog`. The module's root holds the `Book` value and `CatalogService`; `internal/` holds the gRPC endpoint that provides the contract and the fixed-list repository behind the service. The endpoint's static mapper is the anti-corruption layer: a contract type never reaches a domain type.
+A Spring Boot application with one Modulith module, `catalog`. The module's root holds the `Book` value and `CatalogService`; `repository/` holds the persistence port and the fixed stock behind it, and `grpc/` the endpoint that provides the contract. The endpoint's static mapper is the anti-corruption layer: a contract type never reaches a domain type.
 
 ## Package Structure
 
@@ -14,10 +14,11 @@ bookstore.backend
 ├── BackendApplication            @SpringBootApplication @Modulithic
 └── catalog/                      The one module; public API at its root
     ├── Book                      Value: a title, never blank, and a subtitle
-    ├── CatalogService            The module's public face
-    └── internal/
-        ├── BookRepository        The persistence port
-        ├── StaticBookRepository  The fixed stock behind the port
+    ├── CatalogService            @Service: the module's public face
+    ├── repository/
+    │   ├── BookRepository        The persistence port
+    │   └── StaticBookRepository  @Repository: loads the catalog, a fixed stock of books, behind the port
+    └── grpc/
         └── CatalogEndpoint       @GrpcService providing the contract; toResponse() maps outward
 ```
 
