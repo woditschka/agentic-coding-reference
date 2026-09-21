@@ -37,7 +37,7 @@ They are the limit of adaptation: the line a project may approach but not cross.
 |-------|-------|----------|
 | Strategic properties (this doc) | Harness kernel — closed | The four properties above |
 | Tactical pattern catalog | Project brief (`docs/architecture-principles.md`) | Value objects, aggregates, repositories, domain services, anti-corruption mappers, naming rules |
-| Language realization | Project brief, language section | Java records with `List.copyOf()`; Go packages under `internal/` |
+| Language realization | Project brief, `## Language Realization`; a stack may ship its default as a `<brief>.realization.md` fragment beside the doctor templates | Java records with `List.copyOf()`, Spring stereotypes naming bean roles; Go packages under `internal/` |
 
 The default tactical catalog ships as the `architecture-principles` doctor template: the pattern realizations of the closed protections above, plus persistence as a spectrum and the suffix rules. It is an **opinionated default**. `architecture-principles.md` is the single surface a project edits to adapt it: enforcers apply that brief as written and hold no competing tactical copy. The closed protections above remain the limit of adaptation. See [`adr/2026-06-26-ddd-open-closed.md`](adr/2026-06-26-ddd-open-closed.md).
 

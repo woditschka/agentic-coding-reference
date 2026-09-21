@@ -89,7 +89,7 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 
 ## Stack-Specific Security Checks
 
-The classes below recur in every language but take a stack-specific form. Record this stack's concrete checks in each slot, or in `docs/security-principles.md` § Realization.
+The classes below recur in every language but take a stack-specific form. Record this stack's concrete checks in each slot, or in `docs/security-principles.md` § Language Realization.
 
 ### Concurrency Safety
 - [ ] No data races; shared state is synchronized or avoided

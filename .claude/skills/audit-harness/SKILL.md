@@ -103,6 +103,7 @@ the numbering, and a renumbering must not invalidate this table.
 | Skills-table name rows (samples and root, both directions), agents README roster, init skeleton coverage, brief roster, sample `docs/adr/` holds only README.md | the roster step — row *descriptions* stay judgment (check 5) |
 | Template placeholders confined to documented locations (per-file allowlist) | the placeholder step — token *placement* inside an allowed brief stays judgment |
 | Root handbook vs installed copy (pinned delta); sample doc self-containment | the handbook-delta step — a change to `handbook-delta.expected` itself is reviewed as content drift |
+| Stack-enforcer checklist lines naming a building block or annotation without citing the brief (pinned set) | the enforcer-pin step — whether a pinned line is kernel, framework wiring, or a tactic stays judgment (`/audit-agents`' open-closed check); a change to `enforcer-tactics.expected` is reviewed as such |
 | `design-block` / `review-feedback` verdict enums | the enum-sync step |
 | Stack-agnostic core (no stack token in `harness/core/`) | the stack-agnostic-core step |
 | Root markdown links resolve, including `#fragment` anchors against heading slugs and `<a id>` anchors | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
@@ -217,7 +218,7 @@ lane. Two rules are non-negotiable:
 |---|---|
 | any script (shipped or maintainer — `harness/`, `tools/`, engines), a hook, a hook registration (`hooks.json`, hook entries in `settings.json`), or a schema | scripts correctness **and** security |
 | agent or skill bodies or frontmatter, marketplace assets | docs-and-skills, cross-tool reach (a widened `tools:` grant also trips sticky security) |
-| root docs (incl. `docs/images`), `CLAUDE.md`, `README.md`, ADRs, root skills, `handbook-delta.expected`, `evals/results/notes.toml` (note text is prose under the documentation standards; figures a note states must match the derived tables) | docs-and-skills |
+| root docs (incl. `docs/images`), `CLAUDE.md`, `README.md`, ADRs, root skills, `handbook-delta.expected`, `enforcer-tactics.expected`, `evals/results/notes.toml` (note text is prose under the documentation standards; figures a note states must match the derived tables) | docs-and-skills |
 | a rename or retirement of a skill, agent, term, or path (content-keyed: judge the hunks, not the paths) | docs-and-skills (stale-reference sweep) |
 | a principle, quality-bar clause, or reference brief added or moved (content-keyed: judge the hunks, not the paths) | symmetry |
 | anything (every run with a diff) | whole-change |

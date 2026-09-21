@@ -1,0 +1,20 @@
+# The judged set of stack-enforcer checklist lines that name a DDD building block
+# or a framework annotation without citing the brief. verify-harness's enforcer-pin
+# step compares the live set (code-quality-review and design-validation under
+# harness/stacks/<stack>/) against this file, line for line.
+# Every line here was judged a closed-kernel check or framework wiring, never a
+# tactic the brief owns (ADR 2026-06-26 open-closed DDD; audit-agents' open-closed
+# check names the line). A new line fails the battery until it is judged: cite the
+# brief in the line, or add it here as an explicit decision. Hand-curated; no script
+# regenerates it.
+generic/design-validation: - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
+generic/design-validation: - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+generic/design-validation: - [ ] Value objects immutable, equal by value; invariants enforced at construction
+go/design-validation: - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
+go/design-validation: - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+go/design-validation: - [ ] Value objects immutable, equal by value; invariants enforced at construction
+java-spring-boot/code-quality-review: - [ ] Constructor injection (implicit with single constructor, no `@Autowired`)
+java-spring-boot/code-quality-review: - [ ] `@ConditionalOnProperty` for optional components
+java-spring-boot/design-validation: - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
+java-spring-boot/design-validation: - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+java-spring-boot/design-validation: - [ ] Value objects immutable, equal by value; invariants enforced at construction

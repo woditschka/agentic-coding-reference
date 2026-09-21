@@ -5,8 +5,9 @@
 
 The producer-side scaffold over harness/init/ (core overlaid with the stack)
 and the doctor's brief templates: the rules file, the settings, the layout
-with its channel declaration, the brief roster, and the .gitignore block. The
-runtime itself is materialize.py's. Stdlib only.
+with its channel declaration, the brief roster, and the .gitignore block. A
+stack's <brief>.realization.md fragment fills the brief's Language Realization
+section. The runtime itself is materialize.py's. Stdlib only.
 """
 
 import json
@@ -46,6 +47,9 @@ GITIGNORE_SENTINEL = "harness runtime"
 LEDGER_IGNORE = "\n# Handoff ledger (per-session, never committed)\n.scratch/\n"
 
 INIT_SRC = HERE / "init"
+TEMPLATES_REL = Path(".claude") / "skills" / "doctor" / "templates"
+REALIZATION_SUFFIX = ".realization.md"
+REALIZATION_HEADING = "## Language Realization"
 
 BRIEFS = (
     ("prd.md", "docs/prd.md"),
@@ -95,6 +99,7 @@ class Plan:
     target: Path
     channel: str
     templates: Path
+    stack_templates: Path
     toml_array: str
     replacements: dict[str, str]
     layout: Path
@@ -212,6 +217,7 @@ def resolve_plan(request: Request) -> Plan:
             request, target, layout, preexisting=layout_preexisting
         ),
         templates=_templates(),
+        stack_templates=HERE / "stacks" / request.stack / TEMPLATES_REL,
         toml_array=tools_toml(request.tools_csv),
         replacements={
             "PROJECT_NAME": request.project_name,
@@ -226,11 +232,38 @@ def resolve_plan(request: Request) -> Plan:
 
 def _templates() -> Path:
     # Two layouts share this file: the harness tree keeps the templates under
-    # core/.claude/skills, the plugin cache under skills/.
-    templates = HERE / "core" / ".claude" / "skills" / "doctor" / "templates"
+    # core/.claude/skills, the plugin cache under skills/ with the stack's
+    # fragments merged in beside them.
+    templates = HERE / "core" / TEMPLATES_REL
     if templates.is_dir():
         return templates
     return HERE / "skills" / "doctor" / "templates"
+
+
+def realize(text: str, body: str) -> str | None:
+    """Return the text with its Language Realization body replaced, or None without the section."""
+    lines = text.splitlines()
+    if REALIZATION_HEADING not in lines:
+        return None
+    start = lines.index(REALIZATION_HEADING) + 1
+    end = _section_end(lines, start)
+    realized = [*lines[:start], "", body.strip("\n"), "", *lines[end:]]
+    return "\n".join(realized) + "\n"
+
+
+def _section_end(lines: list[str], start: int) -> int:
+    # The next H2 closes the section; one inside a fenced block is content.
+    # A block closes only on its own opening marker.
+    fence: str | None = None
+    for index in range(start, len(lines)):
+        stripped = lines[index].lstrip()
+        if fence is None and lines[index].startswith("## "):
+            return index
+        if fence is None:
+            fence = stripped[:3] if stripped.startswith(("```", "~~~")) else None
+        elif stripped.startswith(fence):
+            fence = None
+    return len(lines)
 
 
 def _channel_in_force(
@@ -371,8 +404,35 @@ def _scaffold_briefs(plan: Plan, tally: Tally) -> None:
             continue
         write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
         write_guard.copy(src, dest)
+        _fill_realization(plan, template, dest)
         tally.leaks += [(rel, t) for t in fill(dest, plan.replacements)]
         tally.created += 1
+
+
+def _fill_realization(plan: Plan, template: str, dest: Path) -> None:
+    # The fragment sits under the stack tree in the harness layout and beside
+    # the core templates in the plugin cache; a template without one keeps
+    # its slot for the owner.
+    name = template.removesuffix(".md") + REALIZATION_SUFFIX
+    fragment = next(
+        (
+            b / name
+            for b in (plan.stack_templates, plan.templates)
+            if (b / name).is_file()
+        ),
+        None,
+    )
+    if fragment is None:
+        return
+    realized = realize(
+        dest.read_text(encoding="utf-8"), fragment.read_text(encoding="utf-8")
+    )
+    if realized is None:
+        raise InitError(
+            FAILURE_EXIT,
+            f"init: {template} has no '{REALIZATION_HEADING}' section for {name}",
+        )
+    write_guard.write_text(dest, realized, encoding="utf-8")
 
 
 def _append_gitignore(plan: Plan, tally: Tally) -> None:

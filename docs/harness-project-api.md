@@ -98,6 +98,7 @@ Each section states how the project realizes its kernel property. `[review]`
 | `## Domain Core` | Isolated core: what the core may depend on; where business logic lives |
 | `## Pattern Catalog` | The tactical patterns in force (e.g. repositories, thin services, anti-corruption layers) |
 | `## Naming` | Naming rules; prohibited forms |
+| `## Language Realization` | The construct that realizes each pattern in the project's language and framework, and where each kind of logic is placed. Init fills it from the stack's `<brief>.realization.md` where one ships; otherwise owner-written. Not a doctor gate |
 
 ### `security-principles.md`
 
@@ -106,7 +107,7 @@ Specializes the harness-owned security laws for the project; the `secure-by-desi
 | Section | Content rule | Slot |
 |---|---|---|
 | `## Trust Boundaries` | Each point where control or data crosses into more trust, and the rule there | — |
-| `## <stack> Realization` | The stack's high-bar defaults: each vulnerability class, the law it protects, the control. Stack-variable heading — judgment-checked, not a doctor gate. `[review]` | — |
+| `## Language Realization` | The stack's high-bar defaults: each vulnerability class, the law it protects, the control. The same slot convention as `architecture-principles.md`, fillable from a stack fragment; judgment-checked, not a doctor gate. `[review]` | — |
 
 ## Form Requirements
 

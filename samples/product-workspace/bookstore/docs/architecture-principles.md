@@ -73,7 +73,7 @@ Persistence is a spectrum; choose per project, and the domain core is identical 
 
 Direct mapping has two gates: the project owns both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
 
-## Java Realization
+## Language Realization
 
 How this project implements the catalog:
 

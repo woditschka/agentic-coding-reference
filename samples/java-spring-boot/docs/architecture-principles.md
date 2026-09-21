@@ -73,17 +73,43 @@ Persistence is a spectrum; choose per project, and the domain core is identical 
 
 Direct mapping has two gates: the project owns both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
 
-## Java Realization
+## Language Realization
 
-How this project implements the catalog:
+How this project implements the catalog in Java and Spring Boot.
+
+### Building Blocks
 
 | Pattern | Implementation |
 |---------|----------------|
 | Value object, aggregate | Immutable Java `record`; collections via `List.copyOf()` / `Map.copyOf()` |
-| Repository | Spring `@Component` |
-| Domain service | Spring `@Component`, stateless |
-| Anti-corruption mapper | Static method, `from{Source}()` / `to{Target}()`; source values in, mapped object or fallback out |
-| Configuration | `@ConfigurationProperties` record, validated at startup |
+| Repository | Spring `@Repository`, one per aggregate root; it stores and loads that aggregate and nothing else |
+| Application service | Spring `@Service`; it sequences one use case across collaborators |
+| Adapter | Spring `@Component`; it adapts one external system or one kind of I/O |
+| Domain service | Plain class of static pure methods; no state, no injected dependency, no stereotype annotation |
+| Anti-corruption mapper | Static pure method, `from{Source}()` / `to{Target}()`; a complex mapping delegates to a plain stateless class; no instance state, no injected dependency, no stereotype annotation |
+| Configuration | `@ConfigurationProperties` record, validated at startup, in the owning module's `config/` |
+
+A Spring stereotype annotation is the one marker of a bean: `@Repository`, `@Service`, `@Component`, or `@Configuration`. Neither state nor injected dependencies decide bean-ness. The stereotype names the bean's role, so a use case that drifted into an adapter is visible at its declaration. A `@ConfigurationProperties` record binds settings and sits outside this mapping. A stateless helper over a type the project does not own may be a static utility instead of a bean (§ Naming).
+
+### Logic Placement
+
+A bean orchestrates; domain objects, domain services, and mappers decide. A bean holds four things: the sequence of steps, the I/O and external-service calls, the error and logging policy, and configuration reads. Three things leave it.
+
+| What leaves a bean | Where it goes |
+|--------------------|---------------|
+| A decision about domain state: a merge rule, how an action applies, a predicate over candidates | A method on the value object when the decision concerns one object; a domain service when it spans several |
+| A change of representation: a view model, a prompt input, a filename composition | An anti-corruption mapper |
+| Parsing and validation of an external format | An anti-corruption mapper or a domain service |
+
+A behavior method on a domain record takes no dependency. A bean's length tracks the number of steps it sequences; growth signals a missing use case, never room for logic. Placement is checked at code review; no build gate marks it.
+
+### Module Layout
+
+The module's base package is its public API. Internals live in role-named sub-packages: `domain/` for domain services, `mapper/` for mappers, `repository/` for repositories, `config/` for configuration. A further role gets a further role name. Technical-layer packages at application level (`model/`, `service/`, `controller/`) are forbidden.
+
+A sub-package type is public so the whole module can use it; the modularity test's `ApplicationModules.verify()` enforces the boundary, not package-private visibility. A sub-package crosses to another module only through `@NamedInterface("name")` on its `package-info.java`, which the consumer narrows with `allowedDependencies = "module :: name"`. A type moves to the base package only when a cross-module caller needs it, and then in the narrowest form that satisfies the caller. A module still crowded after sub-packaging promotes a sub-package to a nested module; a second top-level module for the same concern is forbidden.
+
+### Java Idioms
 
 | Principle | Rule | Rationale |
 |-----------|------|-----------|

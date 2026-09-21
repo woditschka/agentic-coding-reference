@@ -7,7 +7,7 @@ This tree is the one place the harness is authored. The sample projects (`sample
 The split that matters: **runtime vs. project-owned.**
 
 - `core/` and `stacks/<stack>/` hold the **runtime**: skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer. Upgrading is a re-`materialize`, never a merge.
-- `init/` holds skeletons for the files the **project owns and commits**: `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), `scripts/backlog.sh` (the `/next` tracker connector), and the `docs/` brief roster. The roster is sourced from the doctor templates under `core/.claude/skills/doctor/templates/`. `init.py` lays these down once and never overwrites an existing project file.
+- `init/` holds skeletons for the files the **project owns and commits**: `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), `scripts/backlog.sh` (the `/next` tracker connector), and the `docs/` brief roster. The roster is sourced from the doctor templates under `core/.claude/skills/doctor/templates/`; a stack's `<brief>.realization.md` beside them fills that brief's `## Language Realization` section. `init.py` lays these down once and never overwrites an existing project file.
 
 `init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime. The annotated tree:
 
@@ -76,6 +76,9 @@ harness/
 │                    egress, network files — each entry with its why.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
 │                    and the installed copy; verify-harness step 3e fails on any other delta.
+├── enforcer-tactics.expected  The judged set of stack-enforcer checklist lines naming a
+│                    building block or annotation without citing the brief; step 3p fails
+│                    on any other line (ADR 2026-09-21).
 ├── tests/           The producer-side suites, mirroring this toolbox tree
 │   │                (ADR 2026-07-18 producer-side-tests-subdir).
 │   ├── _loader.py   Shared path-loader: resolves the toolbox root and loads a

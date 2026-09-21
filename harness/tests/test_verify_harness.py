@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from _loader import ROOT
+from _loader import ROOT, load
 
 sys.path.insert(0, str(ROOT))
 
@@ -1173,6 +1173,60 @@ class ShippedProseGates(unittest.TestCase):
         )
         self.assertTrue(failed)
         self.assertIn("runtime number", err)
+
+    def test_enforcer_tactic_lines_are_checklist_lines_without_a_citation(self):
+        text = (
+            "- [ ] `@Service` for stateless services\n"
+            "- [ ] `@Entity` only where the Brief's § Language Realization says\n"
+            "- [ ] Aggregates are the consistency boundary\n"
+            "- [ ] Early returns for edge cases\n"
+            "A `@Service` named in prose is not a checklist line.\n"
+        )
+        self.assertEqual(
+            sync.enforcer_tactic_lines(text),
+            [
+                "- [ ] `@Service` for stateless services",
+                "- [ ] Aggregates are the consistency boundary",
+            ],
+        )
+
+    def test_enforcer_tactic_annotation_match_is_case_sensitive(self):
+        text = (
+            "- [ ] Javadoc carries no `@param` tag restating the signature\n"
+            "- [ ] Contact `owner@example.com` on a failure\n"
+            "- [ ] `@Repository` per aggregate root\n"
+        )
+        self.assertEqual(
+            sync.enforcer_tactic_lines(text), ["- [ ] `@Repository` per aggregate root"]
+        )
+
+    def test_section_body_reads_back_what_init_realizes_across_a_fenced_heading(self):
+        init_mod = load("init_for_pin", "init.py")
+        body = "Rows.\n\n```text\n## not a heading\n```\n\nMore rows.\n"
+        template = "# T\n\n## Language Realization\n\n<!-- slot -->\n\n## Naming\n\nn\n"
+        realized = init_mod.realize(template, body)
+        self.assertEqual(
+            sync._section_body(realized, "## Language Realization"), body.strip("\n")
+        )
+        self.assertEqual(init_mod.realize(realized, body), realized)
+
+    def test_pinned_multiset_reports_each_side_of_a_divergence(self):
+        with tempfile.TemporaryDirectory() as td:
+            expected = Path(td) / "x.expected"
+            expected.write_text("# header\n\nkept\ngone\n", encoding="utf-8")
+            live = sync.Counter({"kept": 1, "new": 1})
+            self.assertEqual(
+                sync._pinned_multiset_problems(
+                    expected, sync.Counter({"kept": 1, "gone": 1}), "s", "f"
+                ),
+                [],
+            )
+            (problem,) = sync._pinned_multiset_problems(expected, live, "s", "Fix it")
+            self.assertIn("    - gone\n    + new\nFix it", problem)
+            self.assertIn(
+                "missing",
+                sync._pinned_multiset_problems(Path(td) / "none", live, "s", "f")[0],
+            )
 
     def test_the_live_tree_passes_both_gates(self):
         for check in (

@@ -180,7 +180,7 @@ Append your record via `python3 scripts/handoff.py append <type>` — it validat
 `design-block` for a `new` verdict (genuinely new design ground):
 
 ```json
-{"type":"design-block","req_id":"REQ-XX-099","author":"system-design-expert","verdict":"new","architectural_fit":"Cache miss diagnostics live in the report module alongside existing per-component rates; new internal class CacheMissCalculator introduced to encapsulate the calculation.","primary_paths":["src/main/java/com/example/reference/report/internal/CacheMissCalculator.java","src/test/java/com/example/reference/report/internal/CacheMissCalculatorTest.java"],"integration_points":["summary report row gains a cacheMissRate column derived from CacheMeasure"],"patterns":[{"ref":"src/main/java/com/example/reference/report/SummaryReport.java:120","description":"existing per-component rate computation pattern"}],"risks":[{"risk":"divisor zero when cacheEligibleTokenCount is 0","mitigation":"emit null with insufficientData flag (architecture-principles § Domain Core)"}]}
+{"type":"design-block","req_id":"REQ-XX-099","author":"system-design-expert","verdict":"new","architectural_fit":"Cache miss diagnostics live in the report module alongside existing per-component rates; new domain service CacheMissCalculator introduced to encapsulate the calculation.","primary_paths":["src/main/java/com/example/reference/report/domain/CacheMissCalculator.java","src/test/java/com/example/reference/report/domain/CacheMissCalculatorTest.java"],"integration_points":["summary report row gains a cacheMissRate column derived from CacheMeasure"],"patterns":[{"ref":"src/main/java/com/example/reference/report/SummaryReport.java:120","description":"existing per-component rate computation pattern"}],"risks":[{"risk":"divisor zero when cacheEligibleTokenCount is 0","mitigation":"emit null with insufficientData flag (architecture-principles § Domain Core)"}]}
 ```
 
 `consultation-response`:
@@ -215,12 +215,11 @@ Before approving a feature for implementation:
 ### Architectural Fit
 - [ ] Feature aligns with project goals
 - [ ] Feature not declined in Non-Goals or retired in Superseded
-- [ ] Package placement follows existing module structure (see `docs/system-design.md`)
+- [ ] Package placement follows existing module structure (see `docs/system-design.md` and `docs/architecture-principles.md` § Language Realization)
 - [ ] New types follow the project's type conventions (see `docs/architecture-principles.md`)
 - [ ] Error handling follows the error-flow rule in `docs/architecture-principles.md`
 - [ ] No circular dependencies between modules
 - [ ] No reach into another module's internal packages
-- [ ] No access to another module's `internal/` sub-packages
 - [ ] Integration points identified
 - [ ] New dependencies from approved sources (see `docs/system-design.md`); ADR required for exceptions
 
@@ -237,7 +236,7 @@ The closed-kernel checks below hold in every project. Every other tactical choic
 
 ### Security by Design
 
-See `docs/security-principles.md` — the project's trust-boundary map (§ Trust Boundaries) and the stack's high-bar defaults (its Realization table). Validate the design against the brief, not a remembered list:
+See `docs/security-principles.md` — the project's trust-boundary map (§ Trust Boundaries) and the stack's high-bar defaults (its § Language Realization table). Validate the design against the brief, not a remembered list:
 
 - [ ] Every trust boundary the slice introduces or crosses is identified, with validation placed at it
 - [ ] Secrets stay out of logs, errors, URLs, and process arguments

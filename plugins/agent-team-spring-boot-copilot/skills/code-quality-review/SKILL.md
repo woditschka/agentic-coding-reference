@@ -25,9 +25,9 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 
 ## Design Placement
 
-The style guide is the floor; the project's recorded design is the wall. For every new or moved business rule in the diff — a conditional, a validation, a computation encoding a domain decision — check its landing layer against the owning component's row in `docs/system-design.md`, read under the project's `docs/architecture-principles.md` (the placement doctrine a project may adapt):
+The style guide is the floor; the project's recorded design is the wall. For every new or moved business rule in the diff — a conditional, a validation, a computation encoding a domain decision — check its landing layer against the owning component's row in `docs/system-design.md`, read under the project's `docs/architecture-principles.md` § Language Realization (the placement doctrine a project may adapt):
 
-- [ ] A new business rule lives in the layer its catalog row assigns. A rule landing in a web controller, handler, or adapter when the catalog assigns a domain or service seam is a `blocked` finding, severity per impact — even when the code works and reads cleanly.
+- [ ] A new business rule lives in the layer its catalog row assigns. A rule landing in a web controller, handler, or adapter when the brief's catalog assigns a domain object, domain service, or mapper seam is a `blocked` finding, severity per impact — even when the code works and reads cleanly.
 - [ ] A helper widened for test access (package-private, exported-for-tests) is a placement smell: the sanctioned seam usually makes the behavior testable without widening.
 - [ ] Normalization, formatting, and value logic sit where the catalog places their kind; the same rule applies when such logic lands inline in a handler.
 - [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing. The same routing applies when two briefs read against each other on it. A placement finding that asks for a design decision is a `clarify` by its own words, never `blocked`. `blocked` is for a home the catalog assigns unambiguously.
@@ -90,7 +90,7 @@ The free tier is the default on every path: where the better form costs nothing 
 - [ ] Record fields are typed (no raw `Object` or `Map<String, Object>`)
 - [ ] `LocalDate` for dates, `Instant` for timestamps, not `String`
 - [ ] `Optional` used for nullable return values, not null
-- [ ] Jackson annotations only where needed (records work with Jackson by default)
+- [ ] Serialization and framework annotations follow the brief's § Language Realization
 - [ ] Collections use defensive copies where appropriate
 
 ### Construction
@@ -101,9 +101,8 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] A static creator normalizes before validating and is the only public creation path beside the constructor, never a second one
 
 ### Spring Boot Idioms
-- [ ] `@Component` / `@Service` for stateless services
 - [ ] Constructor injection (implicit with single constructor, no `@Autowired`)
-- [ ] `@ConfigurationProperties` with records for typed config binding
+- [ ] Configuration binds the way the brief's § Language Realization states
 - [ ] `@ConditionalOnProperty` for optional components
 - [ ] `spring.main.web-application-type=none` (if CLI)
 - [ ] `CommandLineRunner` for the entry point, not `main()` logic (if CLI)
@@ -142,7 +141,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] Follows system-design.md package layout
 - [ ] No circular dependencies between packages
 - [ ] Each package has a clear single responsibility
-- [ ] Packages hold only the responsibilities system-design.md assigns them (a declared `model/` package stays free of business logic)
+- [ ] Packages hold only the responsibilities system-design.md and the brief's § Language Realization assign them
 
 ### UTF-8 and Edge Cases
 - [ ] All file I/O specifies `StandardCharsets.UTF_8`

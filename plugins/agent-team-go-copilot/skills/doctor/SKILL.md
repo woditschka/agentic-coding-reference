@@ -28,7 +28,7 @@ The doctor's engine, manifest, and tests live in the project-side `scripts/` dir
 | `scripts/doctor.py` | The engine. Stdlib only, Python 3.11+. Project-side, like every harness engine. |
 | `scripts/doctor-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
 | `scripts/tests/test_doctor.py` | The suite: one class per check subject, and an anchor test proving a freshly materialized project passes. |
-| `templates/` | One template per roster file (in this skill). Defaults are complete house-style documents; stubs are structure-only. |
+| `templates/` | One template per roster file (in this skill). Defaults are complete house-style documents; stubs are structure-only. A stack's `<brief>.realization.md` beside them is the body init writes into that brief's `## Language Realization` section; a stack without one leaves the section to the owner. |
 
 ## Running
 
@@ -64,7 +64,7 @@ Exit 0: all checks pass. Exit 1: at least one failure, each printed as `FAIL <ch
 
 ## Remedies
 
-- **Missing file** — offer to materialize the matching template: fill `{{PROJECT_NAME}}` and `{{HARNESS_DATE}}`, keep the provenance first line. Materializing is the only remedy for absence — never an invisible fallback.
+- **Missing file** — offer to materialize the matching template: fill `{{PROJECT_NAME}}` and `{{HARNESS_DATE}}`, write the stack's `<brief>.realization.md` into the `## Language Realization` section where one exists. Keep the provenance first line. Materializing is the only remedy for absence — never an invisible fallback.
 - **Existing file fails** — report the finding and route the fix to the file's owning agent as a consented diff. The doctor never edits a roster file, and re-materializing over an existing file is forbidden (channel rule).
 - **New failures after a harness upgrade** — that is the upgrade surfacing new expectations. Pair each finding with the shipped default and an offer to draft the project's own stance.
 - **`doc-budget` / `field-tables` / `req-acceptance` failures on an upgraded project** — the docs predate the narrative format. Run the `doc-sync` skill § Format Migration: it rebuilds `prd.md` and `system-design.md` in the current format from code, tests, and the existing docs, preserving every REQ-ID, then loops until the doctor is green.

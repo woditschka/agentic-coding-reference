@@ -46,6 +46,7 @@ Init overlays `harness/init/core/` then `harness/init/stacks/<stack>/` (stack wi
 | `harness/init/stacks/<stack>/scripts/layout.toml` | `scripts/layout.toml` | — (carries `[harness] channel = "copy"` by default; module rules are the project's to adjust) |
 | `harness/init/core/scripts/backlog.sh` | `scripts/backlog.sh` | — (the `/next` tracker connector; ships unbound, a team defines `backlog_items` and `backlog_claim`) |
 | `harness/core/.claude/skills/doctor/templates/*` | `docs/` roster (see below) | `{{PROJECT_NAME}}`, `{{HARNESS_DATE}}` |
+| `harness/stacks/<stack>/.claude/skills/doctor/templates/<brief>.realization.md` | the brief's `## Language Realization` section | — (the stack's realization of the brief; a stack without one leaves the section to the owner) |
 | `harness/init/core/gitignore-runtime.txt` | appended to `.gitignore` | — (manifest: the runtime paths + `.scratch/`; copy: only `.scratch/`) |
 
 The `docs/` roster maps the doctor templates to project briefs; `adr-README.md` is renamed to `docs/adr/README.md`:

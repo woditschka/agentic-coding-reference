@@ -17,7 +17,7 @@ A trust boundary is any point where data or control crosses from less-trusted to
 
 Internal code, past the boundary, trusts its contracts — defensive checks belong at the boundary, not scattered through the core.
 
-## Realization
+## Language Realization
 
 The product's trust boundaries run between its members, so this section states them; a member adds a brief of its own only where it has a boundary of its own.
 

@@ -236,7 +236,7 @@ The closed-kernel checks below hold in every project. Every other tactical choic
 
 ### Security by Design
 
-See `docs/security-principles.md` — the project's trust-boundary map (§ Trust Boundaries) and the stack's high-bar defaults (its Realization table). Validate the design against the brief, not a remembered list:
+See `docs/security-principles.md` — the project's trust-boundary map (§ Trust Boundaries) and the stack's high-bar defaults (its § Language Realization table). Validate the design against the brief, not a remembered list:
 
 - [ ] Every trust boundary the slice introduces or crosses is identified, with validation placed at it
 - [ ] Secrets stay out of logs, errors, URLs, and process arguments

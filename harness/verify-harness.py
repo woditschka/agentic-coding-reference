@@ -15,6 +15,7 @@ re-enumerating:
                                          3m  gitignore-block sync
                                          3n  shipped prose self-containment
                                          3o  runtime-number-free prose
+                                         3p  enforcer tactic pin (stack skills)
   2  python syntax                       4   sample test suites
   2a annotation evaluation (runtime)     4b  sample build-file script refs
   2b agent body parity (per-tool copies)
@@ -94,6 +95,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_adr_index,
     check_agent_body_parity,
     check_bundled_skill_collision,
+    check_enforcer_pin,
     check_faithfulness,
     check_frontmatter_vocabulary,
     check_gitignore_block,
@@ -178,6 +180,7 @@ def _run_steps(b: Battery) -> None:
     check_gitignore_block(b)
     check_prose_self_containment(b)
     check_runtime_number_free_prose(b)
+    check_enforcer_pin(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)

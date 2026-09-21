@@ -49,6 +49,7 @@ A plugin update advances only the cached surfaces; your project's engine sliver 
 
 1. Update the plugin from the marketplace — for Claude Code refresh the marketplace, then update the plugin; other tools use their update command — and restart the tool.
 2. Re-run this skill (or `setup.sh` by hand, § Run it).
+3. Compare each brief's `## Language Realization` section with the fragment the plugin bundles for it, `skills/doctor/templates/<brief>.realization.md`, where one exists. Adopt what the fragment gained, or keep the project's own text as a deliberate divergence. This channel has no `/materialize`, so the comparison is this step.
 
 The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/doctor.py check --plugin-version-date <plugin-root>/VERSION-DATE` (Claude Code: `${CLAUDE_PLUGIN_ROOT}`; other tools: the plugin cache directory named above). A stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.
 

@@ -16,7 +16,7 @@ A trust boundary is any point where data or control crosses from less-trusted to
 
 Internal code, past the boundary, trusts its contracts — defensive checks belong at the boundary, not scattered through the core.
 
-## Go Realization
+## Language Realization
 
 State-of-the-art defaults for this Go project, derived from its dependency policy and threat model (`docs/system-design.md`). These are the bar a change starts from, not a floor to argue down.
 

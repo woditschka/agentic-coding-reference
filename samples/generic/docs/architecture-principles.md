@@ -74,6 +74,10 @@ Persistence is a spectrum; choose per project, and the domain core is identical 
 
 Direct mapping has two gates: the project owns both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
 
+## Language Realization
+
+<!-- How this project implements the catalog in its language and framework: the construct that realizes each pattern, and where each kind of logic is placed. A stack that ships a realization fills this section at init from `templates/architecture-principles.realization.md`; otherwise the owner writes it. -->
+
 ## Naming
 
 Names come from the project's canonical vocabulary (`ubiquitous-language.md`): if the PRD calls it a "feed item", the code says `FeedItem`, never `Entry` or `Record`.

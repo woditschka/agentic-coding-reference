@@ -28,6 +28,8 @@ LEDGER_IGNORE = ".scratch/"
 A_RUNTIME_IGNORE = "scripts/doctor.py"
 RUNTIME_SKILLS_IGNORE = ".claude/skills/*"
 MANAGED_CHAPTER = "## Agent Usage (Mandatory)"
+REALIZATION_HEADING = "## Language Realization"
+REALIZATION_SLOT_COMMENT = "<!-- How this project implements"
 A_FILLED_CHAPTER_MIN_CHARS = 100
 SCAFFOLDED_FILES = (
     "CLAUDE.md",
@@ -303,6 +305,61 @@ class Scaffold(unittest.TestCase):
         agent_usage = claude_md.split(MANAGED_CHAPTER, 1)[1]
         body = agent_usage.split("\n## ", 1)[0]
         self.assertGreater(len(body.strip()), A_FILLED_CHAPTER_MIN_CHARS)
+
+    def test_language_realization_filled_from_the_stack_fragment(self):
+        run_init(self.target, "java-spring-boot")
+        brief = self.read("docs/architecture-principles.md")
+        fragment = (
+            ROOT / "stacks/java-spring-boot" / init_mod.TEMPLATES_REL
+        ) / "architecture-principles.realization.md"
+        self.assertIn(REALIZATION_HEADING, brief)
+        self.assertIn(fragment.read_text(encoding="utf-8").strip("\n"), brief)
+        self.assertNotIn(REALIZATION_SLOT_COMMENT, brief)
+
+    def test_language_realization_slot_kept_without_a_fragment(self):
+        run_init(self.target, "go")
+        brief = self.read("docs/architecture-principles.md")
+        self.assertIn(REALIZATION_HEADING, brief)
+        self.assertIn(REALIZATION_SLOT_COMMENT, brief)
+
+    def test_realize_replaces_only_the_section_body(self):
+        text = "# T\n\n## A\n\na\n\n## Language Realization\n\nold\n\n## B\n\nb\n"
+        realized = init_mod.realize(text, "new\n")
+        self.assertEqual(
+            realized,
+            "# T\n\n## A\n\na\n\n## Language Realization\n\nnew\n\n## B\n\nb\n",
+        )
+
+    def test_realize_returns_none_without_the_section(self):
+        self.assertIsNone(init_mod.realize("# T\n\n## A\n\na\n", "new"))
+
+    def test_a_fragment_without_a_slot_in_its_template_fails_loud(self):
+        templates = self.target / "templates"
+        stack_templates = self.target / "stack"
+        templates.mkdir()
+        stack_templates.mkdir()
+        (templates / "prd.md").write_text("# P\n\n## Goals\n", encoding="utf-8")
+        (stack_templates / "prd.realization.md").write_text("body\n", encoding="utf-8")
+        dest = self.target / "prd.md"
+        dest.write_text(
+            (templates / "prd.md").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        plan = init_mod.Plan(
+            request=init_mod.Request(
+                "go", str(self.target), SOME_PROJECT_NAME, SOME_DESCRIPTION, "", "", ""
+            ),
+            target=self.target,
+            channel="copy",
+            templates=templates,
+            stack_templates=stack_templates,
+            toml_array='["claude"]',
+            replacements={},
+            layout=self.target / "scripts/layout.toml",
+            layout_preexisting=False,
+        )
+        with self.assertRaises(init_mod.InitError) as raised:
+            init_mod._fill_realization(plan, "prd.md", dest)
+        self.assertIn(REALIZATION_HEADING, raised.exception.message)
 
     def test_harness_date_stamped_on_line_one(self):
         run_init(self.target, "go")

@@ -62,6 +62,23 @@ PH_ALLOW = re.compile(
     r"|evals/tests/test_run_eval\.py$)"
 )
 
+TEMPLATES_REL = Path(".claude/skills/doctor/templates")
+ENFORCER_SKILLS = ("code-quality-review", "design-validation")
+CHECKLIST_LINE = re.compile(r"^\s*- \[ \] ")
+# The vocabulary of the brief's open catalog plus any framework annotation:
+# a checklist line naming one is a tactic unless it cites the brief, states
+# a closed-kernel property, or wires the framework.
+TACTIC_VOCABULARY = re.compile(
+    r"(?-i:@[A-Z]\w+)|\b(?:mappers?|anti-corruption|repositor(?:y|ies)|aggregates?"
+    r"|value objects?|domain services?|application services?|transactions?"
+    r"|serializ\w*|persist\w*|annotations?|stereotypes?)\b",
+    re.IGNORECASE,
+)
+BRIEF_CITATION = re.compile(
+    r"\bbriefs?\b|architecture-principles|Language Realization", re.IGNORECASE
+)
+REALIZATION_SUFFIX = ".realization.md"
+REALIZATION_HEADING = "## Language Realization"
 CORE_STACK_TOKENS = re.compile(
     r"\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b"
     r"|golangci|spotless|JUnit|com/example"
@@ -912,20 +929,65 @@ def _owned_file_problems(stack: str) -> list[str]:
     return problems
 
 
+def _brief_path(template_name: str) -> str:
+    """Map a doctor template name to the brief it scaffolds."""
+    if template_name == "adr-README.md":
+        return "docs/adr/README.md"
+    return f"docs/{template_name}"
+
+
 def _brief_problems(stack: str) -> list[str]:
     """Check that every doctor template has its brief in the sample."""
-    templates = sorted((HERE / "core/.claude/skills/doctor/templates").glob("*.md"))
+    templates = sorted((HERE / "core" / TEMPLATES_REL).glob("*.md"))
     problems = []
     for template in templates:
-        brief = (
-            "docs/adr/README.md"
-            if template.name == "adr-README.md"
-            else f"docs/{template.name}"
-        )
+        brief = _brief_path(template.name)
         if not (ROOT / "samples" / stack / brief).is_file():
             problems.append(
                 f"samples/{stack}/{brief} missing — the doctor template "
                 f"{template.name} has no sample brief"
+            )
+    return problems
+
+
+def _section_body(text: str, heading: str) -> str | None:
+    """Return the body of one H2 section, or None when the heading is absent."""
+    lines = text.splitlines()
+    if heading not in lines:
+        return None
+    start = lines.index(heading) + 1
+    body = []
+    fence = None
+    for line in lines[start:]:
+        if fence is None and line.startswith("## "):
+            break
+        fence = fence_state(line, fence)
+        body.append(line)
+    return "\n".join(body).strip("\n")
+
+
+def _realization_problems(stack: str) -> list[str]:
+    """Pin each sample's Language Realization to the fragment its stack ships."""
+    fragments = sorted(
+        (HERE / "stacks" / stack / TEMPLATES_REL).glob(f"*{REALIZATION_SUFFIX}")
+    )
+    problems = []
+    for fragment in fragments:
+        template = fragment.name.removesuffix(REALIZATION_SUFFIX) + ".md"
+        brief = _brief_path(template)
+        path = ROOT / "samples" / stack / brief
+        if not path.is_file():
+            continue  # _brief_problems reports the missing brief
+        body = _section_body(read_text(path), REALIZATION_HEADING)
+        if body is None:
+            problems.append(
+                f"samples/{stack}/{brief} has no '{REALIZATION_HEADING}' section "
+                f"— the stack ships {fragment.name}"
+            )
+        elif body != read_text(fragment).strip("\n"):
+            problems.append(
+                f"samples/{stack}/{brief} § Language Realization differs from "
+                f"{rel(fragment)} — the sample carries the fragment verbatim"
             )
     return problems
 
@@ -953,6 +1015,7 @@ def _stack_roster_problems(stack: str) -> list[str]:
         *_agents_readme_problems(stack, agents_readme),
         *_owned_file_problems(stack),
         *_brief_problems(stack),
+        *_realization_problems(stack),
         *_adr_placement_problems(stack),
     ]
 
@@ -1004,7 +1067,8 @@ def _root_skill_table_problems() -> list[str]:
 def check_roster_sync(b: Battery) -> None:
     """Hold the project-owned rosters and skeleton copies in sync with the shipped runtime."""
     b.note(
-        "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
+        "project-owned roster sync (skills tables incl. root, agents README, "
+        "init coverage, realization pin)"
     )
     problems = _hook_registration_problems()
     for stack in STACKS:
@@ -1072,35 +1136,39 @@ def _handbook_delta() -> Counter[str]:
     )
 
 
-def _handbook_delta_problems() -> list[str]:
-    """Compare the handbook delta against its pinned multiset of changed lines."""
-    expected_file = HERE / "handbook-delta.expected"
+def _pinned_multiset_problems(
+    expected_file: Path, actual: Counter[str], subject: str, fix: str
+) -> list[str]:
+    """Compare a live multiset of lines against its pinned, hand-curated file."""
     if not expected_file.is_file():
-        return [
-            "harness/handbook-delta.expected missing — the pinned handbook "
-            "delta has no reference"
-        ]
-    # The compare is on the multiset of changed lines, not the diff text:
-    # Apple and GNU diff group -U0 hunks differently for the same delta.
+        return [f"{rel(expected_file)} missing — {subject} has no reference"]
+    # The compare is on the multiset of lines, not their order or a diff
+    # text: Apple and GNU diff group -U0 hunks differently for the same delta.
     expected = Counter(
         line
         for line in read_text(expected_file).splitlines()
-        if not line.startswith("#")
+        if line and not line.startswith("#")
     )
-    actual = _handbook_delta()
     if actual == expected:
         return []
     detail = [
         *(f"    - {line}" for line in sorted((expected - actual).elements())),
         *(f"    + {line}" for line in sorted((actual - expected).elements())),
+        fix,
+    ]
+    return [f"{subject} diverged from {rel(expected_file)}:\n" + "\n".join(detail)]
+
+
+def _handbook_delta_problems() -> list[str]:
+    """Compare the handbook delta against its pinned multiset of changed lines."""
+    return _pinned_multiset_problems(
+        HERE / "handbook-delta.expected",
+        _handbook_delta(),
+        "docs/agentic-harness.md vs its core copy",
         "Fix: reconcile the two copies (owner: docs/agentic-harness.md). "
         "Regenerating the\nexpected delta is an explicit decision — a diff "
         "touching it needs the same review as content drift.",
-    ]
-    return [
-        "docs/agentic-harness.md vs its core copy diverged beyond "
-        "harness/handbook-delta.expected:\n" + "\n".join(detail)
-    ]
+    )
 
 
 def _self_containment_problems() -> list[str]:
@@ -1138,6 +1206,50 @@ def check_handbook_delta(b: Battery) -> None:
     b.note("handbook delta (root vs core copy) + sample self-containment")
     problems = [*_handbook_delta_problems(), *_self_containment_problems()]
     b.report(problems, "delta pinned, samples self-contained")
+
+
+def enforcer_tactic_lines(text: str) -> list[str]:
+    """Return the checklist lines naming a building block or annotation without citing the brief."""
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if CHECKLIST_LINE.match(line)
+        and TACTIC_VOCABULARY.search(line)
+        and not BRIEF_CITATION.search(line)
+    ]
+
+
+def _enforcer_tactic_lines() -> Counter[str]:
+    """Count the uncited tactic-vocabulary lines across every stack enforcer."""
+    found: Counter[str] = Counter()
+    for stack in STACKS:
+        for skill in ENFORCER_SKILLS:
+            path = HERE / "stacks" / stack / ".claude/skills" / skill / "SKILL.md"
+            if not path.is_file():
+                continue
+            for line in enforcer_tactic_lines(read_text(path)):
+                found[f"{stack}/{skill}: {line}"] += 1
+    return found
+
+
+def _enforcer_pin_problems() -> list[str]:
+    """Hold the uncited tactic-vocabulary lines to their pinned, judged set."""
+    return _pinned_multiset_problems(
+        HERE / "enforcer-tactics.expected",
+        _enforcer_tactic_lines(),
+        "stack enforcer checklists",
+        "Fix: a checklist line naming a building block or annotation is a "
+        "tactic the brief owns unless it is a closed-kernel check or framework "
+        "wiring (audit-agents' open-closed check). Cite the brief in the line, "
+        "or add it to harness/enforcer-tactics.expected as a judged decision; "
+        "remove a pinned line that is gone.",
+    )
+
+
+def check_enforcer_pin(b: Battery) -> None:
+    """Pin the enforcer checklist lines that name a tactic without citing the brief."""
+    b.note("enforcer tactic pin (stack skills vs enforcer-tactics.expected)")
+    b.report(_enforcer_pin_problems(), "uncited tactic vocabulary matches the pin")
 
 
 def _schema(name: str) -> Any:  # noqa: ANN401

@@ -23,18 +23,19 @@
 
 ## Package Structure
 
-This project uses Spring Modulith. Each top-level package is an application module with enforced boundaries. Types at the package root are the module's public API. Sub-packages (especially `internal/` and `config/`) are invisible to other modules.
+This project uses Spring Modulith. Each top-level package is an application module with enforced boundaries. Types at the package root are the module's public API. Sub-packages are invisible to other modules and carry role names ([`architecture-principles.md` § Language Realization](architecture-principles.md#language-realization)).
 
 ```text
 com.example.reference
 ├── ReferenceApplication.java           Main class (@SpringBootApplication, @Modulithic)
 ├── {module}/                           Application module (public API at root)
-│   ├── {Module}Service.java            Public service
+│   ├── {Module}Service.java            @Service: the module's use case
 │   ├── {ValueObject}.java              Public domain type
-│   ├── config/                         Module-private configuration
-│   │   └── {Module}Properties.java     @ConfigurationProperties record
-│   └── internal/                       Module-private implementation
-│       └── ...
+│   ├── domain/                         Domain services: plain classes, no stereotype
+│   ├── mapper/                         Anti-corruption mappers
+│   ├── repository/                     @Repository, one per aggregate root
+│   └── config/                         Module-private configuration
+│       └── {Module}Properties.java     @ConfigurationProperties record
 └── ...
 ```
 

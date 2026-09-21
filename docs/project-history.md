@@ -152,3 +152,4 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-18** — Place workspace members beside the umbrella as siblings, each reached through its tool's own directory grant; nesting is the fallback, and a spike precedes the build.
 - **2026-09-19** — Fan the change set, the grading features, and the review plan out over workspace members, each spelled from the umbrella by its real relative path; a single repository stays byte-identical.
 - **2026-09-19** — Add the bookstore product-workspace sample: a materialized umbrella with three sibling Spring Boot members over gRPC, two tiers of docs, and the workspace decision's worked example.
+- **2026-09-21** — Ship each stack's brief realization as a fragment that init fills, materialize proposes, and the battery pins; the Spring default becomes orchestration-only beans in role-named sub-packages.
