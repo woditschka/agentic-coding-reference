@@ -13,7 +13,10 @@ This is a **documentation and reference** project, not an application. The prima
 ```
 .
 ├── docs/                          # Cross-cutting principles and architecture
+│   ├── agentic-coding-primer.md   # The vocabulary under the harness: agent tool, model, context window, token, rules file, skill, agent, hook, MCP, plugin, the disciplines
 │   ├── agentic-harness.md         # The loop model and handoff contract (the handbook)
+│   ├── force-multiplier.md        # How the work divides between engineer and agent; the three flight levels
+│   ├── project-history.md         # The pre-launch narrative and the dated milestone timeline (update-history maintains the list)
 │   ├── feature-walkthrough.md     # One recorded eval run narrated record by record
 │   ├── specialist-agent-workflow.md   # Architecture, capability progression, migration
 │   ├── cross-tool-strategy.md     # Version-stamped tool comparison (update-research's surface)
@@ -91,8 +94,8 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs propagate-harness, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
 | `update-research` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, `docs/open-weight-models.md`, and the workflow doc's stamped sections |
 | `update-history` | Update the milestone timeline in `docs/project-history.md` with executive-level milestones since the last entry |
-| `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc, eval trend, claude-dev egress, human teams) when the harness changes or a sweep changes the eval story, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
-| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the bookstore workspace members, the init skeletons and root README restating them, the CI workflow's SHA-pinned actions, and the harness-stats pricing override |
+| `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, eval trend, claude-dev egress, human teams) when the harness changes or a sweep changes the eval story, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
+| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the bookstore workspace members, the init skeletons restating them, the CI workflow's SHA-pinned actions, and the harness-stats pricing override |
 | `install-harness-statusline` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `install-claude-dev` | Install or update the user-level claude-dev tooling into `~/.local/bin` and `~/.config/claude-dev` (front-end for `tools/claude-dev/install.sh`) |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, backlog.sh, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |

@@ -1,6 +1,17 @@
 # Project History
 
-The dated milestone timeline of the Agentic Coding Reference: one line per qualifying shift, oldest first, from the 2026-03-24 launch onward. Each date is a real git commit or ADR date. The narrative before the launch — the research arc from simple prompting to the harness — is the [README's Project History section](../README.md#project-history); the *why* behind each shift is the [decision log](adr/). The `update-history` skill maintains this list: an executive-level filter decides what qualifies, and the timeline only grows — entries are never compressed, re-dated, or rolled up.
+The history of the Agentic Coding Reference in two parts. The narrative before the launch — the research arc from simple prompting to the harness — opens the page. The dated milestone timeline follows: one line per qualifying shift, oldest first, from the 2026-03-24 launch onward, each date a real git commit or ADR date. The *why* behind each shift is the [decision log](adr/). The `update-history` skill maintains the milestone list: an executive-level filter decides what qualifies, and the timeline only grows — entries are never compressed, re-dated, or rolled up.
+
+## Before This Project
+
+The research did not begin with a harness. It began in a chat box and moved through four phases as the tooling, and the ambition, grew:
+
+- **From 2022** — *Simple prompting.* ChatGPT (Nov 2022) and Claude (Mar 2023) make coding help a single prompt in a chat window: one question, one answer, no memory between them.
+- **From ~Aug 2025** — *Agents and skills.* With Claude Code (research preview Feb 2025, general availability May 2025) and Agent Skills (Oct 2025) in hand, experimentation moves from one-shot prompts to agent-driven coding and reusable skills.
+- **Late 2025** — *Subagents.* Around Claude Opus 4.5 (Nov 24, 2025), deeper subagent experiments start producing results worth keeping — the output satisfied; the ad-hoc setup around it did not.
+- **Early 2026** — *The harness.* To hold that quality bar repeatably while cutting cost, the experiments harden into a harness, driven by three values: insist on the highest standards, invent and simplify, stay frugal. This project captures and documents the result.
+
+The goal throughout: learn how to build and maintain an effective, efficient harness over the long term, one that produces code to the author's standards, session after session. Conversations shaped the thinking as much as tooling did: the [XP × AI Unconference](https://xpunconf.org/) (Berlin, Sep 2025), Devoxx Belgium 2025, and Spring I/O (Barcelona, 2025 and 2026). Chip Huyen's [*AI Engineering*](https://www.oreilly.com/library/view/ai-engineering/9781098166298/) (O'Reilly, 2025) shaped the understanding underneath it. How the cost and quality of the result moved across versions is measured, not narrated: the [eval bench](../evals/README.md) and its [trend](../evals/results/TREND.md).
 
 ## Milestones
 

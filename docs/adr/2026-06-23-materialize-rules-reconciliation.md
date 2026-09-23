@@ -56,4 +56,4 @@ So skeleton improvements reach only the projects onboarded after them, and rot f
 - [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) — sets the runtime-only invariant and defers project-owned drift; this ADR resolves that deferral without breaking the invariant
 - [Docs as the Harness–Project API](2026-06-12-docs-as-harness-project-api.md) — defines the project-owned/runtime split and the channels the skeleton must travel on
 - [Seed and Harvest at the Root](2026-06-11-root-seed-harvest.md) — the harvest classify-and-ask model this runs in the forward direction
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline

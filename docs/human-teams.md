@@ -28,7 +28,7 @@ Overlap still occurs on the shared ground every slice writes: the PRD narrative,
 
 ## The Same Flight Levels, One Agent-Team per Person
 
-The [README](../README.md#the-force-multiplier-and-your-part-in-it) sets out three flight levels: within a slice, across slices, and the whole codebase. A team of humans adds no level. It puts more than one person on the first level and keeps the other two shared.
+[`force-multiplier.md`](force-multiplier.md) sets out three flight levels: within a slice, across slices, and the whole codebase. A team of humans adds no level. It puts more than one person on the first level and keeps the other two shared.
 
 | Flight level | Solo | Team of humans |
 |---|---|---|

@@ -60,4 +60,4 @@ The constraint that shapes the fix: this doctrine must sit in the one file all f
 - [Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md](2026-06-23-materialize-rules-reconciliation.md) — the advisory pass this supersedes; its problem analysis still holds
 - [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) — the runtime-only invariant this extends with harness-owned chapters
 - [Docs as the Harness–Project API](2026-06-12-docs-as-harness-project-api.md) — the project-owned/runtime split the managed chapters refine
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline

@@ -2,7 +2,7 @@
 name: upgrade-deps
 description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
-  Java Spring Boot samples and the bookstore workspace members — including the init skeletons and root README
+  Java Spring Boot samples and the bookstore workspace members — including the init skeletons
   that restate them — plus the SHA-pinned GitHub Actions in the root CI
   workflow and the dated pricing override in the harness-stats accounting,
   against upstream stable releases. Reports drift as a table, applies
@@ -23,7 +23,7 @@ metadata:
 |-------|---------------|
 | *(all)* | Go and Java samples, plus the root CI workflow actions |
 | `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` |
-| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row), and the bookstore members under `samples/product-workspace/` (three `build.gradle`, three wrapper properties, the workspace `README.md`) |
+| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, and the bookstore members under `samples/product-workspace/` (three `build.gradle`, three wrapper properties, the workspace `README.md`) |
 | `actions` | `.github/workflows/*.yml` (SHA-pinned GitHub Actions) |
 
 ## Pinned Versions (source of truth)
@@ -46,7 +46,7 @@ The bookstore members (`samples/product-workspace/bookstore-api`, `-backend`, `-
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
 | Java toolchain | `build.gradle` (`languageVersion`), `README.md`, `CLAUDE.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md` | *(none — held at current LTS; see Java rule in Step 2)* |
-| Gradle wrapper | `gradle/wrapper/gradle-wrapper.properties` (`distributionUrl`), `README.md`, `CLAUDE.md`, `docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row) | https://gradle.org/releases/ |
+| Gradle wrapper | `gradle/wrapper/gradle-wrapper.properties` (`distributionUrl`), `README.md`, `CLAUDE.md`, `docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md` | https://gradle.org/releases/ |
 | Spring Boot plugin | `build.gradle` (`org.springframework.boot`), `README.md`, `CLAUDE.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md` | https://github.com/spring-projects/spring-boot/releases |
 | Spring Dependency Management plugin | `build.gradle` (`io.spring.dependency-management`) | https://github.com/spring-gradle-plugins/dependency-management-plugin/releases |
 | Spotless plugin | `build.gradle` (`com.diffplug.spotless`) | https://github.com/diffplug/spotless/releases |

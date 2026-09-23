@@ -41,6 +41,6 @@ Option 3.
 
 ## References
 
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline
 - [`2026-06-12-docs-as-harness-project-api.md`](2026-06-12-docs-as-harness-project-api.md) — defines the channels and the project-owned/runtime split this builds on
 - [`2026-06-11-root-seed-harvest.md`](2026-06-11-root-seed-harvest.md) — moved seed/harvest to the root; this folds seed into `/materialize`

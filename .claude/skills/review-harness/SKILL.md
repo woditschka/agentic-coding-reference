@@ -26,7 +26,7 @@ Find opportunities to raise the bar on maintainability, clarity, cost, and resil
 
 Every step 3 research-agent prompt carries this charter, verbatim; the step 5 skeptics never receive it — their mandate is refutation:
 
-> Challenge assumptions rather than preserving the current design. Judge the repository against the philosophy and goals its README states. Look for ways to improve software quality, agent reliability, developer experience, and long-term maintainability. Reduce complexity, ambiguity, token usage, and execution time without sacrificing outcomes. Recommend removing or consolidating guidance that does not pay for itself. Prioritize high-impact improvements over minor editorial feedback.
+> Challenge assumptions rather than preserving the current design. Judge the repository against the philosophy and goals its README and `docs/force-multiplier.md` state. Look for ways to improve software quality, agent reliability, developer experience, and long-term maintainability. Reduce complexity, ambiguity, token usage, and execution time without sacrificing outcomes. Recommend removing or consolidating guidance that does not pay for itself. Prioritize high-impact improvements over minor editorial feedback.
 
 At synthesis, the Invariants and the do-not-cut list outrank the charter.
 
@@ -60,7 +60,7 @@ An `args` value starting with `challenge` selects challenge mode (below); any re
 
 `/review-harness challenge` lifts the ADR anchoring from the agent prompts for a zero-based look. The procedure changes in exactly three places; every other step runs as numbered.
 
-- **Step 2 moves after the fan-out.** No ADR content reaches the research agents; they judge against the README alone. Step 4 then reads the ADR index and labels each finding with the settled decision it challenges — cited for the disposition, never for suppression. The step 2 bar suppresses nothing in this mode.
+- **Step 2 moves after the fan-out.** No ADR content reaches the research agents; they judge against the README and `docs/force-multiplier.md` alone. Step 4 then reads the ADR index and labels each finding with the settled decision it challenges — cited for the disposition, never for suppression. The step 2 bar suppresses nothing in this mode.
 - **Step 3 prompts drop one element.** The relevant-ADR-decisions element is omitted; the angle charter, challenge charter, survey numbers, recent changes, and report contract all stay.
 - **Step 6 drops the suppression list** — nothing was suppressed — and offers the default run as the follow-up instead of this mode.
 

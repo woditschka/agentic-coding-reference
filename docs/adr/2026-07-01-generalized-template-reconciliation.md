@@ -60,4 +60,4 @@ Tier 1: `harness/refresh-gitignore.sh` and `harness/refresh-settings.py`, invoke
 - [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) — the hook registration Tier 1's `refresh-settings.py` now delivers deterministically on upgrade
 - [Docs as the Harness–Project API](2026-06-12-docs-as-harness-project-api.md) — the project-owned/runtime split both tiers respect
 - [Seed and Harvest at the Root](2026-06-11-root-seed-harvest.md) — the classify-and-ask model Tier 2 runs in the forward direction
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline

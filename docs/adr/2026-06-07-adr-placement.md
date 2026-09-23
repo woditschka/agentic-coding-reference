@@ -37,6 +37,6 @@ Option 3.
 
 ## References
 
-- [Project History](../../README.md#project-history) — the what/when timeline these ADRs explain
+- [Project History](../project-history.md) — the what/when timeline these ADRs explain
 - [`../../samples/go/docs/adr/`](../../samples/go/docs/adr/), [`../../samples/java-spring-boot/docs/adr/`](../../samples/java-spring-boot/docs/adr/) — README stub only since the 2026-06-12 ADR
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — the architecture this log opens with

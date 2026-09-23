@@ -38,6 +38,6 @@ Option 3.
 
 ## References
 
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline
 - [`2026-06-12-docs-as-harness-project-api.md`](2026-06-12-docs-as-harness-project-api.md) — listed `documentation-standards.md` among harness-owned handbook docs; this ADR collapses it into the runtime skill
 - [`2026-06-03-principles-over-rigid-rules.md`](2026-06-03-principles-over-rigid-rules.md) — its writing-standard reconciliation now points at the skill

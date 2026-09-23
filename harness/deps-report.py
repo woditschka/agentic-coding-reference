@@ -80,7 +80,6 @@ ITEMS: dict[str, list[tuple[str, str]]] = {
             "harness/init/stacks/java-spring-boot/CLAUDE.md",
             r"^\| Gradle \| ([^|]+?) \|",
         ),
-        ("README.md", r"Gradle ([0-9][0-9.]*)"),
         (
             "samples/java-spring-boot/docs/system-design.md",
             r"^\| Build tool \| Gradle[^|]*\| ([^|]+?) \|",

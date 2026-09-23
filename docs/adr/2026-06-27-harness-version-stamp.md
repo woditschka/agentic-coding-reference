@@ -62,4 +62,4 @@ The same move removes the semver from the **other** place it reached a target: t
 - [A Decoupled Harness Artifact Version](2026-06-14-decoupled-artifact-version.md) — the `harness@<version>` provenance stamp this amends to the release date
 - [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md) — the hybrid `CLAUDE.md` and the `refresh-chapters.sh` path this extends
 - [Docs as the Harness–Project API](2026-06-12-docs-as-harness-project-api.md) — the provenance line the stamp complements
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline

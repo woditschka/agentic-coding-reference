@@ -36,6 +36,6 @@ Both keys are additive and optional — a project that declares neither behaves 
 
 ## References
 
-- [Project History](../../README.md#project-history) — the what/when timeline
+- [Project History](../project-history.md) — the what/when timeline
 - [`2026-06-13-materialize-complete-replacement.md`](2026-06-13-materialize-complete-replacement.md) — complete-replacement materialize; this closes the two gaps its first real migration exposed
 - [`2026-06-12-docs-as-harness-project-api.md`](2026-06-12-docs-as-harness-project-api.md) — defines the `[harness]` table these keys extend

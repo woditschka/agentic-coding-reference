@@ -4,7 +4,7 @@ This directory is the reference's **decision log** — why the agentic harness i
 
 These are decisions about the **reference harness itself** (the methodology described in [`../agentic-harness.md`](../agentic-harness.md) and [`../specialist-agent-workflow.md`](../specialist-agent-workflow.md)). The implementations that realize them live under `samples/`. The samples ship no ADRs — a consumer's `docs/adr/` starts with only the README stub, and its decision log is its own; they do not carry this evolution history.
 
-This log pairs with the [Project History](../../README.md#project-history) in the root README: the history is the *what/when* timeline; these ADRs are the *why*.
+This log pairs with the [Project History](../project-history.md): the history is the *what/when* timeline; these ADRs are the *why*.
 
 **Governance:** See the [`document-writing` skill](../../harness/core/.claude/skills/document-writing/documentation-standards.md) for how documents relate and cross-reference; see the [`adr-template` skill](../../harness/core/.claude/skills/adr-template/SKILL.md) for when to create ADRs.
 
