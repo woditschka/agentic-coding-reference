@@ -10,6 +10,18 @@ Describe a feature. Specialist agents carry it through requirements, design, TDD
 
 > **TL;DR** — Coding agents forget and drift. Better prompts do not fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions. Nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, or OpenCode.
 
+## My Journey So Far
+
+The tools change constantly; what holds underneath changes slowly, and that is what I set out to learn. This is my research journey from a chat box to a measured team, a force multiplier a team can own rather than rent.
+
+- **Prompting.** Good answers, no memory. Every session started over.
+- **A rules file, then skills.** Conventions and procedures stick. But a skill is a better prompt: it remembers how.
+- **A team of experts.** My experiment: give agents the memory and disciplines that have kept human teams coherent for decades. This repository launched here.
+- **Automatic routing.** The handoffs route themselves; I stopped being the router and started talking to the experts.
+- **Logic into code.** Whatever a rule can decide, a script decides; the model spends its tokens on judgment.
+- **Your taste, not mine.** Installed from a marketplace, the way of working is fixed; what to test, how to layer, where the security bar sits are yours.
+- **About $9 a feature.** Requirements to a reviewed, graded change, measured version by version on the [public series](evals/results/TREND.md).
+
 ## Quick Start
 
 **New to agentic coding?** The [primer](docs/agentic-coding-primer.md) defines the terms this page uses: agent, skill, subagent, hook, MCP, context window, TDD, DDD, ADR. **The idea in 40 minutes:** [the conference deck](https://woditschka.github.io/agentic-coding-reference/deck/) runs in the browser, with a lightning version and recorded eval runs (or [offline from a clone](docs/deck/)). **The idea in one run:** the [feature walkthrough](docs/feature-walkthrough.md) narrates a committed run record by record.
