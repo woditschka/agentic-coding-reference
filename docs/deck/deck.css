@@ -33,8 +33,11 @@
 
 /* The default look, "paper": a light editorial page with a dark terminal.
    Page colors are original; the link blue, red, purple, and muted gray are
-   Catppuccin Latte, the terminal colors Catppuccin Mocha (MIT, notice in
-   vendor/palettes/catppuccin/). Another look, such as a conference's, is a
+   Catppuccin Latte (MIT, notice in vendor/palettes/catppuccin/). The
+   terminal colors are original, saturated for projection (pastels wash out
+   on a beamer): every text color keeps at least 5.5:1 contrast on the
+   terminal background, and dim text renders at 0.72 opacity instead of the
+   player's 0.5. Another look, such as a conference's, is a
    stylesheet overriding these variables under :root[data-theme="<name>"]
    (see README.md, Looks). */
 :root {
@@ -54,10 +57,10 @@
   --glow: rgba(31, 122, 58, 0.06);
   --term-bg: #16161d;
   --term-fg: #e6e6ea;
-  --t0: #45475a; --t1: #f38ba8; --t2: #a6e3a1; --t3: #f9e2af;
-  --t4: #89b4fa; --t5: #f5c2e7; --t6: #94e2d5; --t7: #bac2de;
-  --t8: #6c7086; --t9: #f38ba8; --t10: #a6e3a1; --t11: #f9e2af;
-  --t12: #89b4fa; --t13: #f5c2e7; --t14: #94e2d5; --t15: #ffffff;
+  --t0: #3b3b47; --t1: #ff5a5f; --t2: #3ddc84; --t3: #ffcc33;
+  --t4: #5aa9ff; --t5: #e070f0; --t6: #2fd5d5; --t7: #d6d6dc;
+  --t8: #8b8f9c; --t9: #ff7b7f; --t10: #5cf29a; --t11: #ffd966;
+  --t12: #7fbcff; --t13: #ec8cf7; --t14: #5fe3e3; --t15: #ffffff;
 }
 
 :root {
@@ -587,6 +590,10 @@ body,
   --term-color-14: var(--t14);
   --term-color-15: var(--t15);
   --term-font-family: var(--mono);
+}
+
+.asciinema-player-theme-deck pre.ap-term-text .ap-faint {
+  opacity: 0.72;
 }
 
 /* ---------- landing page ---------- */
