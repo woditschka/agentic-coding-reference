@@ -51,7 +51,6 @@ One command onboards a new project and upgrades an existing one.
 
 ```bash
 cd agentic-coding-reference
-git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)
 claude
 > /materialize ../my-service       # installs the runtime; project files are kept
 ```
