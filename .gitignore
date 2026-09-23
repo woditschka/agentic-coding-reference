@@ -20,3 +20,6 @@ evals/.runs/
 # via the local TREND-dev.md during release prep, never committed (evals/README.md)
 evals/results/runs/dev-*/
 evals/results/TREND-dev.md
+
+# macOS Finder metadata; never committed, never published by Pages.
+.DS_Store

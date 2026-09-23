@@ -165,13 +165,14 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Hold the harness's own Python to its bar | [`harness-code-standards.md`](docs/harness-code-standards.md) — names, function shape, types, comments, the gate · [`harness-testing-principles.md`](docs/harness-testing-principles.md) — pyramid, doubles, naming, what not to test |
 | Understand why the harness evolved this way | [`docs/adr/`](docs/adr/) — the decision log; pairs with the [milestone timeline](docs/project-history.md) |
 | See why the kernel disciplines are fixed | [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) · [`ddd-principles.md`](docs/ddd-principles.md) |
+| Present the approach | [`docs/deck/`](docs/deck/) — a 40-minute talk and a 5-minute lightning talk with recorded eval runs, online or offline from a clone |
 | Maintain this reference | [`CLAUDE.md`](CLAUDE.md) — the maintainer loop and root skills · [`harness/README.md`](harness/README.md) — the source tree, scripts, and battery |
 
 ## Repository Structure
 
 ```text
 .
-├── docs/                              # Principles, guides, and the decision log (adr/)
+├── docs/                              # Principles, guides, the decision log (adr/), and the conference deck (deck/)
 ├── harness/                           # Single canonical harness source — samples materialize from here
 │                                      #   core/ + stacks/<stack>/ + init/ + claude-md/ + marketplace/ + *.py/*.sh — see harness/README.md
 ├── samples/                           # Materialized instances of the harness (copy channel)
@@ -180,9 +181,10 @@ The loop closes on this repository itself. The bench caught its first cost regre
 │   ├── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
 │   └── product-workspace/             # Bookstore: an umbrella and three sibling Spring members over gRPC — the product-workspace ADR's worked example, harness support pending
 ├── evals/                             # Harness eval bench: frozen tasks vs. a fixed SUT, per version (results/TREND.md)
-├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
+├── tools/                             # Optional user-level tooling (installs to ~, never into a project), plus the deck generator
 │   ├── harness-stats/                 # Cache-efficiency statusline + report
-│   └── claude-dev/                    # Container-confined Claude Code for reduced-approval runs
+│   ├── claude-dev/                    # Container-confined Claude Code for reduced-approval runs
+│   └── deck/                          # Maintainer-only: builds the deck's recordings bundle
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.py
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)

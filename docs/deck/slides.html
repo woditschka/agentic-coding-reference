@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agents forget. Repos remember.</title>
+<meta name="description" content="Own the agent team that builds your way, on every commit. A conference talk on engineering discipline for coding agents: TDD, DDD, ADRs, and durable specs.">
+<meta property="og:title" content="Agents forget. Repos remember.">
+<meta property="og:description" content="Own the agent team that builds your way, on every commit. A conference talk on engineering discipline for coding agents: TDD, DDD, ADRs, and durable specs.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%2316161d%22/%3E%3Cpath d=%22M9 10l7 6-7 6%22 fill=%22none%22 stroke=%22%23a6e3a1%22 stroke-width=%223.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Cpath d=%22M18 23h6%22 stroke=%22%23a6e3a1%22 stroke-width=%223.2%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/reveal.js-6.0.2/reset.css">
+<link rel="stylesheet" href="vendor/reveal.js-6.0.2/reveal.css">
+<link rel="stylesheet" href="vendor/asciinema-player-3.17.0/asciinema-player.css">
+<link rel="stylesheet" href="deck.css">
+<script>(function () { var t = new URLSearchParams(location.search).get("theme"); if (t && /^[a-z0-9-]+$/.test(t)) document.documentElement.setAttribute("data-theme", t); })();</script>
+</head>
+<body>
+<!--
+  One source, two variants. A section or element carrying data-variants
+  appears only in the listed variants; one without it appears in both.
+  Select with ?v=talk (default) or ?v=lightning; ?demo=live mounts the live
+  terminal in each demo slot; ?auto=1 advances unattended; ?theme=<name> picks
+  a look other than the default (README.md, Looks). Elements marked
+  class="todo" are open decisions for the speaker, not slide content.
+-->
+<div class="reveal">
+<div class="slides">
+
+<!-- ================================================================ open -->
+
+<section id="title" class="hero">
+  <p class="prompt"><b>&gt;</b> /materialize ../my-project<span class="cursor"></span></p>
+  <h1>Agents forget. Repos remember.</h1>
+  <p class="lede">Own the agent team that builds your way, on every&nbsp;commit.</p>
+  <p class="small byline">Bernhard Woditschka · <a href="https://github.com/woditschka/agentic-coding-reference">github.com/woditschka/agentic-coding-reference</a></p>
+  <aside class="notes">Title. No preamble; go straight to the demo.</aside>
+</section>
+
+<section id="demo" class="demo">
+  <h2>A bug report in. A reviewed fix out.</h2>
+  <div class="term" data-cast="bugfix" data-live="http://localhost:7681"></div>
+  <p class="term-caption">Eval task <code>owners-page-param</code>, harness v0.3.3, rep r1: 17 minutes of agent time, $8.21, 30 ledger records. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/docs/feature-walkthrough.md">Walkthrough</a></p>
+  <aside class="notes">
+    One paragraph of bug report is the whole human input. The recording pauses
+    at each stage: requirements, design triage (covered: the design docs
+    already held the answer), build green, the review catch, the fix round,
+    graded. The catch: the doc reviewer found the PRD still stating the bug as
+    current fact inside the change that fixes it. Stand-in cast: ledger replay;
+    replace with the session recording.
+  </aside>
+</section>
+
+<section id="about" data-variants="talk">
+  <div class="about">
+    <!-- The portrait loads from the GitHub avatar service, so the repository
+         carries no copy; the initials show while it loads or when it cannot. -->
+    <div class="avatar" data-initials="BW">
+      <img src="https://avatars.githubusercontent.com/woditschka?size=640" alt="Portrait of Bernhard Woditschka" referrerpolicy="no-referrer" onerror="this.remove()">
+    </div>
+    <div>
+      <h2>Bernhard Woditschka</h2>
+      <p class="lede">Principal Software Engineer</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ core -->
+
+<section id="tldr" class="statement">
+  <p class="kicker">TL;DR</p>
+  <blockquote class="tldr">
+    <p>Coding agents forget and drift. Engineering discipline (TDD, DDD, ADRs, durable specs) becomes their memory and&nbsp;feedback.</p>
+  </blockquote>
+  <aside class="notes">
+    Better prompts do not fix drift; engineering discipline does. TDD, DDD, ADRs,
+    ubiquitous language, and durable specs become the memory and feedback the
+    agents run on. Decisions survive across sessions; nested loops catch drift
+    before it compounds. The pipeline is not the point; the disciplines are.
+  </aside>
+</section>
+
+<!-- =============================================================== close -->
+
+<section id="legal" class="hero">
+  <div class="thanks">
+    <div>
+      <h2>Thanks! Happy building.</h2>
+      <p><a href="https://github.com/woditschka/agentic-coding-reference">github.com/woditschka/agentic-coding-reference</a></p>
+    </div>
+    <img class="qr" src="qr-code.svg" alt="Scan code linking to github.com/woditschka/agentic-coding-reference">
+  </div>
+  <div class="legal">
+    <p>Slides and code: MIT License, © 2026 Bernhard Woditschka. Figures and recordings come from committed eval runs, provided as is, without warranty.</p>
+    <p>Built with reveal.js (MIT) and asciinema-player (Apache-2.0). Type: Inter and JetBrains Mono (SIL Open Font License 1.1). Colors: Catppuccin (MIT). License texts ship in <code>docs/deck/vendor/</code>.</p>
+    <p>An independent project, not affiliated with or endorsed by Anthropic, GitHub, the OpenCode project, or the Spring project. Product names are trademarks of their owners, used only to identify the tools.</p>
+    <p>Views are the speaker's own. <a href="legal.html">Legal notice and privacy</a>.</p>
+  </div>
+</section>
+
+
+</div>
+</div>
+<script src="vendor/reveal.js-6.0.2/reveal.js"></script>
+<script src="vendor/reveal.js-6.0.2/plugin/notes.js"></script>
+<script src="vendor/asciinema-player-3.17.0/asciinema-player.min.js"></script>
+<script src="casts/casts.js"></script>
+<script src="deck.js"></script>
+</body>
+</html>

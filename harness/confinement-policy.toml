@@ -151,6 +151,11 @@ why        = "deps-report's upstream version check — git to a git remote, not 
 
 # === Tools (user-level, tools/) ===============================================
 
+# writers
+[[sanctioned_writer]]
+path = "tools/deck/deck.py"
+why  = "maintainer-only deck generator: writes docs/deck/casts/casts.js, plus the one argv-named cast file of ledger-cast"
+
 # network
 [[sanctioned_network]]
 path = "tools/claude-dev/ide_preflight.py"

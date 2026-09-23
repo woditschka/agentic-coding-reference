@@ -27,6 +27,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
 │   ├── open-weight-models.md      # Pinned-model mapping to open-weight providers (version-stamped; update-research refreshes)
 │   ├── ddd-principles.md
+│   ├── deck/                      # Conference slides (talk + lightning talk) and landing page, served by GitHub Pages from /docs
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
 │   ├── core/                      # Runtime shared by every stack
@@ -39,7 +40,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── *.py, *.sh                 # Maintainer scripts — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
-│   └── claude-dev/                # Container-confined Claude Code for reduced-approval runs (user-level install)
+│   ├── claude-dev/                # Container-confined Claude Code for reduced-approval runs (user-level install)
+│   └── deck/                      # Deck generator: ledger-replay casts and the casts bundle
 ├── evals/                         # Harness eval bench: frozen tasks vs. the spring-petclinic SUT, per version (evals/README.md)
 ├── samples/                       # Materialized instances of the harness (copy channel)
 │   ├── go/                        # Materialized Go instance
