@@ -50,7 +50,8 @@ export LC_NUMERIC=C
 # edit there moves this report too. The literals below are only the degraded
 # fallback for a python3-less host. The report's ratio is model-agnostic:
 # reads price at the flat multiplier, so rows on a model with a cheaper
-# per-model read rate (Fable 5.1 at 0.025x) understate savings slightly.
+# per-model read rate (Fable 5.1 at 0.025x, Opus 5.5 at 0.05x) understate
+# savings slightly.
 CREATE_MULT_5M="1.25"
 CREATE_MULT_1H="2.00"
 READ_MULT="0.10"

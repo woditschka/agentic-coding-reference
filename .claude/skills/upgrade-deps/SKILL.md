@@ -72,6 +72,7 @@ Note: track the pinned major line (v5 → latest v5.x) by default; a new major (
 | Item | Pinned In | Action |
 |------|-----------|--------|
 | Sonnet 5 pricing override | `tools/harness-stats/accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **No action** — the $2/$10 introductory rate became the standard Sonnet 5 price on 2026-08-22 (the code comment cites the announcement), so the override is permanent. On each run, confirm against platform.claude.com pricing that the rate still holds; only a real price change reopens this row. |
+| Opus 5.5 pricing override | `tools/harness-stats/accounting.py` (`PRICE_OVERRIDE` $4/$20 and `CACHE_READ_MULT_OVERRIDE` 0.05×, vendored copy gated by battery 2d) | **No action** — Opus 5.5 lists below the Opus family ($5/$25, 0.10× reads) on a durable basis. On each run, confirm against platform.claude.com pricing that both rates still hold; only a real price change reopens this row. |
 
 ## Process
 

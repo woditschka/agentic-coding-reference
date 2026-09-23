@@ -17,16 +17,17 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
-# Source: platform.claude.com pricing, current as of 2026-09-01. This block is
+# Source: platform.claude.com pricing, current as of 2026-09-23. This block is
 # the single edit point when Anthropic changes prices; no consumer copies a
 # rate into shell, skill, or doc prose.
 #
 # Priced by model family, not exact id: every Fable tier (5 and 5.1) is
-# $10/$50, every served Opus tier (4.5 through 4.8, and Opus 5) is $5/$25,
-# every Sonnet tier lists at $3/$15, and Haiku 4.5 is $1/$5, so the family
-# rate is exact today and survives a new same-price tier. A tier priced apart
-# from its family on a durable basis takes a PRICE_OVERRIDE entry. These are
-# list API prices: for a subscription user the figure is notional, not a bill.
+# $10/$50, every served Opus tier from 4.5 through Opus 5 is $5/$25, every
+# Sonnet tier through 4.6 lists at $3/$15, and Haiku 4.5 is $1/$5, so the
+# family rate is exact today and survives a new same-price tier. A tier priced
+# apart from its family on a durable basis takes a PRICE_OVERRIDE entry. These
+# are list API prices: for a subscription user the figure is notional, not a
+# bill.
 PRICE = {
     #          ($ / Mtok input, $ / Mtok output)
     "fable": (10.00, 50.00),
@@ -35,12 +36,16 @@ PRICE = {
     "haiku": (1.00, 5.00),
 }
 
-# Per-model overrides, matched as a lowercase substring before the family
-# table. Sonnet 5 lists at $2/$10: announced as introductory pricing through
-# 2026-08-31 and made the standard price on 2026-08-22 (platform.claude.com
-# pricing: "the previously scheduled increase to $3/$15 ... will not occur").
-# The "sonnet-5" needle is tested ahead of the "sonnet" family.
-PRICE_OVERRIDE = (("sonnet-5", (2.00, 10.00)),)
+# Per-model overrides, matched as a lowercase substring (id or display-name
+# form) before the family table. Sonnet 5 lists at $2/$10: announced as
+# introductory pricing through 2026-08-31 and made the standard price on
+# 2026-08-22 (platform.claude.com pricing: "the previously scheduled increase
+# to $3/$15 ... will not occur"). Opus 5.5 lists at $4/$20, below the Opus
+# family. Each needle set is tested ahead of its family.
+PRICE_OVERRIDE = (
+    (("sonnet-5", "sonnet 5"), (2.00, 10.00)),
+    (("opus-5-5", "opus 5.5"), (4.00, 20.00)),
+)
 
 # An effort variant's transcript carries its own agentType (<type>-routine)
 # while its ledger records carry the base author, so a window lookup joins a
@@ -55,11 +60,13 @@ CACHE_WRITE_1H_MULT = 2.00
 
 # Per-model cache-read overrides, matched as a lowercase substring (id or
 # display-name form) before the flat multiplier: Fable 5.1 and Mythos 5.1
-# price cache reads at 0.025x base input ($0.25/MTok, platform.claude.com
-# pricing). The write multipliers carry no per-model split.
+# price cache reads at 0.025x base input ($0.25/MTok) and Opus 5.5 at 0.05x
+# ($0.20/MTok), both per platform.claude.com pricing. The write multipliers
+# carry no per-model split.
 CACHE_READ_MULT_OVERRIDE = (
     (("fable-5-1", "fable 5.1"), 0.025),
     (("mythos-5-1", "mythos 5.1"), 0.025),
+    (("opus-5-5", "opus 5.5"), 0.05),
 )
 
 TOKENS_PER_MILLION = 1_000_000
@@ -81,8 +88,8 @@ def _rate(model: object) -> tuple[float, float]:
     # the scan; the family names are disjoint substrings, so order never
     # changes a match.
     name = _model_name(model)
-    for needle, rate in PRICE_OVERRIDE:
-        if needle in name:
+    for needles, rate in PRICE_OVERRIDE:
+        if any(needle in name for needle in needles):
             return rate
     for family, rate in PRICE.items():
         if family in name:
