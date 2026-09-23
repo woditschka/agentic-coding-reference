@@ -153,3 +153,4 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-19** — Fan the change set, the grading features, and the review plan out over workspace members, each spelled from the umbrella by its real relative path; a single repository stays byte-identical.
 - **2026-09-19** — Add the bookstore product-workspace sample: a materialized umbrella with three sibling Spring Boot members over gRPC, two tiers of docs, and the workspace decision's worked example.
 - **2026-09-21** — Ship each stack's brief realization as a fragment that init fills, materialize proposes, and the battery pins; the Spring default becomes orchestration-only beans in role-named sub-packages.
+- **2026-09-23** — Move the premium tier to Claude Opus 5.5: all six judgment roles pin it together, priced per model, with the effort pins held for the eval arms to decide.

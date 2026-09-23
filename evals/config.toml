@@ -20,7 +20,7 @@ plugin = "agent-team-spring-boot"
 # inherit the operator's currently selected model, and the trend keys on the
 # requested pin. The resolved model IDs land in each run's agent-costs.json
 # and result.json, read from the session transcripts.
-model = "claude-opus-5"
+model = "claude-opus-5-5"
 # Agent-run wall-clock ceiling, minutes. A run over the ceiling is killed and
 # recorded as `timeout`. Sized well above the longest committed passing run
 # (43m), so the ceiling sits outside the legitimate-run distribution. Each

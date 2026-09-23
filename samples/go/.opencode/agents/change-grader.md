@@ -7,7 +7,7 @@ description: >-
   skim/scrutinize verdict naming how closely a human reads the change
   before merging it. Never a merge or correctness gate.
 mode: subagent
-model: openrouter/anthropic/claude-opus-5
+model: openrouter/anthropic/claude-opus-5.5
 temperature: 0.2
 steps: 30
 toolCallBudget: 20

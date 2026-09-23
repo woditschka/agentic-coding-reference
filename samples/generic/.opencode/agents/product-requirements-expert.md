@@ -4,7 +4,7 @@ description: >-
   on a recorded intake-decision, in consultation mode on a requirement gap,
   or to revise a REQ.
 mode: subagent
-model: openrouter/anthropic/claude-opus-5
+model: openrouter/anthropic/claude-opus-5.5
 temperature: 0.2
 steps: 40
 toolCallBudget: 27

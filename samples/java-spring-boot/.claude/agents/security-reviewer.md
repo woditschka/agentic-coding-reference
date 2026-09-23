@@ -12,7 +12,7 @@ tools:
   - mcp__idea__search_symbol
 disallowedTools:
   - Edit
-model: claude-opus-5
+model: claude-opus-5-5
 effort: medium
 maxTurns: 40
 toolCallBudget: 27

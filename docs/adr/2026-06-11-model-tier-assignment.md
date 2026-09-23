@@ -1,6 +1,6 @@
 # Model Tier Assignment: Judgment Roles Premium, Checklist Roles Mid-Tier
 
-**Status:** Accepted (extended by [ADR 2026-09-01](2026-09-01-evidence-gated-dynamic-tiering.md): the implementer role gains a router-selected effort variant within its pinned model tier — the pins themselves stay operative)
+**Status:** Accepted (extended by [ADR 2026-09-01](2026-09-01-evidence-gated-dynamic-tiering.md): the implementer role gains a router-selected effort variant within its pinned model tier — the pins themselves stay operative; the premium pin moved to Claude Opus 5.5 by the [first in-file amendment](2026-06-11-model-tier-assignment.md#amendment-2026-09-23-the-premium-tier-moves-to-claude-opus-55))
 
 ## Context
 
@@ -44,3 +44,14 @@ We adopt option 3, with the rules that keep it stable:
 
 - [`2026-06-05-change-grader.md`](2026-06-05-change-grader.md) — the terminal advisory hop this policy keeps on the premium tier
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — rubric knowledge lives in skills, which is what makes mid-tier verification viable
+
+## Amendment 2026-09-23: The Premium Tier Moves to Claude Opus 5.5
+
+Claude Opus 5.5 released on 2026-09-22 at $4/$20 per million tokens, below Claude Opus 5's $5/$25, with cache reads at 0.05× base input against 0.10×. Same context window, same tokenizer. Anthropic reports medium effort on Opus 5.5 above high effort on Opus 5 on coding evaluations. The quality-first ordering and the cost ordering point the same way, so the premium tier moves.
+
+- **All six judgment roles move together.** product-requirements-expert, system-design-expert, feature-implementer and its routine variant, security-reviewer, and change-grader pin `claude-opus-5-5`. The rule that judgment reviewers track the implementer admits no partial move. The four checklist roles stay on Claude Sonnet 5; no Sonnet release accompanied this one.
+- **Per-tool forms.** OpenCode names `openrouter/anthropic/claude-opus-5.5`, the dotted slug OpenRouter serves. Copilot lists `Claude Opus 5.5 (copilot)` first and keeps `Claude Opus 5 (copilot)` as its fallback.
+- **The family rate is no longer uniform.** The Context above priced every served Opus tier alike. The accounting module now carries Opus 5.5 as a per-model override, the same mechanism Sonnet 5 took in August.
+- **Effort pins carry over unchanged, pending measurement.** Opus 5.5 defaults to medium effort and thinks more per level than Opus 5, so a carried `high` pin can lengthen turns. The pins stay as they are for the first eval arm; a second arm lowers the four `high` pins to `medium`. The arm holding the bar at the lower cost per pass decides.
+- **The eval root pin moves with the tier.** `evals/config.toml` roots on `claude-opus-5-5`, opening a new row set in the trend. The judge pin is untouched; the judge series does not break.
+- **Pins, not aliases, held.** Claude Code 2.1.280 resolved its `opus` alias to Opus 5.5 on release day. No harness agent moved until this deliberate edit, which is what the rule exists to guarantee.

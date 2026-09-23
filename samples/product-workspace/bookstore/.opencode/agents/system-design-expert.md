@@ -5,7 +5,7 @@ description: >-
   docs/system-design.md and docs/adr/, crystallizing only the load-bearing
   parts of the cross-feature mental model.
 mode: subagent
-model: openrouter/anthropic/claude-opus-5
+model: openrouter/anthropic/claude-opus-5.5
 temperature: 0.2
 steps: 40
 toolCallBudget: 27

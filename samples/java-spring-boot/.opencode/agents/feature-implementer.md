@@ -5,7 +5,7 @@ description: >-
   implementation plan, writes tests first, then implements code to pass those
   tests.
 mode: subagent
-model: openrouter/anthropic/claude-opus-5
+model: openrouter/anthropic/claude-opus-5.5
 temperature: 0.2
 steps: 60
 toolCallBudget: 40

@@ -5,7 +5,7 @@ tools:
   - read
   - search
   - runTerminalCommand
-model: ['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']
+model: ['Claude Opus 5.5 (copilot)', 'Claude Opus 5 (copilot)']
 toolCallBudget: 27
 ---
 

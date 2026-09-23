@@ -75,7 +75,7 @@ The model pins, per tool, name the same release in each tool's syntax; the speci
 | Pin | Claude Code | OpenCode | GitHub Copilot |
 |---|---|---|---|
 | Sonnet | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` |
-| Opus | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` |
+| Opus | `claude-opus-5-5` | `openrouter/anthropic/claude-opus-5.5` | `['Claude Opus 5.5 (copilot)', 'Claude Opus 5 (copilot)']` |
 
 The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Running the pins on another provider is an operator-side mapping per tool with the pins untouched; [`open-weight-models.md`](open-weight-models.md#the-mapping) carries it, Copilot CLI's session-level own-provider variables included. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review.
 

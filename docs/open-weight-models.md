@@ -1,6 +1,6 @@
 # Open-Weight Models
 
-Every harness agent pins one of two Anthropic models in its frontmatter, `claude-opus-5` or `claude-sonnet-5`, and the runtime ships no provider configuration. The same runtime runs on an open-weight model when the agent tool points at a provider that serves it and remaps the pinned names in the tool's own configuration. The pins never change. Claude Code remaps them through the `modelOverrides` settings key and OpenCode through the `id` field of a model entry, so both keep the two-tier split. Copilot CLI takes one provider model for the whole session and loses the split. Every mapping lives in a file the operator owns, never in the materialized runtime, so no harness change is involved. This document carries the mapping per tool, a worked example on Ollama Cloud, and the operating notes that decide whether a run completes.
+Every harness agent pins one of two Anthropic models in its frontmatter, `claude-opus-5-5` or `claude-sonnet-5`, and the runtime ships no provider configuration. The same runtime runs on an open-weight model when the agent tool points at a provider that serves it and remaps the pinned names in the tool's own configuration. The pins never change. Claude Code remaps them through the `modelOverrides` settings key and OpenCode through the `id` field of a model entry, so both keep the two-tier split. Copilot CLI takes one provider model for the whole session and loses the split. Every mapping lives in a file the operator owns, never in the materialized runtime, so no harness change is involved. This document carries the mapping per tool, a worked example on Ollama Cloud, and the operating notes that decide whether a run completes.
 
 The gates, the router, the hooks, and the ledger are deterministic and model-agnostic. What varies with the model is prompt discipline. The eval bench is the instrument that measures it: trend rows key on the model pin, and the served model's name lands in every rep's transcript. The mapping per tool follows, then the example, then the operating notes.
 
@@ -18,7 +18,7 @@ Three values map: the endpoint URL, the credential, and one provider model per p
 
 **Claude Code.** `modelOverrides` is a settings map from a model name Claude Code knows to the ID the provider uses. With the two pinned IDs as keys, every specialist dispatch is rewritten on the way out, including a subagent whose frontmatter pins the full ID. The root session follows through the `model` key set to the opus pin. The map applies with `ANTHROPIC_BASE_URL` set to an Ollama daemon. `.claude/settings.local.json` is per-operator, and its `modelOverrides` outranks the same key in the committed `settings.json`. Claude Code ignores the file in git only when it creates the file itself; a hand-written one needs a `.gitignore` line, and the harness's ignore block does not carry it. Removing the `env`, `model`, and `modelOverrides` keys restores the Anthropic defaults; the file also holds the operator's permission allowlist, so it is edited, not deleted. `CLAUDE_CODE_SUBAGENT_MODEL` with `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is the one-model shortcut: every pin runs on one model and the tier split is lost.
 
-**OpenCode.** Agents name `openrouter/anthropic/claude-opus-5`. The operator's config overrides the `openrouter` provider's transport and rewrites each model entry's upstream id through the `id` field. The schema describes that field as "send a different upstream model id than its map key". The config lives in `~/.config/opencode/opencode.json` or a file named by `OPENCODE_CONFIG`; both merge under the project's `opencode.json`, and `{env:NAME}` substitution keeps the credential out of the file. OpenCode reads the provider through its OpenAI-compatible endpoint, not the Anthropic one. OpenCode ships on the copy channel only.
+**OpenCode.** Agents name `openrouter/anthropic/claude-opus-5.5`. The operator's config overrides the `openrouter` provider's transport and rewrites each model entry's upstream id through the `id` field. The schema describes that field as "send a different upstream model id than its map key". The config lives in `~/.config/opencode/opencode.json` or a file named by `OPENCODE_CONFIG`; both merge under the project's `opencode.json`, and `{env:NAME}` substitution keeps the credential out of the file. OpenCode reads the provider through its OpenAI-compatible endpoint, not the Anthropic one. OpenCode ships on the copy channel only.
 
 **Copilot CLI.** Four shell variables switch the session to an own provider. They are the base URL, the provider type (`openai` by default, `azure`, or `anthropic`), an optional key, and the one model ID. The vendor page names Ollama as a local provider and requires a model with tool calling and streaming, with a context window of at least 128k tokens recommended. The agent frontmatter's list of hosted display names has no documented interaction with the session model, so both tiers run on the one model named.
 
@@ -39,7 +39,7 @@ Two public sources bound how far that starting point sits from the pinned models
 
 | Pinned name | Tier | Ollama Cloud model in the example |
 |---|---|---|
-| `claude-opus-5` | Judgment: requirements, design, implementation, security, grading | `glm-5.3:cloud` |
+| `claude-opus-5-5` | Judgment: requirements, design, implementation, security, grading | `glm-5.3:cloud` |
 | `claude-sonnet-5` | Checklist: coordination, code quality, tests, docs | `glm-5.3-flash:cloud` |
 
 Both tags list `tools` and `thinking` among their capabilities in `ollama show`. With the daemon running:
@@ -61,9 +61,9 @@ grep -qx '.claude/settings.local.json' .gitignore || echo '.claude/settings.loca
     "ANTHROPIC_AUTH_TOKEN": "ollama",
     "API_TIMEOUT_MS": "1800000"
   },
-  "model": "claude-opus-5",
+  "model": "claude-opus-5-5",
   "modelOverrides": {
-    "claude-opus-5": "glm-5.3:cloud",
+    "claude-opus-5-5": "glm-5.3:cloud",
     "claude-sonnet-5": "glm-5.3-flash:cloud"
   }
 }
@@ -84,7 +84,7 @@ OpenCode reads the same daemon through its OpenAI-compatible endpoint. `~/.confi
         "apiKey": "ollama"
       },
       "models": {
-        "anthropic/claude-opus-5": { "id": "glm-5.3:cloud" },
+        "anthropic/claude-opus-5.5": { "id": "glm-5.3:cloud" },
         "anthropic/claude-sonnet-5": { "id": "glm-5.3-flash:cloud" }
       }
     }

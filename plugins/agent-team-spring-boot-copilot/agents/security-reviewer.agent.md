@@ -8,7 +8,7 @@ tools:
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol
-model: ['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']
+model: ['Claude Opus 5.5 (copilot)', 'Claude Opus 5 (copilot)']
 toolCallBudget: 27
 ---
 

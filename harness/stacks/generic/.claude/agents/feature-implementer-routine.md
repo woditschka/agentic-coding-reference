@@ -9,7 +9,7 @@ tools:
   - Glob
   - Grep
   - Read
-model: claude-opus-5
+model: claude-opus-5-5
 effort: medium
 maxTurns: 60
 toolCallBudget: 40
