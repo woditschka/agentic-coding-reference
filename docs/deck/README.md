@@ -28,7 +28,7 @@ The conference deck for the reference: one slide source, two variants, and a lan
 
 ## Presenting
 
-A demo slot is a `<div class="term">` naming its cast in `data-cast` and its live terminal in `data-live`. On a demo slide, the next key plays the recording, or skips to its next marker while it plays. After the recording ends, the next key advances the slide. `L` switches the slot between live and recorded. `S` opens the speaker view with notes and the variant's time budget.
+A demo slot is a `<div class="term">` naming its cast in `data-cast` and its live terminal in `data-live`. On a demo slide, the next key plays the recording, or skips to its next marker while it plays. After the recording ends, the next key advances the slide. `Shift` with a next key advances at once, pausing the recording, so a demo can be passed without playing. `L` switches the slot between live and recorded. `S` opens the speaker view with notes and the variant's time budget.
 
 Live mode embeds a terminal served by [ttyd](https://github.com/tsl0922/ttyd) on the presenting machine. A slot whose terminal does not answer within 2.5 seconds plays its recording and shows a red badge. Run live talks from the local clone: an HTTPS page embedding `http://localhost` depends on each browser's mixed-content rules.
 
@@ -49,7 +49,7 @@ To regenerate a stand-in from a committed run: `tools/deck/deck.py ledger-cast e
 
 ## Figure slides
 
-A figure slide is a section of class `figure` holding a kicker, a heading, and one image. The stylesheet lays it out as a column: the kicker and heading at the top, the image centered in the height that remains. The heading takes the content-slide size it shares with the demo slide; the title slide's headline and the TL;DR's blockquote keep their own sizes. The stylesheet caps each image's height so that every figure renders at the same scale; the deck's figure suite pins the caps to the figures.
+A figure slide is a section of class `figure` holding a kicker, a heading, and one image. The stylesheet lays it out as a column: the kicker and heading at the top, the image centered in the height that remains. The heading takes the content-slide size it shares with the demo slide; the title slide's headline keeps its own size. The stylesheet caps each image's height so that every figure renders at the same scale; the deck's figure suite pins the caps to the figures.
 
 The images are the two slide figures under `docs/images/`. `tools/deck/figures.py` holds their layout; `deck.py build` renders the draw.io sources from it, and `deck.py build --check` fails on drift. The draw.io export turns each source into its PNG, with a transparent background so the slide's paper shows through. The principles the figures hold, and the split between them and the doc figures, are the `update-diagrams` skill's § Slide figures.
 

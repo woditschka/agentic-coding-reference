@@ -283,8 +283,7 @@ body,
 }
 
 /* Content slides (a figure or a demo under a heading) share one heading
-   size, smaller than a statement slide's, so the headings read as one
-   series across the deck. */
+   size, so the headings read as one series across the deck. */
 .reveal .figure h2,
 .reveal section.demo h2 {
   font-size: 1.3em;
@@ -416,28 +415,6 @@ body,
 
 @keyframes blink {
   50% { opacity: 0; }
-}
-
-/* A statement slide: one large sentence, vertically centered. */
-.reveal .slides section.statement {
-  display: flex !important;
-  flex-direction: column;
-  justify-content: center;
-  height: 100%;
-}
-
-.reveal blockquote.tldr {
-  margin: 0;
-  max-width: 28em;
-  padding: 0.9em 1.2em;
-  border-left-color: var(--accent);
-  font-size: 0.95em;
-  line-height: 1.45;
-  color: var(--fg);
-}
-
-.reveal blockquote.tldr p {
-  margin: 0;
 }
 
 /* The closing slide pairs the thanks with a scan code to the repository,

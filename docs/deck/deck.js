@@ -145,7 +145,10 @@
 
   // Capture phase: runs before reveal.js's own key handler. While a recording
   // has frames left, "next" plays it (or skips to its next marker); once it
-  // ends, "next" advances the slide as usual.
+  // ends, "next" advances the slide as usual. Shift with a next key advances
+  // at once, pausing the recording, so a demo can be passed without playing;
+  // the advance is explicit because reveal.js binds Shift with an arrow to the
+  // last slide and Shift with Space to the previous one.
   window.addEventListener("keydown", function (event) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (TOGGLE_KEYS.indexOf(event.key) !== -1) {
@@ -158,6 +161,11 @@
     if (!state || state.kind !== "recorded" || state.ended) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (event.shiftKey) {
+      if (state.playing) state.player.pause();
+      Reveal.next();
+      return;
+    }
     if (state.playing) state.player.seek({ marker: "next" });
     else state.player.play();
   }, true);
