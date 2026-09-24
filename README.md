@@ -67,7 +67,7 @@ claude
 > /materialize ../my-service       # installs the runtime; project files are kept
 ```
 
-The harness ships opinionated defaults and is open-closed. Closed is the way of working: specialist agents, TDD-first, strategic DDD, XP-style nested loops, and spec-driven delivery through a PRD, a system design, and ADRs. That [kernel](docs/harness-project-api.md#the-kernel--what-no-brief-can-vary) and the runtime that carries it (`.claude/` skills, agents, hooks, schemas) are replaced whole on every upgrade. Open is what the specialists hold as opinion: what to test, how to layer, where the security bar sits. Each house-style brief below is one specialist's working opinion, shipped as a default and rewritten by the project within the kernel; project-owned files are kept on every upgrade.
+An upgrade replaces the runtime whole (`.claude/` skills, agents, hooks, schemas) and keeps every project-owned file. Those files, and the specialist whose opinion each brief carries:
 
 ```text
 my-service/
@@ -94,9 +94,18 @@ claude                             # or copilot, opencode
 
 The steps, the three distribution channels, and the no-clone plugin install are in the [Adoption Guide](docs/adoption-guide.md).
 
+### Make the agent team work your way
+
+**Open-closed.** Closed is the way of working: specialist agents, TDD-first, strategic DDD, XP-style nested loops, and spec-driven delivery through a PRD, a system design, and ADRs. That [kernel](docs/harness-project-api.md#the-kernel--what-no-brief-can-vary) is replaced whole on every upgrade. Open is what the specialists hold as opinion: what to test, how to layer, where the security bar sits. The three house-style briefs ship those as defaults.
+
+**Agreement first.** The human team agrees on what its norms are, then writes that agreement into the briefs. Humans and the agent team then work on the same written basis: every specialist enforces the norms as its own convictions, and every person can read what they are.
+
+**Norms evolve.** The agreement is iterative. When a norm changes, the brief changes with it, and the agent team does the legwork of refactoring the codebase to the new norm at the [whole-codebase level](docs/force-multiplier.md).
+
+**Two habits make the briefs carry.** Write principles with their reasons, not instruction lists: a specialist that knows what a rule protects applies it to the case the list never named ([Principles Over Rigid Rules](docs/agentic-harness.md#principles-over-rigid-rules)). And do not draft them by hand: hold the discussion in the session on the strongest model available and let it write the brief. On existing code, `/derive-briefs` drafts from the source first. [Customize after onboarding](docs/adoption-guide.md#customize-after-onboarding) lists what the project fills, tunes, and declares as its own.
+
 ### Go further
 
-- **Make it your own.** [Customize after onboarding](docs/adoption-guide.md#customize-after-onboarding) lists the options a project controls and the extensions it keeps. [`harness-project-api.md`](docs/harness-project-api.md) names the seven briefs a project owns and the kernel it cannot vary.
 - **Choose or configure an agent tool.** [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) holds the rules-file, skill, and agent matrices, the IDE paths, and the tool-choice framework.
 - **Run it on open-weight models.** [`open-weight-models.md`](docs/open-weight-models.md) maps the two pinned tiers to a provider, per tool.
 - **Run it with more than one person.** [`human-teams.md`](docs/human-teams.md): one checkout and one slice per person; claims live in the team's tracker.
