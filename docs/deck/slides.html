@@ -80,6 +80,32 @@
   </aside>
 </section>
 
+<section id="memory" class="figure" data-variants="talk">
+  <p class="kicker">Memory</p>
+  <h2>The repository is the long-term memory</h2>
+  <img src="../images/pipeline-slide-memory.drawio.png" alt="Top row: a grey human pill and a green-tinted agent-team card side by side, joined by a short accent arrow labeled conversation above the line. Bottom row, under both: the long-term memory band of the repository. It holds a docs/ folder box with prd.md, system-design.md, ubiquitous-language.md, and adr/ stacked inside, beside an outlined box for code and tests. At the right, under the agent-team alone: a short-term memory band holding a .scratch/ folder box with its one file, handoff.jsonl. Grey double arrows drop from the human into long-term memory and from the agent-team into both bands.">
+  <aside class="notes">
+    The context window forgets, so what matters lives in files. The
+    conversation is where a feature starts. The human and the team share one
+    long-term memory: the repository, specs and code alike, evolving across
+    features. The handoff log is the team's own working memory, cleared before
+    the next feature; the human never has to read it. The next slide opens the
+    team box.
+  </aside>
+</section>
+
+<section id="routing" class="figure" data-variants="talk">
+  <p class="kicker">Agent-team</p>
+  <h2>Specialists work in nested loops</h2>
+  <img src="../images/pipeline-slide-routing.drawio.png" alt="The agent-team opened. A slim long-term memory band on top. The specialist flow runs left to right: a feature request pill, then product requirements expert, system design expert, feature implementer, reviewers, and change grader, then a human-merges pill. Four nested loop bands named TDD, review, slice, and codebase hold the specialists; the request pill sits outside them and the merge pill inside the outermost. Dashed accent return arrows carry consultation and rework. Below the flow, a router layer reads a slim short-term memory band.">
+  <aside class="notes">
+    The handoffs route themselves: every hop appends one record, a script
+    decides the next step from it, the coordinator resolves only escalations
+    and fresh intake. Four nested loops, inner to outer: TDD, review, slice,
+    codebase. Consultation returns control to the requester, never forward.
+  </aside>
+</section>
+
 <!-- =============================================================== close -->
 
 <section id="legal" class="hero">

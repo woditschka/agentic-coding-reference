@@ -173,4 +173,5 @@ files = [
     "tools/claude-dev/claude_dev_scrub.py",
     "tools/claude-dev/ide_preflight.py",
     "tools/deck/deck.py",
+    "tools/deck/figures.py",
 ]

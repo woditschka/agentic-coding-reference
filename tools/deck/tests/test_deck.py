@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for deck: the ledger replay's shape, the script escape, and the casts bundle's drift check."""
+"""Tests for deck: the ledger replay's shape, the script escape, and the drift check over the casts bundle and the slide figures."""
 
 import json
 import pathlib
@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 import deck as d
+import figures
 
 INTAKE = {
     "type": "intake-decision",
@@ -98,18 +99,26 @@ class ScriptSafe(unittest.TestCase):
 class Build(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.deck = pathlib.Path(self.tmp.name)
-        (self.deck / "casts").mkdir()
+        self.deck = pathlib.Path(self.tmp.name) / "deck"
+        (self.deck / "casts").mkdir(parents=True)
         (self.deck / "casts" / "demo.cast").write_text('{"version": 2}\n')
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_check_lists_a_missing_bundle_and_writes_nothing(self):
+    def test_check_lists_every_missing_derived_file_and_writes_nothing(self):
+        stale = d.build(self.deck, check=True)
+        images = self.deck.parent / "images"
         self.assertEqual(
-            d.build(self.deck, check=True), [self.deck / "casts" / "casts.js"]
+            set(stale),
+            {
+                self.deck / "casts" / "casts.js",
+                images / "pipeline-slide-memory.drawio",
+                images / "pipeline-slide-routing.drawio",
+            },
         )
         self.assertFalse((self.deck / "casts" / "casts.js").exists())
+        self.assertFalse((self.deck.parent / "images").exists())
 
     def test_a_build_leaves_nothing_stale(self):
         d.build(self.deck, check=False)
@@ -123,6 +132,21 @@ class Build(unittest.TestCase):
         self.assertEqual(
             d.build(self.deck, check=True), [self.deck / "casts" / "casts.js"]
         )
+
+    def test_a_build_writes_the_figures_beside_the_deck_under_images(self):
+        d.build(self.deck, check=False)
+        sources = sorted((self.deck.parent / "images").glob("*.drawio"))
+        self.assertEqual(len(sources), len(figures.FIGURES))
+        self.assertTrue(all("<mxGraphModel" in s.read_text() for s in sources))
+
+    def test_a_hand_edited_figure_source_is_listed_stale(self):
+        d.build(self.deck, check=False)
+        source = sorted((self.deck.parent / "images").glob("*.drawio"))[0]
+        source.write_text(source.read_text() + "\n")
+        self.assertEqual(d.build(self.deck, check=True), [source])
+
+    def test_the_committed_tree_carries_no_stale_derived_file(self):
+        self.assertEqual(d.build(d.DECK, check=True), [])
 
     def test_the_bundle_holds_every_cast_by_name(self):
         d.build(self.deck, check=False)

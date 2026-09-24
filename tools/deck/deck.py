@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the conference deck's derived files: ledger replays and the casts bundle."""
+"""Generate the conference deck's derived files: ledger replays, the casts bundle, and the slide figures."""
 
 import argparse
 import json
@@ -9,6 +9,8 @@ import textwrap
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+
+import figures
 
 DECK = Path(__file__).resolve().parents[2] / "docs" / "deck"
 
@@ -181,12 +183,15 @@ def casts_js(casts: dict[str, str]) -> str:
 
 
 def derived_files(deck: Path) -> dict[Path, str]:
-    """Compute every generated file under the deck from its sources."""
+    """Compute every generated file from its sources: the casts bundle under the deck, the slide figures beside it under images."""
     casts = {
         path.stem: path.read_text(encoding="utf-8")
         for path in sorted((deck / "casts").glob("*.cast"))
     }
-    return {deck / "casts" / "casts.js": casts_js(casts)}
+    return {
+        deck / "casts" / "casts.js": casts_js(casts),
+        **figures.derived_figures(deck.parent / "images"),
+    }
 
 
 def build(deck: Path, *, check: bool) -> list[Path]:
@@ -213,7 +218,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     replay.add_argument("run_dir", type=Path)
     replay.add_argument("out", type=Path)
-    make = commands.add_parser("build", help="regenerate casts.js from the casts")
+    make = commands.add_parser(
+        "build", help="regenerate casts.js and the slide figures' draw.io sources"
+    )
     make.add_argument(
         "--check", action="store_true", help="report stale files, write nothing"
     )

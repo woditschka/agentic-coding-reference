@@ -268,8 +268,40 @@ body,
   padding: 0.15em 0.6em;
 }
 
-.reveal .figure {
+/* A figure slide is a column: the kicker and heading at the top, the image
+   centered in whatever height remains. */
+.reveal .slides section.figure {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
   text-align: center;
+}
+
+.reveal .figure .kicker,
+.reveal .figure h2 {
+  text-align: left;
+}
+
+/* Content slides (a figure or a demo under a heading) share one heading
+   size, smaller than a statement slide's, so the headings read as one
+   series across the deck. */
+.reveal .figure h2,
+.reveal section.demo h2 {
+  font-size: 1.3em;
+  max-width: none;
+  margin: 0 0 0.4em;
+}
+
+/* Each figure image is capped so that every figure renders at one scale: the
+   cap over the figure's exported height is the same fraction for each. The
+   deck's figure suite pins the caps to the figures. */
+.reveal .figure img {
+  margin: auto;
+  max-height: 540px;
+}
+
+.reveal #memory img {
+  max-height: 376px;
 }
 
 .reveal .columns {
@@ -502,16 +534,11 @@ body,
 
 /* ---------- terminal slot ---------- */
 
-/* A demo slide gives the terminal nearly the whole slide: the heading and
-   caption shrink to one line each so the recorded 90x24 grid renders large. */
+/* A demo slide gives the terminal nearly the whole slide: the heading takes
+   the content-slide size and the caption stays one line, so the recorded
+   90x24 grid renders large. */
 .reveal .slides section.demo {
   padding: 0;
-}
-
-.reveal section.demo h2 {
-  font-size: 0.9em;
-  max-width: none;
-  margin: 0 0 0.4em;
 }
 
 .term {
