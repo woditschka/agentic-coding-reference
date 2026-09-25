@@ -34,20 +34,65 @@
   <h1>Agents forget. Repos remember.</h1>
   <p class="lede">Own the agent team that builds your way.</p>
   <p class="small byline">Bernhard Woditschka · <a href="https://github.com/woditschka/agentic-coding-reference">github.com/woditschka/agentic-coding-reference</a></p>
-  <aside class="notes">Title. No preamble; go straight to the demo.</aside>
+  <aside class="notes">
+    Talk: thesis once, then the poll. Lightning: the complaints, then the demo.
+  </aside>
 </section>
 
-<section id="demo" class="demo">
-  <h2>A bug report in. A reviewed fix out.</h2>
-  <div class="term" data-cast="bugfix" data-live="http://localhost:7681"></div>
-  <p class="term-caption">Eval task <code>owners-page-param</code>, harness v0.3.3, rep r1: 17 minutes of agent time, $8.21, 30 ledger records. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/docs/feature-walkthrough.md">Walkthrough</a></p>
+<!-- ======================================================= where to start -->
+
+<section id="room" class="content" data-variants="talk">
+  <p class="kicker">Where do you start from?</p>
+  <h2>Quick show of hands</h2>
+  <ul>
+    <li class="fragment">Autocomplete and chat in the IDE</li>
+    <li class="fragment">An agent in the repository <span class="small">e.g. Claude Code with a <code>CLAUDE.md</code></span></li>
+    <li class="fragment">An agent team <span class="small">e.g. subagents, skills, hooks</span></li>
+  </ul>
   <aside class="notes">
-    One paragraph of bug report is the whole human input. The recording pauses
-    at each stage: requirements, design triage (covered: the design docs
-    already held the answer), build green, the review catch, the fix round,
-    graded. The catch: the doc reviewer found the PRD still stating the bug as
-    current fact inside the change that fixes it. Stand-in cast: ledger replay;
-    replace with the session recording.
+    Place the room. Most hands: the second answer.
+    Start one step below it, build to the third.
+  </aside>
+</section>
+
+<section id="heard" class="content">
+  <p class="kicker">Heard around the industry</p>
+  <h2>Sound familiar?</h2>
+  <ul>
+    <li class="fragment">It is almost right, so I check everything</li>
+    <li class="fragment">It has no idea what the product requires</li>
+    <li class="fragment">It has never seen the system design</li>
+    <li class="fragment">It ignores our team's norms</li>
+    <li class="fragment">It comments every line</li>
+    <li class="fragment">It takes the joy out of programming</li>
+  </ul>
+  <aside class="notes">
+    One line per click. First line: Stack Overflow survey 2025's top frustration.
+    Each one is a memory gap or a missing loop.
+    The last one is mine. Promise: every line gets answered on the agent-team slide.
+  </aside>
+</section>
+
+<section id="journey" class="content" data-variants="talk">
+  <p class="kicker">What's in it for you</p>
+  <h2>From prompting to a team that works your way</h2>
+  <ul class="steps fragment" data-fragment-index="1">
+    <li>Prompting <span class="small">good answers, no memory</span></li>
+    <li>A rules file, then skills <span class="small">conventions stick</span></li>
+  </ul>
+  <ul class="steps fragment" data-fragment-index="2">
+    <li>A team of experts <span class="small">specs keep the course, reviews catch the slips</span></li>
+    <li>Automatic routing <span class="small">you stop being the router</span></li>
+    <li>Logic into code <span class="small">tokens go to judgment</span></li>
+    <li>My taste <span class="small">about $9 a feature, measured</span></li>
+  </ul>
+  <ul class="steps fragment" data-fragment-index="3">
+    <li>Your taste, not mine <span class="small">your norms, your decisions</span></li>
+  </ul>
+  <aside class="notes">
+    Three reveals: where the room stands; my experiment; the point.
+    Specs keep the course, loops catch the almost-right, routing by script, measured.
+    Your taste, not mine: the joy stays in.
   </aside>
 </section>
 
@@ -60,45 +105,392 @@
     </div>
     <div>
       <h2>Bernhard Woditschka</h2>
-      <p class="lede">Principal Software Engineer</p>
+      <p class="small">Principal Software Engineer · Developing software is my passion.</p>
+      <ul class="encoded">
+        <li>Simple and elegant solutions</li>
+        <li>Small teams that own what they build</li>
+        <li>Ship early and often, automate everything</li>
+        <li>Always learning, always sharing</li>
+      </ul>
     </div>
   </div>
+  <aside class="notes">
+    Thirty seconds. Craft, TDD, DDD are behind these lines; the team encodes them.
+    I sat on step two. The joy complaint was mine.
+  </aside>
 </section>
 
-<!-- ================================================================ core -->
+<section id="pains" class="content" data-variants="talk">
+  <p class="kicker">Prompting</p>
+  <h2>What stays with you</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="fragment">Drive every step yourself</li>
+      <li class="fragment">Re-explain every session</li>
+      <li class="fragment">Review everything yourself</li>
+      <li class="fragment">Route between the steps</li>
+      <li class="fragment">Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    A repo and a chat. Five things in the room's own words.
+    The tree grows, the list shrinks.
+  </aside>
+</section>
+
+<section id="rules" class="content" data-variants="talk">
+  <p class="kicker">A rules file</p>
+  <h2>Conventions stick.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+<span class="new">├── CLAUDE.md</span>        <span class="why">build commands, conventions</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Drive every step yourself</li>
+      <li>Re-explain every session</li>
+      <li>Review everything yourself</li>
+      <li>Route between the steps</li>
+      <li>Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    Most of the room is here. Build commands, conventions, agent in the repo.
+    Steps gone. Product still re-explained.
+  </aside>
+</section>
+
+<section id="skills" class="content" data-variants="talk">
+  <p class="kicker">Then skills</p>
+  <h2>A skill remembers how.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── CLAUDE.md
+<span class="new">├── .claude/</span>
+<span class="new">│   └── skills/</span>          <span class="why">how to test, review, ship</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Drive every step yourself</li>
+      <li>Re-explain every session</li>
+      <li>Review everything yourself</li>
+      <li>Route between the steps</li>
+      <li>Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    A skill is a better prompt: how, never what was decided.
+    Nothing moves on the right. That is the point.
+  </aside>
+</section>
+
+<section id="agents" class="content" data-variants="talk">
+  <p class="kicker">A team of experts</p>
+  <h2>Fresh eyes on every change.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── CLAUDE.md
+├── .claude/
+│   ├── skills/
+<span class="new">│   ├── agents/</span>          <span class="why">requirements, design, review</span>
+<span class="new">│   └── hooks/</span>           <span class="why">what a script can enforce</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Drive every step yourself</li>
+      <li>Re-explain every session</li>
+      <li class="done">Review everything yourself</li>
+      <li>Route between the steps</li>
+      <li>Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    One agent per job. Reviewer never wrote the code; reviews to a written bar.
+    Hooks: what a script can enforce. Nothing here remembers yet.
+  </aside>
+</section>
+
+<section id="specs" class="content" data-variants="talk">
+  <p class="kicker">Living specs</p>
+  <h2>Specs remember what agents forget.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── CLAUDE.md
+├── .claude/
+│   ├── skills/
+│   ├── agents/
+│   └── hooks/
+<span class="new">├── docs/</span>
+<span class="new">│   ├── prd.md</span>           <span class="why">what to build</span>
+<span class="new">│   ├── system-design.md</span> <span class="why">how it is structured</span>
+<span class="new">│   └── adr/</span>             <span class="why">why it won</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Drive every step yourself</li>
+      <li class="done">Re-explain every session</li>
+      <li class="done">Review everything yourself</li>
+      <li>Route between the steps</li>
+      <li class="done">Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    What, how, why. Read before any code. One reviewer checks spec against code.
+    One line left: every handoff still went through me.
+  </aside>
+</section>
+
+<section id="routed" class="content" data-variants="talk">
+  <p class="kicker">Automatic routing</p>
+  <h2>Handoffs route themselves.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── CLAUDE.md
+├── .claude/
+│   ├── skills/
+│   ├── agents/
+│   └── hooks/
+├── docs/
+│   ├── prd.md
+│   ├── system-design.md
+│   └── adr/
+<span class="new">├── .scratch/</span>
+<span class="new">│   └── handoff.jsonl</span>    <span class="why">a script picks the next hop</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Drive every step yourself</li>
+      <li class="done">Re-explain every session</li>
+      <li class="done">Review everything yourself</li>
+      <li class="done">Route between the steps</li>
+      <li class="done">Check the spec against the code</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    One record per hop, a script picks the next. Coordinator only for intake and escalations.
+    I stopped being the router. List empty. Now the whole thing running.
+  </aside>
+</section>
+
+<!-- ========================================================= what you get -->
+
+<section id="demo" class="demo">
+  <h2>A bug report in. A reviewed fix out.</h2>
+  <div class="term" data-cast="bugfix" data-live="http://localhost:7681"></div>
+  <p class="term-caption">Eval task <code>owners-page-param</code>, harness v0.3.3, rep r1: 17 minutes of agent time, $8.21, 30 ledger records. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/docs/feature-walkthrough.md">Walkthrough</a></p>
+  <aside class="notes">
+    One paragraph of bug report in. Pauses: requirements, design covered, green, the catch, fix, graded.
+    The catch: PRD stated the bug as current fact inside the fix.
+  </aside>
+</section>
+
+<section id="what-you-get" class="content">
+  <p class="kicker">What you get</p>
+  <h2 class="swap"><span class="before">Sound familiar, revisited</span><span class="after fragment fade-up" data-fragment-index="11">Your agent team</span></h2>
+  <div class="addressed">
+    <ul>
+      <li><span class="problem fragment" data-fragment-index="0">It has no idea what the product requires</span><span class="owner fragment fade-up" data-fragment-index="1"><strong>The PRD, in dialogue with you</strong> <span class="small">read before any code</span></span></li>
+      <li><span class="problem fragment" data-fragment-index="2">It has never seen the system design</span><span class="owner fragment fade-up" data-fragment-index="3"><strong>The system design, in dialogue with you</strong> <span class="small">read before any code</span></span></li>
+      <li><span class="problem fragment" data-fragment-index="4">It ignores our norms and comments every line</span><span class="owner fragment fade-up" data-fragment-index="5"><strong>The briefs</strong> <span class="small">your norms, written down and reviewed against</span></span></li>
+      <li><span class="problem fragment" data-fragment-index="6">It is almost right, so I check everything</span><span class="owner fragment fade-up" data-fragment-index="7"><strong>The implementer, tests first</strong> <span class="small">the TDD loop, one slice at a time</span></span></li>
+      <li><span class="owner fragment fade-up" data-fragment-index="8"><strong>Reviewers, with fresh eyes</strong> <span class="small">the review loop, to a written bar</span></span></li>
+      <li><span class="owner fragment fade-up" data-fragment-index="9"><strong>The grader</strong> <span class="small">one verdict per change; you read verdicts, not lines</span></span></li>
+      <li><span class="problem fragment" data-fragment-index="10">It takes the joy out of programming</span><span class="owner fragment fade-up" data-fragment-index="11"><strong>You decide</strong> <span class="small">requirements, design, standards, the merge</span></span></li>
+    </ul>
+  </div>
+  <aside class="notes">
+    Team in pipeline order; each complaint swaps for its owner.
+    Almost right takes three rows: TDD, reviewers, grader. Honest: clear rate 0 to 1/3; you read verdicts, not lines.
+    You decide. Judgment stays yours. Heading swaps: your agent team.
+  </aside>
+</section>
+
+<!-- ======================================================== how it works -->
+
+<section id="theorem" class="hero">
+  <p class="kicker">The theorem</p>
+  <h1 class="statement">What a good team knows by heart,<br>an agent team needs in writing.</h1>
+  <p class="lede dim fragment">And once it is written, the humans have it too.</p>
+  <aside class="notes">
+    Short story: I was the bottleneck between good agents. Human teams wrote it down decades ago.
+    Say it slowly. Human forgets over months; agent at session end.
+    Click: the humans have it too. Next three slides: proof.
+  </aside>
+</section>
 
 <section id="memory" class="figure" data-variants="talk">
   <p class="kicker">Memory</p>
-  <h2>The repository is the long-term memory</h2>
+  <h2>What the team knows, in writing</h2>
   <img src="../images/pipeline-slide-memory.drawio.png" alt="Top row: a grey human pill and a green-tinted agent-team card side by side, joined by a short accent arrow labeled conversation above the line. Bottom row, under both: the long-term memory band of the repository. It holds a docs/ folder box with prd.md, system-design.md, ubiquitous-language.md, and adr/ stacked inside, beside an outlined box for code and tests. At the right, under the agent-team alone: a short-term memory band holding a .scratch/ folder box with its one file, handoff.jsonl. Grey double arrows drop from the human into long-term memory and from the agent-team into both bands.">
   <aside class="notes">
-    The context window forgets, so what matters lives in files. The
-    conversation is where a feature starts. The human and the team share one
-    long-term memory: the repository, specs and code alike, evolving across
-    features. The handoff log is the team's own working memory, cleared before
-    the next feature; the human never has to read it. The next slide opens the
-    team box.
+    Proof one: in writing. Long-term: the repo, specs and code. Working memory: handoff log, cleared after merge.
+    Pain removed: re-explaining.
+  </aside>
+</section>
+
+<section id="written" class="content" data-variants="talk">
+  <p class="kicker">Memory · the demo's fix</p>
+  <h2>The same fix, in writing</h2>
+  <div class="bands">
+    <div class="band">
+      <p class="bandlabel">Long-term · <code>docs/</code> · kept across features</p>
+      <div class="excerpts">
+        <div class="fragment">
+          <p class="file">docs/prd.md</p>
+          <p>A page below the first one is read as the first page, and the listing is shown as usual <code>[REQ-OWNERSPAGEPARAM-001]</code>.</p>
+          <p class="done"><strong>Done when:</strong> given a page of zero, when the owner listing is requested, then the first page of matching owners is listed and no error page is shown.</p>
+          <p class="done"><strong>Open question:</strong> does the veterinarian directory take the same page rule? Its paging sits outside the owner listing decision and was not part of it.</p>
+        </div>
+        <div class="fragment">
+          <p class="file">docs/system-design.md</p>
+          <p><code>OwnerController</code> · Server-rendered owner workflows: create, edit, search with paging, and detail. Reads a requested page below the first as the first page · <code>REQ-OWNERSPAGEPARAM-001</code></p>
+        </div>
+      </div>
+    </div>
+    <div class="band short">
+      <p class="bandlabel">Short-term · <code>.scratch/</code> · cleared after merge</p>
+      <div class="excerpts">
+        <div class="fragment">
+          <p class="file">.scratch/handoff.jsonl · line 3</p>
+          <p><code>{"type": "prd-entry", "author": "product-requirements-expert", "req_id": "REQ-OWNERSPAGEPARAM-001", "title": "Owner listing treats a page below the first as the first page", …}</code></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The demo's fix, unedited. Requirement with tag; a Done-when; the parked open question; the design row; one log record.
+    Next session, any agent opens with this. So does the new hire.
   </aside>
 </section>
 
 <section id="routing" class="figure" data-variants="talk">
-  <p class="kicker">Agent-team</p>
-  <h2>Specialists work in nested loops</h2>
+  <p class="kicker">Loops</p>
+  <h2>How the team works, in nested loops</h2>
   <img src="../images/pipeline-slide-routing.drawio.png" alt="The agent-team opened. A slim long-term memory band on top. The specialist flow runs left to right: a feature request pill, then product requirements expert, system design expert, feature implementer, reviewers, and change grader, then a human-merges pill. Four nested loop bands named TDD, review, slice, and codebase hold the specialists; the request pill sits outside them and the merge pill inside the outermost. Dashed accent return arrows carry consultation and rework. Below the flow, a router layer reads a slim short-term memory band.">
   <aside class="notes">
-    The handoffs route themselves: every hop appends one record, a script
-    decides the next step from it, the coordinator resolves only escalations
-    and fresh intake. Four nested loops, inner to outer: TDD, review, slice,
-    codebase. Consultation returns control to the requester, never forward.
+    Proof two: handoffs route themselves. Loops inner to outer: TDD, review, slice, codebase.
+    Consultation returns to the requester. The demo's catch was this loop.
+  </aside>
+</section>
+
+<!-- ==================================================== make it your own -->
+
+<section id="own" class="content" data-variants="talk">
+  <p class="kicker">Make it your own</p>
+  <h2>Your taste, not mine.</h2>
+  <div class="columns">
+    <div>
+      <h3>Closed · replaced on every upgrade</h3>
+      <ul>
+        <li>The team <span class="small">agents, skills, hooks</span></li>
+        <li>The way of working <span class="small">TDD first, strategic DDD, nested loops</span></li>
+        <li>The memory's shape <span class="small">PRD, system design, ADRs, one vocabulary</span></li>
+        <li>The routing <span class="small">one record per hop, a script decides</span></li>
+        <li><code>/materialize</code> <span class="small">installs it, upgrades it whole, keeps the open column</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Open · yours, kept on every upgrade</h3>
+      <ul>
+        <li>What to test <span class="small">the test reviewer's brief</span></li>
+        <li>How to layer <span class="small">the design expert's brief</span></li>
+        <li>Where the security bar sits <span class="small">the security reviewer's brief</span></li>
+        <li>What you build <span class="small">your specs, your rules file, your backlog</span></li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    Closed: the way of working, replaced whole on upgrade. Open: three briefs, one specialist each, plus your content.
+    One command installs and upgrades. Callback: the closed column is the craft I like. The joy moved into the dialogue.
+  </aside>
+</section>
+
+<section id="yours" class="content" data-variants="talk">
+  <p class="kicker">Make it your own · an example</p>
+  <h2>Your team likes mocks. Mine does not.</h2>
+  <p class="step fragment" data-fragment-index="0"><strong>Agree.</strong> The team decides: mocks at the service boundary are fine here.</p>
+  <p class="step fragment" data-fragment-index="1"><strong>Write it down.</strong> One paragraph in one brief; no agent file changes.</p>
+  <div class="excerpts pair">
+    <div>
+      <p class="file">docs/testing-principles.md · shipped default</p>
+      <p><strong>Mock only at system boundaries.</strong> HTTP clients, external APIs; these are the only acceptable mock points. <strong>Never mock internal code.</strong> Domain objects and services use real implementations. <strong>Hand-write mocks.</strong> No mock frameworks.</p>
+    </div>
+    <div class="fragment yours" data-fragment-index="1">
+      <p class="file">docs/testing-principles.md · your team's rewrite</p>
+      <p><strong>Mock collaborators at the service boundary with Mockito.</strong> A service test stubs the repositories it calls. <strong>Never mock value objects.</strong> Construct them; they are one-line records. <strong>One mock library,</strong> the one already on the classpath.</p>
+    </div>
+  </div>
+  <p class="step fragment" data-fragment-index="2"><strong>Enforced.</strong> From the next slice on, the team writes and reviews to your rule.</p>
+  <aside class="notes">
+    Default: real objects, mocks at the boundary, no framework. Mine.
+    Click: team agrees on Mockito. Click: one paragraph, nothing else. Click: reviewer now holds your rule.
+  </aside>
+</section>
+
+<!-- ==================================================== what it delivers -->
+
+<section id="results" class="content" data-variants="talk">
+  <p class="kicker">What it delivers</p>
+  <h2>What does that cost? Is it worth it?</h2>
+  <ul class="facts">
+    <li class="fragment" data-fragment-index="0"><strong>About $9 a feature</strong> <span class="small">measured on an eval bench, and a third cheaper than the first version as logic moved into scripts</span></li>
+    <li class="fragment" data-fragment-index="1"><strong>The bar held on every run</strong> <span class="small">held-out tests plus the project's full suite, checked by machine; a blind judge watches quality</span></li>
+    <li class="fragment" data-fragment-index="2"><strong>Under half an hour, unattended</strong> <span class="small">request in, reviewed fix out, while you do something else</span></li>
+  </ul>
+  <div class="fragment" data-fragment-index="3">
+    <table class="pairs">
+      <tr><th>Eval task</th><th>Cost per pass</th><th>Wall</th><th>Bar</th></tr>
+      <tr><td>owners-page-param</td><td>$4.92</td><td>9 min</td><td>3 of 3</td></tr>
+      <tr><td>specialty-directory</td><td>$8.52</td><td>17 min</td><td>3 of 3</td></tr>
+      <tr><td>vets-specialty-filter</td><td>$12.87</td><td>26 min</td><td>3 of 3</td></tr>
+      <tr><td>visit-edit</td><td>$11.47</td><td>20 min</td><td>3 of 3</td></tr>
+    </table>
+  </div>
+  <p class="source">Harness v0.4.4, three runs per task: cost per pass, median delivery wall, runs clearing the bar. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/evals/results/TREND.md">evals/results/TREND.md</a></p>
+  <aside class="notes">
+    Click: $5 to $13 per run, demo $8, under an engineer-hour. A third cheaper than the first version.
+    Click: held-out tests plus full suite, blind judge. Click: 9 to 26 minutes, none of it yours. Click: table.
+    Caveats: one project, small slices, tool and model versions changed, part of the fall is faster Claude Code.
+  </aside>
+</section>
+
+<!-- ============================================================== deeper -->
+
+<section id="deeper" class="content">
+  <p class="kicker">Deeper</p>
+  <h2>Further along the path</h2>
+  <ul>
+    <li data-variants="lightning">Your taste, not mine: your norms in three briefs</li>
+    <li>Open-weight models: the pinned tiers mapped to a provider</li>
+    <li>Confinement: the native sandbox, or a container with one way out</li>
+    <li>Three tools, one configuration: Claude Code, Copilot CLI, OpenCode</li>
+    <li>Human teams: one checkout and one slice per person</li>
+    <li>Product workspaces: one product across repositories</li>
+    <li>The eval bench: measure a version before shipping it</li>
+  </ul>
+  <aside class="notes">
+    Names only. Landing page has the links. Talk: skippable. Lightning: the first line is the open-closed point.
   </aside>
 </section>
 
 <!-- =============================================================== close -->
 
+<section id="takeaway" class="hero" data-variants="talk">
+  <h1 class="closing">Agents forget. Repos remember.</h1>
+  <p class="lede">Give agents what human teams already have.</p>
+  <aside class="notes">
+    Thesis once more. Pause, then the scan code.
+  </aside>
+</section>
+
 <section id="legal" class="hero">
   <div class="thanks">
     <div>
-      <h2>Thanks! Happy building.</h2>
+      <h2>Interested? Try it yourself.</h2>
+      <p class="lede">One command. Your norms. The merge stays yours.</p>
       <p><a href="https://github.com/woditschka/agentic-coding-reference">github.com/woditschka/agentic-coding-reference</a></p>
     </div>
     <img class="qr" src="qr-code.svg" alt="Scan code linking to github.com/woditschka/agentic-coding-reference">
@@ -109,6 +501,9 @@
     <p>An independent project, not affiliated with or endorsed by Anthropic, GitHub, the OpenCode project, or the Spring project. Product names are trademarks of their owners, used only to identify the tools.</p>
     <p>Views are the speaker's own. <a href="legal.html">Legal notice and privacy</a>.</p>
   </div>
+  <aside class="notes">
+    Say thanks here. Point at the code: the README's quick start is the one command.
+  </aside>
 </section>
 
 

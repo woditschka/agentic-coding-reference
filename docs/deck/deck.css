@@ -215,6 +215,40 @@ body,
   color: var(--fg-soft);
 }
 
+/* The theorem: one italic sentence, alone on a hero slide, with the
+   kicker held at the top left where the content slides keep it. */
+.reveal .slides section.hero > .kicker {
+  position: absolute;
+  top: 56px;
+  left: 40px;
+  margin: 0;
+}
+
+/* The closing line, near the theorem's size rather than the title's. */
+.reveal h1.closing {
+  font-size: 1.8em;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 0.3em;
+}
+
+.reveal h1.statement {
+  font-size: 1.6em;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--fg);
+  margin: 0;
+}
+
+.reveal h1.statement + .lede.dim {
+  margin: 0.7em 0 0;
+  font-size: 0.85em;
+  font-style: italic;
+  color: var(--muted);
+}
+
 .reveal img {
   max-width: 100%;
   max-height: 520px;
@@ -248,9 +282,15 @@ body,
   color: var(--muted);
 }
 
+/* A section with a source line takes the full slide height, so the line
+   sits at the slide's foot, at the legal text's offset. */
+.reveal .slides section:has(> .source) {
+  min-height: 100%;
+}
+
 .reveal .source {
   position: absolute;
-  bottom: -1.1em;
+  bottom: 36px;
   left: 40px;
   font-family: var(--mono);
   font-size: 0.4em;
@@ -282,10 +322,11 @@ body,
   text-align: left;
 }
 
-/* Content slides (a figure or a demo under a heading) share one heading
-   size, so the headings read as one series across the deck. */
+/* Content slides (a figure, a demo, or a list under a heading) share one
+   heading size, so the headings read as one series across the deck. */
 .reveal .figure h2,
-.reveal section.demo h2 {
+.reveal section.demo h2,
+.reveal section.content h2 {
   font-size: 1.3em;
   max-width: none;
   margin: 0 0 0.4em;
@@ -301,6 +342,309 @@ body,
 
 .reveal #memory img {
   max-height: 376px;
+}
+
+/* A content slide is one idea under a kicker, with air above it: a short
+   list, a pair table, or two columns. */
+.reveal .slides section.content {
+  padding-top: 56px;
+}
+
+/* The journey's three reveals: a gap between the groups, none inside. */
+.reveal .steps + .steps {
+  margin-top: 0.9em;
+}
+
+.reveal .pains li.done {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.reveal .pains li.done::before {
+  color: var(--muted);
+}
+
+/* What you get: the complaints in the order the team works, one click
+   each: the complaint appears, the next click swaps it for its owner in
+   place, then the next complaint appears. */
+.reveal .addressed {
+  font-size: 0.85em;
+}
+
+.reveal .addressed ul > li {
+  display: grid;
+  min-height: 1.4em;
+}
+
+.reveal .addressed ul > li > span {
+  grid-area: 1 / 1;
+}
+
+.reveal .addressed ul > li + li {
+  margin-top: 0.35em;
+}
+
+.reveal .addressed ul > li::before {
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.35s ease;
+}
+
+.reveal .addressed li:has(.problem.visible)::before,
+.reveal .addressed li:has(.owner.visible)::before {
+  opacity: 1;
+}
+
+.reveal .slides section .addressed .problem {
+  color: var(--stop);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.reveal .slides section .addressed li:has(.owner.visible) .problem {
+  opacity: 0;
+  transform: translateY(-0.6em);
+}
+
+.reveal .addressed .owner,
+.reveal .addressed .owner strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.reveal .addressed .owner .small {
+  font-weight: 420;
+}
+
+/* A heading that swaps in place on its last fragment. */
+.reveal h2.swap {
+  display: grid;
+}
+
+.reveal h2.swap > span {
+  grid-area: 1 / 1;
+}
+
+.reveal h2.swap .before {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.reveal .slides section h2.swap:has(.after.visible) .before {
+  opacity: 0;
+  transform: translateY(-0.6em);
+}
+
+/* The written slide: excerpts from the demo run's memory files, quoted
+   unedited, in the memory figure's two bands. The short-term band's card
+   is sunken and dashed: it is the part that gets cleared. */
+.reveal .bands {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 26px;
+  align-items: start;
+}
+
+.reveal .bandlabel {
+  font-family: var(--mono);
+  font-size: 0.42em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.9em;
+}
+
+.reveal .bandlabel code {
+  text-transform: none;
+  font-size: 1em;
+}
+
+.reveal .excerpts {
+  display: grid;
+  gap: 16px;
+  font-size: 0.53em;
+}
+
+.reveal .excerpts.pair {
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  font-size: 0.6em;
+}
+
+.reveal .excerpts.pair strong {
+  color: var(--fg);
+}
+
+.reveal .excerpts > .yours {
+  border: 2px solid var(--accent);
+}
+
+.reveal .step {
+  position: relative;
+  padding-left: 1.2em;
+  font-size: 0.85em;
+  color: var(--fg-soft);
+  margin: 0 0 0.45em;
+}
+
+.reveal .step::before {
+  content: "\203A";
+  position: absolute;
+  left: 0.15em;
+  top: -0.02em;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.reveal .step strong {
+  color: var(--accent);
+}
+
+.reveal .excerpts.pair + .step,
+.reveal div + .step {
+  margin-top: 0.8em;
+}
+
+.reveal .facts {
+  font-size: 0.85em;
+}
+
+.reveal .facts > li + li {
+  margin-top: 0.35em;
+}
+
+.reveal .facts + div > table.pairs {
+  margin-top: 0.9em;
+  font-size: 0.75em;
+}
+
+.reveal .excerpts > div {
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 16px 22px;
+  color: var(--fg-soft);
+}
+
+.reveal .band.short .excerpts > div {
+  background: var(--bg-sunken);
+  border-style: dashed;
+}
+
+.reveal .excerpts p {
+  margin: 0;
+}
+
+.reveal .excerpts p + p {
+  margin-top: 0.5em;
+}
+
+.reveal .excerpts .file {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--accent);
+  margin-bottom: 0.6em;
+}
+
+.reveal .excerpts .done {
+  color: var(--muted);
+}
+
+/* An ellipsis line above and below each excerpt: quoted from the middle
+   of a longer file. */
+.reveal .excerpts .file + p::before,
+.reveal .excerpts > div::after {
+  content: "\2026";
+  display: block;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.reveal .excerpts .file + p::before {
+  margin-bottom: 0.45em;
+}
+
+.reveal .excerpts > div::after {
+  margin-top: 0.55em;
+}
+
+.reveal .excerpts code {
+  font-size: 0.92em;
+}
+
+/* The open-closed columns: each item's explanation on its own line. */
+.reveal .columns li .small {
+  display: block;
+  margin-top: 0.05em;
+}
+
+.reveal .columns li + li {
+  margin-top: 0.55em;
+}
+
+/* The build slides: the repository tree growing on the left, the five
+   pains struck on the right as each step removes one. */
+.reveal .build {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+
+.reveal pre.tree {
+  margin: 0;
+  width: auto;
+  box-shadow: none;
+  font-family: var(--mono);
+  font-size: 0.5em;
+  line-height: 1.55;
+  white-space: pre;
+  color: var(--fg-soft);
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  padding: 22px 28px;
+}
+
+.reveal pre.tree .new {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.reveal pre.tree .why {
+  color: var(--muted);
+}
+
+.reveal .build .pains {
+  font-size: 0.85em;
+}
+
+/* The pair table: the theorem's human-practice-to-mechanism rows and the
+   results' first-to-latest cells. Rules only between rows; no chrome. */
+.reveal table.pairs {
+  border-collapse: collapse;
+  margin: 0.2em 0 0;
+  font-size: 0.85em;
+}
+
+.reveal table.pairs th,
+.reveal table.pairs td {
+  text-align: left;
+  padding: 0.38em 2.2em 0.38em 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.reveal table.pairs th {
+  font-family: var(--mono);
+  font-size: 0.62em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.reveal table.pairs td:last-child {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .reveal .columns {
@@ -420,11 +764,18 @@ body,
 /* The closing slide pairs the thanks with a scan code to the repository,
    matching the link beside it. The code is a static SVG, dark on white with its quiet zone, so any camera
    reads it; see README.md, Scan code. */
+.reveal .thanks .lede {
+  font-size: 0.85em;
+  margin: 0.2em 0 0.6em;
+}
+
 .reveal .thanks {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 48px;
+  /* Centered in the hero; the bottom margin lifts it clear of the legal text. */
+  margin-bottom: 150px;
 }
 
 .reveal .thanks .qr {
@@ -458,6 +809,13 @@ body,
   grid-template-columns: 320px 1fr;
   gap: 56px;
   align-items: center;
+}
+
+/* The about slide's list of encoded preferences, quieter than the lede. */
+
+.reveal .about .encoded {
+  margin-top: 0.9em;
+  font-size: 0.9em;
 }
 
 .reveal .avatar {
