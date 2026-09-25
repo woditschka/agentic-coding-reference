@@ -30,6 +30,26 @@
   document.documentElement.setAttribute("data-variant", variant);
   document.title = document.title + " · " + VARIANTS[variant].label;
 
+  // Unattended mode advances on a timer, one fragment per tick. A slide
+  // with fragments gets a shorter tick so its reveals stay watchable, never
+  // under AUTO_STEP_MIN_MS. A demo slide gets no timer: it waits for its
+  // recording to end, which advances it (see mountRecorded). A live terminal
+  // never ends, so live mode keeps the timer there.
+  var AUTO_STEP_MIN_MS = 3000;
+  if (autoMode) {
+    document.querySelectorAll(".slides section").forEach(function (slide) {
+      if (slide.hasAttribute("data-autoslide")) return;
+      if (!liveMode && slide.querySelector(".term[data-cast]")) {
+        slide.setAttribute("data-autoslide", "0");
+        return;
+      }
+      var steps = slide.querySelectorAll(".fragment").length;
+      if (steps === 0) return;
+      var tick = Math.max(AUTO_STEP_MIN_MS, Math.round((AUTO_SLIDE_MS * 2) / (steps + 1)));
+      slide.setAttribute("data-autoslide", String(tick));
+    });
+  }
+
   // ---------- demo slots ----------
 
   var slots = new Map();
@@ -129,10 +149,12 @@
     });
   }
 
+  // Leaving a slide tears its recording down, so the slide starts it from
+  // the beginning when it is entered again; a live terminal stays mounted.
   function leave(slide) {
     slotsOf(slide).forEach(function (el) {
       var state = slots.get(el);
-      if (state && state.kind === "recorded" && state.playing) state.player.pause();
+      if (state && state.kind === "recorded") reset(el);
     });
   }
 
@@ -186,6 +208,8 @@
     backgroundTransition: "none",
     totalTime: VARIANTS[variant].totalTime,
     autoSlide: autoMode ? AUTO_SLIDE_MS : 0,
+    // A stray key or click must not stop an unattended loop.
+    autoSlideStoppable: !autoMode,
     loop: autoMode,
     plugins: [RevealNotes]
   }).then(function () {

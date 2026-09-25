@@ -22,7 +22,7 @@ The conference deck for the reference: one slide source, two variants, and a lan
 | Talk, recorded demos | `slides.html?v=talk` |
 | Talk, live demos | `slides.html?v=talk&demo=live` |
 | Lightning | `slides.html?v=lightning` |
-| Lightning, unattended loop | `slides.html?v=lightning&auto=1` |
+| Lightning, unattended loop | `slides.html?v=lightning&auto=1` (a demo slide waits for its recording, then advances; a slide with fragments reveals them on a shorter tick; keys and clicks do not stop the loop) |
 
 `&theme=<name>` picks a look other than the default (§ Looks). A slide's `id` extends any address to that slide: `slides.html?v=talk#/demo`.
 
