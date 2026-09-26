@@ -818,6 +818,12 @@ body,
   font-size: 0.9em;
 }
 
+/* The two beliefs on AI stand apart from the four on craft. */
+
+.reveal .about .beliefs {
+  margin-top: 1.6em;
+}
+
 .reveal .avatar {
   position: relative;
   width: 320px;
