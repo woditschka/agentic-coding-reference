@@ -81,7 +81,7 @@
     <li>A rules file, then skills <span class="small">conventions stick</span></li>
   </ul>
   <ul class="steps fragment" data-fragment-index="2">
-    <li>A team of experts <span class="small">specs keep the course, reviews catch the slips</span></li>
+    <li>Specs, then a team of experts <span class="small">specs keep the course, reviews catch the slips</span></li>
     <li>Automatic routing <span class="small">you stop being the router</span></li>
     <li>Logic into code <span class="small">tokens go to judgment</span></li>
     <li>My taste <span class="small">about $9 a feature, measured</span></li>
@@ -134,11 +134,11 @@
 ├── src/
 └── tests/</pre>
     <ul class="pains">
-      <li class="fragment">Drive every step yourself</li>
-      <li class="fragment">Re-explain every session</li>
+      <li class="fragment">Re-explain the conventions</li>
+      <li class="fragment">Spell out every step yourself</li>
+      <li class="fragment">Re-explain the product</li>
       <li class="fragment">Review everything yourself</li>
       <li class="fragment">Route between the steps</li>
-      <li class="fragment">Check the spec against the code</li>
     </ul>
   </div>
   <aside class="notes">
@@ -156,16 +156,16 @@
 ├── src/
 └── tests/</pre>
     <ul class="pains">
-      <li class="done">Drive every step yourself</li>
-      <li>Re-explain every session</li>
+      <li class="done">Re-explain the conventions</li>
+      <li>Spell out every step yourself</li>
+      <li>Re-explain the product</li>
       <li>Review everything yourself</li>
       <li>Route between the steps</li>
-      <li>Check the spec against the code</li>
     </ul>
   </div>
   <aside class="notes">
     Most of the room is here. Build commands, conventions, agent in the repo.
-    Steps gone. Product still re-explained.
+    Conventions gone from the chat. Product still re-explained, every step still yours.
   </aside>
 </section>
 
@@ -180,16 +180,44 @@
 ├── src/
 └── tests/</pre>
     <ul class="pains">
-      <li class="done">Drive every step yourself</li>
-      <li>Re-explain every session</li>
+      <li class="done">Re-explain the conventions</li>
+      <li class="done">Spell out every step yourself</li>
+      <li>Re-explain the product</li>
       <li>Review everything yourself</li>
       <li>Route between the steps</li>
-      <li>Check the spec against the code</li>
     </ul>
   </div>
   <aside class="notes">
     A skill is a better prompt: how, never what was decided.
-    Nothing moves on the right. That is the point.
+    The steps move into the repo; I stop typing them out. Nothing remembers what was decided yet.
+  </aside>
+</section>
+
+<section id="specs" class="content" data-variants="talk">
+  <p class="kicker">Living specs</p>
+  <h2>Specs remember what agents forget.</h2>
+  <div class="build">
+<pre class="tree">my-service/
+├── CLAUDE.md
+├── .claude/
+│   └── skills/
+<span class="new">├── docs/</span>
+<span class="new">│   ├── prd.md</span>           <span class="why">what to build</span>
+<span class="new">│   ├── system-design.md</span> <span class="why">how it is structured</span>
+<span class="new">│   └── adr/</span>             <span class="why">why it won</span>
+├── src/
+└── tests/</pre>
+    <ul class="pains">
+      <li class="done">Re-explain the conventions</li>
+      <li class="done">Spell out every step yourself</li>
+      <li class="done">Re-explain the product</li>
+      <li>Review everything yourself</li>
+      <li>Route between the steps</li>
+    </ul>
+  </div>
+  <aside class="notes">
+    What, how, why. Read before any code; the product stops living in the chat.
+    Nothing reviews against it yet. That is the next step.
   </aside>
 </section>
 
@@ -203,49 +231,24 @@
 │   ├── skills/
 <span class="new">│   ├── agents/</span>          <span class="why">requirements, design, review</span>
 <span class="new">│   └── hooks/</span>           <span class="why">what a script can enforce</span>
+├── docs/
+│   ├── prd.md
+│   ├── system-design.md
+│   └── adr/
 ├── src/
 └── tests/</pre>
     <ul class="pains">
-      <li class="done">Drive every step yourself</li>
-      <li>Re-explain every session</li>
+      <li class="done">Re-explain the conventions</li>
+      <li class="done">Spell out every step yourself</li>
+      <li class="done">Re-explain the product</li>
       <li class="done">Review everything yourself</li>
       <li>Route between the steps</li>
-      <li>Check the spec against the code</li>
     </ul>
   </div>
   <aside class="notes">
-    One agent per job. Reviewer never wrote the code; reviews to a written bar.
-    Hooks: what a script can enforce. Nothing here remembers yet.
-  </aside>
-</section>
-
-<section id="specs" class="content" data-variants="talk">
-  <p class="kicker">Living specs</p>
-  <h2>Specs remember what agents forget.</h2>
-  <div class="build">
-<pre class="tree">my-service/
-├── CLAUDE.md
-├── .claude/
-│   ├── skills/
-│   ├── agents/
-│   └── hooks/
-<span class="new">├── docs/</span>
-<span class="new">│   ├── prd.md</span>           <span class="why">what to build</span>
-<span class="new">│   ├── system-design.md</span> <span class="why">how it is structured</span>
-<span class="new">│   └── adr/</span>             <span class="why">why it won</span>
-├── src/
-└── tests/</pre>
-    <ul class="pains">
-      <li class="done">Drive every step yourself</li>
-      <li class="done">Re-explain every session</li>
-      <li class="done">Review everything yourself</li>
-      <li>Route between the steps</li>
-      <li class="done">Check the spec against the code</li>
-    </ul>
-  </div>
-  <aside class="notes">
-    What, how, why. Read before any code. One reviewer checks spec against code.
-    One line left: every handoff still went through me.
+    One agent per job. Reviewer never wrote the code; reviews to the written bar, the specs.
+    Requirements and design experts now keep those specs, in dialogue with you.
+    Hooks: what a script can enforce. One line left: every handoff still went through me.
   </aside>
 </section>
 
@@ -268,11 +271,11 @@
 ├── src/
 └── tests/</pre>
     <ul class="pains">
-      <li class="done">Drive every step yourself</li>
-      <li class="done">Re-explain every session</li>
+      <li class="done">Re-explain the conventions</li>
+      <li class="done">Spell out every step yourself</li>
+      <li class="done">Re-explain the product</li>
       <li class="done">Review everything yourself</li>
       <li class="done">Route between the steps</li>
-      <li class="done">Check the spec against the code</li>
     </ul>
   </div>
   <aside class="notes">
