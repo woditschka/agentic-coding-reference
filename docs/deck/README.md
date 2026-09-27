@@ -19,8 +19,7 @@ The conference deck for the reference: one slide source, two variants, and a lan
 
 | Version | Query |
 |---------|-------|
-| Talk, recorded demos | `slides.html?v=talk` |
-| Talk, live demos | `slides.html?v=talk&demo=live` |
+| Talk | `slides.html?v=talk` |
 | Lightning | `slides.html?v=lightning` |
 | Lightning, unattended loop | `slides.html?v=lightning&auto=1` (a demo slide waits for its recording, then advances; a slide with fragments reveals them on a shorter tick; keys and clicks do not stop the loop) |
 
@@ -28,13 +27,7 @@ The conference deck for the reference: one slide source, two variants, and a lan
 
 ## Presenting
 
-A demo slot is a `<div class="term">` naming its cast in `data-cast` and its live terminal in `data-live`. On a demo slide, the next key plays the recording, or skips to its next marker while it plays. After the recording ends, the next key advances the slide. `Shift` with a next key advances at once, pausing the recording, so a demo can be passed without playing. `L` switches the slot between live and recorded. `S` opens the speaker view with notes and the variant's time budget.
-
-Live mode embeds a terminal served by [ttyd](https://github.com/tsl0922/ttyd) on the presenting machine. A slot whose terminal does not answer within 2.5 seconds plays its recording and shows a red badge. Run live talks from the local clone: an HTTPS page embedding `http://localhost` depends on each browser's mixed-content rules.
-
-1. Prepare the demo repository at the state the talk starts from.
-2. Start the terminal: `ttyd -p 7681 -i 127.0.0.1 -W zsh`.
-3. Open `docs/deck/slides.html?v=talk&demo=live` from the clone.
+A demo slot is a `<div class="term">` naming its cast in `data-cast`. On a demo slide, the next key plays the recording, or skips to its next marker while it plays. After the recording ends, the next key advances the slide. `Shift` with a next key advances at once, pausing the recording, so a demo can be passed without playing. `S` opens the speaker view with notes and the variant's time budget.
 
 ## Recording a demo
 

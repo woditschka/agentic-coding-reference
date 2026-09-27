@@ -1,6 +1,5 @@
-// Deck runtime: picks the variant, mounts each demo slot as a recording or a
-// live terminal, and hands the "next" key to a paused recording before
-// reveal.js sees it. Plain ES2017, no build step, works from file://.
+// Deck runtime: picks the variant, mounts each demo slot as a recording, and
+// hands the "next" key to a paused recording before reveal.js sees it. Plain ES2017, no build step, works from file://.
 (function () {
   "use strict";
 
@@ -11,15 +10,10 @@
   };
   var variant = params.get("v") || "talk";
   if (!VARIANTS[variant]) variant = "talk";
-  var liveMode = params.get("demo") === "live";
   var autoMode = params.get("auto") === "1";
 
-  // A live terminal that does not answer within this window falls back to
-  // the recording, so a dead ttyd never stalls the talk.
-  var LIVE_PROBE_MS = 2500;
   var AUTO_SLIDE_MS = 12000;
   var NEXT_KEYS = ["ArrowRight", "ArrowDown", "PageDown", " ", "n", "N"];
-  var TOGGLE_KEYS = ["l", "L"];
 
   // ---------- variant filter ----------
 
@@ -33,13 +27,12 @@
   // Unattended mode advances on a timer, one fragment per tick. A slide
   // with fragments gets a shorter tick so its reveals stay watchable, never
   // under AUTO_STEP_MIN_MS. A demo slide gets no timer: it waits for its
-  // recording to end, which advances it (see mountRecorded). A live terminal
-  // never ends, so live mode keeps the timer there.
+  // recording to end, which advances it (see mountRecorded).
   var AUTO_STEP_MIN_MS = 3000;
   if (autoMode) {
     document.querySelectorAll(".slides section").forEach(function (slide) {
       if (slide.hasAttribute("data-autoslide")) return;
-      if (!liveMode && slide.querySelector(".term[data-cast]")) {
+      if (slide.querySelector(".term[data-cast]")) {
         slide.setAttribute("data-autoslide", "0");
         return;
       }
@@ -66,16 +59,16 @@
     el.textContent = "";
   }
 
-  function addBadge(el, text, kind) {
+  function addBadge(el, text) {
     var badge = document.createElement("span");
-    badge.className = "term-badge" + (kind ? " " + kind : "");
+    badge.className = "term-badge";
     badge.textContent = text;
     el.appendChild(badge);
   }
 
-  function mountRecorded(el, fallbackNote) {
+  function mountRecorded(el) {
     reset(el);
-    var state = { kind: "recorded", player: null, playing: false, ended: false };
+    var state = { player: null, playing: false, ended: false };
     state.player = AsciinemaPlayer.create(castSource(el.dataset.cast), el, {
       theme: "deck",
       fit: "both",
@@ -97,38 +90,9 @@
       state.ended = true;
       if (autoMode) Reveal.next();
     });
-    addBadge(el, fallbackNote || "recorded", fallbackNote ? "fallback" : "");
+    addBadge(el, "recorded");
     slots.set(el, state);
     return state;
-  }
-
-  function probe(url) {
-    var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, LIVE_PROBE_MS);
-    return fetch(url, { mode: "no-cors", signal: controller.signal })
-      .then(function () { return true; }, function () { return false; })
-      .finally(function () { clearTimeout(timer); });
-  }
-
-  function mountLive(el) {
-    reset(el);
-    slots.set(el, { kind: "probing" });
-    return probe(el.dataset.live).then(function (reachable) {
-      if (!reachable) return mountRecorded(el, "live unreachable · recording");
-      reset(el);
-      var frame = document.createElement("iframe");
-      frame.src = el.dataset.live;
-      frame.title = "Live terminal";
-      el.appendChild(frame);
-      addBadge(el, "live", "live");
-      var state = { kind: "live" };
-      slots.set(el, state);
-      return state;
-    });
-  }
-
-  function mount(el, live) {
-    return live && el.dataset.live ? mountLive(el) : Promise.resolve(mountRecorded(el));
   }
 
   function slotsOf(slide) {
@@ -142,27 +106,15 @@
 
   function enter(slide) {
     slotsOf(slide).forEach(function (el) {
-      var ready = slots.has(el) ? Promise.resolve(slots.get(el)) : mount(el, liveMode);
-      ready.then(function (state) {
-        if (autoMode && state && state.kind === "recorded") state.player.play();
-      });
+      var state = slots.has(el) ? slots.get(el) : mountRecorded(el);
+      if (autoMode) state.player.play();
     });
   }
 
   // Leaving a slide tears its recording down, so the slide starts it from
-  // the beginning when it is entered again; a live terminal stays mounted.
+  // the beginning when it is entered again.
   function leave(slide) {
-    slotsOf(slide).forEach(function (el) {
-      var state = slots.get(el);
-      if (state && state.kind === "recorded") reset(el);
-    });
-  }
-
-  function toggleLive() {
-    var el = slotsOf(Reveal.getCurrentSlide())[0];
-    if (!el || !el.dataset.live) return;
-    var state = slots.get(el);
-    mount(el, !(state && state.kind === "live"));
+    slotsOf(slide).forEach(reset);
   }
 
   // Capture phase: runs before reveal.js's own key handler. While a recording
@@ -173,14 +125,9 @@
   // last slide and Shift with Space to the previous one.
   window.addEventListener("keydown", function (event) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (TOGGLE_KEYS.indexOf(event.key) !== -1) {
-      toggleLive();
-      event.stopImmediatePropagation();
-      return;
-    }
     if (NEXT_KEYS.indexOf(event.key) === -1) return;
     var state = currentState();
-    if (!state || state.kind !== "recorded" || state.ended) return;
+    if (!state || state.ended) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.shiftKey) {

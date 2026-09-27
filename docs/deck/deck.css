@@ -893,13 +893,6 @@ body,
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
-.term > iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: var(--term-bg);
-}
-
 .term .ap-wrapper,
 .term .ap-player {
   height: 100%;
@@ -919,16 +912,6 @@ body,
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--term-fg);
-}
-
-.term-badge.live {
-  background: var(--t2);
-  color: #11111b;
-}
-
-.term-badge.fallback {
-  background: var(--t1);
-  color: #11111b;
 }
 
 .term-caption {
