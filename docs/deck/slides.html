@@ -34,7 +34,7 @@
   <p class="lede">Own the agent team that builds your way.</p>
   <p class="small byline">Bernhard Woditschka · <a href="https://github.com/woditschka/agentic-coding-reference">github.com/woditschka/agentic-coding-reference</a></p>
   <aside class="notes">
-    Talk: thesis once, then the poll. Lightning: the complaints, then the demo.
+    Talk: thesis once, then the poll. Lightning: the complaints, the theorem in two sentences, then the demo.
   </aside>
 </section>
 
@@ -279,11 +279,34 @@
   </div>
   <aside class="notes">
     One record per hop, a script picks the next. Coordinator only for intake and escalations.
-    I stopped being the router. List empty. Now the whole thing running.
+    I stopped being the router. List empty. Two sentences, then the whole thing running.
   </aside>
 </section>
 
 <!-- ========================================================= what you get -->
+
+<section id="theorem" class="hero">
+  <p class="kicker">The theorem</p>
+  <h1 class="statement">What a good team knows by heart,<br>an agent team needs in writing.</h1>
+  <p class="lede dim fragment">And once it is written, the humans benefit too.</p>
+  <aside class="notes">
+    Human teams wrote it down decades ago. Say it slowly. Human forgets over months; agent at session end.
+    Click: the humans benefit too; the written slide shows the new hire reading it.
+    Every complaint was a memory gap or a missing loop. This sentence is the memory; the next, the loops.
+  </aside>
+</section>
+
+<section id="theorem-2" class="hero">
+  <p class="kicker">The theorem</p>
+  <h1 class="statement">What a good team does by habit,<br>an agent team needs in code.</h1>
+  <p class="lede dim fragment">And once it is in code, the humans benefit too.</p>
+  <aside class="notes">
+    Short story: I was the bottleneck between good agents. Why the loops work: one question per stage, independent eyes, a stop condition.
+    Agents do not get tired, but do not get suspicious either: the loop's control sits outside them, in code. The judgment inside each hop stays the agent's; the bar it checks is in writing.
+    Click: the humans benefit too. You read verdicts, not lines, and nobody is the router.
+    Now watch one run: the writing the agents read, the stages that catch the slip.
+  </aside>
+</section>
 
 <section id="demo" class="demo">
   <h2>A bug report in. A reviewed fix out.</h2>
@@ -318,23 +341,12 @@
 
 <!-- ======================================================== how it works -->
 
-<section id="theorem" class="hero">
-  <p class="kicker">The theorem</p>
-  <h1 class="statement">What a good team knows by heart,<br>an agent team needs in writing.</h1>
-  <p class="lede dim fragment">And once it is written, the humans have it too.</p>
-  <aside class="notes">
-    Short story: I was the bottleneck between good agents. Human teams wrote it down decades ago.
-    Say it slowly. Human forgets over months; agent at session end.
-    Click: the humans have it too. Next three slides: proof.
-  </aside>
-</section>
-
 <section id="memory" class="figure" data-variants="talk">
   <p class="kicker">Memory</p>
   <h2>What the team knows, in writing</h2>
   <img src="../images/pipeline-slide-memory.drawio.png" alt="Top row: a grey human pill and a green-tinted agent-team card side by side, joined by a short accent arrow labeled conversation above the line. Bottom row, under both: the long-term memory band of the repository. It holds a docs/ folder box with prd.md, system-design.md, ubiquitous-language.md, and adr/ stacked inside, beside an outlined box for code and tests. At the right, under the agent-team alone: a short-term memory band holding a .scratch/ folder box with its one file, handoff.jsonl. Grey double arrows drop from the human into long-term memory and from the agent-team into both bands.">
   <aside class="notes">
-    Proof one: in writing. Long-term: the repo, specs and code. Working memory: handoff log, cleared after merge.
+    The theorem's first half, proved: in writing. Long-term: the repo, specs and code. Working memory: handoff log, cleared after merge.
     Pain removed: re-explaining.
   </aside>
 </section>
@@ -379,8 +391,9 @@
   <h2>How the team works, in nested loops</h2>
   <img src="../images/pipeline-slide-routing.drawio.png" alt="The agent-team opened. A slim long-term memory band on top. The specialist flow runs left to right: a feature request pill, then product requirements expert, system design expert, feature implementer, reviewers, and change grader, then a human-merges pill. Four nested loop bands named TDD, review, slice, and codebase hold the specialists; the request pill sits outside them and the merge pill inside the outermost. Dashed accent return arrows carry consultation and rework. Below the flow, a router layer reads a slim short-term memory band.">
   <aside class="notes">
-    Proof two: handoffs route themselves. Loops inner to outer: TDD, review, slice, codebase.
-    Consultation returns to the requester. The demo's catch was this loop.
+    The theorem's second half, proved: the loops, in code. Inner to outer: TDD, review, slice, codebase.
+    The stop condition is code: three review rounds, then escalation to a human. Consultation returns to the requester. The demo's catch was this loop.
+    The human benefit, paid off: verdicts instead of lines, and no one is the router.
   </aside>
 </section>
 

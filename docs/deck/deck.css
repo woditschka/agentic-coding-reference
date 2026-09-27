@@ -617,8 +617,8 @@ body,
   font-size: 0.85em;
 }
 
-/* The pair table: the theorem's human-practice-to-mechanism rows and the
-   results' first-to-latest cells. Rules only between rows; no chrome. */
+/* The pair table: the results' first-to-latest cells. Rules only between
+   rows; no chrome. */
 .reveal table.pairs {
   border-collapse: collapse;
   margin: 0.2em 0 0;
