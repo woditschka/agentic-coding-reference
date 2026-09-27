@@ -21,7 +21,7 @@ The conference deck for the reference: one slide source, two variants, and a lan
 |---------|-------|
 | Talk | `slides.html?v=talk` |
 | Lightning | `slides.html?v=lightning` |
-| Lightning, unattended loop | `slides.html?v=lightning&auto=1` (a demo slide waits for its recording, then advances; a slide with fragments reveals them on a shorter tick; keys and clicks do not stop the loop) |
+| Lightning, unattended loop | `slides.html?v=lightning&auto=1` (each step stays for the time its words take to read, a demo slide waits for its recording, and keys and clicks do not stop the loop) |
 
 `&theme=<name>` picks a look other than the default (§ Looks). A slide's `id` extends any address to that slide: `slides.html?v=talk#/demo`.
 

@@ -12,7 +12,12 @@
   if (!VARIANTS[variant]) variant = "talk";
   var autoMode = params.get("auto") === "1";
 
+  // Unattended pacing: each step stays for the time its words take to read,
+  // a beat plus the words at READ_WPS, clamped to [AUTO_STEP_MIN_MS, AUTO_SLIDE_MS].
   var AUTO_SLIDE_MS = 12000;
+  var AUTO_STEP_MIN_MS = 2500;
+  var READ_BEAT_MS = 1000;
+  var READ_WPS = 4;
   var NEXT_KEYS = ["ArrowRight", "ArrowDown", "PageDown", " ", "n", "N"];
 
   // ---------- variant filter ----------
@@ -24,11 +29,17 @@
   document.documentElement.setAttribute("data-variant", variant);
   document.title = document.title + " · " + VARIANTS[variant].label;
 
-  // Unattended mode advances on a timer, one fragment per tick. A slide
-  // with fragments gets a shorter tick so its reveals stay watchable, never
-  // under AUTO_STEP_MIN_MS. A demo slide gets no timer: it waits for its
-  // recording to end, which advances it (see mountRecorded).
-  var AUTO_STEP_MIN_MS = 3000;
+  // Unattended mode advances on a timer, one step at a time. A slide's own
+  // delay covers what shows before its first fragment; each fragment's delay
+  // covers what that click revealed (fragments sharing an index appear
+  // together and share their sum). reveal.js reads the current fragment's
+  // data-autoslide, else the slide's. A demo slide gets no timer: it waits
+  // for its recording to end, which advances it (see mountRecorded).
+  function readingMs(text) {
+    var words = text.trim().split(/\s+/).filter(Boolean).length;
+    var ms = READ_BEAT_MS + (words / READ_WPS) * 1000;
+    return String(Math.round(Math.min(AUTO_SLIDE_MS, Math.max(AUTO_STEP_MIN_MS, ms))));
+  }
   if (autoMode) {
     document.querySelectorAll(".slides section").forEach(function (slide) {
       if (slide.hasAttribute("data-autoslide")) return;
@@ -36,10 +47,19 @@
         slide.setAttribute("data-autoslide", "0");
         return;
       }
-      var steps = slide.querySelectorAll(".fragment").length;
-      if (steps === 0) return;
-      var tick = Math.max(AUTO_STEP_MIN_MS, Math.round((AUTO_SLIDE_MS * 2) / (steps + 1)));
-      slide.setAttribute("data-autoslide", String(tick));
+      var still = slide.cloneNode(true);
+      still.querySelectorAll(".notes, .fragment").forEach(function (el) { el.remove(); });
+      slide.setAttribute("data-autoslide", readingMs(still.textContent));
+      var groups = new Map();
+      slide.querySelectorAll(".fragment").forEach(function (el, i) {
+        var key = el.hasAttribute("data-fragment-index") ? el.getAttribute("data-fragment-index") : "i" + i;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(el);
+      });
+      groups.forEach(function (els) {
+        var text = els.map(function (el) { return el.textContent; }).join(" ");
+        els.forEach(function (el) { el.setAttribute("data-autoslide", readingMs(text)); });
+      });
     });
   }
 
