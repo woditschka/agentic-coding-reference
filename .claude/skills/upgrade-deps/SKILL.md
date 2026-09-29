@@ -67,6 +67,14 @@ The CI workflow pins each GitHub Action to a full commit SHA with a `# vX.Y.Z` c
 
 Note: track the pinned major line (v5 → latest v5.x) by default; a new major (v5 → v6) needs confirmation, like Spring Boot.
 
+### Agent model pins
+
+The two model tiers are pinned per tool in the harness agent frontmatter ([ADR 2026-06-11](../../../docs/adr/2026-06-11-model-tier-assignment.md)). A same-tier release is drift this skill reports. A move is a deliberate edit with an in-file ADR amendment, never a local pin change.
+
+| Item | Pinned In | Upstream source |
+|------|-----------|-----------------|
+| Opus and Sonnet tier pins | `harness/core` and `harness/stacks/*` agent frontmatter (`.claude/agents`, `.github/agents`, `.opencode/agents`), the `audit-agents` skill's mapping table, `docs/cross-tool-strategy.md` § Agents / Subagents, `docs/open-weight-models.md` | https://platform.claude.com/docs/en/models/overview (Claude Code id); https://docs.github.com/en/copilot/reference/ai-models/supported-models (Copilot names); https://openrouter.ai/anthropic (OpenCode slug) |
+
 ### Dated pricing overrides
 
 | Item | Pinned In | Action |

@@ -4,7 +4,7 @@ description: >-
   Validates that tests are thorough, mocking is minimized, and edge
   cases are covered.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-5
+model: openrouter/anthropic/claude-sonnet-5.5
 temperature: 0.2
 steps: 40
 toolCallBudget: 27

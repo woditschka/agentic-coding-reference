@@ -4,7 +4,7 @@ description: >-
   when the deterministic engine defers a small, clean production change it
   cannot classify. Reads the diff and appends the resolving review-plan record.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-5
+model: openrouter/anthropic/claude-sonnet-5.5
 temperature: 0
 steps: 20
 toolCallBudget: 12

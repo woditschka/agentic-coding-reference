@@ -1,6 +1,6 @@
 # Open-Weight Models
 
-Every harness agent pins one of two Anthropic models in its frontmatter, `claude-opus-5-5` or `claude-sonnet-5`, and the runtime ships no provider configuration. The same runtime runs on an open-weight model when the agent tool points at a provider that serves it and remaps the pinned names in the tool's own configuration. The pins never change. Claude Code remaps them through the `modelOverrides` settings key and OpenCode through the `id` field of a model entry, so both keep the two-tier split. Copilot CLI takes one provider model for the whole session and loses the split. Every mapping lives in a file the operator owns, never in the materialized runtime, so no harness change is involved. This document carries the mapping per tool, a worked example on Ollama Cloud, and the operating notes that decide whether a run completes.
+Every harness agent pins one of two Anthropic models in its frontmatter, `claude-opus-5-5` or `claude-sonnet-5-5`, and the runtime ships no provider configuration. The same runtime runs on an open-weight model when the agent tool points at a provider that serves it and remaps the pinned names in the tool's own configuration. The pins never change. Claude Code remaps them through the `modelOverrides` settings key and OpenCode through the `id` field of a model entry, so both keep the two-tier split. Copilot CLI takes one provider model for the whole session and loses the split. Every mapping lives in a file the operator owns, never in the materialized runtime, so no harness change is involved. This document carries the mapping per tool, a worked example on Ollama Cloud, and the operating notes that decide whether a run completes.
 
 The gates, the router, the hooks, and the ledger are deterministic and model-agnostic. What varies with the model is prompt discipline. The eval bench is the instrument that measures it: trend rows key on the model pin, and the served model's name lands in every rep's transcript. The mapping per tool follows, then the example, then the operating notes.
 
@@ -40,7 +40,7 @@ Two public sources bound how far that starting point sits from the pinned models
 | Pinned name | Tier | Ollama Cloud model in the example |
 |---|---|---|
 | `claude-opus-5-5` | Judgment: requirements, design, implementation, security, grading | `glm-5.3:cloud` |
-| `claude-sonnet-5` | Checklist: coordination, code quality, tests, docs | `glm-5.3-flash:cloud` |
+| `claude-sonnet-5-5` | Checklist: coordination, code quality, tests, docs | `glm-5.3-flash:cloud` |
 
 Both tags list `tools` and `thinking` among their capabilities in `ollama show`. With the daemon running:
 
@@ -64,7 +64,7 @@ grep -qx '.claude/settings.local.json' .gitignore || echo '.claude/settings.loca
   "model": "claude-opus-5-5",
   "modelOverrides": {
     "claude-opus-5-5": "glm-5.3:cloud",
-    "claude-sonnet-5": "glm-5.3-flash:cloud"
+    "claude-sonnet-5-5": "glm-5.3-flash:cloud"
   }
 }
 ```
@@ -85,7 +85,7 @@ OpenCode reads the same daemon through its OpenAI-compatible endpoint. `~/.confi
       },
       "models": {
         "anthropic/claude-opus-5.5": { "id": "glm-5.3:cloud" },
-        "anthropic/claude-sonnet-5": { "id": "glm-5.3-flash:cloud" }
+        "anthropic/claude-sonnet-5.5": { "id": "glm-5.3-flash:cloud" }
       }
     }
   }

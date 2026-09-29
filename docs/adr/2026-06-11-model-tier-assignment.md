@@ -1,6 +1,6 @@
 # Model Tier Assignment: Judgment Roles Premium, Checklist Roles Mid-Tier
 
-**Status:** Accepted (extended by [ADR 2026-09-01](2026-09-01-evidence-gated-dynamic-tiering.md): the implementer role gains a router-selected effort variant within its pinned model tier — the pins themselves stay operative; the premium pin moved to Claude Opus 5.5 by the [first in-file amendment](2026-06-11-model-tier-assignment.md#amendment-2026-09-23-the-premium-tier-moves-to-claude-opus-55))
+**Status:** Accepted (extended by [ADR 2026-09-01](2026-09-01-evidence-gated-dynamic-tiering.md): the implementer gains a router-selected effort variant within its pinned tier; amended in-file twice: [Opus 5.5 premium tier](2026-06-11-model-tier-assignment.md#amendment-2026-09-23-the-premium-tier-moves-to-claude-opus-55), [Sonnet 5.5 checklist tier](2026-06-11-model-tier-assignment.md#amendment-2026-09-28-the-checklist-tier-moves-to-claude-sonnet-55))
 
 ## Context
 
@@ -55,3 +55,15 @@ Claude Opus 5.5 released on 2026-09-22 at $4/$20 per million tokens, below Claud
 - **Effort pins carry over unchanged, pending measurement.** Opus 5.5 defaults to medium effort and thinks more per level than Opus 5, so a carried `high` pin can lengthen turns. The pins stay as they are for the first eval arm; a second arm lowers the four `high` pins to `medium`. The arm holding the bar at the lower cost per pass decides.
 - **The eval root pin moves with the tier.** `evals/config.toml` roots on `claude-opus-5-5`, opening a new row set in the trend. The judge pin is untouched; the judge series does not break.
 - **Pins, not aliases, held.** Claude Code 2.1.280 resolved its `opus` alias to Opus 5.5 on release day. No harness agent moved until this deliberate edit, which is what the rule exists to guarantee.
+
+## Amendment 2026-09-28: The Checklist Tier Moves to Claude Sonnet 5.5
+
+Claude Sonnet 5.5 released on 2026-09-28 at Claude Sonnet 5's $2/$10 per million tokens, with the standard 0.10× cache reads, the same tokenizer, and the same context window. Anthropic lists Claude Sonnet 5 as a legacy model from the same day and commits Sonnet 5.5 to no retirement before 2027-09-28. No published figure compares the two on checklist work, so the cost ordering is silent and no quality datum exists yet. The move is the deliberate pin advance the Decision names for a same-tier release; the arm below is its measurement.
+
+- **All five checklist agents move together.** pipeline-coordinator, review-planner, code-quality-reviewer, test-reviewer, and doc-reviewer pin `claude-sonnet-5-5`. The first amendment counted four; review-planner has been a checklist role since [ADR 2026-07-09](2026-07-09-risk-proportional-review.md), so the roster is five. The judgment tier does not move.
+- **Per-tool forms.** OpenCode names `openrouter/anthropic/claude-sonnet-5.5`. Copilot lists `Claude Sonnet 5.5 (copilot)` first and keeps `Claude Sonnet 5 (copilot)` as its fallback. GitHub's supported-models page and OpenRouter's model listing both carried the model on release day.
+- **The family rate is untouched.** The accounting override that prices Sonnet 5 at $2/$10 matches Sonnet 5.5 through the same needles; no new override joins.
+- **Effort pins carry over as the control arm.** Sonnet 5.5 recalibrated its effort levels; Anthropic's guidance starts multistep tool use at `medium` and reserves `low` for latency-sensitive chat. The three reviewers already pin `medium`. The coordinator and review-planner pin `low`, one step below that floor, and run unattended, where a check-in is a stall. The candidate arm raises those two pins to `medium`.
+- **The arms run as tag plus dev.** The release tag carrying these pins is the control. Each candidate is a dev arm interleaved with that tag in one invocation, so the pair shares an epoch. The first amendment's Opus arm lowers the four `high` pins to `medium`; the checklist arm raises the two `low` pins. The arm holding the bar at the lower cost per pass decides, with a stalled rep counted as waste.
+- **The eval pins do not move.** The root pin stays on the premium tier and the judge pin is untouched.
+- **Pins, not aliases, held.** No harness agent moved until this deliberate edit.

@@ -4,7 +4,7 @@ description: >-
   quality. Validates PRD, system-design, and ADRs against the checklist
   in the document-writing skill.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-5
+model: openrouter/anthropic/claude-sonnet-5.5
 temperature: 0.2
 steps: 40
 toolCallBudget: 27
