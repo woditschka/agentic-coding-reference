@@ -31,6 +31,8 @@ OPUS_DISPLAY_NAME = "Opus 4.8"
 SONNET = "claude-sonnet-4-6"
 SONNET_5 = "claude-sonnet-5-20260101"
 SONNET_5_DISPLAY_NAME = "Sonnet 5"
+SONNET_5_5 = "claude-sonnet-5-5"
+SONNET_5_5_DISPLAY_NAME = "Sonnet 5.5"
 HAIKU = "claude-haiku-4-5"
 FABLE = "claude-fable-5"
 FABLE_5_1 = "claude-fable-5-1"
@@ -189,6 +191,10 @@ class Pricing(unittest.TestCase):
     def test_sonnet5_override_beats_family(self):
         self.assertEqual(cc._rate(SONNET_5), SONNET_5_RATE)
         self.assertEqual(cc._rate(SONNET_5_DISPLAY_NAME), SONNET_5_RATE)
+        # Sonnet 5.5 lists at the same rate; the needles are prefixes of its id
+        # and display name, so the one entry prices both tiers.
+        self.assertEqual(cc._rate(SONNET_5_5), SONNET_5_RATE)
+        self.assertEqual(cc._rate(SONNET_5_5_DISPLAY_NAME), SONNET_5_RATE)
         self.assertEqual(cc._rate(SONNET), SONNET_RATE)
 
     def test_opus_5_5_override_beats_family(self):

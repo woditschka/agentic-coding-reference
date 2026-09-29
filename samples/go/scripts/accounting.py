@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
-# Source: platform.claude.com pricing, current as of 2026-09-23. This block is
+# Source: platform.claude.com pricing, current as of 2026-09-28. This block is
 # the single edit point when Anthropic changes prices; no consumer copies a
 # rate into shell, skill, or doc prose.
 #
@@ -40,8 +40,11 @@ PRICE = {
 # form) before the family table. Sonnet 5 lists at $2/$10: announced as
 # introductory pricing through 2026-08-31 and made the standard price on
 # 2026-08-22 (platform.claude.com pricing: "the previously scheduled increase
-# to $3/$15 ... will not occur"). Opus 5.5 lists at $4/$20, below the Opus
-# family. Each needle set is tested ahead of its family.
+# to $3/$15 ... will not occur"). Sonnet 5.5 (released 2026-09-28) lists at
+# the same $2/$10 with the standard 0.10x cache reads. The `sonnet-5` needles
+# are prefixes of its id and display name, so one entry prices both tiers.
+# Opus 5.5 lists at $4/$20, below the Opus family. Each needle set is tested
+# ahead of its family.
 PRICE_OVERRIDE = (
     (("sonnet-5", "sonnet 5"), (2.00, 10.00)),
     (("opus-5-5", "opus 5.5"), (4.00, 20.00)),
