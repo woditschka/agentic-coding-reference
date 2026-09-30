@@ -41,6 +41,7 @@ from run_eval import (
     era_project_contract,
     era_root_model,
     format_ledger_record,
+    implementer_windows,
     installed_plugin_ids,
     judge_argv,
     leak_scan,
@@ -244,6 +245,94 @@ class StageSlices(unittest.TestCase):
     def test_records_without_timestamps_yield_no_slices(self) -> None:
         workdir = self.workdir_with_ledger([{"type": "spec-ready", "author": "spec"}])
         self.assertEqual(stage_slices(self.acc, workdir, [self.row(1, 1)]), [])
+
+
+class ImplementerWindows(StageSlices):
+    """The recorded tier per implement window: what a transcript says ran."""
+
+    ROUTINE = "agent-team:feature-implementer-routine"
+    BASE = "agent-team:feature-implementer"
+
+    def secs(self, minute: int) -> float:
+        value = self.acc.parse_ts(self.ts(minute))
+        assert value is not None
+        return float(value)
+
+    def a_ledger(self) -> Path:
+        return self.workdir_with_ledger(
+            [
+                {
+                    "type": "design-block",
+                    "ts": self.ts(1),
+                    "author": "system-design-expert",
+                },
+                {
+                    "type": "dispatch-start",
+                    "ts": self.ts(2),
+                    "author": "feature-implementer",
+                },
+                {
+                    "type": "build-pass",
+                    "ts": self.ts(8),
+                    "author": "feature-implementer",
+                },
+                {"type": "review-feedback", "ts": self.ts(9), "author": "doc-reviewer"},
+                {
+                    "type": "dispatch-start",
+                    "ts": self.ts(10),
+                    "author": "feature-implementer",
+                },
+                {
+                    "type": "build-pass",
+                    "ts": self.ts(14),
+                    "author": "feature-implementer",
+                },
+            ]
+        )
+
+    def test_each_window_records_the_one_tier_whose_transcript_overlaps_it(
+        self,
+    ) -> None:
+        spans = [
+            (self.ROUTINE, self.secs(2), self.secs(7)),
+            (self.BASE, self.secs(10), self.secs(13)),
+            ("agent-team:doc-reviewer", self.secs(8), self.secs(9)),
+        ]
+        self.assertEqual(
+            implementer_windows(self.acc, self.a_ledger(), spans),
+            {"2": "feature-implementer-routine", "5": "feature-implementer"},
+        )
+
+    def test_a_window_two_tiers_overlap_records_nothing(self) -> None:
+        spans = [
+            (self.ROUTINE, self.secs(2), self.secs(5)),
+            (self.BASE, self.secs(5), self.secs(7)),
+        ]
+        self.assertEqual(implementer_windows(self.acc, self.a_ledger(), spans), {})
+
+    def test_a_window_no_transcript_overlaps_records_nothing(self) -> None:
+        spans = [(self.BASE, self.secs(20), self.secs(30))]
+        self.assertEqual(implementer_windows(self.acc, self.a_ledger(), spans), {})
+
+    def test_an_open_last_window_reads_to_the_end(self) -> None:
+        ledger = self.workdir_with_ledger(
+            [
+                {
+                    "type": "dispatch-start",
+                    "ts": self.ts(2),
+                    "author": "feature-implementer",
+                }
+            ]
+        )
+        spans = [(self.ROUTINE, self.secs(3), self.secs(40))]
+        self.assertEqual(
+            implementer_windows(self.acc, ledger, spans),
+            {"1": "feature-implementer-routine"},
+        )
+
+    def test_no_ledger_records_nothing(self) -> None:
+        missing = self.a_workdir() / "handoff.jsonl"
+        self.assertEqual(implementer_windows(self.acc, missing, []), {})
 
 
 class OracleReport(unittest.TestCase):

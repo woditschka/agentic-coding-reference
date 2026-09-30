@@ -131,7 +131,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 2m***
   - [autofix] `SpecialtyControllerTests.java:91-137` All six MockMvc assertions in this file use Hamcrest matchers (`containsString`, `not`) via `content().string(...)` instead of the project's fluent AssertJ style (testing-principles.md § Assertions; test-review checklist 'Fluent AssertJ used'). No other @WebMvcTest in the suite (VetControllerTests, OwnerControllerTests, PetControllerTests, VisitControllerTests, WelcomeControllerTests) uses `content().string(Matcher)` or imports org.hamcrest — so there is no host-file precedent this file is being 'consistent-with-codebase' with; it introduces a new assertion idiom into the suite.
     - fix: Capture the response body once via `MvcResult result = mockMvc.perform(get(...)).andReturn();` (or `.andReturn().getResponse().getContentAsString()`) and assert with `assertThat(body).contains(...)` / `.doesNotContain(...)`, matching the AssertJ style used elsewhere (e.g. VetControllerTests). Drop the `org.hamcrest.Matchers` imports.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 26s***

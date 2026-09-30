@@ -143,7 +143,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review doc** · **changes_requested** · (1 finding) · ***◷ 2m***
   - [autofix] `prd.md:146` The Design/ADR reference line uses "  ·  " (two spaces on each side of the middle dot) where every other such line in the document (e.g. line 100) uses a single space on each side (" · "). The linked ADR link text also reads "ADR: Filtering the veterinarian directory by specialty", a paraphrased, lowercased shortening of the ADR's actual title ("Filtering the Veterinarian Directory by Specialty Is In Scope; a Page Control Is Not"), whereas the established convention (line 100, linking the pet-name-uniqueness ADR) reproduces the ADR's title text exactly in the link.
     - fix: Change to a single space around the middle dot (" · ") and make the link text match the ADR's actual title, e.g. "ADR: Filtering the Veterinarian Directory by Specialty Is In Scope; a Page Control Is Not".
-- ↻ **implement** (implementer · routine) ← test · (2 findings)
+- ↻ **implement** (implementer) ← test · (2 findings)
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ◇ **prd-entry** Veterinarian directory can be narrowed to one specialty on both surfaces · (prd-expert) · ***◷ 1m***
 - ▲ **build-pass** 00:39 · build, test, check, format, handoff-log, autofix-audit, contracts-sync

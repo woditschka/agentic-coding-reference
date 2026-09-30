@@ -1,8 +1,8 @@
 # Dynamic Tiering Is Verdict-Anchored and Evidence-Gated
 
-**Status:** Accepted (stage A re-scoped measurement-only, front-door constraint added, by the [first in-file amendment](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-stage-a-is-measurement-only-the-front-door-stays-premium); stage B's hook mechanism recorded by the [second](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-second-stage-b-ships-as-a-rewrite-ahead-of-its-sweep); its acceptance sweep by the [third](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-stage-b-acceptance-sweep); the ladder relocated into the router, superseding the hook, by the [fourth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-second-the-ladder-moves-into-the-router); the routine tier narrowed to fix rounds on the router sweep's quality evidence by the [fifth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-the-router-sweep--routine-narrows-to-fix-rounds); the roster gap behind that evidence closed on both sides, with the bench's id minting corrected, by the [sixth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-second-the-roster-gap-closes-on-both-sides); the Junie reasoningLevel mirror retired by [2026-09-10 retire-the-junie-target](2026-09-10-retire-the-junie-target.md))
+**Status:** Accepted (stage A re-scoped measurement-only, front-door constraint added, by the [first in-file amendment](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-stage-a-is-measurement-only-the-front-door-stays-premium); stage B's hook mechanism recorded by the [second](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-second-stage-b-ships-as-a-rewrite-ahead-of-its-sweep); its acceptance sweep by the [third](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-stage-b-acceptance-sweep); the ladder relocated into the router, superseding the hook, by the [fourth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-second-the-ladder-moves-into-the-router); the routine tier narrowed to fix rounds on the router sweep's quality evidence by the [fifth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-the-router-sweep--routine-narrows-to-fix-rounds); the roster gap behind that evidence closed on both sides, with the bench's id minting corrected, by the [sixth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-second-the-roster-gap-closes-on-both-sides); the Junie reasoningLevel mirror retired by [2026-09-10 retire-the-junie-target](2026-09-10-retire-the-junie-target.md); stage C opened on the rating as a checklist-tier variant, in a combined arm with the effort pins, by the [seventh](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-30-stage-c-opens-on-the-rating))
 
-> **Amended.** The effort pin's Junie mirror and its gate went with the target; Copilot and OpenCode carry no effort knob, so the `.claude` pin is the one asserted.
+> **Amended.** The effort pin's Junie mirror and its gate went with the target; Copilot and OpenCode carry no effort knob, so the `.claude` pin is the one asserted. Since the seventh amendment the variant's model pin carries the tier on every tool, and the battery holds each mirror to its tier's pin.
 
 ## Context
 
@@ -276,6 +276,59 @@ the briefs are the reviewers' wall. A risk no brief implies is a
 missing principle to record in its owning brief, never slice detail
 written into the design doc. The `design-validation` skill states the
 rule; the reviewer read-set is unchanged.
+
+## Amendment 2026-09-30: Stage C Opens on the Rating
+
+Stage C was gated on stage B showing capability-tier rather than
+reasoning-depth cost variance. The fifth amendment closed routine initials
+after an Opus-at-medium initial scored below its task's record; the sixth
+traced that dip to a reviewer roster gap, since closed. No measurement of
+a lower-capability initial behind those checks exists; the cell is
+unmeasured, and the screen is its evidence. What moves the cell into the
+screen now, rather than after a stage B variance signal, is Anthropic's
+published positioning of Sonnet 5.5 against Opus 5 and Opus 5.5
+([Sonnet 5.5](https://www.anthropic.com/claude-sonnet-5-5),
+[Opus 5.5](https://www.anthropic.com/claude-opus-5-5)), which the
+[model-tier ADR's third
+amendment](2026-06-11-model-tier-assignment.md#amendment-2026-09-30-the-effort-pins-move-and-routine-implementation-joins-the-checklist-tier)
+records. The stage opens as one combined arm with the effort pins, screened
+then bisected, not as a stage of its own.
+
+The mechanism extends the fourth amendment's router-resident ladder:
+
+- **The variant changes tier, not effort.** `feature-implementer-routine`
+  pins the checklist tier's model (`claude-sonnet-5-5`) and its effort
+  (`medium`); the base implementer pins the premium tier at `medium`.
+  The `<target>-routine` render rule, the identical body, and the base
+  author on every record are unchanged. The Copilot and OpenCode mirrors
+  carry the model pin, so the saving lands on all three tools; the
+  cross-tool posture is no longer routing without saving.
+- **The rating decides the initial.** A slice whose latest design-block
+  rates the work `routine` opens on the variant (`initial:rated-routine`);
+  `involved` opens on the base (`initial`); an unrated re-triage reads as
+  involved. This is the anchor the fourth amendment chose over the verdict
+  proxy, now carrying a second consequence. The fifth amendment's narrowing
+  is reversed for this cell only. The cell it measured was a reduced
+  thinking budget on the premium model, before the placement checks joined
+  the roster. This cell is a full thinking budget on the checklist model
+  behind those checks.
+- **Retirement judges a routine initial on the whole round.** The fourth
+  amendment retired routine on any substantive dissent in a routine
+  window. Applied to initials that rule fires on the review's normal
+  output: on the v0.4.7 row 7 of the 10 routine-rated reps drew dissent,
+  5 of them all-autofix only, the rounds the fourth amendment measured as
+  mechanical. So a routine initial retires on a build failure or a mixed
+  round; an all-autofix round after it runs the variant once more, and any
+  substantive dissent on that fix's pass retires it. Escalation stays
+  monotonic and capped at today's configuration after at most two windows
+  on the lower rung.
+- **The trace surfaces carry the new reason.** `tier_reason` gains
+  `initial:rated-routine`; the board's `· routine` annotation and the
+  transcript tier check apply to initial windows as they did to fix rounds.
+
+The acceptance gate is the model-tier amendment's combined arm; the tier
+cell bisects first. A miss on it restores the fifth amendment's narrowing:
+one route rule and one frontmatter pin revert.
 
 ## References
 

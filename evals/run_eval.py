@@ -21,6 +21,7 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -1374,7 +1375,7 @@ class LedgerTail:
         self.capped = False
 
     def _tier_note(self, record: dict[str, Any]) -> str:
-        """Return the effort-tier suffix of an implementer dispatch line, best effort."""
+        """Return the tier suffix of an implementer dispatch line, best effort."""
         if (
             record.get("type") != "dispatch-start"
             or record.get("author") != "feature-implementer"
@@ -1769,6 +1770,7 @@ def collect_costs(cell: CellRun, session_id: str | None) -> dict[str, Any] | Non
     all_rows: list[UsageRow] = []
     stamped_rows: list[StampedRow] = []
     models: set[str] = set()
+    spans: list[TranscriptSpan] = []
     for path in files:
         shutil.copy2(path, cell.transcripts_dir / Path(path).name)
         usage = _transcript_usage(acc, path)
@@ -1779,13 +1781,14 @@ def collect_costs(cell: CellRun, session_id: str | None) -> dict[str, Any] | Non
             "(parent)" if path == str(parent) else None
         )
         per_agent.append(_agent_entry(acc, agent_type, usage))
+        spans.extend(_transcript_span(agent_type, usage))
+    ledger = cell.workdir / ".scratch" / "handoff.jsonl"
     costs = {
         "total": acc.aggregate(all_rows),
         "models": sorted(models),
         "per_agent": per_agent,
-        "per_stage": stage_slices(
-            acc, cell.workdir / ".scratch" / "handoff.jsonl", stamped_rows
-        ),
+        "per_stage": stage_slices(acc, ledger, stamped_rows),
+        "windows": implementer_windows(acc, ledger, spans),
     }
     write_json(cell.out_dir / "agent-costs.json", costs)
     return costs
@@ -1794,6 +1797,92 @@ def collect_costs(cell: CellRun, session_id: str | None) -> dict[str, Any] | Non
 # A real pipeline writes hundreds of ledger records; more marks than this is
 # not a pipeline, and the slice list would bloat the committed run folder.
 MAX_STAGE_MARKS = 10_000
+
+
+# One transcript's agent type and the span of its stamped usage rows.
+TranscriptSpan = tuple[str | None, float, float]
+IMPLEMENTER_ROLE = "feature-implementer"
+ROUTINE_SUFFIX = "-routine"
+# The records that end an implement session, read from the session's own author.
+IMPLEMENT_SESSION_CLOSERS = frozenset(
+    {"dispatch-start", "build-pass", "build-failure", "consultation-request"}
+)
+
+
+def _transcript_span(
+    agent_type: str | None, usage: _TranscriptUsage
+) -> list[TranscriptSpan]:
+    """Return the one span a stamped transcript covers, or none when it has no stamp."""
+    if not usage.stamped:
+        return []
+    stamps = [row[0] for row in usage.stamped]
+    return [(agent_type, min(stamps), max(stamps))]
+
+
+def _implementer_tier(agent_type: str | None) -> str | None:
+    """Return the implementer tier a transcript agent type names, or None for another role."""
+    # A plugin-prefixed type (`<plugin>:feature-implementer-routine`) names
+    # the same role as the bare one.
+    if not isinstance(agent_type, str):
+        return None
+    role = agent_type.rsplit(":", 1)[-1]
+    if role == IMPLEMENTER_ROLE:
+        return IMPLEMENTER_ROLE
+    if role == IMPLEMENTER_ROLE + ROUTINE_SUFFIX:
+        return IMPLEMENTER_ROLE + ROUTINE_SUFFIX
+    return None
+
+
+def implementer_windows(
+    acc: ModuleType, ledger: Path, spans: list[TranscriptSpan]
+) -> dict[str, str]:
+    """Map each implementer dispatch-start line to the one tier whose transcript ran its window.
+
+    The record of what ran: a run page marks a session from this map, never
+    from the ladder's derivation. A window two tiers overlap, or none, is left
+    out, so the page draws no verdict there.
+    """
+    if not ledger.is_file() or ledger.stat().st_size > MAX_LEDGER_BYTES:
+        return {}
+    marks: list[tuple[int, float, str, str | None]] = []
+    for no, line in enumerate(ledger.read_text(encoding="utf-8").splitlines(), 1):
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get("type"), str):
+            continue
+        secs = acc.parse_ts(record.get("ts"))
+        author = record.get("author")
+        if secs is not None:
+            marks.append(
+                (no, secs, record["type"], author if isinstance(author, str) else None)
+            )
+    if len(marks) > MAX_STAGE_MARKS:
+        return {}
+    windows: dict[str, str] = {}
+    for index, (no, start, record_type, author) in enumerate(marks):
+        if record_type != "dispatch-start" or author != IMPLEMENTER_ROLE:
+            continue
+        end = next(
+            (
+                secs
+                for _no, secs, later_type, later_author in marks[index + 1 :]
+                if later_author == IMPLEMENTER_ROLE
+                and later_type in IMPLEMENT_SESSION_CLOSERS
+            ),
+            math.inf,
+        )
+        ran = {
+            tier
+            for agent_type, first, last in spans
+            if (tier := _implementer_tier(agent_type))
+            and first <= end
+            and last >= start
+        }
+        if len(ran) == 1:
+            windows[str(no)] = ran.pop()
+    return windows
 
 
 def _stage_marks(acc: ModuleType, ledger: Path) -> list[tuple[float, str, str | None]]:
@@ -2756,6 +2845,7 @@ def rebuild_costs(
     all_rows: list[UsageRow] = []
     stamped_rows: list[StampedRow] = []
     models: set[str] = set()
+    spans: list[TranscriptSpan] = []
     for path in files:
         usage = _transcript_usage(acc, str(path))
         if not usage.rows:
@@ -2770,6 +2860,7 @@ def rebuild_costs(
         )
         agent_type = "(parent)" if path == parent else type_map.get(agent_id or "")
         per_agent.append(_agent_entry(acc, agent_type, usage))
+        spans.extend(_transcript_span(agent_type, usage))
     if not all_rows:
         return None
     stamped_rows.sort(key=lambda r: r[0])
@@ -2778,6 +2869,7 @@ def rebuild_costs(
         "models": sorted(models),
         "per_agent": per_agent,
         "per_stage": stage_slices(acc, ledger, stamped_rows),
+        "windows": implementer_windows(acc, ledger, spans),
     }
     return costs, _match_cost(acc, all_rows)
 

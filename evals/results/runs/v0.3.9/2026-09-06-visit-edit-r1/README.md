@@ -149,7 +149,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Supply chain not verified against the NVD in this review: build.gradle configures no OWASP dependency-check plugin, and this reviewer has no network access, so no CVE matching ran. This is 'not run', not 'clean'. The change set alters no dependency declaration, so the slice adds no new artifact to check; a human or CI should close the standing check against the declared Spring Boot 4.1.0 stack.
   - ▹ rec: No CSRF protection exists anywhere in the application (Spring Security is not on the classpath), so the new state-changing POST route inherits that gap along with every existing POST. Not a regression and not fixable inside this slice; worth naming if an authentication layer is ever added, at which point the visit-correction route needs the token like every other write.
   - ▹ rec: The description column is VARCHAR(255) on H2 and MySQL while Visit.description carries only @NotBlank, so an over-long correction fails as a database integrity violation rather than a named field error. Pre-existing for booking and identical for correction; a @Size bound on the field would make both routes fail gracefully.
-- ↻ **implement** (implementer · routine) ← code-quality, test · (3 findings) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality, test · (3 findings) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 45s***

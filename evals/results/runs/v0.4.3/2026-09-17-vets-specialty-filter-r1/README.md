@@ -134,7 +134,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Convert both blocks to plain `//` line comments (the content — the blank/absent equivalence for `normalized`, the unpaged-read rationale for `findVets` — is worth keeping, just not as Javadoc on non-public members).
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 2m***
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 16s***

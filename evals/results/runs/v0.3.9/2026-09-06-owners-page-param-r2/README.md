@@ -291,7 +291,7 @@ index dd379a5..3b05f94 100644
     - fix: Collapse the two tests into one @ParameterizedTest(name="...") with @ValueSource(ints = {0, -3}) (or @CsvSource if a per-case comment is needed), keeping a single method body that asserts status/view and verifies the FIRST_PAGE pageable for each input.
   - [autofix] `OwnerControllerTests.java:193,203,213,` Each new test constructs its Page\<Owner> fixture with a raw `new PageImpl\<>(List.of(george(), new Owner()))`, including a raw `new Owner()` for the second, irrelevant list entry. testing-principles.md's Factory Methods section is explicit that this applies to tests written or modified from 2026-07-31 onward: 'A slice adding a test writes it behind [a factory] from the start.' Today's date (2026-09-06) is after that cutoff, so these four new tests are in scope even though older tests in the same file (e.g. processFindFormSuccess) predate the rule and are not required to change.
     - fix: Add a small factory, e.g. `private Page\<Owner> pageOf(Owner... owners)` or an anonymous `createAnOwner()` factory for the filler entry, and use it in the four new tests instead of constructing PageImpl/Owner directly.
-- ↻ **implement** (implementer · routine) ← code-quality, test · (3 findings) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality, test · (3 findings) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 41s***

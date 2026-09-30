@@ -139,7 +139,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - [autofix] `ClinicServiceTests.java:274` The specialty value passed to findBySpecialtiesNameIgnoreCase is the bare literal "radiology" instead of a named variable. Every sibling test in the same method added by this slice names the identical value by role (specialtyHeldByTwoVets, heldSpecialtyInAnotherCase, heldSpecialtyWithSurroundingSpaces) per testing-principles.md's Three-Tier Data Naming Convention (Tier 1: meaningful value, role-describing name). This one instance is the only mystery literal found in the diff; the rest of the new test code already follows the convention.
     - fix: Introduce a local variable, e.g. `String aSpecialtyHeldByAVet = "radiology";`, and pass it to findBySpecialtiesNameIgnoreCase in place of the bare literal.
 - ✔ **review code-quality** · **approved** · ***◷ 2m***
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 55s***

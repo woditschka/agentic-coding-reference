@@ -2115,6 +2115,56 @@ class PipelineRender(unittest.TestCase):
         self.assertIn("before merging.", rendered)
         self.assertNotIn("…", rendered)
 
+    ROUTINE_SLICE = (
+        {
+            "type": "design-block",
+            "req_id": "REQ-A-001",
+            "ts": "2026-09-01T10:00:00Z",
+            "author": "system-design-expert",
+            "verdict": "covered",
+            "implementation_effort": "routine",
+        },
+        {
+            "type": "dispatch-start",
+            "req_id": "REQ-A-001",
+            "ts": "2026-09-01T10:01:00Z",
+            "author": "feature-implementer",
+            "responding_to": [1],
+        },
+        {
+            "type": "build-pass",
+            "req_id": "REQ-A-001",
+            "ts": "2026-09-01T10:05:00Z",
+            "author": "feature-implementer",
+        },
+    )
+
+    def test_a_recorded_window_marks_the_session_it_names(self):
+        out_dir = self.a_run_folder(*self.ROUTINE_SLICE)
+        (out_dir / "agent-costs.json").write_text(
+            json.dumps({"windows": {"2": "feature-implementer-routine"}})
+        )
+        rendered = render_pipeline(out_dir)
+        assert rendered is not None
+        self.assertIn("implementer · routine", rendered)
+
+    def test_a_folder_without_the_record_marks_no_session(self):
+        # The ladder would derive routine for this slice; the page never
+        # renders a derivation, only the record.
+        rendered = render_pipeline(self.a_run_folder(*self.ROUTINE_SLICE))
+        assert rendered is not None
+        self.assertNotIn("· routine", rendered)
+
+    def test_a_forged_window_value_is_dropped_not_rendered(self):
+        out_dir = self.a_run_folder(*self.ROUTINE_SLICE)
+        (out_dir / "agent-costs.json").write_text(
+            json.dumps({"windows": {"2": "feature-implementer-fast", "x": "y"}})
+        )
+        rendered = render_pipeline(out_dir)
+        assert rendered is not None
+        self.assertNotIn("routine", rendered)
+        self.assertNotIn("fast", rendered)
+
     def test_a_folder_with_no_ledger_renders_nothing(self):
         out_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, out_dir, ignore_errors=True)

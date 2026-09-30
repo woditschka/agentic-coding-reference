@@ -1242,5 +1242,91 @@ class ShippedProseGates(unittest.TestCase):
             self.assertFalse(b.failed, check.__name__)
 
 
+class VariantRule(unittest.TestCase):
+    """The tier variant pins the other tier, on the base and on every mirror."""
+
+    BODY = "\n# Implementer\n\nOne body.\n"
+
+    def _agent(self, path, **keys):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        front = "\n".join(f"{k}: {v}" for k, v in keys.items())
+        path.write_text(f"---\n{front}\n---{self.BODY}", encoding="utf-8")
+
+    def _layer(
+        self,
+        td,
+        variant_model="claude-sonnet-5-5",
+        variant_effort="medium",
+        mirror_pin="Sonnet",
+    ):
+        layer = Path(td) / "stack"
+        agents = layer / sync.CLAUDE_AGENTS
+        self._agent(
+            agents / "feature-implementer.md",
+            name="feature-implementer",
+            model="claude-opus-5-5",
+            effort="medium",
+        )
+        self._agent(
+            agents / "code-quality-reviewer.md",
+            name="code-quality-reviewer",
+            model="claude-sonnet-5-5",
+            effort="medium",
+        )
+        keys = {
+            "name": "feature-implementer-routine",
+            "variant-of": "feature-implementer",
+            "model": variant_model,
+        }
+        if variant_effort:
+            keys["effort"] = variant_effort
+        self._agent(agents / "feature-implementer-routine.md", **keys)
+        for mirror_dir, suffix in sync.MIRROR_SURFACES:
+            self._agent(
+                layer / mirror_dir / f"feature-implementer{suffix}", model="Opus"
+            )
+            self._agent(
+                layer / mirror_dir / f"code-quality-reviewer{suffix}", model="Sonnet"
+            )
+            self._agent(
+                layer / mirror_dir / f"feature-implementer-routine{suffix}",
+                model=mirror_pin,
+            )
+        base = sync._AgentFile.load(agents / "feature-implementer-routine.md")
+        return layer, base
+
+    def test_a_variant_on_the_other_tier_passes(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.assertEqual(sync._variant_problems(*self._layer(td)), [])
+
+    def test_a_variant_on_its_bases_model_is_a_no_op(self):
+        with tempfile.TemporaryDirectory() as td:
+            problems = sync._variant_problems(
+                *self._layer(td, variant_model="claude-opus-5-5")
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("its base's model", problems[0])
+
+    def test_a_variant_on_a_model_no_plain_agent_carries_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            problems = sync._variant_problems(
+                *self._layer(td, variant_model="claude-haiku-4-5")
+            )
+            self.assertEqual(len(problems), 1)
+            self.assertIn("no plain agent in the layer carries", problems[0])
+
+    def test_a_variant_without_an_effort_pin_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            problems = sync._variant_problems(*self._layer(td, variant_effort=""))
+            self.assertEqual(len(problems), 1)
+            self.assertIn("effort pin missing", problems[0])
+
+    def test_a_mirror_off_its_tiers_pin_fails_per_surface(self):
+        with tempfile.TemporaryDirectory() as td:
+            problems = sync._variant_problems(*self._layer(td, mirror_pin="Opus"))
+            self.assertEqual(len(problems), len(sync.MIRROR_SURFACES))
+            self.assertTrue(all("variant mirror pin drift" in p for p in problems))
+
+
 if __name__ == "__main__":
     unittest.main()

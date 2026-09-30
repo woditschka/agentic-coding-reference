@@ -9,7 +9,7 @@ tools:
   - Grep
   - Read
 model: claude-opus-5-5
-effort: high
+effort: medium
 maxTurns: 60
 toolCallBudget: 40
 skills:

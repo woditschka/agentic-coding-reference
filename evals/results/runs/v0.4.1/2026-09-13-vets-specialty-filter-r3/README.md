@@ -147,7 +147,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✚ **doc-autofix** `docs/adr/2026-09-13-uncached-reads-keyed-by-caller-text.md` · writing-standards · (root)
 - ✚ **doc-autofix** `docs/adr/2026-09-13-non-goal-narrow-veterinarian-search.md` · writing-standards · (root)
 - ✚ **doc-autofix** `docs/adr/2026-09-13-non-goal-narrow-veterinarian-search.md` · writing-standards · (root)
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding) · ***◷ 2m***
+- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 42s***

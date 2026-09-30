@@ -6,7 +6,7 @@ The vocabulary a reader needs before the rest of this reference makes sense. It 
 
 An **agent tool** (Claude Code, GitHub Copilot CLI, OpenCode) is a program that runs a language model in a loop against a repository. The model reads files, runs commands, edits code, and decides its own next step until the task is done or it needs a person. The person types goals; the tool does the legwork. This reference supports all three; the [cross-tool strategy](cross-tool-strategy.md) compares them.
 
-A **model** is the language model behind the tool. Models differ in capability and in price per token, and a tool can run different models for different roles. The harness pins two tiers. The judgment tier carries requirements, design, implementation, security review, and grading; the standard tier carries checklist review and routing. [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md) holds the split and the cost math; [`open-weight-models.md`](open-weight-models.md) maps the tiers to a provider that serves open-weight models.
+A **model** is the language model behind the tool. Models differ in capability and in price per token, and a tool can run different models for different roles. The harness pins two tiers. The judgment tier carries requirements, design, involved implementation, security review, and grading; the standard tier carries routine implementation, checklist review, and routing. [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md) holds the split and the cost math; [`open-weight-models.md`](open-weight-models.md) maps the tiers to a provider that serves open-weight models.
 
 ## Two Limits
 

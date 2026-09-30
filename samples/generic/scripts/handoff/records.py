@@ -32,7 +32,7 @@ SUBSTANTIVE = frozenset(
     )
 )
 IMPLEMENTER = "feature-implementer"
-# The reduced-effort variant claims IMPLEMENTER as its record author, so this
+# The checklist-tier variant claims IMPLEMENTER as its record author, so this
 # name appears in decisions and transcripts, never in the ledger.
 ROUTINE_IMPLEMENTER = "feature-implementer-routine"
 DESIGNER = "system-design-expert"

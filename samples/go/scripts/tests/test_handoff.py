@@ -819,9 +819,11 @@ class ViewCommand(HandoffCase):
         )
 
     def a_routine_slice(self):
+        # An involved-rated initial runs the base; the all-autofix fix round
+        # that follows is the routine window.
         return (
             a_slice_record(
-                "design-block", verdict="covered", implementation_effort="routine"
+                "design-block", verdict="covered", implementation_effort="involved"
             ),
             a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[1]),
             a_slice_record("build-pass"),
@@ -934,6 +936,18 @@ class ViewCommand(HandoffCase):
         self.assertIn("(implementer · routine)", out)
         self.assertIn("(implementer)  ", out)
 
+    def test_a_routine_rated_initial_is_annotated(self):
+        self.write_log(
+            a_slice_record(
+                "design-block", verdict="covered", implementation_effort="routine"
+            ),
+            a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[1]),
+            a_slice_record("build-pass"),
+        )
+        code, out, err = self.view("--no-color")
+        self.assertEqual(code, 0, err)
+        self.assertIn("(implementer · routine)", out)
+
     def test_an_unrated_slice_never_annotates_fix_rounds(self):
         design, dispatch, build, review, fix_dispatch, fix_build = (
             self.a_routine_slice()
@@ -963,6 +977,29 @@ class ViewCommand(HandoffCase):
         self.assertEqual(code, 0)
         self.assertIn("prd-entry", out)
         self.assertIn("line 2: invalid JSON", out)
+
+    def test_a_recorded_window_map_outranks_the_derivation(self):
+        design, dispatch, build = self.a_routine_slice()[:3]
+        self.write_log(design, dispatch, build)
+        recorded = self.log.parent / "windows.json"
+        recorded.write_text(json.dumps({"2": "feature-implementer-routine"}))
+        _, out, _ = self.view("--no-color", "--window-tiers", str(recorded))
+        self.assertIn("(implementer · routine)", out)
+
+    def test_an_empty_recorded_map_marks_nothing(self):
+        self.write_log(*self.a_routine_slice())
+        recorded = self.log.parent / "windows.json"
+        recorded.write_text("{}")
+        _, out, _ = self.view("--no-color", "--window-tiers", str(recorded))
+        self.assertNotIn("· routine", out)
+
+    def test_a_malformed_recorded_map_fails_closed(self):
+        self.write_log(*self.a_routine_slice())
+        recorded = self.log.parent / "windows.json"
+        recorded.write_text(json.dumps({"2": "feature-implementer-fast"}))
+        code, _, err = self.view("--no-color", "--window-tiers", str(recorded))
+        self.assertEqual(code, 1)
+        self.assertIn("window tiers", err)
 
     def test_a_forged_tier_key_is_scrubbed(self):
         design, dispatch, build = self.a_routine_slice()[:3]
@@ -1152,6 +1189,18 @@ class TierCommand(RouteCase):
         self.assertEqual(code, 0, err)
         derived = json.loads(out)
         self.assertEqual(derived["req_id"], A_SLICE)
+        self.assertEqual(derived["agent"], "feature-implementer-routine")
+        self.assertEqual(derived["reason"], "initial:rated-routine")
+
+    def test_an_involved_rating_derives_the_base_initial(self):
+        self.write_log(
+            a_slice_record(
+                "design-block", verdict="covered", implementation_effort="involved"
+            )
+        )
+        code, out, err = self.run_cli("tier", "--file", str(self.log))
+        self.assertEqual(code, 0, err)
+        derived = json.loads(out)
         self.assertEqual(derived["agent"], IMPLEMENTER)
         self.assertEqual(derived["reason"], "initial")
 

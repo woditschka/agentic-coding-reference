@@ -140,7 +140,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: VetController.findPaginated and normalized take/build java.util.Optional\<String> as a method parameter/return threaded through a private helper (VetController.java:50,65,84); Optional as a parameter type is a discouraged idiom (Effective Java item 55) even though no existing code in this module does otherwise — worth a plain String/boolean-narrowed pair if this seam grows further, but low-impact here since both methods are private and the flow reads clearly.
 - ✔ **review test** · **approved** · ***◷ 3m***
   - ▹ rec: security-reviewer: the specialty query parameter is echoed into pagination hrefs via Thymeleaf's @{...} link-builder (URL-encoded by the framework, src/main/resources/templates/vets/vetList.html:31-48) but no test exercises a specialty value containing URL/HTML-special characters to confirm the rendered link stays a single, safely-encoded attribute. Likely safe by Thymeleaf's built-in encoding, but no test asserts it.
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding)
+- ↻ **implement** (implementer) ← code-quality · (1 finding)
 - ↻ **fix design** ← doc · (2 findings)
 - ◈ **design-block** **new** · (design) · ***◷ 14s***
 - ▲ **build-pass** 02:31 · build, test, check, handoff-log, autofix-audit, contracts-sync

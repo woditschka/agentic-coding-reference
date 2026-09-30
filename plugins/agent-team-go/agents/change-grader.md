@@ -16,7 +16,7 @@ tools:
 disallowedTools:
   - Edit
 model: claude-opus-5-5
-effort: high
+effort: medium
 maxTurns: 30
 toolCallBudget: 20
 skills:

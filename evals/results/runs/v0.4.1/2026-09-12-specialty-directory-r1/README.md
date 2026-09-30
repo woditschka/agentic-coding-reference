@@ -130,7 +130,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Remove the setAllowedFields InitBinder method, its WebDataBinder/InitBinder imports, and its comment. If a future change adds a bound parameter, add the disallow list with it then.
 - ✔ **review test** · **approved** · ***◷ 2m***
   - ▹ rec: createASpecialty/createAVet are defined identically in both new test files (verified by reading both: SpecialtyDirectoryTests.java:137-150 and SpecialtyControllerTests.java:158-171). testing-principles.md § Testing Vocabulary asks recurring factory patterns be extracted into a shared test utility rather than duplicated per file. Not a defect worth blocking merge; worth extracting on the next touch of either file.
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 21s***

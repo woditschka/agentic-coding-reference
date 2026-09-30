@@ -1,7 +1,7 @@
 ---
 name: feature-implementer-routine
 variant-of: feature-implementer
-description: Effort-tier variant of feature-implementer with identical doctrine. Selected only when the router's ledger-derived tier names routine work; never dispatch it directly.
+description: Checklist-tier variant of feature-implementer with identical doctrine. Selected only when the router's ledger-derived tier names routine work; never dispatch it directly.
 tools:
   - Edit
   - Write
@@ -12,7 +12,7 @@ tools:
   - mcp__idea__get_file_problems
   - mcp__idea__get_symbol_info
   - mcp__idea__search_symbol
-model: claude-opus-5-5
+model: claude-sonnet-5-5
 effort: medium
 maxTurns: 60
 toolCallBudget: 40

@@ -243,7 +243,7 @@ index dd379a5..36b0ecc 100644
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 1m***
   - [autofix] `OwnerControllerTests.java:173-176` theOwnerListShouldTreatAPageBelowOneAsTheFirstPage captures the Pageable argument with an ArgumentCaptor and asserts only its picked pageNumber field, even though PageRequest is a real value object with equals()/hashCode() and a whole expected object can be built (PageRequest.of(firstPageIndex, 5)). testing-principles.md's whole-object comparison rule (mirrored in the test-review checklist's Mocking Policy item) calls a captor-plus-field-access chain a finding when a whole-object comparison is available.
     - fix: Replace the ArgumentCaptor and the trailing assertThat(...).isEqualTo(firstPageIndex) with a single verify(this.owners).findByLastNameStartingWith(anyString(), eq(PageRequest.of(firstPageIndex, 5))) using the whole PageRequest value object (org.springframework.data.domain.PageRequest is already imported transitively via Pageable; add the import). Drop the now-unused ArgumentCaptor import.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 48s***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 48s***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 54s***

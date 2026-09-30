@@ -232,7 +232,7 @@ index dd379a5..81c890a 100644
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 1m***
   - [autofix] `OwnerControllerTests.java:173` The new helper `aPageOfSeveralOwners()` calls `new Owner()` directly for its filler second owner (conventions-map flags this construction). testing-principles.md § Test Data Construction requires tests written or modified from 2026-07-31 onward to wrap production-type construction behind a factory, and § Three-Tier Data Naming names the pattern for an irrelevant value directly: `anOwner()`. This is a new test (added in this diff), so the rule applies from the start.
     - fix: Add a suite-level `anOwner()` default factory (an Owner whose fields are all irrelevant to this test) and use it in place of the bare `new Owner()` at line 173.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 46s***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 46s***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 22s***

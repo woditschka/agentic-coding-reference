@@ -134,7 +134,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - [autofix] `vetList.html:30,35,40,45,50` The same conditional — `${specialty != null} ? @{/vets.html(page=X,specialty=${specialty})} : @{/vets.html(page=X)}` — is repeated verbatim across all five pagination links (page-number loop, first, previous, next, last). This is exactly the duplication the checklist's Control Flow bullet calls out ('A conditional repeated across sibling sites (code, template elements, links) is duplication: compute it once (th:with or a fragment) and reference it').
     - fix: Hoist the branch once, e.g. add `th:with="hasSpecialty=${specialty != null}"` on the enclosing `\<div>` (or a small fragment taking the page number) and reference `${hasSpecialty}` at each of the five sites, or build the full href once per site through a single th:with-bound URL variable instead of repeating the ternary text five times.
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review security** · **approved** · ***◷ 16s***

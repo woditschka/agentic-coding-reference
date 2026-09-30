@@ -138,7 +138,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review doc** · **changes_requested** · (1 finding) · ***◷ 3m***
   - **[blocked]** `system-design.md:134` The new Scale and Load row states literal seed-data counts ("6 seeded veterinarians, 3 specialties") with no source citation. This transcribes a value from src/main/resources/db/h2/data.sql (verified: 6 `INSERT INTO vets` rows, 3 `INSERT INTO specialties` rows) instead of naming the source the way the document's own Constants section does ("do not copy the value (source is authoritative)", docs/system-design.md:63). If seed data changes, this row goes silently stale and no reader is pointed at the fact it should re-check. Rewrite to name the source (e.g. "per src/main/resources/db/h2/data.sql, unrecorded beyond the seed") rather than stating the counts, mirroring the Constants table convention.
 - ↻ **fix design** ← doc · (1 finding)
-- ↻ **implement** (implementer · routine) ← code-quality, test · (2 findings)
+- ↻ **implement** (implementer) ← code-quality, test · (2 findings)
 - ◈ **design-block** **new** · (design) · ***◷ 17s***
 - ▲ **build-pass** 22:27 · build, test, check, format, handoff-log, autofix-audit, contracts-sync
 - • review-plan (review-plan-engine)

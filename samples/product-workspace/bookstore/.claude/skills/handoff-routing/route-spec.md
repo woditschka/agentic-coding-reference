@@ -65,26 +65,28 @@ finding — root halts after that dispatch per `SKILL.md` § Blocking.
 | All reviewers in the roster | a non-convergence ceiling trips — dissent past 3 fix rounds, third same-pass dissent, or three truncation-only passes (§ Review Non-Convergence; checked before the owner split below) | Halt pipeline (`review-non-convergence`); the human decides |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | the findings' artifact owners per Gate 4's split (root applies doc autofixes; an all-autofix round escalates as `autofix-only-round`) |
 
-**Implementer tier.** The effort ladder is active only on a slice whose
+**Implementer tier.** The tier ladder is active only on a slice whose
 `design-block` carries an `implementation_effort` rating; an unrated slice
 emits `feature-implementer` on every row (`effort:unrated`). On an active
 slice, the design-approved and findings-split rows resolve through the
-ladder: `route` emits `feature-implementer-routine` (the rendered variant —
-reduced effort on the tools with an effort knob, base strength on the rest)
-for exactly one state: a fix round whose implementer-routed findings are all
-autofix-tagged. An initial implementation always runs `feature-implementer`,
-whatever the rating's value — the rating activates the ladder and records
-the expert's judgment; design work runs at the full pin. A round spans its whole
-review pass, whatever records interleave between the feedbacks; findings the
-lenient parse drops, an empty non-approved findings list, and any escalate
-finding all read as mixed. Every other state emits `feature-implementer`: a
-mixed round, and the recovery and resume rows —
-`build-retry`, `truncation-continue`, and the consultation return always run
-the base pin. One trigger inside a routine-predicted window (a
-`build-failure`, or substantive dissent on its pass) retires the routine
-tier for the slice permanently; a window the fold cannot attribute retires
-it too. The decision's `tier_reason` context names the basis;
-`python3 scripts/handoff.py tier` prints the derivation on demand.
+ladder: `route` emits `feature-implementer-routine` (the rendered variant,
+pinned to the checklist tier on every tool) for exactly two states: an
+initial implementation whose latest triage rates the work `routine`
+(`initial:rated-routine`), and a fix round whose implementer-routed findings
+are all autofix-tagged (`fix-round:all-autofix`). An `involved`-rated initial
+runs `feature-implementer` (`initial`); an unrated re-triage reads as
+involved. A round spans its whole review pass, whatever records interleave
+between the feedbacks; findings the lenient parse drops, an empty
+non-approved findings list, and any escalate finding all read as mixed.
+Every other state emits `feature-implementer`: a mixed round, and the
+recovery and resume rows — `build-retry`, `truncation-continue`, and the
+consultation return name the base pin; a resume continues the session that
+paused. Retirement is permanent for the slice (`routine-retired`): a
+`build-failure` inside a routine-predicted window, a mixed round on a routine
+initial's pass, or any substantive dissent on a routine fix's pass; a window
+the fold cannot attribute retires it too. The decision's `tier_reason`
+context names the basis; `python3 scripts/handoff.py tier` prints the
+derivation on demand.
 
 ## Validation Gates
 

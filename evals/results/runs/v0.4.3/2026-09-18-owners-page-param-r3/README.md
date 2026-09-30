@@ -256,7 +256,7 @@ index dd379a5..9535744 100644
     - fix: Add a small anonymous-owner factory (e.g. `anOwner()`) that returns a uniquely-identified, irrelevant Owner, and use it in place of `new Owner()` in aPageOfSeveralOwners().
   - [autofix] `OwnerControllerTests.java:178-179` verify(this.owners).findByLastNameStartingWith(anyString(), argThat(pageable -> pageable.getPageNumber() == FIRST_PAGE_INDEX)) restates an outcome the behavioral assertions already cover. In OwnerController.processFindForm (src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java:99-123) the same `currentPage` local both feeds the repository's PageRequest.of(page - 1, ...) and the model's `currentPage` attribute, so a missing clamp would make PageRequest.of receive a negative index and throw before the handler returns -- the earlier `.andExpect(status().isOk())` and `.andExpect(model().attribute("currentPage", FIRST_PAGE))` assertions already fail in that case. The verify() call asserts an internal interaction (mocking policy: interactions are asserted only where the interaction itself is the contract) without adding coverage no state assertion already gives.
     - fix: Drop the verify(...) call; the status() and model().attribute("currentPage", ...) assertions already prove the repository was queried against the clamped page.
-- ↻ **implement** (implementer · routine) ← test · (2 findings) · ***◷ 48s***
+- ↻ **implement** (implementer) ← test · (2 findings) · ***◷ 48s***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 27s***

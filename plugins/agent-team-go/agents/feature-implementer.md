@@ -12,7 +12,7 @@ tools:
   - mcp__goland__get_symbol_info
   - mcp__goland__search_symbol
 model: claude-opus-5-5
-effort: high
+effort: medium
 maxTurns: 60
 toolCallBudget: 40
 skills:

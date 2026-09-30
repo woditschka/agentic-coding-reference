@@ -135,7 +135,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: SpecialtyControllerTests.createASpecialty/createAVeterinarian duplicate SpecialtyDirectoryTests' helpers (SpecialtyControllerTests.java:104-118 versus SpecialtyDirectoryTests.java:131-154). Consider one shared test factory per the brief's Testing Vocabulary section.
   - ▹ rec: SOME_SPECIALTY_ID in SpecialtyControllerTests.java:64 pairs the held specialty across both stubs, so it is a meaningful value and a role name would fit better than the SOME_ prefix.
   - ▹ rec: No test covers an empty clinic (no specialties or vets) rendering an empty table. Low risk, since the template iterates an empty list.
-- ↻ **implement** (implementer · routine) ← test · (2 findings) · ***◷ 1m***
+- ↻ **implement** (implementer) ← test · (2 findings) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 9s***

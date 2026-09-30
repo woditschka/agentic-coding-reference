@@ -139,7 +139,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 1m***
   - [autofix] `VetControllerTests.java` Done-when bullet 'given a specialty no veterinarian holds, when either form is requested, then the listing comes back with no veterinarian in it' has no controller-level test. ClinicServiceTests covers the repository query returning empty, but the controller's own pass-through of a zero-match result (rendered HTML model attributes and the JSON `/vets` body) is never exercised — coverage-map lists this Done-when bullet as unmet. Add a controller test (e.g. mock `findDistinctBySpecialtiesNameIgnoreCase` to return an empty page/collection for an unmatched specialty) asserting `listVets` is empty for `/vets.html` and `$.vetList` is empty for `/vets`.
     - fix: Add theVetListShouldComeBackEmptyWhenNoVetHoldsTheSpecialty (mocking an empty PageImpl) and theVetResourceShouldComeBackEmptyWhenNoVetHoldsTheSpecialty (mocking an empty collection) to VetControllerTests.java, following the existing RADIOLOGY-matched tests' pattern.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 2m***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved**

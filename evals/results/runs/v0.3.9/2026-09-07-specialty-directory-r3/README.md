@@ -135,7 +135,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Add a @Transactional integration test to ClinicServiceTests (or a same-shape new test class) that autowires the real SpecialtyRepository, calls findSpecialties() against the seeded H2 data (radiology, surgery, dentistry - src/main/resources/db/h2/data.sql), and asserts the real result set and its name order, mirroring the shouldFind... tests already written for PetTypeRepository and VetRepository in that class.
   - [autofix] `SpecialtyHoldersTests.java:127` theSpecialtyHoldingShouldRefuseMutationOfItsVeterinarians constructs the record under test directly with `new SpecialtyHolders(...)` instead of going through a suite factory, unlike every other test in the file which builds its fixtures through the specialty()/vet() factories. testing-principles.md Test Data Construction requires production types be constructed only behind test-owned factory methods.
     - fix: Add a small factory, e.g. `aSpecialtyHolding(Specialty specialty, List\<Vet> veterinarians)`, and use it here instead of the raw constructor call.
-- ↻ **implement** (implementer · routine) ← test · (2 findings) · ***◷ 2m***
+- ↻ **implement** (implementer) ← test · (2 findings) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 18s***

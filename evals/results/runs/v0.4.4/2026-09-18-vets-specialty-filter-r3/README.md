@@ -141,7 +141,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - [autofix] `vetList.html:29-45` The specialty-carrying ternary (`${specialty == null} ? @{/vets.html(page=…)} : @{/vets.html(page=…,specialty=${specialty})}`) is duplicated across five link locations (the numbered page list, first, previous, next, last). `theFilteredVetDirectoryPageLinksShouldKeepTheSpecialty` exercises only the numbered-page-list branch (with `firstOfTwoPages()`, currentPage=1, so `first`/`previous` never even render). A copy-paste slip in the `next`, `last`, `first`, or `previous` branch (e.g. dropping the specialty clause) would ship undetected — no test would fail. This is a missing-test finding, not a defect found: extend the page-link fixture to a currentPage in the middle of >=3 pages so first/previous/next/last all render, and assert each carries the specialty parameter (or add a case per remaining link).
 - ✚ **prd-autofix** `docs/prd.md` · writing-standards · (root)
 - ✚ **doc-autofix** `docs/adr/2026-09-18-caller-named-vet-filters-bypass-the-cache.md` · writing-standards · (root)
-- ↻ **implement** (implementer · routine) ← code-quality, test · (2 findings) · ***◷ 3m***
+- ↻ **implement** (implementer) ← code-quality, test · (2 findings) · ***◷ 3m***
   - ▲ **build ✗ aborted: design-mismatch**
 - ◈ **design-block** **new** · (design) · supersedes L5 · ***◷ 25s***
 - ◇ **prd-entry** Reader narrows the veterinarian directory to one specialty · (prd-expert) · ***◷ 26s***

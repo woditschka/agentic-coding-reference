@@ -278,7 +278,7 @@ index dd379a5..f42c18c 100644
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 1m***
   - [autofix] `OwnerControllerTests.java:194` The new test verifies the repository interaction with BDDMockito's `then(this.owners).should()`, but the same file's two existing verifications of the same `owners` mock (lines 218, 230) use plain Mockito `verify(this.owners, ...)`. This is the only `then(...).should()` call in the class, introducing a second verification idiom for the identical collaborator where the brief's consistent-with-codebase rule (docs/testing-principles.md § Test Naming note on house style) asks new tests to follow the host file's existing idiom where the brief itself is silent on which verification style to use.
     - fix: Replace `then(this.owners).should().findByLastNameStartingWith(anyString(), requestedPage.capture());` with `verify(this.owners).findByLastNameStartingWith(anyString(), requestedPage.capture());` to match the file's existing verification idiom, and drop the now-unused `then` static import if nothing else in the file uses it.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 19s***

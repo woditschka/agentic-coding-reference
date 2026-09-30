@@ -143,7 +143,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Row 3 of refusedCorrections (BOOKED_DESCRIPTION, PASSED_VISIT_DATE, DATE_FIELD) runs the same decision path as row 2 (date not after today). It exists to state PRD edge case 4, so it is defensible, but say so through the row's role rather than adding more rows.
   - ▹ rec: theVisitEditShouldRefuseAVisitThatDoesNotBelongToThePet asserts only that some IllegalArgumentException is the root cause and that `save` never ran. Adding an assertion that OTHER_PETS_VISIT_ID's visit keeps its date and description would state the 'changes no visit' half of edge case 3 directly. Not verified in this review whether a message assertion would be stable across the loader's other IllegalArgumentException paths.
   - ▹ rec: The `extracting(Visit::getDate, Visit::getDescription)` chain is acceptable because Visit defines no equals (grep -F -e equals across BaseEntity.java and Visit.java returned no match), so whole-object comparison is unavailable.
-- ↻ **implement** (implementer · routine) ← test · (1 finding) · ***◷ 1m***
+- ↻ **implement** (implementer) ← test · (1 finding) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 28s***

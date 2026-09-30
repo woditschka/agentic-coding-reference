@@ -44,7 +44,7 @@
       ]
     },
     "implementation_effort": {
-      "description": "The expert's rating of the implementation work itself — orthogonal to `verdict`, which rates the design delta. routine → pattern-following code an adjacent seam already demonstrates; involved → novel or subtle code work. The rating's presence activates the effort ladder (all-autofix fix rounds may run the reduced-effort variant); initial implementations always run the full pin, whatever the value. Absent leaves the ladder inactive (fail-closed). Rated at triage with requirement, design, and touchpoints in context; full semantics live in the design-validation skill.",
+      "description": "The expert's rating of the implementation work itself — orthogonal to `verdict`, which rates the design delta. routine → pattern-following code an adjacent seam already demonstrates; involved → novel or subtle code work. The rating's presence activates the tier ladder and its value decides the initial: routine opens on the checklist-tier variant, involved on the full pin; an all-autofix fix round runs the variant on either rating until one miss retires it. Absent leaves the ladder inactive (fail-closed). Rated at triage with requirement, design, and touchpoints in context; full semantics live in the design-validation skill.",
       "enum": [
         "routine",
         "involved"

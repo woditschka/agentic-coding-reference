@@ -1,6 +1,6 @@
 ---
 name: Feature Implementer Routine
-description: Effort-tier variant of feature-implementer with identical doctrine. Selected only when the router's ledger-derived tier names routine work; never dispatch it directly.
+description: Checklist-tier variant of feature-implementer with identical doctrine. Selected only when the router's ledger-derived tier names routine work; never dispatch it directly.
 tools:
   - read
   - editFiles
@@ -9,7 +9,7 @@ tools:
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol
-model: ['Claude Opus 5.5 (copilot)', 'Claude Opus 5 (copilot)']
+model: ['Claude Sonnet 5.5 (copilot)', 'Claude Sonnet 5 (copilot)']
 toolCallBudget: 40
 ---
 

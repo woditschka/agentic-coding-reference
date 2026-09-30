@@ -143,7 +143,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review doc** · **changes_requested** · (1 finding) · ***◷ 29s***
   - [autofix] `prd.md:35` The Non-Goals preamble still says "Two rows have since been decided: NG-4 and NG-5" and then, in the next sentence of the same paragraph, adds NG-9 as a third decided row. The prose count contradicts the list beside it. This violates the structural check that no prose restates a count a list carries. Verified with grep -F -e "Two rows" docs/prd.md, which matches only line 35.
     - fix: Reword to name the decided rows without a count, for example "Rows NG-4, NG-5, and NG-9 have since been decided:", keeping each row's ADR link. Wording only; no NG row line changes.
-- ↻ **implement** (implementer · routine) ← code-quality · (3 findings) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality · (3 findings) · ***◷ 1m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - • review-plan (review-plan-engine)

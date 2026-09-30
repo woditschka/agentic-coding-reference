@@ -207,6 +207,7 @@ from .tiers import (
     ALL_AUTOFIX_REASON as ALL_AUTOFIX_REASON,
     MIXED_REASON as MIXED_REASON,
     RETIRED_REASON as RETIRED_REASON,
+    ROUTINE_INITIAL_REASON as ROUTINE_INITIAL_REASON,
     UNRATED_REASON as UNRATED_REASON,
     TierChoice as TierChoice,
     implementer_tier as implementer_tier,

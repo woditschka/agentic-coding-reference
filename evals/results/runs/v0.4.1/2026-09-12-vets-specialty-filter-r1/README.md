@@ -139,7 +139,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: \- [PRD Non-Goals](../prd.md#non-goals) — the narrowed row and the preamble naming it decided.
   - [autofix] `2026-09-12-non-goal-narrow-veterinaria` Same colon-vs-em-dash drift as the line above, same file, same list — second instance of the class.
     - fix: \- [PRD Veterinarian directory](../prd.md#req-vet-001) — the specialty filter.
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding) · ***◷ 52s***
+- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 52s***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - ✚ **doc-autofix** `docs/adr/2026-09-12-non-goal-narrow-veterinarian-search.md` · writing-standards · (root)
 - ✚ **doc-autofix** `docs/adr/2026-09-12-non-goal-narrow-veterinarian-search.md` · writing-standards · (root)

@@ -131,7 +131,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Rename the fields to `specialtyRepository` and `vetRepository`, matching `VetController`'s convention.
   - [autofix] `SpecialtyDirectory.java:68` The nested record is named `Entry`, a generic placeholder name. `docs/architecture-principles.md` § Naming states the rule this violates directly: "Names come from the project's canonical vocabulary... if the PRD calls it a 'feed item', the code says FeedItem, never Entry or Record." `docs/ubiquitous-language.md` has no term for this specialty-with-holders pairing, so a domain-grounded name (e.g. `SpecialtyHolders`, or inlining the pair as two directory-level accessors) should replace the generic one.
     - fix: Rename `Entry` to a name grounded in the domain vocabulary, e.g. `SpecialtyHolders`, updating the two use sites in `SpecialtyDirectory.of` and the template model access (`entry.specialty`, `entry.holders` in specialtyList.html) accordingly.
-- ↻ **implement** (implementer · routine) ← code-quality · (2 findings) · ***◷ 58s***
+- ↻ **implement** (implementer) ← code-quality · (2 findings) · ***◷ 58s***
   - ▲ **build ✓ clean** · format · build · test · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review security** · **approved** · ***◷ 12s***

@@ -140,7 +140,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 45s***
   - [autofix] `VisitControllerTests.java` The slice edits the visit binder (VisitController.setAllowedFields now allows only date and description; id and *.id stay disallowed) and system-design.md's threat model row on identifier tampering names it as the mitigation for the new edit route. No test submits an id field to the correction route. Removing the id disallow or the allowlist would let a form rewrite the identity of the visit being corrected, and the suite would stay green. Checked with grep -F for '"id"', 'param("id' and 'setAllowedFields' across src/test/java/org/springframework/samples/petclinic/owner/*.java: no match. A valid-correction POST that also carries an id param (a different value from BOOKED_VISIT_ID) would fail on that change.
     - fix: Add a test, or extend theVisitCorrectionShouldUpdateTheVisitInPlaceAndShowTheOwner, that POSTs the correction with an extra id param set to a value other than BOOKED_VISIT_ID and asserts, with the existing recursive comparison, that the visit keeps BOOKED_VISIT_ID. Name the id value as a Tier 1 constant.
-- ↻ **implement** (implementer · routine) ← test · (1 finding)
+- ↻ **implement** (implementer) ← test · (1 finding)
 - ↻ **fix design** ← doc · (1 finding)
 - ◈ **design-block** **minor** · (design) · ***◷ 14s***
 - ▲ **build-pass** 19:09 · build, test, check, format, handoff-log, autofix-audit, contracts-sync

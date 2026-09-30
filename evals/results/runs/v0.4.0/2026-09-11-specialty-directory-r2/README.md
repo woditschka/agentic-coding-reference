@@ -131,7 +131,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 3m***
   - [autofix] `SpecialtyListing.java:70` SpecialtyListing.equals() is never invoked by any test. JaCoCo (build/reports/jacoco/test/html/org.springframework.samples.petclinic.vet/SpecialtyListing.java.html, line 70, class="nc bnc", "All 4 branches missed") shows 0% branch coverage and the class-level report (org.springframework.samples.petclinic.vet/index.html) lists SpecialtyListing at 1 of 11 methods missed. Every SpecialtyListingTests assertion unwraps via listing.getEntries() and compares the entry list, so the equals()/hashCode() pair the type ships for whole-object comparison (testing-principles.md § Assertions, "Whole-object comparison") is dead from the test suite's perspective. Coverage is judged by behavior exercised, not lines touched (testing-principles.md § Coverage), so the passing line-coverage number does not excuse this.
     - fix: Add one case (e.g. in theSpecialtyListingShould... form) that builds two SpecialtyListing instances over equal and over differing input and asserts assertThat(listing).isEqualTo(...)/isNotEqualTo(...), exercising equals()/hashCode() directly per the brief's whole-object comparison guidance.
-- ↻ **implement** (implementer · routine) ← code-quality, test · (2 findings) · ***◷ 2m***
+- ↻ **implement** (implementer) ← code-quality, test · (2 findings) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 40s***

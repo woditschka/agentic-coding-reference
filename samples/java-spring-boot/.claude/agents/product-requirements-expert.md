@@ -9,7 +9,7 @@ tools:
   - Read
   - Bash
 model: claude-opus-5-5
-effort: high
+effort: medium
 maxTurns: 40
 toolCallBudget: 27
 skills:

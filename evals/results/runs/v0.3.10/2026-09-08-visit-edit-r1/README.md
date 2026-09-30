@@ -143,7 +143,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: No test locks the disallowed-field binder on the new correction path. A test posting id=\<other visit id> to the correction URL and asserting the corrected visit is still the path-named one would pin the mass-assignment control against a future binder edit.
   - ▹ rec: Supply chain was not verified against the NVD in this review: build.gradle is unchanged in the change set (no dependency delta), and the OWASP dependency-check plugin is not configured, so dependencyCheckAnalyze could not run. Resolved framework versions were not matched against CVE data here - a CI or human check closes that gap.
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding)
+- ↻ **implement** (implementer) ← code-quality · (1 finding)
 - ↻ **fix design** ← doc · (1 finding)
 - ◈ **design-block** **minor** · (design) · ***◷ 58s***
 - ▲ **build-pass** 20:29 · build, test, check, format, handoff-log, autofix-audit, contracts-sync

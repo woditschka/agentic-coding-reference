@@ -39,8 +39,8 @@ Two public sources bound how far that starting point sits from the pinned models
 
 | Pinned name | Tier | Ollama Cloud model in the example |
 |---|---|---|
-| `claude-opus-5-5` | Judgment: requirements, design, implementation, security, grading | `glm-5.3:cloud` |
-| `claude-sonnet-5-5` | Checklist: coordination, code quality, tests, docs | `glm-5.3-flash:cloud` |
+| `claude-opus-5-5` | Judgment: requirements, design, involved implementation, security, grading | `glm-5.3:cloud` |
+| `claude-sonnet-5-5` | Checklist: coordination, routine implementation, code quality, tests, docs | `glm-5.3-flash:cloud` |
 
 Both tags list `tools` and `thinking` among their capabilities in `ollama show`. With the daemon running:
 
@@ -121,7 +121,7 @@ The tool's own system prompt and tool schemas add to that, and a reviewer adds a
 
 **Timeouts.** The `API_TIMEOUT_MS` default is 600,000 ms. On this host a 2,000-token request to a local model took 33 s including the model load and 6 s warm. Parallel review fan-out queues on one daemon (`OLLAMA_NUM_PARALLEL` defaults to 1). The example sets 1,800,000 ms.
 
-**Knobs without effect.** The frontmatter `effort` field and `cache_control` markers reach the endpoint and change nothing; the routine effort variant runs at base strength, as on OpenCode. Sampling parameters come from the model's Modelfile.
+**Knobs without effect.** The frontmatter `effort` field and `cache_control` markers reach the endpoint and change nothing; the routine variant's model pin maps like any other; its `effort` pin changes nothing, as on OpenCode. Sampling parameters come from the model's Modelfile.
 
 **Cost accounting.** Claude Code's own cost figure prices the run at the pinned name's rate: the local run reported $0.02 for 2,000 tokens on a free model. The session transcript records the served model's name, `gemma4:latest` in that run. Harness Stats and the eval bench price an unrecognized model at $0.00 by design, and the eval trend lists it as the resolved model. Neither figure is the run's cost.
 

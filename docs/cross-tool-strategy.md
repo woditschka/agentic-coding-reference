@@ -64,7 +64,7 @@ All three tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also ch
 | **Background delegation** | `background` frontmatter field | `&` prefix delegates to cloud agent | Not built-in |
 | **Built-in subagents** | Explore, Plan, General-purpose, Bash | Explore, Task, Code Review, Plan | Build, Plan, General, Explore |
 
-Besides each tool's own keys, the harness adds two of its own on shipped agent files: `toolCallBudget` (every surface) and `variant-of` (`.claude/agents` only). The latter is the render key marking an effort variant ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)). Both ride as unknown keys the tools tolerate; a table refresh from upstream docs never carries them.
+Besides each tool's own keys, the harness adds two of its own on shipped agent files: `toolCallBudget` (every surface) and `variant-of` (`.claude/agents` only). The latter is the render key marking a tier variant ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)). Both ride as unknown keys the tools tolerate; a table refresh from upstream docs never carries them.
 
 **Decision: Thin agents, portable skills — define agents per-tool.**
 
@@ -79,7 +79,7 @@ The model pins, per tool, name the same release in each tool's syntax; the speci
 
 The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Running the pins on another provider is an operator-side mapping per tool with the pins untouched; [`open-weight-models.md`](open-weight-models.md#the-mapping) carries it, Copilot CLI's session-level own-provider variables included. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review.
 
-The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all three tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob: the Claude Code variant pins `effort: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch. `handoff.py tier` re-derives the tier the ledger prescribes; which agent file a tool loaded is not recorded, so adherence shows in cost, never in the ledger.
+The tier ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for `routine`-rated initial implementations and all-autofix fix rounds, and all three tools dispatch what the router names. The variant pins the checklist tier's model, so the saving lands on every tool. The Claude Code copy also pins the tier's `effort`; the Copilot and OpenCode mirrors carry no effort control. Adherence is prompt-discipline like every dispatch. `handoff.py tier` re-derives the tier the ledger prescribes; which agent file a tool loaded is not recorded, so adherence shows in cost, never in the ledger.
 
 ### Reaching a Second Root
 

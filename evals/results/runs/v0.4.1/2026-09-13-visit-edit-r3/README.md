@@ -140,7 +140,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 2m***
 - ✔ **review doc** · **approved** · ***◷ 3m***
   - ▹ rec: docs/prd.md:113's REQ-VIS-003 Done-when bullet ('given a booked visit, when a description and a future date are submitted...') runs to 30 words, at the sentence-length ceiling in the document-writing skill's writing-standards checklist. Not blocking; consider splitting on a future pass.
-- ↻ **implement** (implementer · routine) ← code-quality · (2 findings) · ***◷ 1m***
+- ↻ **implement** (implementer) ← code-quality · (2 findings) · ***◷ 1m***
   - ▲ **build ✓ clean** · format · build · test · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 14s***

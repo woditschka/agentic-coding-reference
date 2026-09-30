@@ -1,10 +1,10 @@
 ---
 description: >-
-  Effort-tier variant of feature-implementer with identical doctrine.
+  Checklist-tier variant of feature-implementer with identical doctrine.
   Selected only when the router's ledger-derived tier names routine work;
   never dispatch it directly.
 mode: subagent
-model: openrouter/anthropic/claude-opus-5.5
+model: openrouter/anthropic/claude-sonnet-5.5
 temperature: 0.2
 steps: 60
 toolCallBudget: 40

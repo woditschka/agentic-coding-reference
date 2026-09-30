@@ -12,7 +12,7 @@ disallowedTools:
   - Edit
   - Write
 model: claude-sonnet-5-5
-effort: low
+effort: medium
 maxTurns: 20
 toolCallBudget: 14
 skills:

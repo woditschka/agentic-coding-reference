@@ -136,7 +136,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✎ **review test** · **changes_requested** · (1 finding) · ***◷ 2m***
   - [autofix] `VetControllerTests.java:257-258` theVetDirectoryPageLinksShouldKeepTheSpecialtyFilter has no blank line between the Arrange step (insertVetsHolding(...)) and the Act step (mockMvc.perform(...).andReturn() for firstPage), violating the four-phase separation (testing-principles.md § Four-Phase Test Structure). Swept the rest of the file: every other test already separates its phases with a blank line, so this is the only instance.
     - fix: Insert a blank line after the insertVetsHolding(...) call, before the `MvcResult firstPage = mockMvc...` line.
-- ↻ **implement** (implementer · routine) ← code-quality, test · (2 findings) · ***◷ 2m***
+- ↻ **implement** (implementer) ← code-quality, test · (2 findings) · ***◷ 2m***
   - ▲ **build ✗ build failed** · retry 1
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)

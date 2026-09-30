@@ -15,6 +15,7 @@ import re
 import statistics
 import subprocess
 import sys
+import tempfile
 import tomllib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -2137,12 +2138,36 @@ def ledger_records(out_dir: Path) -> list[dict[str, object]]:
 HANDOFF_VIEW = EVALS.parent / "harness" / "core" / "scripts" / "handoff.py"
 
 
+WINDOW_TIER_AGENTS = frozenset({"feature-implementer", "feature-implementer-routine"})
+MAX_WINDOW_ENTRIES = 10_000
+
+
+def recorded_windows(out_dir: Path) -> dict[str, str]:
+    """Return the run's recorded implement-window tiers, or an empty map when it holds none."""
+    # The page marks a session from what a transcript says ran, never from
+    # the current ladder's derivation, so a later ladder change cannot rewrite
+    # an archived page. A folder recorded before the field carries no mark.
+    try:
+        costs = json.loads((out_dir / "agent-costs.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, RecursionError):  # absent, or not a record
+        return {}
+    raw = costs.get("windows") if isinstance(costs, dict) else None
+    if not isinstance(raw, dict) or len(raw) > MAX_WINDOW_ENTRIES:
+        return {}
+    return {
+        line: agent
+        for line, agent in raw.items()
+        if isinstance(line, str) and line.isdigit() and agent in WINDOW_TIER_AGENTS
+    }
+
+
 def render_pipeline(out_dir: Path) -> str | None:
     """Render the pipeline board from the folder's ledger with the current renderer, or None."""
     # One current implementation reads every version's records, so pages
     # stay comparable across the series. --verbose keeps the finding text
     # the terminal board gists; no --layout, so the reviewer matrix derives
-    # from the records rather than a config the folder never captured.
+    # from the records rather than a config the folder never captured; the
+    # session tiers come from the folder's own record.
     ledger = out_dir / "handoff.jsonl"
     if (
         not HANDOFF_VIEW.is_file()
@@ -2151,22 +2176,30 @@ def render_pipeline(out_dir: Path) -> str | None:
     ):
         return None
     try:
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(HANDOFF_VIEW),
-                "view",
-                "--markdown",
-                "--verbose",
-                "--file",
-                str(ledger),
-            ],
-            capture_output=True,
-            text=True,
-            cwd=HANDOFF_VIEW.parent,
-            timeout=120,
-            check=False,
-        )
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(recorded_windows(out_dir), handle)
+            windows = Path(handle.name)
+        try:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(HANDOFF_VIEW),
+                    "view",
+                    "--markdown",
+                    "--verbose",
+                    "--file",
+                    str(ledger),
+                    "--window-tiers",
+                    str(windows),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=HANDOFF_VIEW.parent,
+                timeout=120,
+                check=False,
+            )
+        finally:
+            windows.unlink(missing_ok=True)
     except (OSError, subprocess.SubprocessError):
         return None
     return proc.stdout if proc.returncode == 0 and proc.stdout.strip() else None
@@ -2425,7 +2458,7 @@ def _hit_cell(group: list[AgentEntry]) -> str:
 
 
 def _agent_totals_rows(entries: list[AgentEntry]) -> list[str]:
-    # An effort variant's transcripts fold into their base role, mirroring
+    # A tier variant's transcripts fold into their base role, mirroring
     # accounting.VARIANT_SUFFIX: the tier is an implementation detail of the
     # role, and the deciding cost comparison needs one implementer row.
     """Render the per-agent-type totals, spend-heaviest first."""

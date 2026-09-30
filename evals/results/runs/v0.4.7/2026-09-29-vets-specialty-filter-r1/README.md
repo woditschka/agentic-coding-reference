@@ -139,7 +139,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Surrounding-whitespace stripping (theSpecialtyFilterShouldIgnoreSurroundingWhitespace) is asserted on the JSON surface only. The page surface runs the same normalize() but has no padded-value test, so a change that bypassed normalize() in showVetList would go uncaught for a non-blank padded value. This is not a Done-when bullet, which only requires blank values to match the unnarrowed request, so it is not a defect.
   - ▹ rec: The ADR/design decision that narrowed reads bypass the vet cache (docs/system-design.md line 82, VetRepository javadoc) has no test. Nothing fails if someone adds @Cacheable to the narrowed queries, which would grow the cache without bound. The check needs a cache-enabled test slice; consider it if the project wants the ADR enforced. It is not one of the 8 Done-when bullets, so I did not raise it as a finding.
   - ▹ rec: Not verified in this review: whether the pagination template block is guarded for totalPages 0. The empty-page test asserts status 200 and an empty listVets only, so it does not check the rendered pager for a zero-page result.
-- ↻ **implement** (implementer · routine) ← code-quality · (1 finding)
+- ↻ **implement** (implementer) ← code-quality · (1 finding)
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ◇ **prd-entry** Staff and programs can narrow the veterinarian directory to one specialty · (prd-expert) · ***◷ 59s***
 - ▲ **build-pass** 17:14 · build, test, format, check, handoff-log, autofix-audit, contracts-sync

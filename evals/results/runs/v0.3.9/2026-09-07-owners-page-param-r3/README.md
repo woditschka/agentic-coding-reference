@@ -304,7 +304,7 @@ index dd379a5..e23be16 100644
     - fix: Merge the two into one @ParameterizedTest(@ValueSource(ints = {0, -3})) taking the page value as a parameter, asserting queriedPage().getPageNumber() is zero for each.
 - ✎ **review doc** · **changes_requested** · (1 finding)
   - **[blocked]** `prd.md:10` The header claims 'ten further questions stay open,' a count of the seven unconfirmed Non-Goals rows (NG-1/2/3/6/7/8/9) plus the unanswered Open Questions bullets. This slice added two new unanswered bullets to Open Questions (lines 185-186, the out-of-range-page and vet-directory-paging questions), raising the true total to twelve without updating the line-10 count. A reader who trusts the summary undercounts the open items by two.
-- ↻ **implement** (implementer · routine) ← test · (1 finding)
+- ↻ **implement** (implementer) ← test · (1 finding)
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ◇ **prd-entry** Owner listing serves a page below the first as the first page · (prd-expert) · ***◷ 1m***
 - ▲ **build-pass** 22:54 · build, test, format, check, handoff-log, autofix-audit, contracts-sync

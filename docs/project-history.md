@@ -166,3 +166,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-09-21** — Ship each stack's brief realization as a fragment that init fills, materialize proposes, and the battery pins; the Spring default becomes orchestration-only beans in role-named sub-packages.
 - **2026-09-23** — Move the premium tier to Claude Opus 5.5: all six judgment roles pin it together, priced per model, with the effort pins held for the eval arms to decide.
 - **2026-09-28** — Move the checklist tier to Claude Sonnet 5.5: the five checklist agents pin it together; the effort pins wait for a tag-plus-dev sweep.
+- **2026-09-30** — Move six effort pins to medium and routine-rated implementation to the checklist tier: one combined arm, screened then bisected against v0.4.7.

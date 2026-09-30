@@ -386,10 +386,21 @@ class DesignGate(unittest.TestCase):
         self.assertEqual(decision.next, (IMPLEMENTER,))
         self.assertEqual(decision.context["verdict"], "covered")
 
-    def test_a_rated_first_dispatch_runs_the_base_tier(self):
+    def test_a_routine_rated_first_dispatch_runs_the_routine_variant(self):
         decision = route(
             a_slice_record(
                 "design-block", verdict="covered", implementation_effort="routine"
+            )
+        )
+
+        self.assertEqual(decision.rule, "design-approved")
+        self.assertEqual(decision.next, (ROUTINE_IMPLEMENTER,))
+        self.assertEqual(decision.context["tier_reason"], "initial:rated-routine")
+
+    def test_an_involved_rated_first_dispatch_runs_the_base_tier(self):
+        decision = route(
+            a_slice_record(
+                "design-block", verdict="covered", implementation_effort="involved"
             )
         )
 
@@ -1321,6 +1332,19 @@ class BuildFailureRecovery(unittest.TestCase):
         self.assertEqual(decision.next, (IMPLEMENTER,))
         self.assertEqual(decision.rule, "build-retry")
         self.assertEqual(decision.context["retry"], FIRST_RETRY)
+
+    def test_a_failure_in_a_routine_initial_retries_on_the_base(self):
+        decision = route(
+            a_slice_record(
+                "design-block", verdict="covered", implementation_effort="routine"
+            ),
+            implementer_start(),
+            a_slice_record("build-failure", author=IMPLEMENTER, retry=FIRST_RETRY),
+        )
+
+        self.assertEqual(decision.rule, "build-retry")
+        self.assertEqual(decision.next, (IMPLEMENTER,))
+        self.assertEqual(decision.context["tier_reason"], "routine-retired")
 
     def test_a_partial_failure_carries_the_partial_flag(self):
         decision = route(

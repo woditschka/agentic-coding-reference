@@ -38,7 +38,7 @@ You operate in two demand-driven modes, plus a fix dispatch. The `design-validat
 
 Every implementing verdict places the slice's requirement id in the design doc's Contracts rows — the `contracts-sync` gate reads that presence, and the implementer may not edit `docs/`.
 
-Alongside the verdict, rate the implementation work itself: `implementation_effort`, `routine` or `involved`, judged per the `design-validation` skill § Effort rating. The ratings are orthogonal — a `covered` slice can hide an `involved` fix, a `new` slice can be `routine` boilerplate. Rate the work, not the tier: the router consumes the rating (initial implementations always run the full pin), and an absent rating leaves the ladder inactive.
+Alongside the verdict, rate the implementation work itself: `implementation_effort`, `routine` or `involved`, judged per the `design-validation` skill § Effort rating. The ratings are orthogonal — a `covered` slice can hide an `involved` fix, a `new` slice can be `routine` boilerplate. Rate the work, not the tier: the router consumes the rating (`routine` opens the initial implementation on the checklist-tier variant, `involved` on the base implementer), and an absent rating leaves the ladder inactive.
 
 Most slices on a mature codebase return `covered` in seconds. Demand-driven foundation: only commit what the current slice's concerns require. The `refactor-first` verdict should be rare — when it fires, the diagnostic value (caught before retry-burning) is what justifies the extra dispatch.
 

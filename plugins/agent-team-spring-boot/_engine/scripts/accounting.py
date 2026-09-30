@@ -50,7 +50,7 @@ PRICE_OVERRIDE = (
     (("opus-5-5", "opus 5.5"), (4.00, 20.00)),
 )
 
-# An effort variant's transcript carries its own agentType (<type>-routine)
+# A tier variant's transcript carries its own agentType (<type>-routine)
 # while its ledger records carry the base author, so a window lookup joins a
 # variant's rows to its base type.
 VARIANT_SUFFIX = "-routine"
@@ -477,7 +477,7 @@ class WindowIndex:
     def window_types(
         self, agent_type: str, start_secs: float | None, end_secs: float | None
     ) -> tuple[str, ...] | None:
-        """Return the exact agent types, base or effort variant, with a transcript overlapping the window."""
+        """Return the exact agent types, base or tier variant, with a transcript overlapping the window."""
         # The ledger cannot say which tier ran, since the variant claims the
         # base author; the transcript's agentType can. Two entries mean both
         # tiers ran, and the caller draws no single verdict.

@@ -136,7 +136,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Revert `PAGE_SIZE` to a private (or local) constant in `VetController`, and give `VetControllerTests` its own local constant for the expected page size (e.g. a private `PAGE_SIZE = 5`) instead of reaching into `VetController.PAGE_SIZE`.
   - [autofix] `vetList.html:32,38,44,50,56` The `${specialty == null} ? @{...} : @{...}` conditional is repeated identically at all five pagination-link sites added by this diff (the page-number loop plus first/previous/next/last), each differing only in the page value. Confirmed necessary in principle — Thymeleaf renders a null `@{}` parameter as a bare `specialty=` rather than omitting it (thymeleaf/thymeleaf#846), which is why the ternary exists — but its boolean condition is duplicated across all five sibling sites rather than computed once, the exact case the code-quality-review checklist's Control Flow section calls out.
     - fix: Compute the condition once with `th:with="narrowed=${specialty != null}"` on the enclosing `\<div th:if="${totalPages > 1}">` and reference `${narrowed}` at each of the five link sites instead of repeating `${specialty == null}` inline.
-- ↻ **implement** (implementer · routine) ← code-quality · (2 findings) · ***◷ 2m***
+- ↻ **implement** (implementer) ← code-quality · (2 findings) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 5s***

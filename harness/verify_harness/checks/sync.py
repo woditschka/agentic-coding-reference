@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tomllib
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -400,10 +400,16 @@ def check_bundled_skill_collision(b: Battery) -> None:
     b.report(collisions, f"{scanned} skills lists carry no bundled-skill name")
 
 
-def _variant_drift(variant: _AgentFile, target: _AgentFile) -> str | None:
-    """Return the first rule an effort variant breaks against its target, or None."""
+def _variant_drift(
+    variant: _AgentFile, target: _AgentFile, layer_pins: Collection[str]
+) -> str | None:
+    """Return the first rule a tier variant breaks against its target, or None.
+
+    layer_pins holds the model pins the layer's plain agents carry: the variant
+    pins one of them, never its base's, so it is the other tier by construction.
+    """
     target_name = target.path.stem
-    effort = variant.scalar("effort")
+    model = variant.scalar("model")
     rules = (
         (
             _frontmatter_variant_of(target.text) is not None,
@@ -419,17 +425,27 @@ def _variant_drift(variant: _AgentFile, target: _AgentFile) -> str | None:
             f"variant body drift: {rel(variant.path)} != {rel(target.path)} "
             "— run render-agent-mirrors, never hand-edit a variant",
         ),
+        # A variant on its base's model is a no-op every other gate would pass.
         (
-            variant.scalar("model") != target.scalar("model"),
-            f"variant model pin drift: {rel(variant.path)} != {rel(target.path)} "
-            "— an effort variant keeps its base's model",
+            not model or model == target.scalar("model"),
+            f"variant model pin drift: {rel(variant.path)} pins "
+            f"{model or 'nothing'}, its base's model — a tier variant pins "
+            "the other tier",
         ),
-        # A variant shipping its base's effort is a no-op every other gate
-        # would pass.
+        # The other tier is one the layer already runs, so a pin the mapping
+        # tables never saw cannot enter through the variant.
         (
-            not effort or effort == target.scalar("effort"),
-            f"variant effort pin missing or equal to its base's in "
-            f"{rel(variant.path)} — a no-op variant",
+            model not in layer_pins,
+            f"variant model pin drift: {rel(variant.path)} pins {model}, which "
+            "no plain agent in the layer carries — a tier variant pins a tier "
+            "the layer already runs",
+        ),
+        # A variant without its own effort pin inherits the session's, so
+        # the tier it runs is not the one the frontmatter states.
+        (
+            not variant.scalar("effort"),
+            f"variant effort pin missing in {rel(variant.path)} "
+            "— a tier variant pins its own effort",
         ),
     )
     return next((message for broken, message in rules if broken), None)
@@ -446,8 +462,53 @@ def _variant_problems(layer: Path, base: _AgentFile) -> list[str]:
             f"{rel(base.path)} names variant-of {target_name}, "
             "which has no base in this layer"
         ]
-    drift = _variant_drift(base, _AgentFile.load(target_path))
-    return [drift] if drift else []
+    plain = _plain_agents(layer)
+    drift = _variant_drift(
+        base, _AgentFile.load(target_path), {agent.scalar("model") for agent in plain}
+    )
+    if drift:
+        return [drift]
+    return _variant_mirror_problems(layer, base, plain)
+
+
+def _plain_agents(layer: Path) -> list[_AgentFile]:
+    """Load the layer's .claude agents that carry no `variant-of:` key."""
+    agents = [
+        _AgentFile.load(path)
+        for path in _surface_files(layer, CLAUDE_AGENTS, TOOLS["claude"]["suffix"])
+    ]
+    return [agent for agent in agents if _frontmatter_variant_of(agent.text) is None]
+
+
+def _variant_mirror_problems(
+    layer: Path, variant: _AgentFile, plain: list[_AgentFile]
+) -> list[str]:
+    """Hold each mirror of a variant to the pin its tier's plain agents carry there."""
+    # The mirror frontmatter is hand-owned, so the saving the model pin
+    # carries to Copilot and OpenCode rests on this comparison alone.
+    tier = [
+        agent for agent in plain if agent.scalar("model") == variant.scalar("model")
+    ]
+    problems = []
+    for mirror_dir, suffix in MIRROR_SURFACES:
+        mirror_path = layer / mirror_dir / f"{variant.path.stem}{suffix}"
+        if not mirror_path.is_file():
+            continue  # the mirror check reports the missing copy
+        tier_pins = {
+            _AgentFile.load(layer / mirror_dir / f"{agent.path.stem}{suffix}").scalar(
+                "model"
+            )
+            for agent in tier
+            if (layer / mirror_dir / f"{agent.path.stem}{suffix}").is_file()
+        }
+        pin = _AgentFile.load(mirror_path).scalar("model")
+        if pin not in tier_pins:
+            problems.append(
+                f"variant mirror pin drift: {rel(mirror_path)} pins {pin or 'nothing'}; "
+                f"the layer's {variant.scalar('model')} agents pin "
+                f"{', '.join(sorted(tier_pins)) or 'nothing'} on this surface"
+            )
+    return problems
 
 
 def _description_drift(base: _AgentFile, mirror: _AgentFile) -> list[str]:

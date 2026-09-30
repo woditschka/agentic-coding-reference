@@ -47,6 +47,7 @@ from handoff.non_goals import non_goal_delta
 from handoff.records import (
     IMPLEMENTER,
     ROSTER_FLOOR,
+    ROUTINE_IMPLEMENTER,
     BuildPass,
     DesignBlock,
     DispatchStart,
@@ -489,7 +490,7 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 
 def cmd_tier(args: argparse.Namespace) -> int:
-    """Print the effort ladder's implementer tier for a slice as JSON, failing closed to the base."""
+    """Print the tier ladder's implementer tier for a slice as JSON, failing closed to the base."""
     entries, errors = parse_log(args.file)
     req_id = args.req_id
     if req_id is None and entries:
@@ -567,8 +568,36 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+WINDOW_TIER_AGENTS = frozenset({IMPLEMENTER, ROUTINE_IMPLEMENTER})
+MAX_WINDOW_TIER_ENTRIES = 10_000
+
+
+def _recorded_window_tiers(path: str) -> dict[int, str]:
+    """Read a recorded line-to-tier map: the agent type a transcript says ran each window."""
+    # A record of what ran outranks the ladder's derivation: a page rendered
+    # from an archived ledger states the tier that ran, never a prediction.
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, RecursionError) as exc:
+        raise SchemaError(f"window tiers unreadable at {path}: {exc}") from exc
+    if not isinstance(raw, dict) or len(raw) > MAX_WINDOW_TIER_ENTRIES:
+        raise SchemaError(f"window tiers at {path} must be a small JSON object")
+    tiers: dict[int, str] = {}
+    for line, agent in raw.items():
+        if (
+            not (isinstance(line, str) and line.isdigit())
+            or agent not in WINDOW_TIER_AGENTS
+        ):
+            raise SchemaError(
+                f"window tiers at {path}: each key is a ledger line, each value "
+                f"one of {sorted(WINDOW_TIER_AGENTS)}"
+            )
+        tiers[int(line)] = agent
+    return tiers
+
+
 def _window_tiers(log: Sequence[Entry]) -> dict[int, str]:
-    """Map each implementer dispatch-start line to the effort tier the router derives for it."""
+    """Map each implementer dispatch-start line to the tier the router derives for it."""
     by_req: dict[str, list[Entry]] = {}
     for entry in log:
         if isinstance(entry.req_id, str) and entry.req_id:
@@ -599,6 +628,11 @@ def cmd_view(args: argparse.Namespace) -> int:
     log = typed_log(entries)
     try:
         layout = read_layout(args.layout)
+        window_tiers = (
+            _recorded_window_tiers(args.window_tiers)
+            if args.window_tiers is not None
+            else _window_tiers(log)
+        )
     except SchemaError as exc:
         return fail(str(exc))
     roster = reviewer_roster(layout).roster
@@ -613,7 +647,7 @@ def cmd_view(args: argparse.Namespace) -> int:
         verbose=args.verbose,
         auto_grade=auto_grade(layout),
         cost_lookup=build_cost_lookup(log),
-        window_tiers=_window_tiers(log),
+        window_tiers=window_tiers,
     )
     render = render_view_md if args.markdown else render_view
     lines, code = render(log, errors, options)
@@ -705,7 +739,7 @@ def _add_query_commands(
     tier = sub.add_parser(
         "tier",
         parents=[common],
-        help="print the effort ladder's implementer tier for a slice as JSON",
+        help="print the tier ladder's implementer tier for a slice as JSON",
     )
     tier.add_argument(
         "--req-id", help="derive this slice (default: the latest record's req_id)"
@@ -737,6 +771,12 @@ def _add_reader_commands(
     )
     view.add_argument(
         "--verbose", action="store_true", help="full finding descriptions and fixes"
+    )
+    view.add_argument(
+        "--window-tiers",
+        metavar="FILE",
+        help="mark implement sessions from this recorded line-to-agent JSON map "
+        "instead of the ladder's derivation (an archived run's record of what ran)",
     )
     color_group = view.add_mutually_exclusive_group()
     color_group.add_argument(
