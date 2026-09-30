@@ -455,3 +455,13 @@ swept before it carried the current router's derivation instead, a
 prediction that a later ladder change could rewrite; those marks are gone,
 and the pages carry no tier mark until a rep records one. Every recorded
 figure on the page is unchanged."""
+
+[[note]]
+date = 2026-09-30
+text = """
+The fourth v0.4.7 rep on every task is the control arm of the combined
+tier-and-effort screen ([model-tier ADR, third amendment](../../docs/adr/2026-06-11-model-tier-assignment.md#amendment-2026-09-30-the-effort-pins-move-and-routine-implementation-joins-the-checklist-tier)),
+interleaved with a dev arm at one rep per task on the unchanged epoch. The
+cells moved with the rep: owners-page-param $2.75 to $2.85,
+specialty-directory $6.61 to $6.21, vets-specialty-filter $8.21 to $7.75,
+visit-edit $6.01 to $6.31."""
