@@ -1,0 +1,516 @@
+{
+  "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "totals": {
+        "cache_creation": 36509,
+        "cache_read": 673026,
+        "cc1": 36509,
+        "cc5": 0,
+        "cost": 0.5150452000000001,
+        "hit_pct": 95,
+        "input": 42,
+        "output": 4410,
+        "savings_pct": 85,
+        "total_input": 709577
+      },
+      "wall_seconds": 580.1
+    },
+    {
+      "agent_type": "agent-team:product-requirements-expert",
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "totals": {
+        "cache_creation": 44208,
+        "cache_read": 212676,
+        "cc1": 0,
+        "cc5": 44208,
+        "cost": 0.3825312,
+        "hit_pct": 83,
+        "input": 14,
+        "output": 5945,
+        "savings_pct": 74,
+        "total_input": 256898
+      },
+      "wall_seconds": 49.6
+    },
+    {
+      "agent_type": "agent-team:doc-reviewer",
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "totals": {
+        "cache_creation": 26932,
+        "cache_read": 132439,
+        "cc1": 0,
+        "cc5": 26932,
+        "cost": 0.1127518,
+        "hit_pct": 83,
+        "input": 12,
+        "output": 1891,
+        "savings_pct": 71,
+        "total_input": 159383
+      },
+      "wall_seconds": 12.9
+    },
+    {
+      "agent_type": "agent-team:test-reviewer",
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "totals": {
+        "cache_creation": 39433,
+        "cache_read": 156041,
+        "cc1": 0,
+        "cc5": 39433,
+        "cost": 0.15059470000000003,
+        "hit_pct": 80,
+        "input": 12,
+        "output": 2078,
+        "savings_pct": 67,
+        "total_input": 195486
+      },
+      "wall_seconds": 29.2
+    },
+    {
+      "agent_type": "agent-team:code-quality-reviewer",
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "totals": {
+        "cache_creation": 35840,
+        "cache_read": 126579,
+        "cc1": 0,
+        "cc5": 35840,
+        "cost": 0.1334258,
+        "hit_pct": 78,
+        "input": 10,
+        "output": 1849,
+        "savings_pct": 65,
+        "total_input": 162429
+      },
+      "wall_seconds": 13.1
+    },
+    {
+      "agent_type": "agent-team:feature-implementer",
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "totals": {
+        "cache_creation": 79907,
+        "cache_read": 1096896,
+        "cc1": 0,
+        "cc5": 79907,
+        "cost": 0.8902981999999999,
+        "hit_pct": 93,
+        "input": 36,
+        "output": 13562,
+        "savings_pct": 87,
+        "total_input": 1176839
+      },
+      "wall_seconds": 332.2
+    },
+    {
+      "agent_type": "agent-team:review-planner",
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "totals": {
+        "cache_creation": 28417,
+        "cache_read": 97233,
+        "cc1": 0,
+        "cc5": 28417,
+        "cost": 0.0999391,
+        "hit_pct": 77,
+        "input": 10,
+        "output": 943,
+        "savings_pct": 64,
+        "total_input": 125660
+      },
+      "wall_seconds": 9.1
+    },
+    {
+      "agent_type": "agent-team:change-grader",
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "totals": {
+        "cache_creation": 36369,
+        "cache_read": 115916,
+        "cc1": 0,
+        "cc5": 36369,
+        "cost": 0.2763482,
+        "hit_pct": 76,
+        "input": 10,
+        "output": 3564,
+        "savings_pct": 66,
+        "total_input": 152295
+      },
+      "wall_seconds": 32.9
+    },
+    {
+      "agent_type": "agent-team:system-design-expert",
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "totals": {
+        "cache_creation": 54878,
+        "cache_read": 371366,
+        "cc1": 0,
+        "cc5": 54878,
+        "cost": 0.4788752,
+        "hit_pct": 87,
+        "input": 18,
+        "output": 6507,
+        "savings_pct": 80,
+        "total_input": 426262
+      },
+      "wall_seconds": 60.5
+    }
+  ],
+  "per_stage": [
+    {
+      "author": "human",
+      "closes": "intake-decision",
+      "totals": {
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cc1": 0,
+        "cc5": 0,
+        "cost": 0.0,
+        "hit_pct": 0,
+        "input": 0,
+        "output": 0,
+        "savings_pct": null,
+        "total_input": 0
+      },
+      "wall_seconds": 0.0
+    },
+    {
+      "author": "product-requirements-expert",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 49062,
+        "cache_read": 97228,
+        "cc1": 22634,
+        "cc5": 26428,
+        "cost": 0.3722776,
+        "hit_pct": 66,
+        "input": 10,
+        "output": 1979,
+        "savings_pct": 43,
+        "total_input": 146300
+      },
+      "wall_seconds": 38.2
+    },
+    {
+      "author": "product-requirements-expert",
+      "closes": "prd-entry",
+      "totals": {
+        "cache_creation": 16567,
+        "cache_read": 145385,
+        "cc1": 0,
+        "cc5": 16567,
+        "cost": 0.186344,
+        "hit_pct": 90,
+        "input": 8,
+        "output": 3720,
+        "savings_pct": 83,
+        "total_input": 161960
+      },
+      "wall_seconds": 37.4
+    },
+    {
+      "author": "system-design-expert",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 31792,
+        "cache_read": 141502,
+        "cc1": 2753,
+        "cc5": 29039,
+        "cost": 0.2376794,
+        "hit_pct": 82,
+        "input": 10,
+        "output": 2106,
+        "savings_pct": 72,
+        "total_input": 173304
+      },
+      "wall_seconds": 19.3
+    },
+    {
+      "author": "system-design-expert",
+      "closes": "design-block",
+      "totals": {
+        "cache_creation": 25331,
+        "cache_read": 228652,
+        "cc1": 0,
+        "cc5": 25331,
+        "cost": 0.2557254,
+        "hit_pct": 90,
+        "input": 10,
+        "output": 4165,
+        "savings_pct": 83,
+        "total_input": 253993
+      },
+      "wall_seconds": 42.1
+    },
+    {
+      "author": "feature-implementer",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 30444,
+        "cache_read": 185424,
+        "cc1": 1972,
+        "cc5": 28472,
+        "cost": 0.2477808,
+        "hit_pct": 86,
+        "input": 10,
+        "output": 2626,
+        "savings_pct": 77,
+        "total_input": 215878
+      },
+      "wall_seconds": 24.9
+    },
+    {
+      "author": "feature-implementer",
+      "closes": "build-pass",
+      "totals": {
+        "cache_creation": 52899,
+        "cache_read": 1017246,
+        "cc1": 0,
+        "cc5": 52899,
+        "cost": 0.6963121999999999,
+        "hit_pct": 95,
+        "input": 32,
+        "output": 11412,
+        "savings_pct": 89,
+        "total_input": 1070177
+      },
+      "wall_seconds": 320.5
+    },
+    {
+      "author": "review-plan-engine",
+      "closes": "review-plan",
+      "totals": {
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cc1": 0,
+        "cc5": 0,
+        "cost": 0.0,
+        "hit_pct": 0,
+        "input": 0,
+        "output": 0,
+        "savings_pct": null,
+        "total_input": 0
+      },
+      "wall_seconds": 0.2
+    },
+    {
+      "author": "review-planner",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 25949,
+        "cache_read": 202214,
+        "cc1": 2009,
+        "cc5": 23940,
+        "cost": 0.1535033,
+        "hit_pct": 89,
+        "input": 12,
+        "output": 2071,
+        "savings_pct": 80,
+        "total_input": 228175
+      },
+      "wall_seconds": 21.2
+    },
+    {
+      "author": "review-planner",
+      "closes": "review-plan",
+      "totals": {
+        "cache_creation": 4270,
+        "cache_read": 23683,
+        "cc1": 0,
+        "cc5": 4270,
+        "cost": 0.0196656,
+        "hit_pct": 85,
+        "input": 2,
+        "output": 425,
+        "savings_pct": 72,
+        "total_input": 27955
+      },
+      "wall_seconds": 4.0
+    },
+    {
+      "author": "code-quality-reviewer",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 82674,
+        "cache_read": 204643,
+        "cc1": 2597,
+        "cc5": 80077,
+        "cost": 0.29861509999999997,
+        "hit_pct": 71,
+        "input": 18,
+        "output": 3026,
+        "savings_pct": 58,
+        "total_input": 287335
+      },
+      "wall_seconds": 12.6
+    },
+    {
+      "author": "test-reviewer",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 1857,
+        "cache_read": 52189,
+        "cc1": 0,
+        "cc5": 1857,
+        "cost": 0.0186883,
+        "hit_pct": 97,
+        "input": 4,
+        "output": 360,
+        "savings_pct": 86,
+        "total_input": 54050
+      },
+      "wall_seconds": 1.0
+    },
+    {
+      "author": "doc-reviewer",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 9258,
+        "cache_read": 83485,
+        "cc1": 0,
+        "cc5": 9258,
+        "cost": 0.047824000000000005,
+        "hit_pct": 90,
+        "input": 6,
+        "output": 797,
+        "savings_pct": 79,
+        "total_input": 92749
+      },
+      "wall_seconds": 2.2
+    },
+    {
+      "author": "code-quality-reviewer",
+      "closes": "review-feedback",
+      "totals": {
+        "cache_creation": 3964,
+        "cache_read": 87459,
+        "cc1": 0,
+        "cc5": 3964,
+        "cost": 0.0402038,
+        "hit_pct": 96,
+        "input": 6,
+        "output": 1279,
+        "savings_pct": 85,
+        "total_input": 91429
+      },
+      "wall_seconds": 5.2
+    },
+    {
+      "author": "doc-reviewer",
+      "closes": "review-feedback",
+      "totals": {
+        "cache_creation": 570,
+        "cache_read": 35270,
+        "cc1": 0,
+        "cc5": 570,
+        "cost": 0.008723,
+        "hit_pct": 98,
+        "input": 2,
+        "output": 24,
+        "savings_pct": 88,
+        "total_input": 35842
+      },
+      "wall_seconds": 1.2
+    },
+    {
+      "author": "test-reviewer",
+      "closes": "review-feedback",
+      "totals": {
+        "cache_creation": 7109,
+        "cache_read": 146340,
+        "cc1": 1153,
+        "cc5": 5956,
+        "cost": 0.06445200000000001,
+        "hit_pct": 95,
+        "input": 12,
+        "output": 1037,
+        "savings_pct": 87,
+        "total_input": 153461
+      },
+      "wall_seconds": 15.2
+    },
+    {
+      "author": "change-grader",
+      "closes": "grader-features",
+      "totals": {
+        "cache_creation": 21705,
+        "cache_read": 125665,
+        "cc1": 757,
+        "cc5": 20948,
+        "cost": 0.1461975,
+        "hit_pct": 85,
+        "input": 10,
+        "output": 647,
+        "savings_pct": 76,
+        "total_input": 147380
+      },
+      "wall_seconds": 7.5
+    },
+    {
+      "author": "change-grader",
+      "closes": "grader-verdict",
+      "totals": {
+        "cache_creation": 15338,
+        "cache_read": 80617,
+        "cc1": 0,
+        "cc5": 15338,
+        "cost": 0.1341174,
+        "hit_pct": 84,
+        "input": 6,
+        "output": 2064,
+        "savings_pct": 76,
+        "total_input": 95961
+      },
+      "wall_seconds": 21.9
+    },
+    {
+      "author": null,
+      "closes": null,
+      "totals": {
+        "cache_creation": 3704,
+        "cache_read": 125170,
+        "cc1": 2634,
+        "cc5": 1070,
+        "cost": 0.11170000000000001,
+        "hit_pct": 97,
+        "input": 6,
+        "output": 3011,
+        "savings_pct": 90,
+        "total_input": 128880
+      },
+      "wall_seconds": 25.3
+    }
+  ],
+  "total": {
+    "cache_creation": 382493,
+    "cache_read": 2982172,
+    "cc1": 36509,
+    "cc5": 345984,
+    "cost": 3.039809400000001,
+    "hit_pct": 89,
+    "input": 164,
+    "output": 40749,
+    "savings_pct": 80,
+    "total_input": 3364829
+  }
+}

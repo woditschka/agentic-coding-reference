@@ -420,3 +420,27 @@ owners-page-param 5.1M to 4.1M tokens at 0.31 to 0.35M per minute,
 so the two September 18 reps clear in 8 and 11 minutes against
 v0.4.1's 14 to 15. The judge reads 5/4/4/5 on every rep of both
 cells; the security reviewer stays trimmed on every rep."""
+
+[[note]]
+date = 2026-09-30
+text = """
+The v0.4.7 row is the first on the Opus 5.5 and Sonnet 5.5 pins
+([model-tier ADR](../../docs/adr/2026-06-11-model-tier-assignment.md),
+amendments 2026-09-22 and 2026-09-28). Every feature task clears 22% to
+48% below v0.4.4 at three reps per arm: $2.75, $6.61, $8.21, and $6.01
+against $4.92, $8.52, $12.87, and $11.47. visit-cancel refuses on every
+rep at $0.66 against $0.91. The bar holds 15/15 on both rows. The judge,
+on its unchanged pin, moves each facet median by at most one point in
+either direction: vets-specialty-filter design-fit 4 against 5,
+visit-edit test-quality 5 against 4. Two mechanisms, read from the
+agent-costs.json medians. Tokens per rep fall 7% to 38%:
+owners-page-param 4.6M to 3.2M, specialty-directory 9.1M to 8.5M,
+vets-specialty-filter 15.7M to 9.8M, visit-edit 10.7M to 7.4M. The
+blended price per million tokens falls 9% to 13%, $0.92–1.02 to
+$0.84–0.91, on Opus 5.5's $4/$20 rate and 0.05× cache reads. Wall stays
+level: 9, 23, 25, and 20 minutes against 10, 18, 27, and 21.
+Throughput falls from 0.44–0.51 to 0.35–0.42M tokens per minute, so
+burn drops $0.47 to $0.32 per minute. The pair crosses the root pin,
+and the harness moved too (brief realization fragments, the workspace
+engine, the code-quality checklist), so the delta is the era's, never
+the pins' alone. The effort arms the ADR names decide the pins."""
