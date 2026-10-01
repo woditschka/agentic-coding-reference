@@ -328,7 +328,9 @@ The mechanism extends the fourth amendment's router-resident ladder:
 
 The acceptance gate is the model-tier amendment's combined arm; the tier
 cell bisects first. A miss on it restores the fifth amendment's narrowing:
-one route rule and one frontmatter pin revert.
+one route rule and one frontmatter pin revert. The v0.4.8 row cleared the
+gate on 2026-10-01, 15/15 with every judge facet median inside the v0.4.7
+spread; the routine initial stands.
 
 ## References
 

@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 627490,
+      "cache_read": 5982266,
+      "cc1": 64536,
+      "cc5": 562954,
+      "cost": 5.4293042,
+      "hit_pct": 91,
+      "input": 296,
+      "output": 83295,
+      "savings_pct": 82,
+      "total_input": 6610052
+    },
+    "duration_ms": 81340,
+    "models": [
+      "claude-opus-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 5.4293042
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 9,
+    "insertions": 464,
+    "src_files_changed": 7
+  },
+  "finished": "2026-09-30T21:17:08+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 28,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7625,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: SpecialtyController binds nothing and only delegates plus selects `vets/specialtyList`, the pairing rule sits in the immutable `SpecialtyHolders` record (List.copyOf, requireNonNull), and SpecialtyRepository mirrors VetRepository's marker-interface style \u2014 no new controller rule, catalog-conformant naming. SpecialtyHoldersTests are exemplary: BDD names, factory methods (createASpecialty, holdersOf), unique generated ids, whole-object containsExactly assertions, hand-written doubles instead of a mock framework. Weaker at the web level: assertions match raw HTML (`containsString(\">\" + HELD_SPECIALTY_NAME + \"<\")`) rather than model or xpath, static mutable Vet/Specialty fixtures are shared, and one test asserts the arrangement (`holder.getSpecialties()).doesNotContain(listed)`). SpecialtyRepository's javadoc rationale \u2014 uncached \"so the specialty page lists specialties no veterinarian holds\" \u2014 is misleading; caching is unrelated to unheld specialties. Docs fully tracked: REQ-VET-003, contracts rows, open questions.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController delegates immediately (`SpecialtyHolders.forEverySpecialty(...)`) and holds no rule; the pairing lives in an immutable record with `List.copyOf` and a construction-time null check, unit-testable without the framework \u2014 catalog-conformant Repository/Controller/Value-object placement and naming. SpecialtyHoldersTests reads as specification: behavior names, factories (`createAVetHolding`, `holdersOf`), derived expectations, no mock framework, id-vs-instance case covered. SpecialtyControllerTests uses the sanctioned MockMvc harness with hand-written doubles, but asserts on raw HTML (`containsString(\">\" + HELD_SPECIALTY_NAME + \"<\")`) and shares static mutable entities (`HOLDER`, `HELD_SPECIALTY`); the ClinicServiceTests addition shadows the `specialties` field. Template reuses `#{specialties}` for heading and column header \u2014 minor noise. PRD REQ-VET-003, contracts table, invariants note, open questions, and a scale row all move; no visible claim left stale.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: the pairing logic sits in an immutable record (SpecialtyHolders.forEverySpecialty, List.copyOf in the compact constructor) so the controller only reads two repositories and selects a view, and the rule is unit-testable without booting the framework \u2014 the pyramid direction the principles ask for. Mild debt: the controller sequences two reads itself where an application service is the catalogued seam, and requireNonNull(holders) yields a messageless NPE unlike the specialty check. Tests use factories, BDD names and hand-written repository doubles rather than a mock framework. But SpecialtyControllerTests shares static mutable Vet/Specialty fixtures (HOLDER, HELD_SPECIALTY), asserts on raw markup (containsString(\">\"+name+\"<\")), and repeats one assertion across ten locales; theSpecialtyHolders...ByIdentityNotInstance names the mechanism and asserts its own arrangement. PRD and contracts table are fully current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-30-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1213.9
+}

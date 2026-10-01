@@ -465,3 +465,24 @@ interleaved with a dev arm at one rep per task on the unchanged epoch. The
 cells moved with the rep: owners-page-param $2.75 to $2.85,
 specialty-directory $6.61 to $6.21, vets-specialty-filter $8.21 to $7.75,
 visit-edit $6.01 to $6.31."""
+
+[[note]]
+date = 2026-10-01
+text = """
+The v0.4.8 row is the first on the combined arm: routine-rated
+implementation on the Sonnet 5.5 variant and six effort pins at medium
+([model-tier ADR, third amendment](../../docs/adr/2026-06-11-model-tier-assignment.md#amendment-2026-09-30-the-effort-pins-move-and-routine-implementation-joins-the-checklist-tier)).
+The bar holds 15/15. Cost per pass against v0.4.7: owners-page-param level
+at $2.85, specialty-directory $6.21 to $5.57, vets-specialty-filter $7.75
+to $5.23, visit-edit $6.31 to $5.79; a rep-set $23.77 to $20.08. Two
+mechanisms, read from the agent-costs.json medians. Tokens per rep fall
+where the Sonnet initial lands: vets-specialty-filter 9.5M to 6.9M,
+visit-edit 8.2M to 7.3M, specialty-directory 7.6M to 7.3M; owners-page-param
+rises 3.3M to 4.0M. The blended price per million tokens falls on three
+tasks and holds on visit-edit, $0.83–0.94 to $0.77–0.86, on the Sonnet
+windows. Wall shortens on every feature task: 8, 15, 15, and 14 minutes
+against 9, 20, 23, and 18. The judge, on its unchanged pin, holds every
+facet median inside the v0.4.7 spread. Design-fit is the facet that moved:
+its sweep mean reads 4.42 against 4.56, with one 3 on visit-edit r1, whose
+initial ran the Opus pin at medium. Sonnet took an implement window on all
+12 feature reps; every window's recorded tier is on its run page."""

@@ -167,3 +167,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-09-23** — Move the premium tier to Claude Opus 5.5: all six judgment roles pin it together, priced per model, with the effort pins held for the eval arms to decide.
 - **2026-09-28** — Move the checklist tier to Claude Sonnet 5.5: the five checklist agents pin it together; the effort pins wait for a tag-plus-dev sweep.
 - **2026-09-30** — Move six effort pins to medium and routine-rated implementation to the checklist tier: one combined arm, screened then bisected against v0.4.7.
+- **2026-10-01** — Record the v0.4.8 sweep: the combined arm holds the bar 15/15 at a rep-set 15.5% below v0.4.7.
