@@ -48,9 +48,9 @@ Other documents:
 
 The handoff records are your file map. Do not re-derive it. Each redundant re-read of a file already in your context fills the window and shortens the runway before the per-invocation turn cap fires — the bias is toward fewer, deliberate reads, not toward broad exploration.
 
-- `docs/architecture-principles.md` and `docs/testing-principles.md` sit outside this bias: read both in full before the first edit of the slice's first dispatch, and on a fix round the sections the findings and the design record cite. The conventions the reviewers hold the change to live there, not in the skill summaries.
+- `docs/architecture-principles.md` and `docs/testing-principles.md` sit outside this bias: read both in full before the first edit of the slice's first dispatch, and on a fix round the sections the findings and the design record cite. A rule-adding fix also reads the rows that place its kind, since the hold in `review-workflow` `reference.md` turns on them. The conventions the reviewers hold the change to live there, not in the skill summaries.
 - `design-block.primary_paths`, `supporting_paths`, and `patterns[*].ref` are exhaustive for the initial pass. Read each one at most once; do not re-read a file you have already opened in this invocation. If something is missing, the slice was mis-triaged — append a `consultation-request` to `system-design-expert`, do not widen the scope yourself.
-- `review-feedback.findings[*].location` is `path:line` (or file-scope when intentional). Open the file at the cited line; do not search to confirm the line. For `tag: "autofix"`, apply the `fix` field directly without re-locating.
+- `review-feedback.findings[*].location` is `path:line` (or file-scope when intentional). Open the file at the cited line; do not search to confirm the line. For `tag: "autofix"`, apply the `fix` field directly without re-locating, after the holds in `review-workflow` `reference.md` § Processing Reviews.
 - Search and file-listing tools are reserved for verifying a refactor's blast radius after an edit (e.g., callers of a renamed symbol). They are not discovery tools. If you find yourself running more than two such searches before the first edit, stop — the handoff is incomplete and the right move is `consultation-request`, not exploration.
 
 ## Output Documents

@@ -75,6 +75,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 
 ### Edge Case Coverage
 - [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule). A bullet the slice does not carry has no test to review
+- [ ] A missing-case finding whose fix adds a business rule to production code states the case and names no home. It is `blocked` at the severity the gap earns, never `autofix` (review-workflow tag rule)
 - [ ] All documented edge cases from prd.md have dedicated test cases — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Edge case tests use actual examples (not invented data)

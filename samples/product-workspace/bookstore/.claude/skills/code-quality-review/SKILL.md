@@ -24,9 +24,11 @@ metadata:
 The style guide is the floor; the project's recorded design is the wall. For every new or moved business rule in the diff — a conditional, a validation, a computation encoding a domain decision — check its landing layer against the owning component's row in `docs/system-design.md`, read under the project's `docs/architecture-principles.md` (the placement doctrine a project may adapt):
 
 - [ ] A new business rule lives in the layer its catalog row assigns. A rule landing in a web controller, handler, or adapter when the catalog assigns a domain or service seam is a `blocked` finding, severity per impact — even when the code works and reads cleanly.
+- [ ] A neighboring rule's home assigns nothing. A row recording a rule that already lives in a layer covers that rule alone; a new rule beside it is checked against the catalog row for its kind.
 - [ ] A helper widened for test access (package-private, exported-for-tests) is a placement smell: the sanctioned seam usually makes the behavior testable without widening.
 - [ ] Normalization, formatting, and value logic sit where the catalog places their kind; the same rule applies when such logic lands inline in a handler.
 - [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing. The same routing applies when two briefs read against each other on it. A placement finding that asks for a design decision is a `clarify` by its own words, never `blocked`. `blocked` is for a home the catalog assigns unambiguously.
+- [ ] The check reaches fix rounds. A rule a fix delta added gets the same check on a `fix-delta` pass, whichever reviewer's finding asked for it. Approving the rule's shape never approves its home.
 
 Judge placement against the recorded briefs, never personal architecture taste. Every placement finding cites the catalog row or principle it enforces.
 

@@ -114,12 +114,14 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
 | Tag | Meaning | Action |
 |---|---|---|
 | `autofix` | Clear fix, no decision needed | Route to artifact owner |
-| `blocked` | Critical issue, must fix before merge | Route to artifact owner; escalate if unclear |
+| `blocked` | Defect that must not merge unfixed; `severity` rates it | Route to artifact owner; escalate if unclear |
 | `escalate` | Needs human decision | Append to `.scratch/escalations.md` |
 | `clarify` (with `clarify_target`) | Requirement, design, or review question | Route to the named agent |
 | `truncation` | Reviewer reached its planned checkpoint mid-review | Nothing to fix — the record's `blocked` verdict routes the partial findings to the implementer; the re-run cycle re-invokes the reviewer for the unreviewed surface |
 
 Choose the tag by what the finding needs next, not by its severity. `autofix` when the fix is mechanical and decision-free; `blocked` when merging would ship a defect; `escalate` when only a human can decide; `clarify` when the finding is really a question for another agent. The tag is a routing decision — pick the one that moves the finding to whoever can resolve it. A finding whose fix would change behavior on a route or flow the slice's bullets do not name is never `autofix`. It never rides an `approved` verdict either, where a `clarify` routes nowhere. Raise it on `changes_requested`: `clarify` with `clarify_target: "product-requirements-expert"` for a scope question, or `blocked` when merging without the fix ships a defect. The implementer carries the scope question to the requirements expert as a consultation before the fix lands. A fix delta that already changed such behavior is a `blocked` finding under `spec-grounded`. `truncation` is reserved for the partial-record checkpoint below — a progress marker, not an escalation; it needs no human and never halts the pipeline.
+
+A finding whose fix adds a business rule — a conditional, a validation, a computation encoding a domain decision — is never `autofix` either. Where the rule lands is a design decision. Raise it on `changes_requested` as `blocked`, at the `severity` the defect earns: the re-tag never raises it. The finding states the defect, never a placement question, and names no home unless it cites the `docs/system-design.md` or `docs/architecture-principles.md` row that assigns one. When no brief row or record places the rule, the implementer carries the placement question to the design expert as a consultation before the fix lands (`reference.md` § Processing Reviews). A fix that merges or renames an existing rule in place adds none; neither does an escaping call or a test assertion.
 
 ## Reference Tables
 

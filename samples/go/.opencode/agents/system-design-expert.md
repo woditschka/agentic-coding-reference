@@ -102,7 +102,7 @@ On a dispatch that ends in a `design-block` — triage, re-triage, or fix — yo
 5. **Defense in depth** — verify overlapping controls exist at input, processing, output, transport, and runtime layers.
 6. **Integration analysis** — for non-`covered` verdicts, identify touched packages, new packages, interface changes, data flow, and error propagation paths.
 7. **Edge-case awareness** — verify the design accounts for every edge case the PRD documents.
-8. **Consultation responses** — answer focused questions from the implementer mid-loop. Record new memory only if the discovery is worth crystallizing.
+8. **Consultation responses** — answer focused questions from the implementer mid-loop. Record new memory only if the discovery is worth crystallizing; a placement answer records its home per `design-validation` § Consultation Mode.
 
 ## Communication
 

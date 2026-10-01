@@ -98,14 +98,15 @@ When dispatched on a `consultation-request`, your task is to answer the specific
    - The decision affects more than this consultation (other slices will face it),
    - The choice is hard-to-reverse,
    - The pattern is non-obvious from existing memory.
-5. A request asking to carry a PRD change into the design doc is answered by writing the mirrored rows and naming them in `memory_updates`. The change is a new edge case, a known defect, or a Done-when bullet; the rows are Known Defects, Contracts, or Invariants. A change wider than rows is a re-triage through a superseding `design-block` instead.
-6. Append a `consultation-response` record with the answer, and any `memory_updates` describing durable writes that accompanied this consultation.
+5. A placement question, where a new business rule lands, is answered from the component's Contracts row in `docs/system-design.md` and the catalog in `docs/architecture-principles.md`. A neighboring rule's home assigns nothing; a recorded deviation covers the rule it names alone. Record the home for the rule's kind on the component's Contracts row, and name the write in `memory_updates`. Skip the write only when one brief row assigns the home and no other row reads against it. When the home changes behavior on a route or flow the slice's bullets do not name, the answer says so. Reviewers judge the landing layer against the briefs, never against this response.
+6. A request asking to carry a PRD change into the design doc is answered by writing the mirrored rows and naming them in `memory_updates`. The change is a new edge case, a known defect, or a Done-when bullet; the rows are Known Defects, Contracts, or Invariants. A change wider than rows is a re-triage through a superseding `design-block` instead.
+7. Append a `consultation-response` record with the answer, and any `memory_updates` describing durable writes that accompanied this consultation.
 
 ### What not to do in consultation mode
 
 - Do not re-triage the entire slice — that's not what was asked.
 - Do not produce a new `design-block` record; consultation is a substep, not a handoff.
-- Do not over-write memory. If the answer points to existing patterns, `memory_updates` is empty.
+- Do not over-write memory. If the answer points to existing patterns, `memory_updates` is empty; a placement answer follows step 5 instead.
 - Do not exceed the question. Broad questions belong in triage, not consultation.
 
 ## Autofix Audit (Run First on Every Triage Dispatch)

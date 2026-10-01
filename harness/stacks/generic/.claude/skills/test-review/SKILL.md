@@ -43,6 +43,7 @@ The principles below are language-agnostic. Each **Stack-specific rules** slot i
 ### Test Coverage
 - [ ] A hand-written structure or algorithm the brief's § Scale and Load records has a test per case in its case table. The table covers empty, one, many, duplicates, boundary sizes, and the access pattern the row names. A hand-written structure's bugs sit at its edges (`tdd-principles` § Fit for the Workload)
 - [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule). A bullet the slice does not carry has no test to review
+- [ ] A missing-case finding whose fix adds a business rule to production code states the case and names no home. It is `blocked` at the severity the gap earns, never `autofix` (review-workflow tag rule)
 - [ ] Every decision path of a public seam has one test, at the unit that owns it; a second test through the same equivalence class is a finding
 - [ ] Boundaries are tested where the code compares, and the error paths the design names once each
 
