@@ -6,7 +6,7 @@
 
 Describe a feature. Specialist agents carry it through requirements, design, TDD implementation, review, and grading, working from durable specs that remember what agents forget. You make the merge decision. This repository, the **Agentic Coding Reference**, builds, proves, and ships that team.
 
-**Seen, not claimed:** [a real recorded run](docs/feature-walkthrough.md) takes a bug report to a reviewed, graded, merge-ready change in 17 agent-minutes for $8.21, catching one critical spec defect on the way.
+**Seen, not claimed:** [a real recorded run](docs/feature-walkthrough.md) takes a bug report to a reviewed, graded, merge-ready change in 10 minutes for $3.90, catching a paging regression the green test suite missed.
 
 > **TL;DR** — Coding agents forget and drift. Better prompts do not fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions. Nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, or OpenCode.
 
@@ -20,7 +20,7 @@ The tools change constantly; what holds underneath changes slowly, and that is w
 - **Automatic routing.** The handoffs route themselves; I stopped being the router and started talking to the experts.
 - **Logic into code.** Whatever a rule can decide, a script decides; the model spends its tokens on judgment.
 - **Your taste, not mine.** Installed from a marketplace, the way of working is fixed; what to test, how to layer, where the security bar sits are yours.
-- **About $9 a feature.** Requirements to a reviewed, graded change, measured version by version on the [public series](evals/results/TREND.md).
+- **About $5 a feature.** Requirements to a reviewed, graded change, measured version by version on the [public series](evals/results/TREND.md).
 
 ## Quick Start
 
@@ -162,7 +162,7 @@ The trace above is schematic. The [feature walkthrough](docs/feature-walkthrough
 Claims about agent harnesses are cheap; measurements are not. **The series is public:** [`TREND.md`](evals/results/TREND.md) prices every released harness version against one fixed subject project, reporting cost per pass, waste, and wall, straight down the versions. Every figure is regenerated from the committed run folders, never hand-edited. The [eval bench](evals/README.md) holds the method: frozen prompts, a machine-verified bar, and an advisory blind judge that keeps quality drift visible. The bench caught its first cost regression in this repository; the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it.
 
 <p align="center">
-  <img src="docs/images/eval-trend.drawio.png" width="720" alt="Five aligned panels across every measured harness version: cost of a clearing rep with rolling-mean trends per feature task and a flat one-dollar refusal line, each task's median delivery wall in the same encoding, burn rate in dollars per minute holding a flat band across every version, reliability at 100 percent apart from one early-version dip with the known-defect clear rate dashed beneath it between zero and a third across every version, and blind-judge quality as one line per rubric facet: doc-fit near 5 throughout, design-fit stepping from 3 to 4 at the model change and holding, test-quality and maintainability rising from about 3.4 toward 4 across the series; a dashed rule marks where the models change">
+  <img src="docs/images/eval-trend.drawio.png" width="720" alt="Five aligned panels across every measured harness version: cost of a clearing rep with rolling-mean trends per feature task, falling to between $3 and $6 at v0.4.8, and a flat one-dollar refusal line; each task's median delivery wall in the same encoding; burn rate in dollars per minute, its trends between $0.30 and $0.45 across the series; reliability at 100 percent apart from two single-version dips, with the known-defect clear rate dashed beneath it as a rolling mean, below a third through v0.3.9 and climbing to 100 percent by v0.4.1; and blind-judge quality as one line per rubric facet: doc-fit near 5 throughout, design-fit stepping from about 3.4 to 4 at the first model change and reaching about 4.5, test-quality and maintainability rising from about 3.4 to 4; dashed rules mark the two model changes">
 </p>
 
 > The figure is a dated snapshot; its subtitle carries the stamp. [`TREND.md`](evals/results/TREND.md) is the live series it summarizes, with per-rep links and the dated operator notes.

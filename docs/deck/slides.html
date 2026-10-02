@@ -83,7 +83,7 @@
     <li>Specs, then a team of experts <span class="small">specs keep the course, reviews catch the slips</span></li>
     <li>Automatic routing <span class="small">you stop being the router</span></li>
     <li>Logic into code <span class="small">tokens go to judgment</span></li>
-    <li>My taste <span class="small">about $9 a feature, measured</span></li>
+    <li>My taste <span class="small">about $5 a feature, measured</span></li>
   </ul>
   <ul class="steps fragment" data-fragment-index="3">
     <li>Your taste, not mine <span class="small">your norms, your decisions</span></li>
@@ -311,10 +311,11 @@
 <section id="demo" class="demo">
   <h2>A bug report in. A reviewed fix out.</h2>
   <div class="term" data-cast="bugfix"></div>
-  <p class="term-caption">Eval task <code>owners-page-param</code>, harness v0.3.3, rep r1: 17 minutes of agent time, $8.21, 30 ledger records. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/docs/feature-walkthrough.md">Walkthrough</a></p>
+  <p class="term-caption">Eval task <code>owners-page-param</code>, harness v0.4.8, rep r2: 10 minutes end to end, $3.90 with grading, 29 ledger records. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/docs/feature-walkthrough.md">Walkthrough</a></p>
   <aside class="notes">
-    One paragraph of bug report in. Pauses: requirements, design covered, green, the catch, fix, graded.
-    The catch: PRD stated the bug as current fact inside the fix.
+    One paragraph of bug report in. Pauses: requirements, design covered, green, three catches, fix, graded.
+    The catch: the fix renamed the page parameter, so every ?page=N link fell back to page 1. Suite green: every test asked for page 1. Three reviewers found it; a page=2 test now pins it.
+    If asked: security mis-tagged it autofix; severity is critical on all three, and the round went to the full implementer. The slip came from the Sonnet first pass, in one rep of three; the Opus fix round cost $0.49.
   </aside>
 </section>
 
@@ -334,7 +335,7 @@
   </div>
   <aside class="notes">
     Team in pipeline order; each complaint swaps for its owner.
-    Almost right takes three rows: TDD, reviewers, grader. Honest: clear rate 0 to 1/3; you read verdicts, not lines.
+    Almost right takes three rows: TDD, reviewers, grader. Honest: the probed defect shipped in most runs until v0.4.0, clear on every run since; you read verdicts, not lines.
     You decide. Judgment stays yours. Heading swaps: your agent team.
   </aside>
 </section>
@@ -360,13 +361,12 @@
       <div class="excerpts">
         <div class="fragment">
           <p class="file">docs/prd.md</p>
-          <p>A page below the first one is read as the first page, and the listing is shown as usual <code>[REQ-OWNERSPAGEPARAM-001]</code>.</p>
-          <p class="done"><strong>Done when:</strong> given a page of zero, when the owner listing is requested, then the first page of matching owners is listed and no error page is shown.</p>
-          <p class="done"><strong>Open question:</strong> does the veterinarian directory take the same page rule? Its paging sits outside the owner listing decision and was not part of it.</p>
+          <p>A request for a page of owners numbered below one shows the first page instead of an error <code>[REQ-OWN-005]</code>.</p>
+          <p class="done"><strong>Done when:</strong> given a request for page zero or a negative page of the owner list, when it is answered, then the first page is listed as normal, not the error page.</p>
         </div>
         <div class="fragment">
           <p class="file">docs/system-design.md</p>
-          <p><code>OwnerController</code> · Server-rendered owner workflows: create, edit, search with paging, and detail. Reads a requested page below the first as the first page · <code>REQ-OWNERSPAGEPARAM-001</code></p>
+          <p><code>OwnerController</code> · Server-rendered owner workflows: create, edit, search with paging, and detail · <code>REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-OWN-005</code></p>
         </div>
       </div>
     </div>
@@ -375,13 +375,13 @@
       <div class="excerpts">
         <div class="fragment">
           <p class="file">.scratch/handoff.jsonl · line 3</p>
-          <p><code>{"type": "prd-entry", "author": "product-requirements-expert", "req_id": "REQ-OWNERSPAGEPARAM-001", "title": "Owner listing treats a page below the first as the first page", …}</code></p>
+          <p><code>{"type": "prd-entry", "author": "product-requirements-expert", "req_id": "REQ-OWN-005", "title": "Owner list requested below page one shows the first page", …}</code></p>
         </div>
       </div>
     </div>
   </div>
   <aside class="notes">
-    The demo's fix, unedited. Requirement with tag; a Done-when; the parked open question; the design row; one log record.
+    The demo's fix, unedited. Requirement with tag; a Done-when; the design row, one id longer; one log record.
     Next session, any agent opens with this. So does the new hire.
   </aside>
 </section>
@@ -457,24 +457,24 @@
   <p class="kicker">What it delivers</p>
   <h2>What does that cost? Is it worth it?</h2>
   <ul class="facts">
-    <li class="fragment" data-fragment-index="0"><strong>About $9 a feature</strong> <span class="small">measured on an eval bench, and a third cheaper than the first version as logic moved into scripts</span></li>
+    <li class="fragment" data-fragment-index="0"><strong>About $5 a feature</strong> <span class="small">measured on an eval bench, and half the cost of the last version on the previous models</span></li>
     <li class="fragment" data-fragment-index="1"><strong>The bar held on every run</strong> <span class="small">held-out tests plus the project's full suite, checked by machine; a blind judge watches quality</span></li>
     <li class="fragment" data-fragment-index="2"><strong>Under half an hour, unattended</strong> <span class="small">request in, reviewed fix out, while you do something else</span></li>
   </ul>
   <div class="fragment" data-fragment-index="3">
     <table class="pairs">
       <tr><th>Eval task</th><th>Cost per pass</th><th>Wall</th><th>Bar</th></tr>
-      <tr><td>owners-page-param</td><td>$4.92</td><td>9 min</td><td>3 of 3</td></tr>
-      <tr><td>specialty-directory</td><td>$8.52</td><td>17 min</td><td>3 of 3</td></tr>
-      <tr><td>vets-specialty-filter</td><td>$12.87</td><td>26 min</td><td>3 of 3</td></tr>
-      <tr><td>visit-edit</td><td>$11.47</td><td>20 min</td><td>3 of 3</td></tr>
+      <tr><td>owners-page-param</td><td>$2.85</td><td>8 min</td><td>3 of 3</td></tr>
+      <tr><td>specialty-directory</td><td>$5.57</td><td>15 min</td><td>3 of 3</td></tr>
+      <tr><td>vets-specialty-filter</td><td>$5.23</td><td>15 min</td><td>3 of 3</td></tr>
+      <tr><td>visit-edit</td><td>$5.79</td><td>14 min</td><td>3 of 3</td></tr>
     </table>
   </div>
-  <p class="source">Harness v0.4.4, three runs per task: cost per pass, median delivery wall, runs clearing the bar. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/evals/results/TREND.md">evals/results/TREND.md</a></p>
+  <p class="source">Harness v0.4.8: cost per pass, median delivery wall, runs clearing the bar. <a href="https://github.com/woditschka/agentic-coding-reference/blob/main/evals/results/TREND.md">evals/results/TREND.md</a></p>
   <aside class="notes">
-    Click: $5 to $13 per run, demo $8, under an engineer-hour. A third cheaper than the first version.
-    Click: held-out tests plus full suite, blind judge. Click: 9 to 26 minutes, none of it yours. Click: table.
-    Caveats: one project, small slices, tool and model versions changed, part of the fall is faster Claude Code.
+    Click: $3 to $6 a feature, demo $4, under an engineer-hour. Half the cost of v0.4.4, the last row on Opus 5 and Sonnet 5.
+    Click: held-out tests plus full suite, blind judge. The bar is a floor: the demo's round-1 slip would have passed the held-out tests; the reviewers caught it. Click: 8 to 15 minutes, none of it yours. Click: table.
+    Caveats: one project, small slices. The fall arrives with the 5.5 models and the routine tier; the harness and Claude Code moved in the same span.
   </aside>
 </section>
 
