@@ -40,6 +40,23 @@ The committed casts are ledger replays of committed eval runs, stand-ins until a
 
 To regenerate a stand-in from a committed run: `tools/deck/deck.py ledger-cast evals/results/runs/<version>/<run> docs/deck/casts/<name>.cast`.
 
+## Restated figures
+
+Four places restate the run `casts/bugfix.cast` replays: the demo caption, the `written` excerpt slide, the README's run line, and the [feature walkthrough](../feature-walkthrough.md). The results slide and the "about $N a feature" lines restate one version's row of [`TREND.md`](../../evals/results/TREND.md). The battery's published-figures step derives a fixed set of statements. The results rows come from the `TREND.md` rows of the version the slide's source line names. The run's figures come from the run folder the cast header names.
+
+| Document | Statement the step requires |
+|----------|-----------------------------|
+| `slides.html` | The demo caption: task, version, rep, minutes, cost, ledger size |
+| `slides.html` | The run's requirement id on the excerpt slide, as tag and as ledger field |
+| `slides.html` | One results row per feature task: cost per pass, wall, bar, as `TREND.md` renders them |
+| `slides.html`, root `README.md` | Every "about $N a feature" line, at the rows' mean cost |
+| root `README.md` | The run line's minutes and cost |
+| `feature-walkthrough.md` | The run-page link, the cost, the ledger size |
+
+A missing statement fails the step. The step reads no other figure: speaker notes, comparisons between versions, the excerpt text, and the walkthrough's narrative stay hand-maintained. The step's pass line notes a measured version newer than the one the results slide states.
+
+A new demo run changes all four places together; a new results version changes the slide's rows, its source line, and the cost lines.
+
 ## Figure slides
 
 A figure slide is a section of class `figure` holding a kicker, a heading, and one image. The stylesheet lays it out as a column: the kicker and heading at the top, the image centered in the height that remains. The heading takes the content-slide size it shares with the demo slide; the title slide's headline keeps its own size. The stylesheet caps each image's height so that every figure renders at the same scale; the deck's figure suite pins the caps to the figures.

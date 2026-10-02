@@ -24,10 +24,10 @@ re-enumerating:
   2e frontmatter vocabulary (per-tool)   6   harness unit suites
   2f spec-version sync                   6a  tools install completeness
   2g bundled-skill-name collision        6b  tools unit suites
-  3  materialization faithfulness        6bb claude-dev toolchain and confinement pins
-  3b sample layout invariants            6bc eval bench unit suites
-  3c project-owned roster sync           6c  generic-stack self-test
-                                         7   marketplace faithfulness
+  2h published-figures sync              6bb claude-dev toolchain and confinement pins
+  3  materialization faithfulness        6bc eval bench unit suites
+  3b sample layout invariants            6c  generic-stack self-test
+  3c project-owned roster sync           7   marketplace faithfulness
                                          8   marketplace acceptance
                                          9   real plugin install (claude CLI)
 
@@ -104,6 +104,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_parity_gates,
     check_placeholder_gate,
     check_prose_self_containment,
+    check_published_figures,
     check_retired_paths,
     check_root_links,
     check_roster_sync,
@@ -165,6 +166,7 @@ def _run_steps(b: Battery) -> None:
     check_frontmatter_vocabulary(b)
     check_spec_version_sync(b)
     check_bundled_skill_collision(b)
+    check_published_figures(b)
     check_faithfulness(b)
     check_layout_invariants(b)
     check_roster_sync(b)

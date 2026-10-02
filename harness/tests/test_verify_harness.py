@@ -5,6 +5,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import json
 import re
 import subprocess
 import sys
@@ -32,6 +33,53 @@ SEED_RETIRED_PATH = "scripts/score-change.py"
 PYPROJECT_RUFF_PIN = "0.15.22"
 MISMATCHED_RUFF_PIN = "9.9.9"
 CONFINEMENT_BINARIES = ("squid", "socat")
+STATED_VERSION = "v1.2.0"
+OLDER_VERSION = "v1.1.0"
+NEWER_VERSION = "v1.3.0"
+CHEAP_TASK = "owner-search"
+DEAR_TASK = "visit-history"
+REFUSAL_TASK = "visit-purge"
+CHEAP_COST = "$1.00"
+DEAR_COST = "$4.00"
+CHEAP_WALL = "8m"
+DEAR_WALL = "15m"
+REFUSAL_COST = "$90.00"
+BAR = "3/3"
+STATED_CELLS = {CHEAP_TASK: (CHEAP_COST, CHEAP_WALL), DEAR_TASK: (DEAR_COST, DEAR_WALL)}
+OLDER_CELLS = {CHEAP_TASK: ("$7.00", "20m"), DEAR_TASK: ("$9.00", "30m")}
+# The mean of the two stated costs is $2.50; a headline rounds the half up.
+STATED_HEADLINE = "$3"
+FEATURE_HEADER = (
+    "| Version | Reps | Bar | Ckpt | Cost/pass | Δ | Burn | Waste | Wall |\n"
+    "|---|---|---|---|---|---|---|---|---|"
+)
+REFUSAL_HEADER = (
+    "| Version | Reps | Bar | Outcome | Ckpt | Cost/pass | Δ | Burn | Waste | Wall |\n"
+    "|---|---|---|---|---|---|---|---|---|---|"
+)
+JUDGE_HEADER = "| Version | Reps | design-fit |\n|---|---|---|"
+DEMO_TASK = CHEAP_TASK
+DEMO_REP = 2
+DEMO_RUN = f"evals/results/runs/{STATED_VERSION}/2026-01-01-{DEMO_TASK}-r{DEMO_REP}"
+OTHER_RUN = f"evals/results/runs/{OLDER_VERSION}/2026-01-01-{DEMO_TASK}-r{DEMO_REP}"
+DEMO_CAST_TITLE = f"Ledger replay: {DEMO_RUN}"
+PARENT_CAST_TITLE = "Ledger replay: evals/results/runs/../../elsewhere"
+OUTSIDE_DIR = "elsewhere"
+LINKED_VERSION = "v9.9.9"
+LINKED_CAST_TITLE = f"Ledger replay: evals/results/runs/{LINKED_VERSION}/some-run"
+DEMO_REQ_ID = "REQ-OWN-001"
+OTHER_REQ_ID = "REQ-OWN-002"
+DEMO_COST = 3.9
+OTHER_COST = 7.25
+# 575 seconds is 9.58 minutes: the caption states the rounded 10, never the floored 9.
+DEMO_WALL_SECONDS = 575.0
+DEMO_MINUTES = 10
+DEMO_RECORDS = 29
+LEADING_DIGIT = "1"
+STALE_COST_AMOUNT = "$9"
+STALE_COST_LINE = f"About {STALE_COST_AMOUNT} a feature"
+ESCAPE_SEQUENCE = "\x1b[31m"
+NESTING_DEPTH = 100_000
 
 
 class StripFrontmatter(unittest.TestCase):
@@ -1326,6 +1374,278 @@ class VariantRule(unittest.TestCase):
             problems = sync._variant_problems(*self._layer(td, mirror_pin="Opus"))
             self.assertEqual(len(problems), len(sync.MIRROR_SURFACES))
             self.assertTrue(all("variant mirror pin drift" in p for p in problems))
+
+
+class PublishedFigures(unittest.TestCase):
+    def setUp(self):
+        td = tempfile.TemporaryDirectory()
+        self.addCleanup(td.cleanup)
+        self.root = Path(td.name)
+        self._write_trend(
+            [(STATED_VERSION, STATED_CELLS), (OLDER_VERSION, OLDER_CELLS)]
+        )
+        self._write_demo_run(cost=DEMO_COST, req_id=DEMO_REQ_ID)
+        self._write(sync.DEMO_CAST, json.dumps({"title": DEMO_CAST_TITLE}) + "\n")
+        self._write(
+            sync.DECK_SLIDES,
+            f"<li>about {STATED_HEADLINE} a feature, measured</li>\n"
+            f"<p><code>{DEMO_TASK}</code>, harness {STATED_VERSION}, rep r{DEMO_REP}: "
+            f"{DEMO_MINUTES} minutes end to end, ${DEMO_COST:.2f} with grading, "
+            f"{DEMO_RECORDS} ledger records.</p>\n"
+            f"<p>shows the first page <code>[{DEMO_REQ_ID}]</code> "
+            f'{{"req_id": "{DEMO_REQ_ID}"}}</p>\n'
+            f"<strong>About {STATED_HEADLINE} a feature</strong>\n"
+            f"{a_slide_row(CHEAP_TASK, CHEAP_COST, CHEAP_WALL)}\n"
+            f"{a_slide_row(DEAR_TASK, DEAR_COST, DEAR_WALL)}\n"
+            f'<p class="source">Harness {STATED_VERSION}: cost per pass</p>\n',
+        )
+        self._write(
+            sync.ROOT_README,
+            f"a change in {DEMO_MINUTES} minutes for ${DEMO_COST:.2f}, reviewed.\n"
+            f"**About {STATED_HEADLINE} a feature.**\n",
+        )
+        self._write(
+            sync.WALKTHROUGH,
+            f"Ten minutes and ${DEMO_COST:.2f} later, a {DEMO_RECORDS}-record ledger: "
+            f"[run](../{DEMO_RUN}/README.md)\n",
+        )
+
+    def _write(self, relative, content):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    def _append(self, relative, content):
+        path = self.root / relative
+        path.write_text(path.read_text(encoding="utf-8") + content, encoding="utf-8")
+
+    def _write_trend(self, versions):
+        feature_tables = "".join(
+            f"#### {task}\n\n{FEATURE_HEADER}\n"
+            + "".join(
+                f"| {version} | r1 | {BAR} |  | {cells[task][0]} | | | | {cells[task][1]} |\n"
+                for version, cells in versions
+            )
+            + "\n"
+            for task in (CHEAP_TASK, DEAR_TASK)
+        )
+        self._write(
+            sync.TREND_PAGE,
+            f"### Trend by task\n\n{feature_tables}"
+            f"#### {REFUSAL_TASK}\n\n{REFUSAL_HEADER}\n"
+            f"| {STATED_VERSION} | r1 | {BAR} | refused |  | {REFUSAL_COST} | | | | 1m |\n\n"
+            f"### Advisory judge medians\n\n#### {CHEAP_TASK}\n\n{JUDGE_HEADER}\n"
+            f"| {STATED_VERSION} | r1 | 5 |\n",
+        )
+
+    def _write_demo_run(self, *, cost, req_id):
+        result = {
+            "wall_seconds": DEMO_WALL_SECONDS,
+            "agent": {"total_cost_usd": cost},
+            "pipeline": {"handoff_entries": DEMO_RECORDS},
+        }
+        manifest = {
+            "task": {"id": DEMO_TASK},
+            "version": {"label": STATED_VERSION},
+            "rep": DEMO_REP,
+        }
+        self._write(f"{DEMO_RUN}/result.json", json.dumps(result))
+        self._write(f"{DEMO_RUN}/manifest.json", json.dumps(manifest))
+        self._write(
+            f"{DEMO_RUN}/handoff.jsonl",
+            json.dumps({"type": "intake-decision", "req_id": req_id}) + "\n",
+        )
+
+    def _run_step(self):
+        import unittest.mock as mock
+
+        b = battery.Battery(quick=False)
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            mock.patch.object(sync, "ROOT", self.root),
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+        ):
+            sync.check_published_figures(b)
+        return b.failed, out.getvalue(), err.getvalue()
+
+    def test_documents_stating_every_recorded_figure_pass(self):
+        self.assertEqual(sync.published_figure_problems(self.root), [])
+        self.assertEqual(sync.deck_refresh_note(self.root), "")
+
+    def test_the_stated_version_is_checked_while_a_newer_one_is_noted(self):
+        self._write_trend(
+            [(NEWER_VERSION, OLDER_CELLS), (STATED_VERSION, STATED_CELLS)]
+        )
+
+        failed, out, _ = self._run_step()
+
+        self.assertFalse(failed)
+        self.assertIn(f"latest measured is {NEWER_VERSION}", out)
+
+    def test_a_results_row_off_its_recorded_cells_is_named(self):
+        self._write_trend([(STATED_VERSION, OLDER_CELLS)])
+
+        problems = sync.published_figure_problems(self.root)
+
+        older_cost, older_wall = OLDER_CELLS[CHEAP_TASK]
+        self.assertIn(
+            a_slide_row(CHEAP_TASK, older_cost, older_wall),
+            next(p for p in problems if f"<td>{CHEAP_TASK}</td>" in p),
+        )
+
+    def test_a_lower_bound_cost_is_demanded_with_its_mark_escaped(self):
+        bounded = {**STATED_CELLS, DEAR_TASK: (f">={DEAR_COST}", DEAR_WALL)}
+        self._write_trend([(STATED_VERSION, bounded)])
+
+        problems = sync.published_figure_problems(self.root)
+
+        self.assertEqual(len(problems), 1)
+        self.assertIn(f"<td>&gt;={DEAR_COST}</td>", problems[0])
+
+    def test_an_unrecorded_wall_is_demanded_as_unknown(self):
+        unwalled = {**STATED_CELLS, DEAR_TASK: (DEAR_COST, "?m")}
+        self._write_trend([(STATED_VERSION, unwalled)])
+
+        problems = sync.published_figure_problems(self.root)
+
+        self.assertEqual(len(problems), 1)
+        self.assertIn("<td>? min</td>", problems[0])
+
+    def test_a_version_split_over_two_model_pins_is_refused(self):
+        split = [(f"{STATED_VERSION} (some-pin)", STATED_CELLS)]
+        self._write_trend(split)
+
+        with self.assertRaisesRegex(ValueError, "more than one model pin"):
+            sync.published_figure_problems(self.root)
+
+    def test_a_stale_cost_line_beside_a_current_one_is_named_per_document(self):
+        for document in (sync.DECK_SLIDES, sync.ROOT_README):
+            with self.subTest(document=document):
+                self.setUp()
+                self._append(document, f"{STALE_COST_LINE}\n")
+
+                problems = sync.published_figure_problems(self.root)
+
+                self.assertEqual(len(problems), 1)
+                self.assertIn(document, problems[0])
+                self.assertIn(STALE_COST_AMOUNT, problems[0])
+
+    def test_a_demo_cost_off_its_run_record_is_named_in_every_document(self):
+        self._write_demo_run(cost=OTHER_COST, req_id=DEMO_REQ_ID)
+
+        problems = sync.published_figure_problems(self.root)
+
+        for document in sync.PUBLISHED_DOCUMENTS:
+            self.assertTrue(
+                any(document in p and f"${OTHER_COST:.2f}" in p for p in problems),
+                (document, problems),
+            )
+
+    def test_an_excerpt_quoting_another_requirement_is_named_as_tag_and_field(self):
+        self._write_demo_run(cost=DEMO_COST, req_id=OTHER_REQ_ID)
+
+        problems = sync.published_figure_problems(self.root)
+
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(any(f"`[{OTHER_REQ_ID}]`" in p for p in problems), problems)
+        self.assertTrue(
+            any(f'"req_id": "{OTHER_REQ_ID}"' in p for p in problems), problems
+        )
+
+    def test_a_walkthrough_linking_another_run_is_named(self):
+        self._write(
+            sync.WALKTHROUGH,
+            f"Ten minutes and ${DEMO_COST:.2f} later, a {DEMO_RECORDS}-record ledger: "
+            f"[run](../{OTHER_RUN}/README.md)\n",
+        )
+
+        problems = sync.published_figure_problems(self.root)
+
+        self.assertEqual(len(problems), 1)
+        self.assertIn(f"../{DEMO_RUN}/README.md", problems[0])
+
+    def test_a_longer_figure_ending_in_the_recorded_digits_is_named(self):
+        self._write(
+            sync.WALKTHROUGH,
+            f"Ten minutes and ${LEADING_DIGIT}{DEMO_COST:.2f} later, a "
+            f"{LEADING_DIGIT}{DEMO_RECORDS}-record ledger: "
+            f"[run](../{DEMO_RUN}/README.md)\n",
+        )
+
+        problems = sync.published_figure_problems(self.root)
+
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(all(sync.WALKTHROUGH in p for p in problems))
+
+    def test_a_cast_naming_a_parent_directory_is_refused(self):
+        self._write(sync.DEMO_CAST, json.dumps({"title": PARENT_CAST_TITLE}) + "\n")
+
+        with self.assertRaisesRegex(ValueError, "names no run folder"):
+            sync.published_figure_problems(self.root)
+
+    def test_a_run_folder_linked_outside_the_runs_tree_is_refused(self):
+        outside = self.root / OUTSIDE_DIR
+        outside.mkdir()
+        (self.root / sync.RUNS_DIR / LINKED_VERSION).symlink_to(outside)
+        self._write(sync.DEMO_CAST, json.dumps({"title": LINKED_CAST_TITLE}) + "\n")
+
+        with self.assertRaisesRegex(ValueError, "outside"):
+            sync.published_figure_problems(self.root)
+
+    def test_an_empty_ledger_is_refused_by_path(self):
+        self._write(f"{DEMO_RUN}/handoff.jsonl", "")
+
+        with self.assertRaisesRegex(
+            ValueError, re.escape(f"{DEMO_RUN}/handoff.jsonl line 1 is not JSON")
+        ):
+            sync.published_figure_problems(self.root)
+
+    def test_a_deeply_nested_ledger_line_is_refused(self):
+        self._write(f"{DEMO_RUN}/handoff.jsonl", "[" * NESTING_DEPTH + "\n")
+
+        with self.assertRaises((ValueError, TypeError)):
+            sync.published_figure_problems(self.root)
+
+    def test_a_non_finite_run_cost_is_refused_by_path(self):
+        self._write_demo_run(cost=float("nan"), req_id=DEMO_REQ_ID)
+
+        with self.assertRaisesRegex(
+            ValueError, re.escape(f"{DEMO_RUN}/result.json holds a non-finite number")
+        ):
+            sync.published_figure_problems(self.root)
+
+    def test_a_requirement_id_carrying_control_bytes_is_refused_escaped(self):
+        self._write_demo_run(cost=DEMO_COST, req_id=DEMO_REQ_ID + ESCAPE_SEQUENCE)
+
+        with self.assertRaises(ValueError) as refused:
+            sync.published_figure_problems(self.root)
+
+        self.assertIn("holds a non-identifier", str(refused.exception))
+        self.assertNotIn(ESCAPE_SEQUENCE, str(refused.exception))
+
+    def test_a_slide_without_a_source_line_fails_the_step_and_names_the_cause(self):
+        self._write(sync.DECK_SLIDES, "<p>no source line</p>\n")
+
+        failed, _, err = self._run_step()
+
+        self.assertTrue(failed)
+        self.assertIn("carries no", err)
+
+    def test_a_run_record_of_the_wrong_shape_fails_the_step_and_names_the_file(self):
+        self._write(f"{DEMO_RUN}/result.json", json.dumps([]))
+
+        failed, _, err = self._run_step()
+
+        self.assertTrue(failed)
+        self.assertIn(f"{DEMO_RUN}/result.json is not a JSON object", err)
+
+
+def a_slide_row(task, cost, wall):
+    return (
+        f"<tr><td>{task}</td><td>{cost}</td><td>{wall.removesuffix('m')} min</td>"
+        f"<td>{BAR.replace('/', ' of ')}</td></tr>"
+    )
 
 
 if __name__ == "__main__":

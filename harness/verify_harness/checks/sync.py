@@ -1,7 +1,10 @@
 """Hold the rendered trees to their sources and the cross-file content invariants."""
 
+import html
 import json
+import math
 import re
+import statistics
 import subprocess
 import sys
 import tomllib
@@ -61,6 +64,50 @@ PH_ALLOW = re.compile(
     r"|evals/run_eval\.py$"
     r"|evals/tests/test_run_eval\.py$)"
 )
+
+TREND_PAGE = "evals/results/TREND.md"
+RUNS_DIR = "evals/results/runs"
+DECK_SLIDES = "docs/deck/slides.html"
+DEMO_CAST = "docs/deck/casts/bugfix.cast"
+WALKTHROUGH = "docs/feature-walkthrough.md"
+ROOT_README = "README.md"
+PUBLISHED_DOCUMENTS = (DECK_SLIDES, ROOT_README, WALKTHROUGH)
+DECK_STAMP = re.compile(r'<p class="source">Harness (v\d+(?:\.\d+)+):')
+COST_HEADLINE = re.compile(r"[Aa]bout \$(\d+) a feature")
+# An identifier a failure line may print: ASCII word characters, dots, and
+# dashes, starting with a word character.
+SLUG = re.compile(r"\w[\w.-]*", re.ASCII)
+# Each path segment is a slug, so the header can name neither a parent
+# directory nor an absolute path.
+CAST_SOURCE = re.compile(rf"Ledger replay: ({RUNS_DIR}/\w[\w.-]*/\w[\w.-]*)", re.ASCII)
+TASK_HEADING = re.compile(r"#### (\w[\w.-]*)", re.ASCII)
+TABLE_RULE = re.compile(r"\|[-:| ]+\|")
+RESULT_COLUMNS = frozenset({"Version", "Bar", "Cost/pass", "Wall"})
+REFUSAL_COLUMN = "Outcome"
+# The trend tables' cell shapes: `~` marks a provisional figure, `>=` a lower
+# bound, `?` an unrecorded wall, and a dash a cell without a clearing rep.
+COST_CELL = re.compile(r"~?(?:>=)?\$(\d+\.\d\d)")
+WALL_CELL = re.compile(r"(~?(?:\d+|\?))m")
+BAR_CELL = re.compile(r"(\d+)/(\d+)")
+NO_COST = "—"
+SECONDS_PER_MINUTE = 60
+ROUND_HALF_UP = 0.5
+SHOWN_VALUE_CHARS = 80
+
+
+@dataclass(frozen=True, slots=True)
+class DemoRun:
+    """The recorded run the demo replays: identifiers are slugs, numbers finite."""
+
+    folder: str
+    task: str
+    label: str
+    rep: int
+    wall_seconds: float
+    cost: float
+    records: int
+    req_id: str
+
 
 TEMPLATES_REL = Path(".claude/skills/doctor/templates")
 ENFORCER_SKILLS = ("code-quality-review", "design-validation")
@@ -743,6 +790,281 @@ def check_spec_version_sync(b: Battery) -> None:
         if needle not in read_text(path)
     ]
     b.report(problems, f"both docs state spec {spec_version}")
+
+
+def check_published_figures(b: Battery) -> None:
+    """Hold the eval figures the deck, README, and walkthrough restate equal to the records."""
+    b.note("published-figures sync (deck, README, walkthrough vs eval records)")
+    try:
+        problems = published_figure_problems(ROOT)
+        refresh_note = deck_refresh_note(ROOT)
+    except (OSError, ValueError, TypeError) as exc:
+        # TypeError: a record of the wrong shape fails the step, never aborts the run.
+        b.fail(f"could not derive the published figures: {exc}")
+        return
+    b.report(problems, f"every restated figure matches its record{refresh_note}")
+
+
+def published_figure_problems(root: Path) -> list[str]:
+    """List each recorded figure a published document fails to state."""
+    version = _deck_version(root)
+    rows, headline = _results_statements(_trend_tables(root), version)
+    statements = [*rows, *_demo_statements(_demo_run(root))]
+    documents = {doc: read_text(root / doc) for doc in PUBLISHED_DOCUMENTS}
+    missing = [
+        f"{doc} does not state `{statement}` — the figure drifted from "
+        f"{TREND_PAGE} ({version}) or from the run {DEMO_CAST} replays; "
+        "update the document"
+        for doc, statement in statements
+        if statement not in documents[doc]
+    ]
+    return [*missing, *_headline_problems(documents, headline, version)]
+
+
+def deck_refresh_note(root: Path) -> str:
+    """Name the newer measured version when the results slide states an older one."""
+    tables = _trend_tables(root)
+    if not tables:
+        raise ValueError(f"{TREND_PAGE} holds no feature-task table")
+    latest = _slug(next(iter(tables.values()))[0]["Version"], f"{TREND_PAGE} version")
+    stated = _deck_version(root)
+    if stated == latest:
+        return ""
+    return f"; note: the results slide states {stated}, latest measured is {latest}"
+
+
+def _deck_version(root: Path) -> str:
+    """Return the harness version the results slide's source line states."""
+    stamp = DECK_STAMP.search(read_text(root / DECK_SLIDES))
+    if stamp is None:
+        raise ValueError(
+            f'{DECK_SLIDES} carries no `<p class="source">Harness v<version>:` line'
+        )
+    return stamp.group(1)
+
+
+def _trend_tables(root: Path) -> dict[str, list[dict[str, str]]]:
+    """Return each feature task's trend-table rows by column name, newest version first."""
+    tables: dict[str, list[dict[str, str]]] = {}
+    task: str | None = None
+    columns: list[str] = []
+    for line in read_text(root / TREND_PAGE).splitlines():
+        if line.startswith("#"):
+            heading = TASK_HEADING.fullmatch(line)
+            task = heading.group(1) if heading else None
+            columns = []
+        elif task is None or not line.startswith("|") or TABLE_RULE.fullmatch(line):
+            continue
+        elif not columns:
+            columns = _cells(line)
+        elif set(columns) >= RESULT_COLUMNS and REFUSAL_COLUMN not in columns:
+            tables.setdefault(task, []).append(_row(line, columns, task))
+    return tables
+
+
+def _row(line: str, columns: list[str], task: str) -> dict[str, str]:
+    """Key one table row's cells by column, refusing a row of another width."""
+    cells = _cells(line)
+    if len(cells) != len(columns):
+        raise ValueError(
+            f"{TREND_PAGE} {task} table holds a row of {len(cells)} cells under "
+            f"{len(columns)} columns"
+        )
+    return dict(zip(columns, cells, strict=True))
+
+
+def _cells(line: str) -> list[str]:
+    """Split one Markdown table line into its trimmed cells."""
+    return [cell.strip() for cell in line.strip()[1:-1].split("|")]
+
+
+def _results_statements(
+    tables: dict[str, list[dict[str, str]]], version: str
+) -> tuple[list[tuple[str, str]], str]:
+    """Return the results slide's rows for the version and the whole-dollar cost they average to."""
+    rows = []
+    unit_costs = []
+    for task, table in tables.items():
+        row = _version_row(table, version, task)
+        if row is None:
+            continue
+        rows.append((DECK_SLIDES, _slide_row(task, row, version)))
+        cost = COST_CELL.fullmatch(row["Cost/pass"])
+        if cost is not None:
+            unit_costs.append(float(cost.group(1)))
+    if not unit_costs:
+        raise ValueError(f"{TREND_PAGE} prices no feature task at {version}")
+    # Half a dollar rounds up, as a reader expects of a headline.
+    return rows, str(math.floor(statistics.mean(unit_costs) + ROUND_HALF_UP))
+
+
+def _version_row(
+    table: list[dict[str, str]], version: str, task: str
+) -> dict[str, str] | None:
+    """Return the task's row for the version, or None when the version left the task unmeasured."""
+    for row in table:
+        if row["Version"] == version:
+            return row
+    if any(row["Version"].startswith(f"{version} ") for row in table):
+        raise ValueError(
+            f"{TREND_PAGE} lists {task} at {version} under more than one model pin; "
+            "one slide row cannot restate it"
+        )
+    return None
+
+
+def _slide_row(task: str, row: dict[str, str], version: str) -> str:
+    """Render one trend row as the results slide states it."""
+    cost = row["Cost/pass"]
+    wall = WALL_CELL.fullmatch(row["Wall"])
+    bar = BAR_CELL.fullmatch(row["Bar"])
+    priced = cost == NO_COST or COST_CELL.fullmatch(cost) is not None
+    if wall is None or bar is None or not priced:
+        raise ValueError(
+            f"{TREND_PAGE} {task} row for {version} has an unreadable cell"
+        )
+    return (
+        f"<tr><td>{task}</td><td>{html.escape(cost)}</td><td>{wall.group(1)} min</td>"
+        f"<td>{bar.group(1)} of {bar.group(2)}</td></tr>"
+    )
+
+
+def _headline_problems(
+    documents: dict[str, str], headline: str, version: str
+) -> list[str]:
+    """Flag a document whose cost lines are absent or state another whole-dollar figure."""
+    problems = []
+    for doc in (DECK_SLIDES, ROOT_README):
+        stated = COST_HEADLINE.findall(documents[doc])
+        if not stated or any(amount != headline for amount in stated):
+            found = ", ".join(f"${amount}" for amount in stated) or "none"
+            problems.append(
+                f"{doc} states the cost of a feature as {found}; {TREND_PAGE} "
+                f"({version}) averages to about ${headline} — update every "
+                "`about $N a feature` line"
+            )
+    return problems
+
+
+def _demo_run(root: Path) -> DemoRun:
+    """Read the figures of the run the demo cast replays out of its folder."""
+    folder = _demo_run_folder(root)
+    result_source = f"{folder}/result.json"
+    manifest_source = f"{folder}/manifest.json"
+    ledger_source = f"{folder}/handoff.jsonl line 1"
+    result = _json_object(root, result_source)
+    manifest = _json_object(root, manifest_source)
+    intake = _first_record(root, f"{folder}/handoff.jsonl")
+    return DemoRun(
+        folder=folder,
+        task=_slug(_field(manifest, manifest_source, "task", "id"), manifest_source),
+        label=_slug(
+            _field(manifest, manifest_source, "version", "label"), manifest_source
+        ),
+        rep=_count(_field(manifest, manifest_source, "rep"), manifest_source),
+        wall_seconds=_amount(
+            _field(result, result_source, "wall_seconds"), result_source
+        ),
+        cost=_amount(
+            _field(result, result_source, "agent", "total_cost_usd"), result_source
+        ),
+        records=_count(
+            _field(result, result_source, "pipeline", "handoff_entries"), result_source
+        ),
+        req_id=_slug(_field(intake, ledger_source, "req_id"), ledger_source),
+    )
+
+
+def _demo_statements(run: DemoRun) -> Iterator[tuple[str, str]]:
+    """Yield the demo run's figures in the form each document states them."""
+    minutes = f"{run.wall_seconds / SECONDS_PER_MINUTE:.0f}"
+    cost = f"${run.cost:.2f}"
+    yield (
+        DECK_SLIDES,
+        f"<code>{run.task}</code>, harness {run.label}, rep r{run.rep}: {minutes} "
+        f"minutes end to end, {cost} with grading, {run.records} ledger records",
+    )
+    yield DECK_SLIDES, f'"req_id": "{run.req_id}"'
+    yield DECK_SLIDES, f"[{run.req_id}]"
+    yield ROOT_README, f" in {minutes} minutes for {cost}"
+    yield WALKTHROUGH, f"../{run.folder}/README.md"
+    yield WALKTHROUGH, f" and {cost} later"
+    yield WALKTHROUGH, f" a {run.records}-record ledger"
+
+
+def _demo_run_folder(root: Path) -> str:
+    """Return the committed run folder the demo cast's header names."""
+    title = _field(_first_record(root, DEMO_CAST), DEMO_CAST, "title")
+    source = CAST_SOURCE.fullmatch(title) if isinstance(title, str) else None
+    if source is None:
+        raise ValueError(f"{DEMO_CAST} header names no run folder under {RUNS_DIR}/")
+    folder = source.group(1)
+    # A committed symbolic link must not steer the reads outside the runs tree.
+    if not (root / folder).resolve().is_relative_to((root / RUNS_DIR).resolve()):
+        raise ValueError(f"{DEMO_CAST} header names a run folder outside {RUNS_DIR}/")
+    return folder
+
+
+def _json_object(root: Path, relative: str) -> dict[str, Any]:
+    """Parse a file under root that must hold one JSON object."""
+    return _as_object(read_text(root / relative), relative)
+
+
+def _first_record(root: Path, relative: str) -> dict[str, Any]:
+    """Parse the first line of a file under root, which must be a JSON object."""
+    with (root / relative).open(encoding="utf-8") as lines:
+        return _as_object(lines.readline(), f"{relative} line 1")
+
+
+def _as_object(document: str, source: str) -> dict[str, Any]:
+    """Parse one JSON object, naming its source when the text is anything else."""
+    try:
+        loaded = json.loads(document)
+    except (ValueError, RecursionError) as exc:
+        # RecursionError: deeply nested JSON on an interpreter that recurses to parse it.
+        raise ValueError(f"{source} is not JSON: {type(exc).__name__}") from exc
+    if not isinstance(loaded, dict):
+        raise TypeError(f"{source} is not a JSON object")
+    return loaded
+
+
+def _field(record: object, source: str, *keys: str) -> Any:  # noqa: ANN401
+    """Return a nested field of a parsed record, naming the source when it is absent."""
+    for key in keys:
+        if not isinstance(record, dict) or key not in record:
+            raise ValueError(f"{source} lacks `{'.'.join(keys)}`")
+        record = record[key]
+    return record
+
+
+def _slug(value: object, source: str) -> str:
+    """Return a recorded identifier in the plain shape a failure line may print."""
+    if not isinstance(value, str) or not SLUG.fullmatch(value):
+        raise ValueError(f"{source} holds a non-identifier: {_shown(value)}")
+    return value
+
+
+def _amount(value: object, source: str) -> float:
+    """Return a recorded number, refusing a boolean, a string, NaN, and infinity."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{source} holds a non-number: {_shown(value)}")
+    if not math.isfinite(value):
+        raise ValueError(f"{source} holds a non-finite number: {_shown(value)}")
+    return float(value)
+
+
+def _count(value: object, source: str) -> int:
+    """Return a recorded count, refusing a boolean, a fraction, and a negative."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{source} holds a non-count: {_shown(value)}")
+    if value < 0:
+        raise ValueError(f"{source} holds a negative count: {value}")
+    return value
+
+
+def _shown(value: object) -> str:
+    """Render an unexpected value for an error line, escaped and cut short."""
+    return repr(value)[:SHOWN_VALUE_CHARS]
 
 
 def check_faithfulness(b: Battery) -> None:
