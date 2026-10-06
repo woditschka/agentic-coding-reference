@@ -20,6 +20,11 @@
 #                    host/LAN/metadata deny stay
 #   --allowlist-egress  force allow-list mode, overriding [egress] mode = "open"
 #   --ide            bridge one running JetBrains IDE's MCP oracle in (opt-in)
+#   --ow             run on the open-weight peer declared in [open-weight]. The
+#                    proxy gains a reverse port to it that admits POST
+#                    /v1/messages only. The session gets the base URL, a
+#                    placeholder token and the [open-weight.models] map; no real
+#                    credential is mounted.
 #   -h, --help
 #
 # Any other flag goes to `claude` inside: --resume, --continue, --model,
@@ -39,7 +44,9 @@
 #
 # Egress is default-deny: the session's only route out is a squid proxy that
 # allows CONNECT to :443 for the [egress] allow domains and refuses host, LAN
-# and metadata addresses. To see what a session asked for and did not get:
+# and metadata addresses. --ow adds one plain-HTTP path to the [open-weight] peer,
+# read and filtered by the same proxy. To see what a session asked for and did
+# not get:
 # `claude-dev access` (per-host counts), or the raw record:
 # grep TCP_DENIED ~/.config/claude-dev/last-egress.log
 #
@@ -53,9 +60,9 @@
 # Layout when installed:
 #   ~/.local/bin/claude-dev                the command (on PATH)
 #   ~/.config/claude-dev/Dockerfile        the image definition
-#   ~/.config/claude-dev/claude-dev.toml   the operator's policy: [mounts] and
-#                                          [egress]; read as data, never
-#                                          executed; documents its own keys
+#   ~/.config/claude-dev/claude-dev.toml   the operator's policy: [mounts],
+#                                          [egress] and [open-weight]; read as data,
+#                                          never executed; documents its own keys
 #   ~/.config/claude-dev/state/            the session's private ~/.claude
 #   ~/.config/claude-dev/auth/             the session's private credentials
 #   ~/.config/claude-dev/last-egress.log   the proxy's access log, saved on exit
@@ -75,9 +82,11 @@ CLAUDE_VERSION="${CLAUDE_DEV_CLAUDE_VERSION:-latest}"
 # One tag, always built here from the shipped Dockerfile: the proxy runs from
 # this image too, so an image built elsewhere could shape its own confinement.
 TAG="claude-dev:latest"
-# Where the proxy reaches the host for the --ide pinhole. Every VM engine
-# defines this name; plain Docker Engine on Linux does not (see the README).
-IDE_GATEWAY="host.docker.internal"
+# Where the proxy reaches the host machine: the --ide pinhole and an [open-weight]
+# peer of "host". Every VM engine defines this name; plain Docker Engine on
+# Linux does not (see the README).
+HOST_GATEWAY="host.docker.internal"
+IDE_GATEWAY="$HOST_GATEWAY"
 
 die(){ printf 'claude-dev: %s\n' "$1" >&2; exit 1; }
 warn(){ printf 'claude-dev: %s\n' "$1" >&2; }
@@ -113,6 +122,8 @@ PROXY_PORT=3128
 TELEMETRY=0
 DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; DO_CLEANUP=0; DO_CLEANUP_ALL=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
 IDE=0
+# The [open-weight] table, as the config module reports it; OW_PEER empty = no table.
+OW=0; OW_PEER=""; OW_PORT=""; OW_PROXY_PORT=""; OW_TAGS=(); OW_TARGETS=()
 if [ -f "$CLAUDE_DEV_HOME/claude-dev.toml" ]; then
   CONFIG="$CLAUDE_DEV_HOME/claude-dev.toml"
 elif [ -f "$SELF_DIR/claude-dev.toml" ]; then
@@ -131,6 +142,13 @@ while IFS='=' read -r k v; do
                    || die "invalid PROXY_PORT from the config module: $v"
                  PROXY_PORT="$v";;
     TELEMETRY)   case "$v" in 0|1) TELEMETRY="$v";; *) die "invalid TELEMETRY from the config module: $v";; esac;;
+    OW_PEER)     OW_PEER="$v";;
+    OW_PORT)     [[ "$v" =~ ^[0-9]+$ ]] || die "invalid OW_PORT from the config module: $v"
+                 OW_PORT="$v";;
+    OW_PROXY_PORT) [[ "$v" =~ ^[0-9]+$ ]] || die "invalid OW_PROXY_PORT from the config module: $v"
+                 OW_PROXY_PORT="$v";;
+    OW_TAG)      OW_TAGS+=("$v");;
+    OW_TARGET)   OW_TARGETS+=("$v");;
     '')          ;;
     *)           die "unknown setting from the config module: $k";;
   esac
@@ -154,12 +172,16 @@ while [ $# -gt 0 ]; do
     --open-egress)      EGRESS="open"; shift;;
     --allowlist-egress) EGRESS="allow-list"; shift;;
     --ide)           IDE=1; shift;;
+    --ow)            OW=1; shift;;
     --)              shift; while [ $# -gt 0 ]; do CLAUDE_ARGS+=("$1"); shift; done;;
     *)               CLAUDE_ARGS+=("$1"); shift;;
   esac
 done
 
 case "$EGRESS" in allow-list|open) ;; *) die "EGRESS must be \"allow-list\" or \"open\" (got: $EGRESS)";; esac
+# The peer is policy, so it lives in the file: the flag only turns it on.
+[ "$OW" = 1 ] && [ -z "$OW_PEER" ] && die "--ow needs an [open-weight] table in $CONFIG (peer, port, [open-weight.models]); the shipped claude-dev.toml documents it"
+OW_GATEWAY="$OW_PEER"; [ "$OW_PEER" = host ] && OW_GATEWAY="$HOST_GATEWAY"
 
 # ---- resolve the docker context (one rule, no override; target: Rancher Desktop) ----
 # Pin the rancher-desktop context when it exists, else the ambient engine. Not
@@ -289,7 +311,12 @@ case "$WORKDIR" in "$CLAUDE_DEV_HOME"|"$CLAUDE_DEV_HOME"/*)
 AUTH_DIR="$CLAUDE_DEV_HOME/auth"
 mkdir -p "$AUTH_DIR" && chmod 700 "$AUTH_DIR"
 AUTH_DIR="$(cd "$AUTH_DIR" && pwd -P)"
-if [ ! -f "$AUTH_DIR/.credentials.json" ]; then
+# Under --ow the session authenticates to the peer with a placeholder token.
+# The credential directory stays on the host, so the session holds no real
+# credential. Its store points at an unmounted path under the tmpfs home: a
+# /login run inside lands nowhere that persists.
+OW_AUTH_DIR="$HOME_P/.config/claude-dev-ow-auth"
+if [ "$OW" = 0 ] && [ ! -f "$AUTH_DIR/.credentials.json" ]; then
   echo "claude-dev: first run — type '/login' once inside (persists to $AUTH_DIR/.credentials.json)." >&2
 fi
 
@@ -434,7 +461,11 @@ done
 for d in ${RO[@]+"${RO[@]}"}; do
   rp="$(resolve_mount "$d" --ro)"; RUN+=(-v "$rp:$rp:ro")
 done
-RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$AUTH_DIR")
+if [ "$OW" = 0 ]; then
+  RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$AUTH_DIR")
+else
+  RUN+=(-e CLAUDE_SECURESTORAGE_CONFIG_DIR="$OW_AUTH_DIR")
+fi
 # terminal: TERM/COLORTERM for the TUI; a UTF-8 locale (built into Debian 13's
 # glibc) so pasted non-ASCII text survives the C/POSIX default.
 RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
@@ -459,7 +490,9 @@ EFFECTIVE_ALLOW="$RUNDIR/allowlist.txt"
 if [ "$EGRESS" = allow-list ]; then
   config_py allowlist "$CONFIG" ${ALLOW_ARGS[@]+"${ALLOW_ARGS[@]}"} > "$EFFECTIVE_ALLOW" || exit 1
   ALLOW_COUNT="$(grep -c . "$EFFECTIVE_ALLOW" || true)"
-  grep -qx 'api\.anthropic\.com' "$EFFECTIVE_ALLOW" \
+  # Under --ow the model is the peer, so a missing Anthropic entry is not a
+  # defect; a present one stays reachable, with no credential behind it.
+  [ "$OW" = 1 ] || grep -qx 'api\.anthropic\.com' "$EFFECTIVE_ALLOW" \
     || warn "WARNING — api.anthropic.com is not on the allow-list; Claude Code will not reach its API"
 elif [ ${#EXTRA_ALLOW[@]} -gt 0 ]; then
   warn "--allow has no effect under --open-egress (every destination outside the private ranges is already reachable)"
@@ -514,15 +547,31 @@ if [ "$DO_ACCESS" = 1 ]; then
     printf 'allow  every public domain\n'
     printf 'deny   every port but 443, and the host, LAN and metadata ranges\n'
   fi
+  # The reverse port is a second, separate plan: one origin the proxy fixes,
+  # one request shape, and the session's model map.
+  if [ "$OW" = 1 ]; then
+    printf '\nopen-weight: reverse port proxy:%s -> %s:%s (peer "%s"), plain HTTP read by the proxy\n' "$OW_PROXY_PORT" "$OW_GATEWAY" "$OW_PORT" "$OW_PEER"
+    printf 'allow  POST /v1/messages (and /count_tokens), any query string\n'
+    printf 'deny   every other path and method on that port (model pull, delete, push, listings)\n'
+    for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do printf 'model  %s\n' "$m"; done
+    printf 'session: placeholder token, no credential mounted\n'
+    [ "$OW_PEER" = host ] || printf 'note   the peer is not this machine: prompts and code leave it in plain HTTP, and its daemon must listen beyond loopback\n'
+  fi
   # The plan above, the record below: per-host counts from the proxy's access
-  # log — live when a session runs, else the file the last exit saved. allow =
-  # TCP_TUNNEL, deny = TCP_DENIED. Docker is only asked guarded questions, so
-  # `access` still answers when no engine is up.
+  # log — live when a session runs, else the file the last exit saved. deny =
+  # TCP_DENIED, allow = every other verdict (TCP_TUNNEL for a CONNECT, TCP_MISS
+  # for a request the reverse port forwarded). A CONNECT target is host:port; a
+  # forwarded request is a URL, kept as host/path so a refused model-management
+  # call reads as such. Docker is only asked guarded questions, so `access`
+  # still answers when no engine is up.
   TRAFFIC_LOG="$CLAUDE_DEV_HOME/last-egress.log"
   LIVE_PROXY="$("${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null | grep '^claude-dev-.*-proxy$' | head -1 || true)"
   if [ -n "$LIVE_PROXY" ]; then
+    # stdout only: the access log, which squid percent-escapes. stderr is the
+    # cache log, where a request header can land verbatim. Control bytes go,
+    # as on the saved path, since the rows are printed to a TTY.
     TRAFFIC_SRC="live, $LIVE_PROXY"
-    TRAFFIC_RAW="$("${DOCKER[@]}" logs "$LIVE_PROXY" 2>&1 || true)"
+    TRAFFIC_RAW="$("${DOCKER[@]}" logs "$LIVE_PROXY" 2>/dev/null | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177' || true)"
   elif [ -f "$TRAFFIC_LOG" ]; then
     TRAFFIC_SRC="saved on last exit, $(home_abbrev "$TRAFFIC_LOG")"
     TRAFFIC_RAW="$(cat "$TRAFFIC_LOG")"
@@ -535,9 +584,9 @@ if [ "$DO_ACCESS" = 1 ]; then
     printf '\ntraffic (%s):\n' "$TRAFFIC_SRC"
     REPORT="$(printf '%s\n' "$TRAFFIC_RAW" | awk '
         {for(i=1;i<=NF;i++) if ($i ~ /^TCP_/) {
-           h=$(i+3); sub(/:[0-9]+$/,"",h)
-           if      ($i ~ /^TCP_TUNNEL/) print "allow", h
-           else if ($i ~ /^TCP_DENIED/) print "deny",  h
+           h=$(i+3)
+           if (sub(/^https?:\/\//,"",h)) sub(/:[0-9]+\//,"/",h); else sub(/:[0-9]+$/,"",h)
+           if ($i ~ /^TCP_DENIED/) print "deny", h; else print "allow", h
            break}}' \
       | sort | uniq -c | sort -k2,2 -k1,1nr \
       | awk '{printf "%-5s %5d  %s\n", $2, $1, $3}')"
@@ -583,6 +632,31 @@ for p in ${IDE_PORTS[@]+"${IDE_PORTS[@]}"}; do
   { [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -gt 0 ] && [ "$p" -lt 65536 ]; } || die "invalid IDE port from preflight: $p"
 done
 
+# ---- open-weight peer: preflight the model map, --ow only ----
+# Also on the host, which reaches its own daemon at loopback and a LAN peer
+# by address. A peer that does not answer, or a local tag it does not list,
+# ends the launch: the session would fail at its first request. An unlisted
+# cloud tag only warns, since the daemon serves it on demand.
+if [ "$OW" = 1 ]; then
+  OW_PREFLIGHT="$CLAUDE_DEV_HOME/open_weight_preflight.py"
+  [ -f "$OW_PREFLIGHT" ] || OW_PREFLIGHT="$SELF_DIR/open_weight_preflight.py"
+  if [ -f "$OW_PREFLIGHT" ]; then
+    OW_PROBE_HOST="$OW_PEER"; [ "$OW_PEER" = host ] && OW_PROBE_HOST="127.0.0.1"
+    OW_TAG_ARGS=()
+    for tag in ${OW_TAGS[@]+"${OW_TAGS[@]}"}; do OW_TAG_ARGS+=("--tag=$tag"); done
+    OW_VERDICT=0
+    OW_REPORT="$(python3 "$OW_PREFLIGHT" --peer "$OW_PROBE_HOST" --port "$OW_PORT" ${OW_TAG_ARGS[@]+"${OW_TAG_ARGS[@]}"} 2>&1)" || OW_VERDICT=$?
+    case "$OW_VERDICT" in
+      0) ;;
+      3) warn "--ow: $OW_REPORT — served on demand if the daemon is signed in, else every dispatch on it fails";;
+      1) die "--ow: $OW_REPORT — pull the tag or fix [open-weight.models] in $CONFIG";;
+      *) die "--ow: $OW_REPORT — start the daemon (peer \"$OW_PEER\") or launch without --ow";;
+    esac
+  else
+    warn "--ow: $OW_PREFLIGHT is missing (run install.sh); the model map is not checked before launch"
+  fi
+fi
+
 CMD=(claude)
 # The permission posture. Default: auto mode — the classifier approves routine
 # actions and prompts on the flagged ones. A behavioral layer, not a boundary:
@@ -594,12 +668,17 @@ for a in ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}; do
   case "$a" in --permission-mode|--permission-mode=*|--dangerously-skip-permissions) PERM_DEFAULT=0;; esac
 done
 [ "$PERM_DEFAULT" = 1 ] && CMD+=(--permission-mode auto)
-# Force Claude's in-process sandbox off: under Docker's default seccomp
-# profile bubblewrap cannot create a user namespace (measured — README §
-# Process has the matrix), and turning it on would mean seccomp=unconfined for
-# the whole container. --settings sits at CLI precedence; a user-passed
-# --settings lands after this one in argv and displaces it (the opt-out).
-CMD+=(--settings '{"sandbox":{"enabled":false,"failIfUnavailable":false}}')
+# One --settings document from the config module. It declares Claude's
+# in-process sandbox off: under Docker's default seccomp profile bubblewrap
+# cannot create a user namespace (measured, README § Process has the matrix),
+# and turning it on would mean seccomp=unconfined for the whole container.
+# Under --ow it also carries the peer's base URL, the placeholder token and
+# the model map. --settings sits at CLI precedence, above every project file.
+# A user-passed --settings lands after this one in argv and displaces the
+# whole document (the opt-out).
+OW_SETTINGS_ARGS=(); [ "$OW" = 1 ] && OW_SETTINGS_ARGS=(--ow)
+CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG" ${OW_SETTINGS_ARGS[@]+"${OW_SETTINGS_ARGS[@]}"})" || exit 1
+CMD+=(--settings "$CLAUDE_SETTINGS")
 FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
 
 # ---- names, then the reaper (identity and reap_dead: defined above, after the docker-context block) ----
@@ -668,10 +747,13 @@ IDE_CONF_ARGS=()
 if [ ${#IDE_PORTS[@]} -gt 0 ]; then
   IDE_CONF_ARGS=(--ide-gateway "$IDE_GATEWAY" --ide-port "${IDE_PORTS[0]}")
 fi
+OW_CONF_ARGS=()
+[ "$OW" = 1 ] && OW_CONF_ARGS=(--ow --host-gateway "$HOST_GATEWAY")
 config_py squid-conf "$CONFIG" --subnet "$INT_SUBNET" --mode "$EGRESS" \
     --label "$SESSION_NAME" \
     ${ALLOW_ARGS[@]+"${ALLOW_ARGS[@]}"} \
-    ${IDE_CONF_ARGS[@]+"${IDE_CONF_ARGS[@]}"} > "$SQUID_CONF" || exit 1
+    ${IDE_CONF_ARGS[@]+"${IDE_CONF_ARGS[@]}"} \
+    ${OW_CONF_ARGS[@]+"${OW_CONF_ARGS[@]}"} > "$SQUID_CONF" || exit 1
 chmod 644 "$SQUID_CONF"
 [ -f "$EFFECTIVE_ALLOW" ] && chmod 644 "$EFFECTIVE_ALLOW"
 
@@ -696,11 +778,14 @@ CREATED_PROXY=1
 # The session reaches nothing but the proxy, and is told so: anything that
 # ignores the variables finds no route at all — denied, never bypassed.
 # localhost stays direct so the --ide tunnel below is not proxied twice.
+# Under --ow the proxy's own name stays direct too. A request to the reverse
+# port is an origin request; the forward port would refuse it as plaintext.
 PROXY_URL="http://proxy:$PROXY_PORT"
+NO_PROXY_LIST="localhost,127.0.0.1"; [ "$OW" = 1 ] && NO_PROXY_LIST="$NO_PROXY_LIST,proxy"
 RUN+=(--network "$NET_INT"
       -e HTTP_PROXY="$PROXY_URL"  -e HTTPS_PROXY="$PROXY_URL"
       -e http_proxy="$PROXY_URL"  -e https_proxy="$PROXY_URL"
-      -e NO_PROXY="localhost,127.0.0.1"  -e no_proxy="localhost,127.0.0.1"
+      -e NO_PROXY="$NO_PROXY_LIST"  -e no_proxy="$NO_PROXY_LIST"
       # JVMs ignore the proxy variables above; JAVA_TOOL_OPTIONS carries the
       # same route as system properties, so Java network clients (the gradle
       # wrapper and daemon among them) reach the proxy instead of no route.
@@ -732,6 +817,19 @@ if [ ${#IDE_PORTS[@]} -gt 0 ] \
    && ! "${DOCKER[@]}" exec "$PROXY_NAME" getent hosts "$IDE_GATEWAY" >/dev/null 2>&1; then
   warn "--ide: this engine does not resolve $IDE_GATEWAY, so the proxy cannot reach the host machine; continuing without the oracle"
   IDE_PORTS=()
+fi
+
+# The --ow peer: unlike the oracle, the session is useless without its model,
+# so an unresolvable peer ends the launch instead of continuing without it.
+if [ "$OW" = 1 ]; then
+  "${DOCKER[@]}" exec "$PROXY_NAME" getent hosts "$OW_GATEWAY" >/dev/null 2>&1 \
+    || die "--ow: the proxy cannot resolve the peer $OW_GATEWAY (peer \"$OW_PEER\"); on plain Docker Engine name the host's bridge address as the peer"
+  # Operator-facing: where the models run and what may reach them. The
+  # proxy's own port and gateway name are internals; `access --ow` has them.
+  OW_WHERE="$OW_PEER:$OW_PORT"; [ "$OW_PEER" = host ] && OW_WHERE="this machine, port $OW_PORT"
+  echo "claude-dev: --ow model server: $OW_WHERE; inference requests only (POST /v1/messages), filtered and logged by the proxy; no Anthropic credential mounted" >&2
+  # One line per served model: the pinned names it answers for, ranked.
+  for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do echo "claude-dev: --ow $m" >&2; done
 fi
 
 # The --ide bridge: an unprivileged socat in the session container listens on

@@ -126,7 +126,7 @@ The confinement gate scans two tiers, the shipped runtime and the producer tooli
 | `evals/summarize.py` | Regenerate every derived view from the run folders and the operator notes; `--check` fails on drift |
 | `evals/render_figure.py`, `evals/refresh_trend.py` | Redraw the dated trend figure from the trend data; the two-step refresh |
 | `tools/harness-stats/accounting.py` | The canonical usage-accounting module and pricing table |
-| `tools/claude-dev/claude_dev_config.py`, `claude_dev_scrub.py`, `ide_preflight.py` | Proxy policy from configuration, the container-private settings replica, the IDE tool-set check; the launcher itself is bash |
+| `tools/claude-dev/claude_dev_config.py`, `claude_dev_scrub.py`, `ide_preflight.py`, `open_weight_preflight.py` | Proxy policy and the session's settings document from configuration, the container-private settings replica, the IDE tool-set check, the open-weight model-map check; the launcher itself is bash |
 
 Run folders are ground truth and every view is derived; a development version's folders and trend page are never committed ([ADR: cost per pass against a fixed SUT](adr/2026-08-02-eval-bench-cost-per-pass.md)). The accounting module has one canonical home in `tools/` and one vendored copy in the runtime ([ADR: single pricing source as a gated vendored copy](adr/2026-07-13-single-pricing-source-vendored-copy.md)). Battery step 2d compares the two byte for byte. Methodology, tiers, and the run-folder layout are in [`evals/README.md`](../evals/README.md).
 
@@ -220,7 +220,7 @@ Every input the harness's Python reads is bounded, and no path is hot: the cost 
 | Shipped runtime | The consumer's project root, under whichever agent tool dispatched it | None | The ledger, the layout, the diff, the PRD, the test tree, transcripts, the connector's output, the project's docs |
 | Producer tooling and battery | The maintainer's host | One sanctioned `git ls-remote` in the deps report | The working tree it renders from; nothing it writes lands outside a declared scope |
 | Eval bench | The agent turn inside the claude-dev container by default, measurement on the host | Proxy-allowed HTTPS to the model API and the build dependency chain, every request logged per run | Everything the agent leaves behind: ledger, patch, build scripts; the patch text shown to the judge |
-| claude-dev | Host launcher, container workload, proxy container | Proxy allow-list only; telemetry off by default | The project directory, the settings replica, the IDE's exposed tool set |
+| claude-dev | Host launcher, container workload, proxy container | Proxy allow-list only, plus one filtered plain-HTTP path to the `[open-weight]` peer under `--ow`; telemetry off by default | The project directory, the settings replica, the IDE's exposed tool set |
 | harness-stats | The host, reading `~/.claude` | None | Transcript JSON; a malformed line is skipped |
 
 ## Threat Model

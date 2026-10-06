@@ -3,7 +3,9 @@
 
 import dataclasses
 import ipaddress
+import json
 import pathlib
+import re
 import tempfile
 import unittest
 
@@ -29,6 +31,9 @@ LAUNCHER_LABEL = "claude-dev-123-4567"
 CLIENT_RESTRICTION = "http_access deny !session"
 PLAINTEXT_DENY = "http_access deny !CONNECT"
 IDE_PINHOLE = "http_access allow session ide_host ide_port"
+OW_ESCAPE_DENY = "http_access deny ow_port ow_escaped"
+OW_ALLOW = "http_access allow session ow_port POST ow_paths"
+OW_PORT_DENY = "http_access deny ow_port"
 PRIVATE_DENY = "http_access deny to_private"
 PORT_RESTRICTION = "http_access deny CONNECT !SSL_ports"
 ALLOW_LIST_RULE = "http_access allow session allowed"
@@ -65,9 +70,62 @@ REFUSED_DOMAIN_SHAPES = (
 )
 REFUSED_TOKEN_SHAPES = ("", "a b", "a\tb", "a#b", 'a"b')
 
+# The [open-weight] table: a peer on the host or on the LAN, and the model map.
+SOME_LAN_PEER = "192.168.1.123"
+SOME_OW_PORT = 11434
+MESSAGES_PATH = "/v1/messages"
+# What Claude Code sends, what the Messages API also carries, and what a
+# session might try instead.
+ADMITTED_PATHS = (
+    "/v1/messages",
+    "/v1/messages?beta=true",
+    "/v1/messages/count_tokens",
+    "/v1/messages/count_tokens?beta=true",
+)
+REFUSED_PATHS = (
+    "/v1/messagesX",
+    "/v1/messages/x",
+    "/v1/messages/../api/pull",
+    "/api/pull",
+    "/api/tags",
+    "/v1/chat/completions",
+    "v1/messages",
+)
+SOME_OPUS_PIN = "claude-opus-5-5"
+SOME_SONNET_PIN = "claude-sonnet-5-5"
+SOME_OPUS_TAG = "glm-5.3:cloud"
+SOME_SONNET_TAG = "hf.co/org/model:q8"
+REFUSED_PEER_SHAPES = (
+    "http://x",
+    "x:11434",
+    "h\nhttp_access allow all",
+    "a b",
+    "",
+    "-x",
+    "--help",
+    "::1",
+)
+REFUSED_MODEL_TOKENS = ("a b", "", "-x", "--tag", "a\x1bb", "a\nb", "\u00e9")
+OW_MODELS_TOML = (
+    f'[open-weight.models]\n"{SOME_OPUS_PIN}" = "{SOME_OPUS_TAG}"\n'
+    f'"{SOME_SONNET_PIN}" = "{SOME_SONNET_TAG}"\n'
+)
+
 
 def a_policy() -> c.ProxyPolicy:
     return c.ProxyPolicy(subnet=SOME_SUBNET, mode="allow-list", allow=(SOME_DOMAIN,))
+
+
+def an_ow_policy(**overrides) -> c.OpenWeightPolicy:
+    base = c.OpenWeightPolicy(gateway=IDE_GATEWAY_NAME, port=SOME_OW_PORT)
+    return dataclasses.replace(base, **overrides)
+
+
+def an_ow_config(**overrides) -> c.OpenWeightConfig:
+    base = c.OpenWeightConfig(
+        models=((SOME_OPUS_PIN, SOME_OPUS_TAG), (SOME_SONNET_PIN, SOME_SONNET_TAG))
+    )
+    return dataclasses.replace(base, **overrides)
 
 
 def a_config() -> c.Config:
@@ -136,6 +194,161 @@ class PolicyOrder(unittest.TestCase):
             PORT_RESTRICTION,
         ):
             self.assertLess(r.index(rule), r.index(OPEN_MODE_RULE))
+
+
+class OpenWeightReversePort(unittest.TestCase):
+    """The --ow listener: one fixed origin, one request shape, nothing else on that port."""
+
+    def test_the_reverse_port_block_sits_right_after_the_client_restriction(self):
+        # It must precede the plaintext and private denies: the request is
+        # plain HTTP and the peer sits at a private address.
+        r = rules(squid_conf(open_weight=an_ow_policy()))
+        self.assertEqual(r[0], CLIENT_RESTRICTION)
+        self.assertEqual(r[2], OW_ALLOW)
+        self.assertLess(r.index(OW_ALLOW), r.index(PLAINTEXT_DENY))
+        self.assertLess(r.index(OW_ALLOW), r.index(PRIVATE_DENY))
+
+    def test_everything_else_on_the_reverse_port_is_refused_before_any_other_rule(
+        self,
+    ):
+        # A model pull, delete or push, a listing, any other method: refused
+        # on the port itself, so no later allow can reach them.
+        r = rules(squid_conf(open_weight=an_ow_policy()))
+        self.assertEqual(r[3], OW_PORT_DENY)
+
+    def test_the_forward_port_rules_are_unchanged(self):
+        # The reverse port's rules are scoped to its own listener and inserted
+        # as one block; every rule the forward port had stays, in its order.
+        with_ow = rules(squid_conf(open_weight=an_ow_policy()))
+        block = [OW_ESCAPE_DENY, OW_ALLOW, OW_PORT_DENY]
+        self.assertEqual(with_ow[1:4], block)
+        self.assertEqual(with_ow[:1] + with_ow[4:], rules(squid_conf()))
+
+    def test_an_escaped_path_is_refused_before_the_allow(self):
+        # squid matches the decoded path, so %00 would end the match early
+        # while the raw bytes reach the peer.
+        r = rules(squid_conf(open_weight=an_ow_policy()))
+        self.assertLess(r.index(OW_ESCAPE_DENY), r.index(OW_ALLOW))
+        self.assertIn(
+            "acl ow_escaped urlpath_regex %", squid_conf(open_weight=an_ow_policy())
+        )
+
+    def test_the_listener_is_an_accelerator_with_the_peer_as_its_only_origin(self):
+        text = squid_conf(open_weight=an_ow_policy())
+        self.assertIn(
+            f"http_port {c.OW_PROXY_PORT} accel defaultsite={IDE_GATEWAY_NAME} "
+            "no-vhost name=ow",
+            text,
+        )
+        self.assertIn(
+            f"cache_peer {IDE_GATEWAY_NAME} parent {SOME_OW_PORT} 0 no-query "
+            "originserver no-digest name=ow",
+            text,
+        )
+        self.assertIn("never_direct allow ow_port", text)
+        self.assertIn("cache_peer_access ow deny all", text)
+
+    def test_the_acls_are_defined_before_the_lines_that_name_them(self):
+        # squid resolves an ACL where it is named; a use above its definition
+        # aborts the proxy at startup.
+        lines = squid_conf(open_weight=an_ow_policy()).splitlines()
+        definition = lines.index("acl ow_port myportname ow")
+        for user in (
+            "never_direct allow ow_port",
+            "cache_peer_access ow allow ow_port",
+        ):
+            self.assertLess(definition, lines.index(user))
+
+    def test_the_path_regex_admits_what_claude_code_sends_and_nothing_wider(self):
+        # squid's urlpath_regex sees the query string, and the client posts
+        # to /v1/messages?beta=true; the regex is matched here as squid
+        # would, path plus query, against both lists.
+        text = squid_conf(open_weight=an_ow_policy())
+        line = next(ln for ln in text.splitlines() if "acl ow_paths" in ln)
+        pattern = re.compile(line.split("urlpath_regex ", 1)[1])
+        for path in ADMITTED_PATHS:
+            with self.subTest(path=path):
+                self.assertIsNotNone(pattern.search(path))
+        for path in REFUSED_PATHS:
+            with self.subTest(path=path):
+                self.assertIsNone(pattern.search(path))
+
+    def test_a_lan_peer_is_the_origin_as_given(self):
+        text = squid_conf(open_weight=an_ow_policy(gateway=SOME_LAN_PEER))
+        self.assertIn(f"cache_peer {SOME_LAN_PEER} parent", text)
+
+    def test_no_ow_means_no_listener_and_no_peer(self):
+        text = squid_conf()
+        self.assertNotIn(str(c.OW_PROXY_PORT), text)
+        self.assertNotIn("cache_peer", text)
+        self.assertNotIn("ow_port", text)
+
+    def test_an_unresolved_host_peer_and_a_bad_port_are_refused(self):
+        with self.assertRaises(c.ConfigError):
+            squid_conf(open_weight=an_ow_policy(gateway=c.OW_PEER_HOST))
+        with self.assertRaises(c.ConfigError):
+            squid_conf(open_weight=an_ow_policy(port=PORT_ABOVE_MAX))
+
+    def test_a_newline_in_the_peer_cannot_forge_a_directive(self):
+        with self.assertRaises(c.ConfigError):
+            squid_conf(open_weight=an_ow_policy(gateway="h\nhttp_access allow all"))
+
+
+class OpenWeightPolicyResolution(unittest.TestCase):
+    def test_a_host_peer_resolves_to_the_engine_gateway(self):
+        cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
+        policy = c.open_weight_policy(cfg, IDE_GATEWAY_NAME)
+        self.assertEqual(policy.gateway, IDE_GATEWAY_NAME)
+        self.assertEqual(policy.port, c.OW_DEFAULT_PORT)
+
+    def test_a_named_peer_passes_through_untouched(self):
+        cfg = dataclasses.replace(
+            a_config(), open_weight=an_ow_config(peer=SOME_LAN_PEER)
+        )
+        self.assertEqual(
+            c.open_weight_policy(cfg, IDE_GATEWAY_NAME).gateway, SOME_LAN_PEER
+        )
+
+    def test_a_host_peer_without_a_gateway_and_a_missing_table_are_refused(self):
+        with self.assertRaises(c.ConfigError):
+            c.open_weight_policy(
+                dataclasses.replace(a_config(), open_weight=an_ow_config()), None
+            )
+        with self.assertRaises(c.ConfigError):
+            c.open_weight_policy(a_config(), IDE_GATEWAY_NAME)
+
+
+class ClaudeSettings(unittest.TestCase):
+    def test_without_ow_only_the_sandbox_is_declared(self):
+        settings = json.loads(c.claude_settings(a_config(), open_weight=False))
+        self.assertEqual(settings, c.SANDBOX_OFF)
+
+    def test_with_ow_the_endpoint_the_token_and_the_map_ride_in_settings(self):
+        # The env block, not the container environment: a settings-file env
+        # overrides the process environment, and --settings outranks every
+        # project file, so a project cannot point the session elsewhere.
+        cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
+        settings = json.loads(c.claude_settings(cfg, open_weight=True))
+        self.assertEqual(settings["sandbox"], c.SANDBOX_OFF["sandbox"])
+        self.assertEqual(
+            settings["env"],
+            {
+                "ANTHROPIC_BASE_URL": f"http://proxy:{c.OW_PROXY_PORT}",
+                "ANTHROPIC_AUTH_TOKEN": c.OW_PLACEHOLDER_TOKEN,
+                "API_TIMEOUT_MS": str(c.OW_TIMEOUT_MS),
+            },
+        )
+        self.assertEqual(
+            settings["modelOverrides"],
+            {SOME_OPUS_PIN: SOME_OPUS_TAG, SOME_SONNET_PIN: SOME_SONNET_TAG},
+        )
+        # The root session names a mapped model, or its own name reaches
+        # the peer unmapped.
+        self.assertEqual(settings["model"], SOME_OPUS_PIN)
+
+    def test_ow_without_a_table_is_refused(self):
+        with self.assertRaises(c.ConfigError):
+            c.claude_settings(a_config(), open_weight=True)
 
 
 class PolicyContent(unittest.TestCase):
@@ -344,6 +557,101 @@ class Loading(unittest.TestCase):
                     self._load(text)
                 self.assertIn("telemetry.enabled", str(cm.exception))
 
+    def test_no_ow_table_means_no_reverse_port(self):
+        self.assertIsNone(self._load("[egress]\n").open_weight)
+
+    def test_an_ow_table_defaults_to_the_host_daemon(self):
+        open_weight = self._load(OW_MODELS_TOML).open_weight
+        self.assertEqual(open_weight.peer, c.OW_PEER_HOST)
+        self.assertEqual(open_weight.port, c.OW_DEFAULT_PORT)
+        self.assertEqual(
+            open_weight.models,
+            ((SOME_OPUS_PIN, SOME_OPUS_TAG), (SOME_SONNET_PIN, SOME_SONNET_TAG)),
+        )
+
+    def test_the_root_model_defaults_to_the_first_mapping_in_file_order(self):
+        text = (
+            f'[open-weight]\n[open-weight.models]\n"{SOME_SONNET_PIN}" = "{SOME_SONNET_TAG}"\n'
+            f'"{SOME_OPUS_PIN}" = "{SOME_OPUS_TAG}"\n'
+        )
+        self.assertEqual(self._load(text).open_weight.model, SOME_SONNET_PIN)
+
+    def test_an_explicit_root_model_must_be_a_mapped_name(self):
+        self.assertEqual(
+            self._load(
+                f'[open-weight]\nmodel = "{SOME_SONNET_PIN}"\n{OW_MODELS_TOML}'
+            ).open_weight.model,
+            SOME_SONNET_PIN,
+        )
+        with self.assertRaises(c.ConfigError) as cm:
+            self._load(f'[open-weight]\nmodel = "claude-fable-5-1"\n{OW_MODELS_TOML}')
+        self.assertIn("open-weight.model", str(cm.exception))
+
+    def test_a_full_ow_table_round_trips(self):
+        open_weight = self._load(
+            f'[open-weight]\npeer = "{SOME_LAN_PEER}"\nport = {SOME_OW_PORT + 1}\n'
+            f"{OW_MODELS_TOML}"
+        ).open_weight
+        self.assertEqual(open_weight.peer, SOME_LAN_PEER)
+        self.assertEqual(open_weight.port, SOME_OW_PORT + 1)
+
+    def test_an_ow_table_without_a_model_map_is_refused(self):
+        # Every dispatch would name a pinned model the peer does not serve.
+        for text in (
+            "[open-weight]\n",
+            "[open-weight]\n[open-weight.models]\n",
+            '[open-weight]\nmodels = "x"\n',
+        ):
+            with self.subTest(text=text), self.assertRaises(c.ConfigError) as cm:
+                self._load(text)
+            self.assertIn("models", str(cm.exception))
+
+    def test_a_peer_that_is_not_a_host_or_address_is_refused(self):
+        for peer in REFUSED_PEER_SHAPES:
+            text = f'[open-weight]\npeer = "{peer}"\n{OW_MODELS_TOML}'
+            with self.subTest(peer=peer), self.assertRaises(c.ConfigError):
+                self._load(text)
+
+    def test_an_ow_key_the_table_does_not_read_is_refused_by_name(self):
+        for text, named in (
+            (f'[open-weight]\npaths = ["{MESSAGES_PATH}"]\n', "open-weight.paths"),
+            ("[open-weight]\ntimeout_ms = 1\n", "open-weight.timeout_ms"),
+        ):
+            with self.subTest(text=text):
+                with self.assertRaises(c.ConfigError) as cm:
+                    self._load(text + OW_MODELS_TOML)
+                self.assertIn(named, str(cm.exception))
+
+    def test_ow_port_must_be_a_plain_integer_in_range_and_not_443(self):
+        # 443 is the forward port's tunnel port: a peer there would be
+        # reachable with its whole API as a CONNECT tunnel.
+        for text in (
+            "[open-weight]\nport = 0\n",
+            f"[open-weight]\nport = {PORT_ABOVE_MAX}\n",
+            "[open-weight]\nport = true\n",
+            '[open-weight]\nport = "11434"\n',
+            f"[open-weight]\nport = {c.SSL_PORT}\n",
+        ):
+            with self.subTest(text=text), self.assertRaises(c.ConfigError):
+                self._load(text + OW_MODELS_TOML)
+
+    def test_a_model_name_or_tag_that_is_not_one_printable_token_is_refused(self):
+        # The values reach a terminal and a command line: no control byte, no
+        # whitespace, no leading dash.
+        for token in REFUSED_MODEL_TOKENS:
+            literal = json.dumps(token)
+            for text in (
+                f'[open-weight]\n[open-weight.models]\n"{SOME_OPUS_PIN}" = {literal}\n',
+                f'[open-weight]\n[open-weight.models]\n{literal} = "{SOME_OPUS_TAG}"\n',
+            ):
+                with self.subTest(text=text), self.assertRaises(c.ConfigError):
+                    self._load(text)
+
+    def test_an_unknown_ow_key_is_refused_by_name(self):
+        with self.assertRaises(c.ConfigError) as cm:
+            self._load(f'[open-weight]\nhost = "x"\n{OW_MODELS_TOML}')
+        self.assertIn("open-weight.host", str(cm.exception))
+
     def test_enabling_telemetry_allow_lists_nothing(self):
         # The allow-list alone says what the network permits; an implied
         # intake host would make the policy unreadable off the file.
@@ -379,15 +687,49 @@ class ShellSettings(unittest.TestCase):
     def test_every_emitted_key_is_one_the_launcher_reads(self):
         # The launcher dies on a key it does not know; reading its case arms
         # rather than restating them keeps the two sides from drifting apart.
-        emitted = {
-            line.split("=", 1)[0] for line in c.shell_settings(a_config()).splitlines()
-        }
+        cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
+        emitted = {line.split("=", 1)[0] for line in c.shell_settings(cfg).splitlines()}
         read = launcher_read_keys()
         self.assertTrue(
             emitted <= read, f"launcher does not read: {sorted(emitted - read)}"
         )
         self.assertIn("RW", emitted)
         self.assertIn("RO", emitted)
+        self.assertIn("OW_TARGET", emitted)
+
+    def test_the_ow_lines_carry_the_peer_and_the_map(self):
+        cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
+        lines = c.shell_settings(cfg).splitlines()
+        self.assertIn(f"OW_PEER={c.OW_PEER_HOST}", lines)
+        self.assertIn(f"OW_PORT={c.OW_DEFAULT_PORT}", lines)
+        self.assertIn(f"OW_PROXY_PORT={c.OW_PROXY_PORT}", lines)
+        self.assertIn(f"OW_TAG={SOME_OPUS_TAG}", lines)
+        self.assertIn(f"OW_TARGET={SOME_OPUS_TAG} <- {SOME_OPUS_PIN} (session)", lines)
+
+    def test_target_lines_group_by_served_model_and_rank_the_names(self):
+        # Names sharing a target list on one line, capability tier first;
+        # each distinct target is a tag line once, for the preflight.
+        open_weight = c.OpenWeightConfig(
+            models=(
+                (SOME_OPUS_PIN, SOME_OPUS_TAG),
+                (SOME_SONNET_PIN, SOME_SONNET_TAG),
+                ("claude-haiku-4-5", SOME_OPUS_TAG),
+                ("claude-fable-5-1[1m]", SOME_OPUS_TAG),
+                ("other-model", SOME_OPUS_TAG),
+            )
+        )
+        self.assertEqual(c.served_tags(open_weight), [SOME_OPUS_TAG, SOME_SONNET_TAG])
+        self.assertEqual(
+            c.target_lines(open_weight),
+            [
+                f"{SOME_OPUS_TAG} <- claude-fable-5-1[1m], {SOME_OPUS_PIN} (session), "
+                "claude-haiku-4-5, other-model",
+                f"{SOME_SONNET_TAG} <- {SOME_SONNET_PIN}",
+            ],
+        )
+
+    def test_no_ow_table_emits_no_ow_line(self):
+        self.assertNotIn("OW_", c.shell_settings(a_config()))
 
     def test_shell_metacharacters_stay_inert_text(self):
         # The launcher reads these lines and never evals them.

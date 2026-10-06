@@ -160,3 +160,6 @@ why  = "maintainer-only deck generator: writes docs/deck/casts/casts.js, plus th
 [[sanctioned_network]]
 path = "tools/claude-dev/ide_preflight.py"
 why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-29 proxy-enforced-egress)"
+[[sanctioned_network]]
+path = "tools/claude-dev/open_weight_preflight.py"
+why  = "the [open-weight] peer preflight — asking the model server for its listing before a --ow launch is its function (ADR 2026-10-06 open-weight-reverse-port)"

@@ -833,8 +833,12 @@ class PodToolchainPins(unittest.TestCase):
             encoding="utf-8",
         )
         (pod / "claude-dev").write_text(
-            "CMD+=(--settings"
-            ' \'{"sandbox":{"enabled":false,"failIfUnavailable":false}}\')\n',
+            'CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG")"\n'
+            'CMD+=(--settings "$CLAUDE_SETTINGS")\n',
+            encoding="utf-8",
+        )
+        (pod / "claude_dev_config.py").write_text(
+            'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n',
             encoding="utf-8",
         )
         (Path(root) / "pyproject.toml").write_text(
@@ -881,8 +885,35 @@ class PodToolchainPins(unittest.TestCase):
         # profile, so dropping the override would revive a startup refusal.
         with tempfile.TemporaryDirectory() as root:
             self._write(root)
-            launcher = Path(root) / "tools/claude-dev/claude-dev"
-            launcher.write_text("CMD=(claude)\n", encoding="utf-8")
+            pod = Path(root) / "tools/claude-dev"
+            (pod / "claude-dev").write_text("CMD=(claude)\n", encoding="utf-8")
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_launcher_that_passes_a_settings_value_it_did_not_fetch_fails(self):
+        # The pass-through alone proves nothing: a literal in the variable
+        # would keep the argv shape and drop the declaration.
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/claude-dev"
+            (pod / "claude-dev").write_text(
+                "CLAUDE_SETTINGS='{}'\nCMD+=(--settings \"$CLAUDE_SETTINGS\")\n",
+                encoding="utf-8",
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_config_module_without_the_sandbox_declaration_fails(self):
+        # The launcher passes the module's document through, so the
+        # declaration is pinned where it is written, not where it is sent.
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/claude-dev"
+            (pod / "claude_dev_config.py").write_text(
+                "SANDBOX_OFF = {}\n", encoding="utf-8"
+            )
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("sandbox-off --settings injection", err)

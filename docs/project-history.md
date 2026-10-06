@@ -169,3 +169,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-09-30** — Move six effort pins to medium and routine-rated implementation to the checklist tier: one combined arm, screened then bisected against v0.4.7.
 - **2026-10-01** — Record the v0.4.8 sweep: the combined arm holds the bar 15/15 at a rep-set 15.5% below v0.4.7.
 - **2026-10-01** — Route a reviewer fix that adds a business rule to the design expert: the finding is blocked, names no home, and the expert places the rule.
+- **2026-10-06** — Run claude-dev on an open-weight peer through a reverse port the proxy reads: POST /v1/messages only, model management refused and logged by path, no credential mounted.

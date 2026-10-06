@@ -24,9 +24,12 @@ SCRIPT_SUITE_FLOOR = 16
 HOOK_SUITE_FLOOR = 4
 PINNED_TOOLS = ("mypy", "bandit")
 CONFINEMENT_BINARIES = ("squid", "socat")
-SANDBOX_OFF_OVERRIDE = (
-    '--settings \'{"sandbox":{"enabled":false,"failIfUnavailable":false}}\''
-)
+# The sandbox-off declaration lives in the config module, which emits the one
+# --settings document; the launcher must ask the module for it and pass it
+# through verbatim, so all three links are pinned.
+SANDBOX_OFF_DECLARATION = '"sandbox": {"enabled": False, "failIfUnavailable": False}'
+SETTINGS_SOURCE = 'CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG"'
+SETTINGS_PASSTHROUGH = '--settings "$CLAUDE_SETTINGS"'
 
 # Per-stack build-binding file. Project builds carry no harness suite wiring,
 # so zero .py references is the norm; a reference that exists must resolve.
@@ -376,8 +379,13 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     b.note("claude-dev toolchain and confinement pins")
     dockerfile = ROOT / "tools/claude-dev/Dockerfile"
     launcher = ROOT / "tools/claude-dev/claude-dev"
+    config_module = ROOT / "tools/claude-dev/claude_dev_config.py"
     pyproject = ROOT / "pyproject.toml"
-    missing = [path for path in (dockerfile, launcher, pyproject) if not path.exists()]
+    missing = [
+        path
+        for path in (dockerfile, launcher, config_module, pyproject)
+        if not path.exists()
+    ]
     if missing:
         b.fail(f"pod-toolchain gate: {', '.join(rel(m) for m in missing)} missing")
         return
@@ -392,11 +400,17 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     problems.extend(_workflow_pin_problems(dockerfile.read_text(encoding="utf-8")))
     # Claude's in-process sandbox needs bubblewrap, which cannot create a user
     # namespace under Docker's default seccomp profile.
-    if SANDBOX_OFF_OVERRIDE not in launcher.read_text(encoding="utf-8"):
+    launcher_text = launcher.read_text(encoding="utf-8")
+    if (
+        SANDBOX_OFF_DECLARATION not in config_module.read_text(encoding="utf-8")
+        or SETTINGS_SOURCE not in launcher_text
+        or SETTINGS_PASSTHROUGH not in launcher_text
+    ):
         problems.append(
-            "launcher lost the sandbox-off --settings injection (bubblewrap "
-            "cannot create a user namespace under the default seccomp profile; "
-            "see the Dockerfile)"
+            "the sandbox-off --settings injection is broken: the config module "
+            "must declare it and the launcher must fetch and pass its document "
+            "(bubblewrap cannot create a user namespace under the default "
+            "seccomp profile; see the Dockerfile)"
         )
     problems.extend(_egress_subset_problems())
     b.report(

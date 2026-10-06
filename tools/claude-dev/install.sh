@@ -5,13 +5,15 @@
 #   install.sh reset-config  restore the shipped claude-dev.toml (keeps the old one as .bak)
 #   command -> ~/.local/bin/claude-dev              (override: BIN=/usr/local/bin, may need sudo)
 #   data    -> ~/.config/claude-dev/{Dockerfile,claude-dev.toml,
-#                                   claude_dev_config.py,claude_dev_scrub.py,ide_preflight.py}
+#                                   claude_dev_config.py,claude_dev_scrub.py,
+#                                   ide_preflight.py,open_weight_preflight.py}
 #             (override: CLAUDE_DEV_HOME)
 #
 # The policy file is the operator's: an existing claude-dev.toml is never overwritten by
 # apply. claude_dev_config.py parses that policy and generates the proxy's
 # rules; claude_dev_scrub.py builds the container-private ~/.claude.json
-# replica; ide_preflight.py is the IDE-oracle preflight.
+# replica; ide_preflight.py is the IDE-oracle preflight; open_weight_preflight.py
+# checks the [open-weight] model map against the peer before a --ow launch.
 #
 # No migration path: this installs the current tool and nothing else. Coming
 # from the claude-pod predecessor, carry its data dir (saved login, container
@@ -25,7 +27,7 @@ DATA="${CLAUDE_DEV_HOME:-$HOME/.config/claude-dev}"
 MODE="${1:-apply}"
 
 # Files whose content this tool owns: apply always overwrites them.
-managed=(Dockerfile claude_dev_config.py claude_dev_scrub.py ide_preflight.py)
+managed=(Dockerfile claude_dev_config.py claude_dev_scrub.py ide_preflight.py open_weight_preflight.py)
 # Files that become the operator's policy: apply installs them only when absent.
 policy=(claude-dev.toml)
 

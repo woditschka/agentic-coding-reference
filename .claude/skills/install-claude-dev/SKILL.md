@@ -13,7 +13,7 @@ description: >-
 compatibility:
   - claude-code
 metadata:
-  version: "2.1"
+  version: "2.2"
 ---
 
 # install-claude-dev
@@ -32,9 +32,9 @@ without the user's explicit OK.**
    It prints one status per target — `identical`, `drift (N lines)`, or
    `missing` — for the command (`~/.local/bin/claude-dev`), the managed files
    (`Dockerfile`, `claude_dev_config.py`, `claude_dev_scrub.py`,
-   `ide_preflight.py`), and the one policy file the user owns
-   (`claude-dev.toml`). The installer carries no migration path and reports no
-   retired files: it installs the current tool and nothing else.
+   `ide_preflight.py`, `open_weight_preflight.py`), and the one policy file the
+   user owns (`claude-dev.toml`). The installer carries no migration path and
+   reports no retired files: it installs the current tool and nothing else.
 
 2. **Show the table and get approval.** Present the drift; for drifted rows,
    offer the unified diff on request. Do NOT edit without explicit approval
@@ -63,7 +63,23 @@ without the user's explicit OK.**
    files first and its smoke test would then fail on the stale policy. The fix
    is to delete the named line, never to widen the reader.
 
-5. **Report.** What changed, the smoke-test result, and the next steps that are
+5. **Map the open-weight models, only when asked.** `claude-dev --ow` needs
+   `[open-weight.models]` in `claude-dev.toml`: pinned name → the tag the peer serves.
+   When the user asks to set up `--ow` or a local model, read what the daemon
+   has:
+   ```bash
+   ollama list
+   ```
+   Propose a map from that listing, one tag per pinned name (`claude-opus-5-5`
+   for the judgment tier, `claude-sonnet-5-5` for the checklist tier; the
+   shipped `claude-dev.toml` documents the table, `docs/open-weight-models.md`
+   the tiers). A cloud tag (`:cloud`) is served on demand and need not be
+   listed, so take one from the user on their word. The root session runs as
+   the first mapping unless `[open-weight] model` names another key. Write the table
+   only on approval, and never fill it unasked. Then `claude-dev access --ow` prints
+   the plan, and the launch's own preflight re-checks the map against the peer.
+
+6. **Report.** What changed, the smoke-test result, and the next steps that are
    NOT this skill's job: `claude-dev build` for the image build (this build adds
    squid, socat and bubblewrap, so an existing image must be rebuilt — a session
    started on a stale image refuses to launch rather than running unproxied),
@@ -76,6 +92,7 @@ without the user's explicit OK.**
 - **Run the container** — the user runs `claude-dev` from a project directory.
 - **Log in** — credentials are container-private; `/login` happens inside.
 - **Edit the allow-list** — `[egress] allow` in `claude-dev.toml` is the user's egress policy. Suggest entries; never add one unasked, and never paste in a list of names a session was observed requesting.
+- **Choose an open-weight peer** — `[open-weight] peer` in `claude-dev.toml` names the model server `claude-dev --ow` runs on; the shipped file documents it commented out. Step 5 proposes the model map on request; the peer itself is the user's policy and is never written unasked.
 - **Uninstall** — the user deletes `~/.local/bin/claude-dev` and `~/.config/claude-dev/` manually.
 - **Pull from upstream** — the source of truth is this repo.
 - **Survive across machines** — the install targets are per-machine; run once per machine.

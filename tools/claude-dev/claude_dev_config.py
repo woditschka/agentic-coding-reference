@@ -7,6 +7,7 @@ documents and values only; argv construction stays in the launcher.
 
 import argparse
 import ipaddress
+import json
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -14,7 +15,36 @@ from pathlib import Path
 
 # The launcher reads the port back from `settings` rather than keeping a copy.
 PROXY_PORT = 3128
+# The one port the forward listener tunnels to.
+SSL_PORT = 443
+# The proxy's second listener, --ow only: a reverse proxy with one fixed
+# origin, the [open-weight] peer. The session sends it ordinary requests, so
+# the proxy reads method and path instead of tunnelling bytes.
+OW_PROXY_PORT = 3129
 MAX_PORT = 65535
+# What `peer` means by default: the host machine, reached through the engine's
+# gateway name the launcher passes in.
+OW_PEER_HOST = "host"
+OW_DEFAULT_PORT = 11434
+# The one request shape the reverse port admits: the Messages endpoint and its
+# token-count sibling, with or without a query string. squid's urlpath_regex
+# sees the query, and Claude Code posts to /v1/messages?beta=true. Not a
+# setting: the client chooses the path, no peer needs another, and a wider
+# shape would be the model-management API the port exists to refuse.
+OW_PATH_REGEX = r"^/v1/messages(/count_tokens)?(\?.*)?$"
+# API_TIMEOUT_MS for the session under --ow. One value: a local model answers
+# in tens of seconds, and a ceiling nobody reaches costs nothing.
+OW_TIMEOUT_MS = 1_800_000
+# The session's bearer token under --ow. A placeholder: the peer ignores it
+# and the real credential is never mounted, so nothing inside can leak it.
+OW_PLACEHOLDER_TOKEN = "claude-dev"
+# Display order of pinned names that share a target: the Claude family's
+# capability tiers, top first; a name outside the family sorts after them.
+OW_NAME_RANK = ("fable", "opus", "sonnet", "haiku")
+# squid matches the path after percent-decoding; a decoded NUL ends the match
+# early while the raw bytes reach the peer. No admitted path carries a
+# percent sign, so the whole class is refused.
+OW_ESCAPE_REGEX = "%"
 
 # Destinations refused above the allow-list in both modes: the host, the LAN,
 # cloud instance metadata, carrier NAT, and "this network".
@@ -50,6 +80,7 @@ SCHEMA = {
     "mounts": ("rw", "ro"),
     "egress": ("mode", "allow"),
     "telemetry": ("enabled",),
+    "open-weight": ("peer", "port", "model", "models"),
 }
 
 _TOKEN_CHARS = frozenset(
@@ -64,6 +95,25 @@ class ConfigError(Exception):
     """A defect in the config file, phrased for the operator."""
 
 
+@dataclass(frozen=True, slots=True)
+class OpenWeightConfig:
+    """The [open-weight] table: one open-weight peer and the model map the session gets."""
+
+    peer: str = OW_PEER_HOST
+    port: int = OW_DEFAULT_PORT
+    # Pinned model name -> the tag the peer serves; injected as modelOverrides.
+    models: tuple[tuple[str, str], ...] = ()
+    # The root session's model: one of the mapped names, the first by default.
+    # The agents name their pins; the session itself runs whatever /model or
+    # a settings file says, and an unmapped name reaches the peer as is.
+    model: str = ""
+
+    def __post_init__(self) -> None:
+        """Default the root model to the first mapping."""
+        if not self.model and self.models:
+            object.__setattr__(self, "model", self.models[0][0])
+
+
 @dataclass(frozen=True)
 class Config:
     """One parsed claude-dev.toml with its paths already $HOME-expanded."""
@@ -75,6 +125,16 @@ class Config:
     # Telemetry off is a declaration inside the session, not an egress rule:
     # the intake hosts still have to clear the allow-list.
     telemetry: bool = False
+    # None: no [open-weight] table, and --ow refuses to launch.
+    open_weight: OpenWeightConfig | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OpenWeightPolicy:
+    """The reverse port's inputs: the peer already resolved to a name or address."""
+
+    gateway: str
+    port: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +146,7 @@ class ProxyPolicy:
     allow: tuple[str, ...]
     ide_gateway: str | None = None
     ide_port: int | None = None
+    open_weight: OpenWeightPolicy | None = None
     label: str = "claude-dev"
 
 
@@ -184,6 +245,106 @@ def validate_domain(entry: str, where: str) -> str:
     )
 
 
+def _int(
+    table: dict[str, object], key: str, default: int | None, where: str
+) -> int | None:
+    # bool is an int subclass; `port = true` must not read as 1.
+    value = table.get(key, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ConfigError(f"{where}.{key} must be an integer")
+    return value
+
+
+def validate_peer(value: str, where: str) -> str:
+    """Refuse a peer that is not a host name or an IPv4 address."""
+    # The peer lands in squid.conf raw and in a command line: a URL or a
+    # host:port would read as another directive shape, `port` has its own key,
+    # and a leading dash would read as an option. A colon also rules out an
+    # IPv6 literal; the squid directives would need bracket forms for it.
+    if value == OW_PEER_HOST:
+        return value
+    if (
+        not value
+        or value != value.strip()
+        or value.startswith("-")
+        or ":" in value
+        or "/" in value
+        or any(c not in _TOKEN_CHARS for c in value)
+    ):
+        raise ConfigError(
+            f'invalid {where}.peer: {value!r} — "{OW_PEER_HOST}" (the host '
+            "machine), a host name or an IPv4 address; the port is a separate key"
+        )
+    return value
+
+
+def validate_model_token(value: object, what: str) -> str:
+    """Refuse a model name or tag that is not one printable, option-safe token."""
+    # Both sides reach the session as JSON, the launcher's output and a
+    # command line: printable ASCII keeps a control byte off the terminal, no
+    # whitespace keeps it one token, no leading dash keeps it an argument.
+    if (
+        not isinstance(value, str)
+        or not value
+        or value.startswith("-")
+        or any(c.isspace() or not (" " < c <= "~") for c in value)
+    ):
+        raise ConfigError(
+            f"invalid {what}: {value!r} — one token of printable ASCII, no "
+            "whitespace, no leading dash"
+        )
+    return value
+
+
+def _open_weight(data: dict[str, object], where: str) -> OpenWeightConfig | None:
+    """Read the [open-weight] table; absent means the reverse port does not exist."""
+    # Read on every launch, flag or not: a table that will not validate is
+    # refused by name rather than left looking like policy.
+    if "open-weight" not in data:
+        return None
+    table = _table(data, "open-weight")
+    peer = validate_peer(
+        _str(table, "peer", OW_PEER_HOST, "open-weight"), "open-weight"
+    )
+    port = _int(table, "port", OW_DEFAULT_PORT, "open-weight")
+    assert port is not None
+    if not 0 < port <= MAX_PORT:
+        raise ConfigError(f"open-weight.port out of range: {port}")
+    if port == SSL_PORT:
+        # The forward port tunnels CONNECT to 443 for any allowed public name,
+        # so a peer there would also be reachable with its whole API.
+        raise ConfigError(
+            "open-weight.port 443 is also the forward port's tunnel port — serve the "
+            "peer on another port"
+        )
+    raw_models = table.get("models", {})
+    if not isinstance(raw_models, dict):
+        raise ConfigError(
+            "[open-weight.models] must be a table of pinned name = served tag"
+        )
+    models: list[tuple[str, str]] = []
+    # File order: the first mapping is the root session's default model.
+    for name, tag in raw_models.items():
+        validate_model_token(name, "pinned model name in [open-weight.models]")
+        models.append((name, validate_model_token(tag, f"open-weight.models.{name}")))
+    if not models:
+        # Without the map every dispatch names a pinned Anthropic model the
+        # peer does not serve, and fails one request at a time.
+        raise ConfigError(
+            f"[open-weight.models] in {where} is empty — map each pinned model name to "
+            "the tag the peer serves"
+        )
+    model = _str(table, "model", models[0][0], "open-weight")
+    if model not in dict(models):
+        raise ConfigError(
+            f"open-weight.model {model!r} is not a key of [open-weight.models] — the root "
+            "session's model must be a mapped name"
+        )
+    return OpenWeightConfig(peer=peer, port=port, models=tuple(models), model=model)
+
+
 def load(path: Path, home: str) -> Config:
     """Parse and validate one config file, naming the file in every defect."""
     try:
@@ -212,6 +373,7 @@ def load(path: Path, home: str) -> Config:
         mode=mode,
         allow=allow,
         telemetry=_bool(telemetry, "enabled", "telemetry", default=False),
+        open_weight=_open_weight(data, str(path)),
     )
 
 
@@ -226,10 +388,73 @@ def shell_settings(config: Config) -> str:
         *(f"RW={path}" for path in config.rw),
         *(f"RO={path}" for path in config.ro),
     ]
+    # The token and the timeout reach the session through claude_settings
+    # alone; the launcher only displays the peer and the map.
+    if config.open_weight is not None:
+        lines += [
+            f"OW_PEER={config.open_weight.peer}",
+            f"OW_PORT={config.open_weight.port}",
+            f"OW_PROXY_PORT={OW_PROXY_PORT}",
+            *(f"OW_TAG={tag}" for tag in served_tags(config.open_weight)),
+            *(f"OW_TARGET={line}" for line in target_lines(config.open_weight)),
+        ]
     for line in lines:
         if "\n" in line:
             raise ConfigError(f"config value contains a newline: {line!r}")
     return "\n".join(lines) + "\n"
+
+
+def served_tags(open_weight: OpenWeightConfig) -> list[str]:
+    """Name each distinct target once, in first-appearance order."""
+    return list(dict.fromkeys(tag for _, tag in open_weight.models))
+
+
+def _name_rank(name: str) -> tuple[int, str]:
+    lowered = name.lower()
+    for rank, family in enumerate(OW_NAME_RANK):
+        if family in lowered:
+            return rank, lowered
+    return len(OW_NAME_RANK), lowered
+
+
+def target_lines(open_weight: OpenWeightConfig) -> list[str]:
+    """Render one line per target: the names that map to it, ranked, session marked."""
+    lines = []
+    for tag in served_tags(open_weight):
+        names = sorted((n for n, t in open_weight.models if t == tag), key=_name_rank)
+        shown = [f"{n} (session)" if n == open_weight.model else n for n in names]
+        lines.append(f"{tag} <- {', '.join(shown)}")
+    return lines
+
+
+# Claude's in-process sandbox stays off: under Docker's default seccomp profile
+# bubblewrap cannot create a user namespace (README § Process has the matrix),
+# and turning it on would mean seccomp=unconfined for the whole container.
+SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}
+
+
+def claude_settings(config: Config, *, open_weight: bool) -> str:
+    """Render the JSON the launcher passes as `--settings`, one document."""
+    settings: dict[str, object] = dict(SANDBOX_OFF)
+    if open_weight:
+        if config.open_weight is None:
+            raise ConfigError("--ow needs an [open-weight] table in the config")
+        # The endpoint rides in the settings `env` block, not in the container
+        # environment. A settings-file env block overrides the process
+        # environment, and --settings sits above every project file. So a
+        # project's own base URL cannot redirect the session past the proxy.
+        settings["env"] = {
+            "ANTHROPIC_BASE_URL": f"http://proxy:{OW_PROXY_PORT}",
+            "ANTHROPIC_AUTH_TOKEN": OW_PLACEHOLDER_TOKEN,
+            "API_TIMEOUT_MS": str(OW_TIMEOUT_MS),
+        }
+        # The map is a settings key, not an environment variable: the pinned
+        # names in every agent's frontmatter are rewritten on the way out.
+        settings["modelOverrides"] = dict(config.open_weight.models)
+        # The root session follows the `model` key; without it the session
+        # names a model the map does not cover.
+        settings["model"] = config.open_weight.model
+    return json.dumps(settings, separators=(",", ":"))
 
 
 def _ide_pinhole(gateway: str, port: int) -> list[str]:
@@ -251,6 +476,40 @@ def _ide_pinhole(gateway: str, port: int) -> list[str]:
     ]
 
 
+def _ow_listener(open_weight: OpenWeightPolicy) -> list[str]:
+    """Render the reverse port: one fixed origin, reached only through the peer."""
+    # The listener is named so its rules match on the port, not on the
+    # destination: the session chooses nothing about where this port leads.
+    # no-vhost: the request's Host header (proxy:3129) is ignored and the URL
+    # is rebuilt from defaultsite, so the path is the only session-chosen part.
+    return [
+        f"http_port {OW_PROXY_PORT} accel defaultsite={open_weight.gateway} no-vhost name=ow",
+        f"cache_peer {open_weight.gateway} parent {open_weight.port} 0 no-query originserver "
+        "no-digest name=ow",
+    ]
+
+
+def _ow_rules() -> list[str]:
+    """Render the rules that admit exactly the one request shape."""
+    return [
+        "acl ow_port myportname ow",
+        f"acl ow_paths urlpath_regex {OW_PATH_REGEX}",
+        f"acl ow_escaped urlpath_regex {OW_ESCAPE_REGEX}",
+        "acl POST method POST",
+        # squid resolves an ACL at the line that names it, so the peer routing
+        # follows the definitions. The reverse port goes to the peer and
+        # nowhere else; the peer serves the reverse port alone.
+        "never_direct allow ow_port",
+        "cache_peer_access ow allow ow_port",
+        "cache_peer_access ow deny all",
+        "http_access deny ow_port ow_escaped",
+        "http_access allow session ow_port POST ow_paths",
+        # Everything else on the reverse port: model management (/api/pull,
+        # /api/delete, /api/push), listings, other methods.
+        "http_access deny ow_port",
+    ]
+
+
 def _validate_policy(policy: ProxyPolicy) -> None:
     """Refuse a policy squid would misread."""
     if policy.mode not in MODES:
@@ -266,20 +525,30 @@ def _validate_policy(policy: ProxyPolicy) -> None:
     validate_token(policy.label, "proxy config label")
     if policy.ide_gateway is not None:
         validate_token(policy.ide_gateway, "IDE gateway")
+    if policy.open_weight is not None:
+        validate_token(policy.open_weight.gateway, "open-weight peer")
+        if policy.open_weight.gateway == OW_PEER_HOST:
+            raise ConfigError("the open-weight peer must be resolved to a gateway name")
+        if not 0 < policy.open_weight.port <= MAX_PORT:
+            raise ConfigError(
+                f"open-weight port out of range: {policy.open_weight.port}"
+            )
 
 
 def emit_squid_conf(policy: ProxyPolicy) -> str:
     """Render the proxy's whole policy for one launch."""
-    # http_access is first-match-wins, so the order is the policy: only the
-    # session's subnet may ask; CONNECT only; the one IDE port above the
-    # private-range deny, since the host sits at a private address; every
-    # other private destination refused, so a name resolving or rebinding
-    # into the host or LAN does not connect; port 443 only; the allow-list,
-    # or under "open" whatever is left; deny all.
+    # http_access is first-match-wins, so the order is the policy. Only the
+    # session's subnet may ask. The reverse port admits its one request shape
+    # and then nothing else, so no later rule can see that port. CONNECT only.
+    # The one IDE port sits above the private-range deny, since the host is at
+    # a private address. Every other private destination is refused, so a name
+    # resolving or rebinding into the host or LAN does not connect. Port 443
+    # only. The allow-list, or under "open" whatever is left. Deny all.
     _validate_policy(policy)
     lines = [
         f"# generated by claude-dev for {policy.label} — regenerated every launch",
         f"http_port {PROXY_PORT}",
+        *(_ow_listener(policy.open_weight) if policy.open_weight is not None else []),
         # squid aborts at startup when it cannot derive an FQDN.
         "visible_hostname claude-dev-proxy",
         "pid_filename none",
@@ -300,10 +569,12 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
         "",
         f"acl session src {policy.subnet}",
         "acl CONNECT method CONNECT",
-        "acl SSL_ports port 443",
+        f"acl SSL_ports port {SSL_PORT}",
         "http_access deny !session",
-        "http_access deny !CONNECT",
     ]
+    if policy.open_weight is not None:
+        lines.extend(_ow_rules())
+    lines.append("http_access deny !CONNECT")
     if policy.ide_gateway is not None and policy.ide_port is not None:
         lines.extend(_ide_pinhole(policy.ide_gateway, policy.ide_port))
     lines.extend(
@@ -336,19 +607,42 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     conf.add_argument("--allow", action="append", default=[])
     conf.add_argument("--ide-gateway")
     conf.add_argument("--ide-port", type=int)
+    # --ow opens the reverse port to the [open-weight] peer; --host-gateway is what
+    # a peer of "host" resolves to (the engine's name for the host machine).
+    conf.add_argument("--ow", action="store_true")
+    conf.add_argument("--host-gateway")
     conf.add_argument("--label", default="claude-dev")
     allowlist = verbs.add_parser(
         "allowlist", help="the effective allow-list, one per line"
     )
     allowlist.add_argument("config")
     allowlist.add_argument("--allow", action="append", default=[])
+    claude = verbs.add_parser("claude-settings", help="the JSON for claude --settings")
+    claude.add_argument("config")
+    claude.add_argument("--ow", action="store_true")
     return parser.parse_args(argv)
+
+
+def open_weight_policy(config: Config, host_gateway: str | None) -> OpenWeightPolicy:
+    """Resolve the [open-weight] table into the reverse port's inputs."""
+    if config.open_weight is None:
+        raise ConfigError("--ow needs an [open-weight] table in the config")
+    gateway = config.open_weight.peer
+    if gateway == OW_PEER_HOST:
+        if not host_gateway:
+            raise ConfigError(
+                'an [open-weight] peer of "host" needs the engine\'s host gateway'
+            )
+        gateway = host_gateway
+    return OpenWeightPolicy(gateway=gateway, port=config.open_weight.port)
 
 
 def _render(args: argparse.Namespace, config: Config) -> str:
     """Render the document one verb asks for."""
     if args.verb == "settings":
         return shell_settings(config)
+    if args.verb == "claude-settings":
+        return claude_settings(config, open_weight=args.ow)
     # Per-run --allow entries apply to this launch only; the file is never
     # rewritten.
     extra = tuple(validate_domain(entry, "--allow") for entry in args.allow)
@@ -361,6 +655,9 @@ def _render(args: argparse.Namespace, config: Config) -> str:
             allow=config.allow + extra,
             ide_gateway=args.ide_gateway,
             ide_port=args.ide_port,
+            open_weight=open_weight_policy(config, args.host_gateway)
+            if args.ow
+            else None,
             label=args.label,
         )
     )
