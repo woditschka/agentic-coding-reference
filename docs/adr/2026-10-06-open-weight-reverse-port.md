@@ -59,5 +59,5 @@ Negative:
 
 - [Egress Is Enforced by an External Proxy, Not by the Workload](2026-07-29-proxy-enforced-egress.md) — extended: the second listener is a rule block in the same generated policy, and the forward port's rules are unchanged.
 - [`docs/open-weight-models.md`](../open-weight-models.md) — the mapping and the tiers; its Claude Dev paragraph points here.
-- [`tools/claude-dev/README.md`](../../tools/claude-dev/README.md#the-reverse-port-an-open-weight-peer-the-proxy-can-read) — the operator-facing statement of the mechanism and its limits.
+- [`tools/agent-dev/README.md`](../../tools/agent-dev/README.md#the-reverse-port-an-open-weight-peer-the-proxy-can-read) — the operator-facing statement of the mechanism and its limits.
 - Claude Code documentation, read 2026-10-06: [settings precedence](https://code.claude.com/docs/en/settings) (a settings-file `env` block overrides the process environment; `--settings` ranks above project files), [LLM gateway](https://code.claude.com/docs/en/llm-gateway-connect) (`ANTHROPIC_AUTH_TOKEN` is a credential), [network configuration](https://code.claude.com/docs/en/network-config) (`NO_PROXY` is honoured).

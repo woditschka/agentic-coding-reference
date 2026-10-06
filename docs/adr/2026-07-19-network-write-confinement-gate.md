@@ -8,7 +8,7 @@ The harness glue is stdlib-only Python plus thin Bash, across two trust tiers. T
 
 A future edit could silently add a socket, spawn `curl`, or write outside the trees a tool is meant to rewrite. Two existing gates leave the gap. The stdlib-only scan (1c) proves no third-party import; the import-boundary gate (1g) proves a one-way module graph. Neither proves the glue reaches no network, nor confines where it writes.
 
-**Scope boundary.** This validates the harness's *own* glue code, not agent behavior. Confining what an agent does at runtime is `tools/claude-dev`'s container egress boundary ([default-deny-pod-host-egress](2026-07-17-default-deny-pod-host-egress.md)) — a separate boundary. Do not conflate them.
+**Scope boundary.** This validates the harness's *own* glue code, not agent behavior. Confining what an agent does at runtime is `tools/agent-dev`'s container egress boundary ([default-deny-pod-host-egress](2026-07-17-default-deny-pod-host-egress.md)) — a separate boundary. Do not conflate them.
 
 ## Options Considered
 

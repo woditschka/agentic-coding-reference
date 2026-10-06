@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for claude_dev_config: the first-match-wins squid policy order and the fail-closed reader."""
+"""Tests for agent_dev_config: the first-match-wins squid policy order and the fail-closed reader."""
 
 import dataclasses
 import ipaddress
@@ -9,9 +9,9 @@ import re
 import tempfile
 import unittest
 
-import claude_dev_config as c
+import agent_dev_config as c
 
-LAUNCHER = pathlib.Path(__file__).resolve().parent.parent / "claude-dev"
+LAUNCHER = pathlib.Path(__file__).resolve().parent.parent / "agent-dev"
 
 SOME_SUBNET = "172.30.0.0/16"
 SOME_DOMAIN = "api.anthropic.com"
@@ -27,6 +27,8 @@ SOME_IDE_GATEWAY_ADDRESS = "172.17.0.1"
 SOME_IDE_PORT = 64342
 PORT_ABOVE_MAX = c.MAX_PORT + 1
 LAUNCHER_LABEL = "claude-dev-123-4567"
+SOME_TOOL = "claude-dev"
+SOME_PATH_REGEX = r"^/v1/messages(/count_tokens)?(\?.*)?$"
 
 CLIENT_RESTRICTION = "http_access deny !session"
 PLAINTEXT_DENY = "http_access deny !CONNECT"
@@ -113,11 +115,20 @@ OW_MODELS_TOML = (
 
 
 def a_policy() -> c.ProxyPolicy:
-    return c.ProxyPolicy(subnet=SOME_SUBNET, mode="allow-list", allow=(SOME_DOMAIN,))
+    return c.ProxyPolicy(
+        subnet=SOME_SUBNET,
+        mode="allow-list",
+        allow=(SOME_DOMAIN,),
+        tool=SOME_TOOL,
+        label=SOME_TOOL,
+        mandatory_host=SOME_DOMAIN,
+    )
 
 
 def an_ow_policy(**overrides) -> c.OpenWeightPolicy:
-    base = c.OpenWeightPolicy(gateway=IDE_GATEWAY_NAME, port=SOME_OW_PORT)
+    base = c.OpenWeightPolicy(
+        gateway=IDE_GATEWAY_NAME, port=SOME_OW_PORT, path_regex=SOME_PATH_REGEX
+    )
     return dataclasses.replace(base, **overrides)
 
 
@@ -142,7 +153,9 @@ def rules(text):
 
 def launcher_read_keys() -> set[str]:
     """Collect the setting names the launcher's read loop has a case arm for."""
-    text = LAUNCHER.read_text()
+    # The launcher reads two documents with this loop shape; the settings one
+    # follows the config module's `settings` verb.
+    text = LAUNCHER.read_text().split('config_py settings "$CONFIG"', 1)[1]
     body = text.split("done <<EOF", 1)[0].rsplit("while IFS='='", 1)[1]
     return {
         line.split(")", 1)[0].strip()
@@ -297,7 +310,7 @@ class OpenWeightReversePort(unittest.TestCase):
 class OpenWeightPolicyResolution(unittest.TestCase):
     def test_a_host_peer_resolves_to_the_engine_gateway(self):
         cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
-        policy = c.open_weight_policy(cfg, IDE_GATEWAY_NAME)
+        policy = c.open_weight_policy(cfg, IDE_GATEWAY_NAME, SOME_PATH_REGEX)
         self.assertEqual(policy.gateway, IDE_GATEWAY_NAME)
         self.assertEqual(policy.port, c.OW_DEFAULT_PORT)
 
@@ -306,49 +319,19 @@ class OpenWeightPolicyResolution(unittest.TestCase):
             a_config(), open_weight=an_ow_config(peer=SOME_LAN_PEER)
         )
         self.assertEqual(
-            c.open_weight_policy(cfg, IDE_GATEWAY_NAME).gateway, SOME_LAN_PEER
+            c.open_weight_policy(cfg, IDE_GATEWAY_NAME, SOME_PATH_REGEX).gateway,
+            SOME_LAN_PEER,
         )
 
     def test_a_host_peer_without_a_gateway_and_a_missing_table_are_refused(self):
         with self.assertRaises(c.ConfigError):
             c.open_weight_policy(
-                dataclasses.replace(a_config(), open_weight=an_ow_config()), None
+                dataclasses.replace(a_config(), open_weight=an_ow_config()),
+                None,
+                SOME_PATH_REGEX,
             )
         with self.assertRaises(c.ConfigError):
-            c.open_weight_policy(a_config(), IDE_GATEWAY_NAME)
-
-
-class ClaudeSettings(unittest.TestCase):
-    def test_without_ow_only_the_sandbox_is_declared(self):
-        settings = json.loads(c.claude_settings(a_config(), open_weight=False))
-        self.assertEqual(settings, c.SANDBOX_OFF)
-
-    def test_with_ow_the_endpoint_the_token_and_the_map_ride_in_settings(self):
-        # The env block, not the container environment: a settings-file env
-        # overrides the process environment, and --settings outranks every
-        # project file, so a project cannot point the session elsewhere.
-        cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
-        settings = json.loads(c.claude_settings(cfg, open_weight=True))
-        self.assertEqual(settings["sandbox"], c.SANDBOX_OFF["sandbox"])
-        self.assertEqual(
-            settings["env"],
-            {
-                "ANTHROPIC_BASE_URL": f"http://proxy:{c.OW_PROXY_PORT}",
-                "ANTHROPIC_AUTH_TOKEN": c.OW_PLACEHOLDER_TOKEN,
-                "API_TIMEOUT_MS": str(c.OW_TIMEOUT_MS),
-            },
-        )
-        self.assertEqual(
-            settings["modelOverrides"],
-            {SOME_OPUS_PIN: SOME_OPUS_TAG, SOME_SONNET_PIN: SOME_SONNET_TAG},
-        )
-        # The root session names a mapped model, or its own name reaches
-        # the peer unmapped.
-        self.assertEqual(settings["model"], SOME_OPUS_PIN)
-
-    def test_ow_without_a_table_is_refused(self):
-        with self.assertRaises(c.ConfigError):
-            c.claude_settings(a_config(), open_weight=True)
+            c.open_weight_policy(a_config(), IDE_GATEWAY_NAME, SOME_PATH_REGEX)
 
 
 class PolicyContent(unittest.TestCase):

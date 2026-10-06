@@ -44,7 +44,7 @@ Load-bearing details:
 
 ## Amendment (2026-08-06): tools/ recorded out of scope
 
-The user-installed tooling under `tools/` (`claude-dev/*.py` ~1,280 lines, `harness-stats/`) sits outside the enforced typed scope by decision, not omission: it ships by installer to the user's machine, changes rarely, and `harness-stats/accounting.py` is already covered through its battery-gated vendored copy in the core. Ruff and bandit still cover the tree. The next substantive edit to a `tools/claude-dev` module should land it strict-clean and add it to the pyproject tranche list — the amendment above's one-line mechanism.
+The user-installed tooling under `tools/` (`claude-dev/*.py` ~1,280 lines, `harness-stats/`) sits outside the enforced typed scope by decision, not omission: it ships by installer to the user's machine, changes rarely, and `harness-stats/accounting.py` is already covered through its battery-gated vendored copy in the core. Ruff and bandit still cover the tree. The next substantive edit to a `tools/agent-dev` module should land it strict-clean and add it to the pyproject tranche list — the amendment above's one-line mechanism.
 
 ## References
 

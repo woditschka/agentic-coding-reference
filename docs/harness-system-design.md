@@ -126,7 +126,7 @@ The confinement gate scans two tiers, the shipped runtime and the producer tooli
 | `evals/summarize.py` | Regenerate every derived view from the run folders and the operator notes; `--check` fails on drift |
 | `evals/render_figure.py`, `evals/refresh_trend.py` | Redraw the dated trend figure from the trend data; the two-step refresh |
 | `tools/harness-stats/accounting.py` | The canonical usage-accounting module and pricing table |
-| `tools/claude-dev/claude_dev_config.py`, `claude_dev_scrub.py`, `ide_preflight.py`, `open_weight_preflight.py` | Proxy policy and the session's settings document from configuration, the container-private settings replica, the IDE tool-set check, the open-weight model-map check; the launcher itself is bash |
+| `tools/agent-dev/agent_dev.py`, `agent_dev_config.py`, `agent_dev_profiles.py`, `claude_dev_scrub.py`, `ide_preflight.py`, `open_weight_preflight.py` | Proxy policy from configuration, one profile per agent tool and the session's settings document it names, the container-private settings replica, the IDE tool-set check, the open-weight model-map check; the engine launcher is bash |
 
 Run folders are ground truth and every view is derived; a development version's folders and trend page are never committed ([ADR: cost per pass against a fixed SUT](adr/2026-08-02-eval-bench-cost-per-pass.md)). The accounting module has one canonical home in `tools/` and one vendored copy in the runtime ([ADR: single pricing source as a gated vendored copy](adr/2026-07-13-single-pricing-source-vendored-copy.md)). Battery step 2d compares the two byte for byte. Methodology, tiers, and the run-folder layout are in [`evals/README.md`](../evals/README.md).
 

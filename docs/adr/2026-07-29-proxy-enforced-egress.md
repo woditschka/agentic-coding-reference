@@ -59,4 +59,4 @@ Negative:
 - [The Pod Denies Host Egress by Default](2026-07-17-default-deny-pod-host-egress.md) — superseded: it named the filtering proxy as the missing piece, and this ADR is that piece.
 - [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) — the IDE reachability premise it amends now rests on the internal network rather than on packet-filter rules.
 - [The Pod Image's Supply Chain](2026-07-20-pod-image-supply-chain.md) — unchanged; the proxy binaries install from the same signed Debian repository.
-- [`tools/claude-dev/README.md`](../../tools/claude-dev/README.md) — the operator-facing statement of the boundary this ADR decides.
+- [`tools/agent-dev/README.md`](../../tools/agent-dev/README.md) — the operator-facing statement of the boundary this ADR decides.

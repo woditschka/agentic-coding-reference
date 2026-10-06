@@ -2,12 +2,21 @@
 
 User-level tooling for running Claude Code with approvals heavily reduced. A session defaults to `--permission-mode auto`: a classifier approves routine actions and prompts only on the ones it flags. `--dangerously-skip-permissions` passes through for fully unattended runs. Either posture is confined in a disposable Linux container whose only path to the internet is a proxy it cannot reconfigure. The agent sees the project directory and a named slice of the host `~/.claude`, and reaches only the allow-listed domains. The [Security Model](#security-model) states the exact boundary; read it before running an untrusted repo.
 
+## Structure
+
+Each agent tool has its own command. `claude-dev` runs Claude Code, and a further tool adds a command of the same shape. Every command runs one engine, `agent-dev`, which holds the confinement.
+
+A command names its tool and carries its own usage text. The tool's profile supplies every fact that differs between tools: the image stage, the shadowed directories, the credential store, the permission posture and the one inference path the reverse port admits. A command's data directory, image tag and labels carry its name, so two installed tools share no state. `install.sh <tool>` installs one command and leaves the others untouched.
+
 | Artifact | Purpose | Where it lives once installed |
 |---|---|---|
-| `claude-dev` | The command: builds the image on first run, then starts Claude Code confined from any project directory. | `~/.local/bin/claude-dev` |
-| `Dockerfile` | The image: Debian 13 slim, JDK 25 (Corretto), Node 24, current Go, Claude Code from Anthropic's signed apt repo as the last (cheap-to-rebuild) layer. Plus squid and socat, which carry the egress boundary and the IDE tunnel, and bubblewrap, which ships unused (see the sandbox note). | `~/.config/claude-dev/Dockerfile` |
+| `claude-dev` | The command: names its tool, holds its own usage text, and hands everything else to the shared `agent-dev` engine. | `~/.local/bin/claude-dev` |
+| `Dockerfile` | The image, one `base` stage for the toolchains and one stage per tool, built with `--target`: Debian 13 slim, JDK 25 (Corretto), Node 24, current Go, Claude Code from Anthropic's signed apt repo as the last (cheap-to-rebuild) layer. Plus squid and socat, which carry the egress boundary and the IDE tunnel, and bubblewrap, which ships unused (see the sandbox note). | `~/.config/claude-dev/Dockerfile` |
 | `claude-dev.toml` | The whole confinement policy, as data: extra mounts under `[mounts]`, mode and the egress allow-list under `[egress]`, and the open-weight peer and model map under `[open-weight]`. That is every key — the engine, the network and the bridge hardening have one sensible value each, so none of them is settable at all. Parsed with `tomllib` and never executed; unknown tables and keys are refused by name, so a typo cannot read as policy. Edited by hand, and the tool only ever reads it. | `~/.config/claude-dev/claude-dev.toml` |
-| `claude_dev_config.py` | Reads that policy and emits three things: the proxy's rules, the settings the launcher reads, and the `--settings` document the session gets. The rule order is the security property, so it lives here where the suite pins it. | `~/.config/claude-dev/claude_dev_config.py` |
+| `agent-dev` | The engine every command runs. It owns the confinement: networks, proxy, mounts, hardening, `access` and `cleanup`. It runs only through a command and reads the tool's facts from the profile as data. | `~/.config/<command>/agent-dev` |
+| `agent_dev.py` | Runs one verb for one tool: reads the policy and the profile, writes one document to stdout. Emits the proxy's rules, the settings the launcher reads, and the session's settings document. | `~/.config/<command>/agent_dev.py` |
+| `agent_dev_config.py` | The engine library: the policy file's reader and validators and the proxy's rules. The rule order is the security property, so it lives here where the suite pins it. It knows no agent tool. | `~/.config/<command>/agent_dev_config.py` |
+| `agent_dev_profiles.py` | One typed `Profile` per tool: the command and image stage, the directories the session sees as a private shadow, the credential store, the permission posture, the one inference path the reverse port admits, and the session's settings. | `~/.config/<command>/agent_dev_profiles.py` |
 | `ide_preflight.py` | Enumerates a running JetBrains IDE's MCP tools and checks them against the harness's read-only policy. Runs on `--ide` launches: warns on drift and verifies which IDE has the project open. | `~/.config/claude-dev/ide_preflight.py` |
 | `claude_dev_scrub.py` | Builds the container-private `~/.claude.json` replica: the host file scrubbed to this project. | `~/.config/claude-dev/claude_dev_scrub.py` |
 | `open_weight_preflight.py` | Asks the `[open-weight]` peer which models it serves and names every mapped tag it does not list. Runs on `--ow` launches, before anything is created. | `~/.config/claude-dev/open_weight_preflight.py` |
@@ -43,7 +52,7 @@ To send telemetry instead, set `telemetry.enabled = true` and uncomment both int
 
 An empty allow-list refuses to launch rather than starting a session that can reach nothing, and a launch without `api.anthropic.com` warns by name. Every entry is validated before anything is created: a URL, port, CIDR or bare address is refused by name. The refusal matters because squid silently ignores a malformed entry: it reads as allowed while behaving denied.
 
-**The policy is data, and the order is tested.** `claude-dev.toml` is parsed with `tomllib` and never executed, so no file under `~/.config/claude-dev` can run code on the host. A file that will not parse is refused by name rather than read as an absent policy. The rule list above is generated by `claude_dev_config.py`. Its suite pins each edge that carries a security property. The open-weight block sits directly after the client restriction and leaves the forward port's rules untouched. The IDE pinhole sits above the private-range deny. The port restriction sits below it and above the allow-list. Deny-all is last. Reordering any of them fails a test instead of silently changing what a session can reach.
+**The policy is data, and the order is tested.** `claude-dev.toml` is parsed with `tomllib` and never executed, so no file under `~/.config/claude-dev` can run code on the host. A file that will not parse is refused by name rather than read as an absent policy. The rule list above is generated by `agent_dev_config.py`. Its suite pins each edge that carries a security property. The open-weight block sits directly after the client restriction and leaves the forward port's rules untouched. The IDE pinhole sits above the private-range deny. The port restriction sits below it and above the allow-list. Deny-all is last. Reordering any of them fails a test instead of silently changing what a session can reach.
 
 **The engine-side bridge carries no address.** The internal network is created with `inhibit_ipv4`, so the bridge interface Docker would otherwise give an address inside the engine VM has none. The one host-local endpoint that subnet would expose does not exist. Container-to-container traffic is plain L2 and name resolution rides each container's own `127.0.0.11` resolver, so neither depends on that address. An engine too old for the option is not silently accepted: the launch warns, names what stays reachable, and continues. There is no key to silence that warning: its only alternative is an engine that cannot do this, so the fix is the engine (Moby 26+, 2024).
 
@@ -144,14 +153,14 @@ Inside this repo, run the project skill:
 /install-claude-dev
 ```
 
-The skill runs the installer's check mode, shows what would change, and applies on approval. An existing `claude-dev.toml` is never overwritten: that file is the operator's policy. `install.sh reset-config` restores the shipped version, keeping the old one as `.bak`.
+The skill runs the installer's check mode, shows what would change, and applies on approval. An existing `claude-dev.toml` is never overwritten: that file is the operator's policy. `install.sh claude reset-config` restores the shipped version, keeping the old one as `.bak`. Each tool installs on its own: `install.sh <tool>` writes that tool's command and data directory and touches no other.
 
 The installer carries no migration path: it installs the current tool and nothing else. A retired flag is not refused by name either. The launcher forwards anything it does not own to `claude`, so a stale flag surfaces as an unknown-option error from inside the container.
 
 ### Manual
 
 ```bash
-tools/claude-dev/install.sh   # command -> ~/.local/bin, data -> ~/.config/claude-dev
+tools/agent-dev/install.sh claude   # command -> ~/.local/bin, data -> ~/.config/claude-dev
 claude-dev build              # one-time image build (pulls toolchains, a few minutes)
 ```
 

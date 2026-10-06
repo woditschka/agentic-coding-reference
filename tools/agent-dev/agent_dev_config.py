@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Read claude-dev.toml and emit the proxy policy and the launcher's settings.
+"""The engine every agent-dev tool shares: the policy file's reader and the proxy's rules.
 
-The config is data: parsed with tomllib, never executed. This module emits
-documents and values only; argv construction stays in the launcher.
+The config is data: parsed with tomllib, never executed. This module knows no
+agent tool: the per-tool facts (names, the inference path, the settings the
+session gets) live in agent_dev_profiles and arrive as parameters.
 """
 
-import argparse
 import ipaddress
-import json
-import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,18 +24,9 @@ MAX_PORT = 65535
 # gateway name the launcher passes in.
 OW_PEER_HOST = "host"
 OW_DEFAULT_PORT = 11434
-# The one request shape the reverse port admits: the Messages endpoint and its
-# token-count sibling, with or without a query string. squid's urlpath_regex
-# sees the query, and Claude Code posts to /v1/messages?beta=true. Not a
-# setting: the client chooses the path, no peer needs another, and a wider
-# shape would be the model-management API the port exists to refuse.
-OW_PATH_REGEX = r"^/v1/messages(/count_tokens)?(\?.*)?$"
 # API_TIMEOUT_MS for the session under --ow. One value: a local model answers
 # in tens of seconds, and a ceiling nobody reaches costs nothing.
 OW_TIMEOUT_MS = 1_800_000
-# The session's bearer token under --ow. A placeholder: the peer ignores it
-# and the real credential is never mounted, so nothing inside can leak it.
-OW_PLACEHOLDER_TOKEN = "claude-dev"
 # Display order of pinned names that share a target: the Claude family's
 # capability tiers, top first; a name outside the family sorts after them.
 OW_NAME_RANK = ("fable", "opus", "sonnet", "haiku")
@@ -116,7 +105,7 @@ class OpenWeightConfig:
 
 @dataclass(frozen=True)
 class Config:
-    """One parsed claude-dev.toml with its paths already $HOME-expanded."""
+    """One parsed policy file with its paths already $HOME-expanded."""
 
     rw: tuple[str, ...] = ()
     ro: tuple[str, ...] = ()
@@ -135,6 +124,11 @@ class OpenWeightPolicy:
 
     gateway: str
     port: int
+    # The one request shape the reverse port admits, as a squid urlpath_regex.
+    # It comes from the profile and is never a setting: the client chooses the
+    # path, no peer needs another, and a wider shape would be the
+    # model-management API the port exists to refuse.
+    path_regex: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,10 +138,15 @@ class ProxyPolicy:
     subnet: str
     mode: str
     allow: tuple[str, ...]
+    # The tool's command name: it names the proxy's files and its host name.
+    tool: str
+    # The session's name: the proxy's config comment carries it.
+    label: str
+    # The one host the session cannot work without; an empty allow-list names it.
+    mandatory_host: str
     ide_gateway: str | None = None
     ide_port: int | None = None
     open_weight: OpenWeightPolicy | None = None
-    label: str = "claude-dev"
 
 
 def expand_home(entry: str, home: str) -> str:
@@ -388,8 +387,8 @@ def shell_settings(config: Config) -> str:
         *(f"RW={path}" for path in config.rw),
         *(f"RO={path}" for path in config.ro),
     ]
-    # The token and the timeout reach the session through claude_settings
-    # alone; the launcher only displays the peer and the map.
+    # The token and the timeout reach the session through the profile's
+    # settings alone; the launcher only displays the peer and the map.
     if config.open_weight is not None:
         lines += [
             f"OW_PEER={config.open_weight.peer}",
@@ -427,36 +426,6 @@ def target_lines(open_weight: OpenWeightConfig) -> list[str]:
     return lines
 
 
-# Claude's in-process sandbox stays off: under Docker's default seccomp profile
-# bubblewrap cannot create a user namespace (README § Process has the matrix),
-# and turning it on would mean seccomp=unconfined for the whole container.
-SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}
-
-
-def claude_settings(config: Config, *, open_weight: bool) -> str:
-    """Render the JSON the launcher passes as `--settings`, one document."""
-    settings: dict[str, object] = dict(SANDBOX_OFF)
-    if open_weight:
-        if config.open_weight is None:
-            raise ConfigError("--ow needs an [open-weight] table in the config")
-        # The endpoint rides in the settings `env` block, not in the container
-        # environment. A settings-file env block overrides the process
-        # environment, and --settings sits above every project file. So a
-        # project's own base URL cannot redirect the session past the proxy.
-        settings["env"] = {
-            "ANTHROPIC_BASE_URL": f"http://proxy:{OW_PROXY_PORT}",
-            "ANTHROPIC_AUTH_TOKEN": OW_PLACEHOLDER_TOKEN,
-            "API_TIMEOUT_MS": str(OW_TIMEOUT_MS),
-        }
-        # The map is a settings key, not an environment variable: the pinned
-        # names in every agent's frontmatter are rewritten on the way out.
-        settings["modelOverrides"] = dict(config.open_weight.models)
-        # The root session follows the `model` key; without it the session
-        # names a model the map does not cover.
-        settings["model"] = config.open_weight.model
-    return json.dumps(settings, separators=(",", ":"))
-
-
 def _ide_pinhole(gateway: str, port: int) -> list[str]:
     """Render the rules that admit the one preflighted IDE port."""
     if not 0 < port <= MAX_PORT:
@@ -489,11 +458,11 @@ def _ow_listener(open_weight: OpenWeightPolicy) -> list[str]:
     ]
 
 
-def _ow_rules() -> list[str]:
+def _ow_rules(path_regex: str) -> list[str]:
     """Render the rules that admit exactly the one request shape."""
     return [
         "acl ow_port myportname ow",
-        f"acl ow_paths urlpath_regex {OW_PATH_REGEX}",
+        f"acl ow_paths urlpath_regex {path_regex}",
         f"acl ow_escaped urlpath_regex {OW_ESCAPE_REGEX}",
         "acl POST method POST",
         # squid resolves an ACL at the line that names it, so the peer routing
@@ -517,12 +486,13 @@ def _validate_policy(policy: ProxyPolicy) -> None:
     ipaddress.ip_network(policy.subnet, strict=False)
     if policy.mode == "allow-list" and not policy.allow:
         raise ConfigError(
-            "the allow-list is empty — add at least api.anthropic.com, or "
+            f"the allow-list is empty — add at least {policy.mandatory_host}, or "
             "launch with --open-egress"
         )
     if (policy.ide_gateway is None) != (policy.ide_port is None):
         raise ConfigError("the IDE bridge needs both a gateway and a port")
     validate_token(policy.label, "proxy config label")
+    validate_token(policy.tool, "proxy config tool")
     if policy.ide_gateway is not None:
         validate_token(policy.ide_gateway, "IDE gateway")
     if policy.open_weight is not None:
@@ -546,11 +516,11 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
     # only. The allow-list, or under "open" whatever is left. Deny all.
     _validate_policy(policy)
     lines = [
-        f"# generated by claude-dev for {policy.label} — regenerated every launch",
+        f"# generated by {policy.tool} for {policy.label} — regenerated every launch",
         f"http_port {PROXY_PORT}",
         *(_ow_listener(policy.open_weight) if policy.open_weight is not None else []),
         # squid aborts at startup when it cannot derive an FQDN.
-        "visible_hostname claude-dev-proxy",
+        f"visible_hostname {policy.tool}-proxy",
         "pid_filename none",
         "coredump_dir /tmp",
         # The pinger opens raw ICMP sockets, which cap-drop=ALL denies; it
@@ -573,7 +543,7 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
         "http_access deny !session",
     ]
     if policy.open_weight is not None:
-        lines.extend(_ow_rules())
+        lines.extend(_ow_rules(policy.open_weight.path_regex))
     lines.append("http_access deny !CONNECT")
     if policy.ide_gateway is not None and policy.ide_port is not None:
         lines.extend(_ide_pinhole(policy.ide_gateway, policy.ide_port))
@@ -587,7 +557,7 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
         ]
     )
     if policy.mode == "allow-list":
-        lines.append('acl allowed dstdomain "/etc/claude-dev/allowlist.txt"')
+        lines.append(f'acl allowed dstdomain "/etc/{policy.tool}/allowlist.txt"')
         lines.append("http_access allow session allowed")
     else:
         lines.append("http_access allow session")
@@ -595,35 +565,9 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    verbs = parser.add_subparsers(dest="verb", required=True)
-    settings = verbs.add_parser("settings", help="KEY=VALUE lines for the launcher")
-    settings.add_argument("config")
-    conf = verbs.add_parser("squid-conf", help="the proxy policy for one launch")
-    conf.add_argument("config")
-    conf.add_argument("--subnet", required=True)
-    conf.add_argument("--mode", choices=MODES)
-    conf.add_argument("--allow", action="append", default=[])
-    conf.add_argument("--ide-gateway")
-    conf.add_argument("--ide-port", type=int)
-    # --ow opens the reverse port to the [open-weight] peer; --host-gateway is what
-    # a peer of "host" resolves to (the engine's name for the host machine).
-    conf.add_argument("--ow", action="store_true")
-    conf.add_argument("--host-gateway")
-    conf.add_argument("--label", default="claude-dev")
-    allowlist = verbs.add_parser(
-        "allowlist", help="the effective allow-list, one per line"
-    )
-    allowlist.add_argument("config")
-    allowlist.add_argument("--allow", action="append", default=[])
-    claude = verbs.add_parser("claude-settings", help="the JSON for claude --settings")
-    claude.add_argument("config")
-    claude.add_argument("--ow", action="store_true")
-    return parser.parse_args(argv)
-
-
-def open_weight_policy(config: Config, host_gateway: str | None) -> OpenWeightPolicy:
+def open_weight_policy(
+    config: Config, host_gateway: str | None, path_regex: str
+) -> OpenWeightPolicy:
     """Resolve the [open-weight] table into the reverse port's inputs."""
     if config.open_weight is None:
         raise ConfigError("--ow needs an [open-weight] table in the config")
@@ -634,46 +578,6 @@ def open_weight_policy(config: Config, host_gateway: str | None) -> OpenWeightPo
                 'an [open-weight] peer of "host" needs the engine\'s host gateway'
             )
         gateway = host_gateway
-    return OpenWeightPolicy(gateway=gateway, port=config.open_weight.port)
-
-
-def _render(args: argparse.Namespace, config: Config) -> str:
-    """Render the document one verb asks for."""
-    if args.verb == "settings":
-        return shell_settings(config)
-    if args.verb == "claude-settings":
-        return claude_settings(config, open_weight=args.ow)
-    # Per-run --allow entries apply to this launch only; the file is never
-    # rewritten.
-    extra = tuple(validate_domain(entry, "--allow") for entry in args.allow)
-    if args.verb == "allowlist":
-        return "".join(f"{domain}\n" for domain in config.allow + extra)
-    return emit_squid_conf(
-        ProxyPolicy(
-            subnet=args.subnet,
-            mode=args.mode or config.mode,
-            allow=config.allow + extra,
-            ide_gateway=args.ide_gateway,
-            ide_port=args.ide_port,
-            open_weight=open_weight_policy(config, args.host_gateway)
-            if args.ow
-            else None,
-            label=args.label,
-        )
+    return OpenWeightPolicy(
+        gateway=gateway, port=config.open_weight.port, path_regex=path_regex
     )
-
-
-def main(argv: list[str] | None = None) -> int:
-    """Run one verb and write its document to stdout."""
-    args = _parse_args(sys.argv[1:] if argv is None else argv)
-    try:
-        config = load(Path(args.config), str(Path.home()))
-        sys.stdout.write(_render(args, config))
-    except (ConfigError, ValueError) as exc:
-        print(f"claude-dev: {exc}", file=sys.stderr)
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

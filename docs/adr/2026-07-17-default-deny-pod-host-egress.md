@@ -48,7 +48,7 @@ Negative:
 
 ## Implementation
 
-`tools/claude-dev/`: `egress_rules.py` is the unit-tested ruleset emitter — the single source of the policy. `egress_init.sh` resolves the gateway, applies the ruleset, and asserts the deny landed. `claude-pod` restructures its launch to create → configure → exec; the `Dockerfile` gains `nftables`. `ide_relay.py` and its suite are deleted; the preflight's `--relay-ports` interface is renamed `--bridge-ports`. The README's Security Model carries the disclosure.
+`tools/agent-dev/`: `egress_rules.py` is the unit-tested ruleset emitter — the single source of the policy. `egress_init.sh` resolves the gateway, applies the ruleset, and asserts the deny landed. `claude-pod` restructures its launch to create → configure → exec; the `Dockerfile` gains `nftables`. `ide_relay.py` and its suite are deleted; the preflight's `--relay-ports` interface is renamed `--bridge-ports`. The README's Security Model carries the disclosure.
 
 A pre-implementation spike on Rancher Desktop (2026-07-17) validated the mechanics: init-container rule installation, persistence after installer exit, and allow/deny/DNS/egress reachability. It also proved kernel-enforced immutability (`EPERM` even for cap-dropped root) and the loopback DNAT (HTTP 200 from the IDE, which accepts `Host: 127.0.0.1`). It produced two corrections. The DNS carve-out is port 53 across the deny subnet: the resolver is a VM address — the gateway itself on Rancher — whose identity varies by engine. `route_localnet` is set at pod creation via `--sysctl`; `/proc/sys` is read-only for the init container.
 
@@ -57,4 +57,4 @@ A pre-implementation spike on Rancher Desktop (2026-07-17) validated the mechani
 - [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) — disclosed the open wall; its rejection of a filtering proxy ("a proxy filters nothing") loses that premise for pod sessions once this lands. Its enforcement point still binds every client.
 - [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) — the boundary this obeys: rule installation is orchestration; the port decision stays in the tested preflight.
 - [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) — closing a disclosed exposure outranks feature work.
-- [`tools/claude-dev/README.md` § Security Model](../../tools/claude-dev/README.md) — the disclosure this converts into a control.
+- [`tools/agent-dev/README.md` § Security Model](../../tools/agent-dev/README.md) — the disclosure this converts into a control.

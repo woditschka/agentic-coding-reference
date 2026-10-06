@@ -889,7 +889,7 @@ class PolicySet(unittest.TestCase):
 class PolicyMatchesTheHarnessDocs(unittest.TestCase):
     """POLICY_TOOLS equals the Exposed roster each stack's MCP-integration skill publishes."""
 
-    # tools/claude-dev/tests/<file> -> the repo root is three parents up.
+    # tools/agent-dev/tests/<file> -> the repo root is three parents up.
     _ROOT = pathlib.Path(__file__).resolve().parents[3]
     _DOCS = (
         _ROOT

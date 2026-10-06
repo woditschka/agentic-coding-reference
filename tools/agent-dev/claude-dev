@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# claude-dev — Claude Code with approvals heavily reduced, confined in a Linux
+# container whose only path to the internet is a proxy it cannot reconfigure.
+# The boundary, its limits and the platform notes: tools/agent-dev/README.md.
+#
+# Usage (verb style, like `claude`):
+#   claude-dev [options] [-- <claude args>]  run Claude Code confined (default)
+#   claude-dev build                         build the image (first time)
+#   claude-dev update [--all]                update Claude (--all: every layer)
+#   claude-dev access [options]              print what the next session can access — bind mounts, egress, per-host traffic record — launch nothing
+#   claude-dev cleanup [--all]               remove what this tool left behind: dead session objects, superseded images
+#                                            (--all: also engine-wide — every unused image, stopped container, network, volume, build cache)
+#   claude-dev help                          show this help
+#
+# Options:
+#   --rw PATH        extra writable dir/file (repeatable); CWD is always writable
+#   --ro PATH        extra read-only dir/file (repeatable)
+#   --allow DOMAIN   extra egress domain, this run only (repeatable)
+#   --open-egress    drop the domain allow-list; the proxy, its log and its
+#                    host/LAN/metadata deny stay
+#   --allowlist-egress  force allow-list mode, overriding [egress] mode = "open"
+#   --ide            bridge one running JetBrains IDE's MCP oracle in (opt-in)
+#   --ow             run on the open-weight peer declared in [open-weight]. The
+#                    proxy gains a reverse port to it that admits POST
+#                    /v1/messages only. The session gets the base URL, a
+#                    placeholder token and the [open-weight.models] map; no real
+#                    credential is mounted.
+#   -h, --help
+#
+# Any other flag goes to `claude` inside: --resume, --continue, --model,
+# --dangerously-skip-permissions, --permission-mode <mode>. Use
+# `-- <flag>` when a name collides with one above (e.g. `-- --help`). Resume
+# keys off the project's absolute path, and the project mounts at that path, so
+# a session started on the host resumes here — run it from that project.
+#
+# Permissions default to `--permission-mode auto`: a classifier approves
+# routine actions and falls back to a prompt on the ones it flags. That is a
+# behavioral layer inside the session, never a boundary — the container and
+# the proxy are sized to hold without it. The launcher owns no permission
+# flag: a passed-through --permission-mode or --dangerously-skip-permissions
+# replaces the default. Headless caveat: in a `-p` run nobody answers the
+# fallback prompt and repeated classifier blocks abort the session — scripted
+# runs want --dangerously-skip-permissions.
+#
+# Egress is default-deny: the session's only route out is a squid proxy that
+# allows CONNECT to :443 for the [egress] allow domains and refuses host, LAN
+# and metadata addresses. --ow adds one plain-HTTP path to the [open-weight] peer,
+# read and filtered by the same proxy. To see what a session asked for and did
+# not get:
+# `claude-dev access` (per-host counts), or the raw record:
+# grep TCP_DENIED ~/.config/claude-dev/last-egress.log
+#
+# --ide is opt-in, and so is the preflight: only an --ide run probes the IDE
+# and warns when its MCP server exposes tools outside the read-only policy.
+# A run without the flag opens no path to the IDE and probes nothing — a
+# probe against a starting IntelliJ trips an upstream bug that spams its log.
+# The bridge needs exactly one policy-conforming IDE with this project open;
+# anything else warns and the session still runs.
+#
+# Layout when installed:
+#   ~/.local/bin/claude-dev                the command (on PATH)
+#   ~/.config/claude-dev/Dockerfile        the image definition
+#   ~/.config/claude-dev/claude-dev.toml   the operator's policy: [mounts],
+#                                          [egress] and [open-weight]; read as data,
+#                                          never executed; documents its own keys
+#   ~/.config/claude-dev/state/            the session's private ~/.claude
+#   ~/.config/claude-dev/auth/             the session's private credentials
+#   ~/.config/claude-dev/last-egress.log   the proxy's access log, saved on exit
+#
+# Env: CLAUDE_DEV_HOME           data dir (default ~/.config/claude-dev)
+#      CLAUDE_DEV_CLAUDE_VERSION claude version to build/update (default latest)
+# Those are the only two. CLAUDE_DEV_HOME relocates the config, the Dockerfile,
+# the credentials, and the python modules this script runs ON THE HOST —
+# pointing it at a directory outside the operator's control is equivalent to
+# running that directory's code. No project file is ever read, so a repo
+# steers nothing.
+set -euo pipefail
+
+# This file is the claude-dev command: it names the tool and hands everything
+# else to the shared agent-dev engine, which holds the confinement. The engine
+# runs ON THE HOST from the data dir when installed, from this directory when
+# run from source. This file runs on the host too, so a copy inside the project
+# this session mounts read-write could be rewritten by the session and run on
+# the next launch. Help answers before anything is checked; everything else
+# refuses an in-project copy.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+case "${1:-}" in help|-h|--help) ;; *)
+  WORKDIR="$(pwd -P)"
+  case "$SELF_DIR" in "$WORKDIR"|"$WORKDIR"/*)
+    printf '%s: refusing to run the copy at %s: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/agent-dev/install.sh claude) and run %s/.local/bin/%s\n' 'claude-dev' "$SELF_DIR" "$HOME" 'claude-dev' >&2
+    exit 1;;
+  esac;;
+esac
+AGENT_DEV_HOME="${CLAUDE_DEV_HOME:-$HOME/.config/claude-dev}"
+ENGINE="$AGENT_DEV_HOME/agent-dev"
+[ -f "$ENGINE" ] || ENGINE="$SELF_DIR/agent-dev"
+[ -f "$ENGINE" ] || { printf 'claude-dev: missing agent-dev (looked in %s and %s) — run install.sh\n' "$AGENT_DEV_HOME" "$SELF_DIR" >&2; exit 1; }
+export AGENT_DEV_TOOL=claude AGENT_DEV_CMD=claude-dev AGENT_DEV_HOME AGENT_DEV_SHIM="$0"
+exec "$ENGINE" "$@"

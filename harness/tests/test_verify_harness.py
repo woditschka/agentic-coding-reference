@@ -826,19 +826,20 @@ class PodToolchainPins(unittest.TestCase):
         return b.failed, err.getvalue()
 
     def _write(self, root, dockerfile=None):
-        pod = Path(root) / "tools/claude-dev"
+        pod = Path(root) / "tools/agent-dev"
         pod.mkdir(parents=True)
         (pod / "Dockerfile").write_text(
             dockerfile if dockerfile is not None else _pod_dockerfile(),
             encoding="utf-8",
         )
-        (pod / "claude-dev").write_text(
-            'CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG")"\n'
-            'CMD+=(--settings "$CLAUDE_SETTINGS")\n',
+        (pod / "agent-dev").write_text(
+            'SESSION_SETTINGS="$(config_py session-settings "$CONFIG")"\n'
+            'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")\n',
             encoding="utf-8",
         )
-        (pod / "claude_dev_config.py").write_text(
-            'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n',
+        (pod / "agent_dev_profiles.py").write_text(
+            'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n'
+            'CLAUDE = Profile(settings_flag="--settings")\n',
             encoding="utf-8",
         )
         (Path(root) / "pyproject.toml").write_text(
@@ -885,8 +886,8 @@ class PodToolchainPins(unittest.TestCase):
         # profile, so dropping the override would revive a startup refusal.
         with tempfile.TemporaryDirectory() as root:
             self._write(root)
-            pod = Path(root) / "tools/claude-dev"
-            (pod / "claude-dev").write_text("CMD=(claude)\n", encoding="utf-8")
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent-dev").write_text("SESSION_CMD=(claude)\n", encoding="utf-8")
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("sandbox-off --settings injection", err)
@@ -896,23 +897,39 @@ class PodToolchainPins(unittest.TestCase):
         # would keep the argv shape and drop the declaration.
         with tempfile.TemporaryDirectory() as root:
             self._write(root)
-            pod = Path(root) / "tools/claude-dev"
-            (pod / "claude-dev").write_text(
-                "CLAUDE_SETTINGS='{}'\nCMD+=(--settings \"$CLAUDE_SETTINGS\")\n",
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent-dev").write_text(
+                "SESSION_SETTINGS='{}'\n"
+                'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")\n',
                 encoding="utf-8",
             )
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("sandbox-off --settings injection", err)
 
-    def test_a_config_module_without_the_sandbox_declaration_fails(self):
+    def test_a_profile_module_without_the_sandbox_declaration_fails(self):
         # The launcher passes the module's document through, so the
         # declaration is pinned where it is written, not where it is sent.
         with tempfile.TemporaryDirectory() as root:
             self._write(root)
-            pod = Path(root) / "tools/claude-dev"
-            (pod / "claude_dev_config.py").write_text(
-                "SANDBOX_OFF = {}\n", encoding="utf-8"
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent_dev_profiles.py").write_text(
+                'SANDBOX_OFF = {}\nCLAUDE = Profile(settings_flag="--settings")\n',
+                encoding="utf-8",
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_claude_profile_that_stops_delivering_by_settings_flag_fails(self):
+        # The document reaches the session only if the profile names the flag.
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent_dev_profiles.py").write_text(
+                'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n'
+                'CLAUDE = Profile(settings_flag="")\n',
+                encoding="utf-8",
             )
             failed, err = self._run(root)
             self.assertTrue(failed)

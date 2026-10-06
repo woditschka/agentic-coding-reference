@@ -1,8 +1,10 @@
-# claude-dev image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go + Claude Code.
+# agent-dev image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go,
+# then one stage per agent tool: `claude` is Claude Code. Each command builds
+# its own stage with --target, so the toolchain layers are cached once.
 #
-# Layer order: base setup (system tools, egress runtime, non-root
-# account), then dev toolchains, then Claude LAST. `claude-dev update`
-# rebuilds only the Claude layer (seconds); everything above stays cached.
+# Layer order: the `base` stage (system tools, egress runtime, non-root
+# account, dev toolchains), then the tool's stage LAST. `claude-dev update`
+# rebuilds only the claude stage (seconds); everything above stays cached.
 # The auto-updater is disabled: the baked version is authoritative.
 #
 # Supply chain (ADR 2026-07-20-pod-image-supply-chain): Claude Code installs
@@ -11,7 +13,7 @@
 # Debian and Corretto packages are apt-signature-verified. Node and Go ride
 # TLS alone, resolved to latest at build time; `claude-dev update --all`
 # refreshes them. The base choice and the no-pins trade live in the ADR.
-FROM debian:13-slim
+FROM debian:13-slim AS base
 ARG DEBIAN_FRONTEND=noninteractive
 
 # ══ base setup ══
@@ -88,7 +90,9 @@ RUN set -eux; \
     curl -fsSL "https://go.dev/dl/${ver}.linux-${goarch}.tar.gz" | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# ══ Claude Code — LAST layer ══
+# ══ stage claude: Claude Code — LAST layer ══
+FROM base AS claude
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Anthropic's signed apt repo, auto-updater off (use `claude-dev update`).
 # Before apt trusts the downloaded key, the layer asserts it holds exactly one

@@ -169,10 +169,12 @@ files = [
     "evals/refresh_trend.py",
     # The user-level tools: the same bar, with Any at the JSON boundary of
     # the IDE preflight's MCP messages.
-    "tools/claude-dev/claude_dev_config.py",
-    "tools/claude-dev/claude_dev_scrub.py",
-    "tools/claude-dev/ide_preflight.py",
-    "tools/claude-dev/open_weight_preflight.py",
+    "tools/agent-dev/agent_dev.py",
+    "tools/agent-dev/agent_dev_config.py",
+    "tools/agent-dev/agent_dev_profiles.py",
+    "tools/agent-dev/claude_dev_scrub.py",
+    "tools/agent-dev/ide_preflight.py",
+    "tools/agent-dev/open_weight_preflight.py",
     "tools/deck/deck.py",
     "tools/deck/figures.py",
 ]

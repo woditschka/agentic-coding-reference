@@ -592,13 +592,11 @@ class ConfinementGateScope(unittest.TestCase):
         _shipped, producer = confinement._gate_targets()
         rels = {p.relative_to(confinement.ROOT).as_posix() for p in producer}
         self.assertIn("tools/harness-stats/accounting.py", rels)
-        self.assertIn("tools/claude-dev/claude_dev_scrub.py", rels)
-        self.assertIn("tools/claude-dev/ide_preflight.py", rels)
+        self.assertIn("tools/agent-dev/claude_dev_scrub.py", rels)
+        self.assertIn("tools/agent-dev/ide_preflight.py", rels)
 
     def test_claude_dev_probe_is_a_recorded_exception(self):
-        self.assertIn(
-            "tools/claude-dev/ide_preflight.py", confinement._policy().network
-        )
+        self.assertIn("tools/agent-dev/ide_preflight.py", confinement._policy().network)
 
     def test_a_non_probe_tool_file_carries_no_exemption(self):
         self.assertNotIn(

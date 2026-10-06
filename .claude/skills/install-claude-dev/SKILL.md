@@ -4,8 +4,8 @@ description: >-
   Install or update the claude-dev tooling — the claude-dev command, the
   container Dockerfile, the default config, the egress allow-list, the
   IDE-oracle preflight, and the ~/.claude.json scrubber — from this repo's
-  tools/claude-dev/ into ~/.local/bin and ~/.config/claude-dev. Thin front-end
-  for tools/claude-dev/install.sh: run its check mode to show drift, apply only
+  tools/agent-dev/ into ~/.local/bin and ~/.config/claude-dev. Thin front-end
+  for tools/agent-dev/install.sh claude: run its check mode to show drift, apply only
   on the user's approval. Use when the user asks to install claude-dev, set up
   the development container, or update the launcher or image definition.
   Examples: "install claude-dev", "update the container tooling", "set up the
@@ -18,8 +18,8 @@ metadata:
 
 # install-claude-dev
 
-The mechanics live in `tools/claude-dev/install.sh` (source of truth: this
-repo's `tools/claude-dev/`). The skill adds the approval gate: **never apply
+The mechanics live in `tools/agent-dev/install.sh` (source of truth: this
+repo's `tools/agent-dev/`). The skill adds the approval gate: **never apply
 without the user's explicit OK.**
 
 ## Process
@@ -27,14 +27,15 @@ without the user's explicit OK.**
 1. **Detect drift.** Run from the repo root (the script reads sources relative
    to itself; if not in this repo, stop and say so):
    ```bash
-   tools/claude-dev/install.sh check
+   tools/agent-dev/install.sh claude check
    ```
    It prints one status per target — `identical`, `drift (N lines)`, or
    `missing` — for the command (`~/.local/bin/claude-dev`), the managed files
-   (`Dockerfile`, `claude_dev_config.py`, `claude_dev_scrub.py`,
-   `ide_preflight.py`, `open_weight_preflight.py`), and the one policy file the
-   user owns (`claude-dev.toml`). The installer carries no migration path and
-   reports no retired files: it installs the current tool and nothing else.
+   (`agent-dev`, `agent_dev.py`, `agent_dev_config.py`, `agent_dev_profiles.py`,
+   `Dockerfile`, `open_weight_preflight.py`, `claude_dev_scrub.py`,
+   `ide_preflight.py`), and the one policy file the user owns
+   (`claude-dev.toml`). The installer carries no migration path and reports no
+   retired files: it installs the current tool and nothing else.
 
 2. **Show the table and get approval.** Present the drift; for drifted rows,
    offer the unified diff on request. Do NOT edit without explicit approval
@@ -43,7 +44,7 @@ without the user's explicit OK.**
 
 3. **Apply:**
    ```bash
-   tools/claude-dev/install.sh apply
+   tools/agent-dev/install.sh claude apply
    ```
    It installs the command and the managed files, keeps an existing
    `claude-dev.toml` untouched, and smoke-tests `claude-dev help`. A smoke-test
@@ -52,7 +53,7 @@ without the user's explicit OK.**
 4. **Handle policy drift.** `apply` never overwrites `claude-dev.toml`, so a
    drifted config stays drifted — most often the repo copy gained a new default
    domain. Show the diff and offer to merge the additions into the installed
-   file; edit it only with the user's approval. `install.sh reset-config`
+   file; edit it only with the user's approval. `install.sh claude reset-config`
    replaces it with the shipped version and keeps the old one as `.bak` — offer
    it only when the user wants to discard their policy, and never as the fix
    for a small merge.

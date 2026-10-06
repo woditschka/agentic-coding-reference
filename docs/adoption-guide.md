@@ -211,7 +211,7 @@ The gains, ordered by how firmly each holds: grounded information, determinism, 
 
 The server is read-only by policy, in two senses: no exposed tool writes a file, and none executes code. The agent stays the sole writer and the project build stays the only compiler. So the oracle adds a grounding signal without a new failure mode, and never joins the execution path. A tool that only duplicates what the build already reports earns no slot. That is why the IDE's own build tool is excluded rather than exposed.
 
-The policy is a configuration, not a guarantee: an IDE upgrade can add and enable a tool unasked, and Settings Sync propagates the set across machines. Verify rather than trust: [`tools/claude-dev/ide_preflight.py`](../tools/claude-dev/ide_preflight.py) enumerates the live set and fails on anything outside policy. The incident that taught this: [ADR 2026-07-16](adr/2026-07-16-exposed-tool-set-is-a-setting.md).
+The policy is a configuration, not a guarantee: an IDE upgrade can add and enable a tool unasked, and Settings Sync propagates the set across machines. Verify rather than trust: [`tools/agent-dev/ide_preflight.py`](../tools/agent-dev/ide_preflight.py) enumerates the live set and fails on anything outside policy. The incident that taught this: [ADR 2026-07-16](adr/2026-07-16-exposed-tool-set-is-a-setting.md).
 
 It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build, the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor` for Java, `goland-doctor` for Go) guards against trusting a stale model.
 
@@ -234,10 +234,10 @@ See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for a li
 
 ## Claude Dev
 
-Long autonomous runs want few or no permission prompts; the trade is an agent acting without a human gate. Claude Dev defaults to auto mode, where a classifier approves routine actions and prompts on the flagged ones; a passed-through `--dangerously-skip-permissions` drops every prompt. Either way it confines the session in a disposable Linux container whose only path to the internet is a logged, allow-listed proxy it cannot reconfigure. The mount policy, the egress rules, the credential handling, and the image toolchains are owned by [`tools/claude-dev/README.md`](../tools/claude-dev/README.md).
+Long autonomous runs want few or no permission prompts; the trade is an agent acting without a human gate. Claude Dev defaults to auto mode, where a classifier approves routine actions and prompts on the flagged ones; a passed-through `--dangerously-skip-permissions` drops every prompt. Either way it confines the session in a disposable Linux container whose only path to the internet is a logged, allow-listed proxy it cannot reconfigure. The mount policy, the egress rules, the credential handling, and the image toolchains are owned by [`tools/agent-dev/README.md`](../tools/agent-dev/README.md).
 
 ```bash
-tools/claude-dev/install.sh   # command -> ~/.local/bin/claude-dev
+tools/agent-dev/install.sh claude   # command -> ~/.local/bin/claude-dev
 claude-dev                    # from a project directory: builds the image once, then runs confined
 ```
 
@@ -245,4 +245,4 @@ claude-dev                    # from a project directory: builds the image once,
 |-------|---------|
 | `install-claude-dev` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites an existing `claude-dev.toml`. |
 
-**Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support. For trusted repos on macOS without a container engine, [`docs/native-sandbox.md`](native-sandbox.md) configures Claude Code's built-in sandbox, the container-free counterpart, and compares the two boundaries.
+**Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/agent-dev/README.md`](../tools/agent-dev/README.md) for the security model, the egress policy, mount flags, and platform support. For trusted repos on macOS without a container engine, [`docs/native-sandbox.md`](native-sandbox.md) configures Claude Code's built-in sandbox, the container-free counterpart, and compares the two boundaries.

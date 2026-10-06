@@ -6,7 +6,7 @@
 
 [`docs/native-sandbox.md`](../native-sandbox.md) publishes a strict user-scope configuration for Claude Code's OS-level sandbox. Its central property is that `strictAllowlist` plus the out-of-sandbox proxy govern egress from sandboxed commands: an unlisted host is refused, never prompted.
 
-Serving a local port is ordinary work. The default Seatbelt profile denies `bind` with `EPERM`, so every dev server and every test that listens fails. Measured on this repository, `tools/claude-dev`'s suite fails 34 of 148 tests without the grant, each at `bind(("127.0.0.1", 0))`.
+Serving a local port is ordinary work. The default Seatbelt profile denies `bind` with `EPERM`, so every dev server and every test that listens fails. Measured on this repository, `tools/agent-dev`'s suite fails 34 of 148 tests without the grant, each at `bind(("127.0.0.1", 0))`.
 
 `sandbox.network.allowLocalBinding` lifts that denial. The key is absent from the Claude Code sandboxing and settings pages. It is described in the [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropic-experimental/sandbox-runtime) package the sandbox derives from. Within Claude Code's own schema it carries no description string, which is why no generated page names it.
 

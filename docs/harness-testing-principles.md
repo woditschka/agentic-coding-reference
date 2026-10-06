@@ -116,7 +116,7 @@ Every decoder of agent-written input has one test per applicable shape, named af
 | Stack slices | `harness/stacks/<stack>/scripts/tests/grading/` | same, against the stack's real layout | 4 |
 | Hooks | `harness/core/.claude/hooks/test_<hook>.py` | runs the hook as a subprocess on stdin JSON | 4 |
 | Producer | `harness/tests/`, one file per script | `_loader.load` by path, since the scripts keep hyphenated names | 6 |
-| Tools | `tools/claude-dev/tests/` | direct import | 6b |
+| Tools | `tools/agent-dev/tests/` | direct import | 6b |
 | Eval bench | `evals/tests/` | direct import | 6bc |
 | End-to-end | `harness/tests/test-*.sh` | installs a channel into a throwaway tree | 6c, 8, 9 |
 

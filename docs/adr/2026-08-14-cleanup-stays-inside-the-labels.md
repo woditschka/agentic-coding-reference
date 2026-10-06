@@ -42,4 +42,4 @@ Negative:
 ## References
 
 - [Egress Is Enforced by an External Proxy, Not by the Workload](2026-07-29-proxy-enforced-egress.md) — the per-session networks this verb's reaper owns by label.
-- [`tools/claude-dev/README.md`](../../tools/claude-dev/README.md) — the operator-facing statement of the verb's scope and the `--all` consent line.
+- [`tools/agent-dev/README.md`](../../tools/agent-dev/README.md) — the operator-facing statement of the verb's scope and the `--all` consent line.

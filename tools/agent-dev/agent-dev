@@ -1,99 +1,38 @@
 #!/usr/bin/env bash
-# claude-dev — Claude Code with approvals heavily reduced, confined in a Linux
-# container whose only path to the internet is a proxy it cannot reconfigure.
-# The boundary, its limits and the platform notes: tools/claude-dev/README.md.
+# agent-dev — the engine behind the claude-dev command and its siblings: an
+# agent tool with approvals heavily reduced, confined in a Linux container
+# whose only path to the internet is a proxy it cannot reconfigure.
 #
-# Usage (verb style, like `claude`):
-#   claude-dev [options] [-- <claude args>]  run Claude Code confined (default)
-#   claude-dev build                         build the image (first time)
-#   claude-dev update [--all]                update Claude (--all: every layer)
-#   claude-dev access [options]              print what the next session can access — bind mounts, egress, per-host traffic record — launch nothing
-#   claude-dev cleanup [--all]               remove what this tool left behind: dead session objects, superseded images
-#                                            (--all: also engine-wide — every unused image, stopped container, network, volume, build cache)
-#   claude-dev help                          show this help
-#
-# Options:
-#   --rw PATH        extra writable dir/file (repeatable); CWD is always writable
-#   --ro PATH        extra read-only dir/file (repeatable)
-#   --allow DOMAIN   extra egress domain, this run only (repeatable)
-#   --open-egress    drop the domain allow-list; the proxy, its log and its
-#                    host/LAN/metadata deny stay
-#   --allowlist-egress  force allow-list mode, overriding [egress] mode = "open"
-#   --ide            bridge one running JetBrains IDE's MCP oracle in (opt-in)
-#   --ow             run on the open-weight peer declared in [open-weight]. The
-#                    proxy gains a reverse port to it that admits POST
-#                    /v1/messages only. The session gets the base URL, a
-#                    placeholder token and the [open-weight.models] map; no real
-#                    credential is mounted.
-#   -h, --help
-#
-# Any other flag goes to `claude` inside: --resume, --continue, --model,
-# --dangerously-skip-permissions, --permission-mode <mode>. Use
-# `-- <flag>` when a name collides with one above (e.g. `-- --help`). Resume
-# keys off the project's absolute path, and the project mounts at that path, so
-# a session started on the host resumes here — run it from that project.
-#
-# Permissions default to `--permission-mode auto`: a classifier approves
-# routine actions and falls back to a prompt on the ones it flags. That is a
-# behavioral layer inside the session, never a boundary — the container and
-# the proxy are sized to hold without it. The launcher owns no permission
-# flag: a passed-through --permission-mode or --dangerously-skip-permissions
-# replaces the default. Headless caveat: in a `-p` run nobody answers the
-# fallback prompt and repeated classifier blocks abort the session — scripted
-# runs want --dangerously-skip-permissions.
-#
-# Egress is default-deny: the session's only route out is a squid proxy that
-# allows CONNECT to :443 for the [egress] allow domains and refuses host, LAN
-# and metadata addresses. --ow adds one plain-HTTP path to the [open-weight] peer,
-# read and filtered by the same proxy. To see what a session asked for and did
-# not get:
-# `claude-dev access` (per-host counts), or the raw record:
-# grep TCP_DENIED ~/.config/claude-dev/last-egress.log
-#
-# --ide is opt-in, and so is the preflight: only an --ide run probes the IDE
-# and warns when its MCP server exposes tools outside the read-only policy.
-# A run without the flag opens no path to the IDE and probes nothing — a
-# probe against a starting IntelliJ trips an upstream bug that spams its log.
-# The bridge needs exactly one policy-conforming IDE with this project open;
-# anything else warns and the session still runs.
-#
-# Layout when installed:
-#   ~/.local/bin/claude-dev                the command (on PATH)
-#   ~/.config/claude-dev/Dockerfile        the image definition
-#   ~/.config/claude-dev/claude-dev.toml   the operator's policy: [mounts],
-#                                          [egress] and [open-weight]; read as data,
-#                                          never executed; documents its own keys
-#   ~/.config/claude-dev/state/            the session's private ~/.claude
-#   ~/.config/claude-dev/auth/             the session's private credentials
-#   ~/.config/claude-dev/last-egress.log   the proxy's access log, saved on exit
-#
-# Env: CLAUDE_DEV_HOME           data dir (default ~/.config/claude-dev)
-#      CLAUDE_DEV_CLAUDE_VERSION claude version to build/update (default latest)
-# Those are the only two. CLAUDE_DEV_HOME relocates the config, the Dockerfile,
-# the credentials, and the python modules this script runs ON THE HOST —
-# pointing it at a directory outside the operator's control is equivalent to
-# running that directory's code. No project file is ever read, so a repo
-# steers nothing.
+# Each command is a thin script that names its tool (AGENT_DEV_TOOL,
+# AGENT_DEV_CMD, AGENT_DEV_HOME, AGENT_DEV_SHIM) and execs this file. The
+# command's own header is its usage text. Everything that differs between
+# tools comes from the profile (agent_dev_profiles.py), read through the
+# `profile` verb as data. The boundary, its limits and the platform notes:
+# tools/agent-dev/README.md.
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-CLAUDE_DEV_HOME="${CLAUDE_DEV_HOME:-$HOME/.config/claude-dev}"
-CLAUDE_VERSION="${CLAUDE_DEV_CLAUDE_VERSION:-latest}"
+# The command names itself; the engine runs only through one.
+TOOL="${AGENT_DEV_TOOL:?run through a command (claude-dev), not agent-dev directly}"
+CMD="${AGENT_DEV_CMD:?AGENT_DEV_CMD is unset}"
+SHIM="${AGENT_DEV_SHIM:?AGENT_DEV_SHIM is unset}"
+AGENT_HOME="${AGENT_DEV_HOME:?AGENT_DEV_HOME is unset}"
 # One tag, always built here from the shipped Dockerfile: the proxy runs from
 # this image too, so an image built elsewhere could shape its own confinement.
-TAG="claude-dev:latest"
+TAG="$CMD:latest"
 # Where the proxy reaches the host machine: the --ide pinhole and an [open-weight]
 # peer of "host". Every VM engine defines this name; plain Docker Engine on
 # Linux does not (see the README).
 HOST_GATEWAY="host.docker.internal"
 IDE_GATEWAY="$HOST_GATEWAY"
 
-die(){ printf 'claude-dev: %s\n' "$1" >&2; exit 1; }
-warn(){ printf 'claude-dev: %s\n' "$1" >&2; }
-show_help(){ awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$0"; }
+die(){ printf '%s: %s\n' "$CMD" "$1" >&2; exit 1; }
+warn(){ printf '%s: %s\n' "$CMD" "$1" >&2; }
+show_help(){ awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$SHIM"; }
 
 # Help answers before anything is read: the only flag reference must work when
 # the config is broken, and install.sh's smoke test runs it on a stale policy.
+# It comes from the command's own header, so it needs neither python nor a profile.
 case "${1:-}" in help|-h|--help) show_help; exit 0;; esac
 
 # The python modules below run ON THE HOST, so a copy launched from inside its
@@ -101,18 +40,71 @@ case "${1:-}" in help|-h|--help) show_help; exit 0;; esac
 WORKDIR="$(pwd -P)"
 # Normalized once, here: every later comparison is a realpath one — on macOS a
 # raw $TMPDIR-style value differs by a /private prefix and would never match.
-mkdir -p "$CLAUDE_DEV_HOME"
-CLAUDE_DEV_HOME="$(cd "$CLAUDE_DEV_HOME" && pwd -P)"
+mkdir -p "$AGENT_HOME"
+AGENT_HOME="$(cd "$AGENT_HOME" && pwd -P)"
 case "$SELF_DIR" in "$WORKDIR"|"$WORKDIR"/*)
-  die "refusing to run the copy at $SELF_DIR: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/claude-dev/install.sh) and run $HOME/.local/bin/claude-dev";; esac
+  die "refusing to run the copy at $SELF_DIR: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/agent-dev/install.sh) and run $HOME/.local/bin/$CMD";; esac
 
 # The config module owns everything that reads or decides; this script only
 # sequences docker (ADR 2026-07-06) — the policy is unit-tested, not inline.
-CONFIG_PY="$CLAUDE_DEV_HOME/claude_dev_config.py"
-[ -f "$CONFIG_PY" ] || CONFIG_PY="$SELF_DIR/claude_dev_config.py"
-[ -f "$CONFIG_PY" ] || die "missing claude_dev_config.py (looked in $CLAUDE_DEV_HOME and $SELF_DIR) — run install.sh"
+CONFIG_PY="$AGENT_HOME/agent_dev.py"
+[ -f "$CONFIG_PY" ] || CONFIG_PY="$SELF_DIR/agent_dev.py"
+[ -f "$CONFIG_PY" ] || die "missing agent_dev.py (looked in $AGENT_HOME and $SELF_DIR) — run install.sh"
 command -v python3 >/dev/null 2>&1 || die "python3 is required (it parses the policy and generates the proxy's rules)"
-config_py(){ python3 "$CONFIG_PY" "$@"; }
+config_py(){ python3 "$CONFIG_PY" --tool "$TOOL" "$@"; }
+
+# ---- the tool's profile: data from the profile module, read, never evaluated ----
+# Every fact that differs between agent tools arrives here. A record's own
+# fields are separated by '|'; the profile module refuses a value carrying
+# a newline.
+PROTECTED=(); PERM_DEFAULT=(); PERM_OVERRIDE=()
+ROOT_PATHS=(); ROOT_SHADOWS=(); ROOT_PROJECTS=()
+SPEC_RW_DIR=(); SPEC_RW_FILE=(); SPEC_RO=(); SPEC_OVERLAY=()
+BINARY=""; IMAGE_TARGET=""; BUILD_ARG=""; CACHE_BUST_ARG=""; VERSION_ENV=""; REPLICA_NAME=""; REPLICA_SCRUBBER=""
+CREDENTIAL_ENV=""; CREDENTIAL_OW_PATH=""; CREDENTIAL_FILE=""; LOGIN_HINT=""; TELEMETRY_OFF=""
+SETTINGS_FLAG=""; SETTINGS_ENV=""; MANDATORY_HOST=""; INFERENCE_ALLOW=""; INFERENCE_SHORT=""
+CREDENTIAL_VENDOR=""; PROFILE_IDE=0
+PROFILE_TEXT="$(config_py profile)" || exit 1
+while IFS='=' read -r k v; do
+  case "$k" in
+    NAME)                ;;
+    COMMAND)             [ "$v" = "$CMD" ] || die "the profile for '$TOOL' names the command '$v', not '$CMD'";;
+    BINARY)              BINARY="$v";;
+    IMAGE_TARGET)        IMAGE_TARGET="$v";;
+    BUILD_ARG)           BUILD_ARG="$v";;
+    CACHE_BUST_ARG)      CACHE_BUST_ARG="$v";;
+    VERSION_ENV)         VERSION_ENV="$v";;
+    REPLICA)             REPLICA_NAME="$v";;
+    REPLICA_SCRUBBER)    REPLICA_SCRUBBER="$v";;
+    CREDENTIAL_ENV)      CREDENTIAL_ENV="$v";;
+    CREDENTIAL_OW_PATH)  CREDENTIAL_OW_PATH="$v";;
+    CREDENTIAL_FILE)     CREDENTIAL_FILE="$v";;
+    LOGIN_HINT)          LOGIN_HINT="$v";;
+    TELEMETRY_OFF)       TELEMETRY_OFF="$v";;
+    SETTINGS_FLAG)       SETTINGS_FLAG="$v";;
+    SETTINGS_ENV)        SETTINGS_ENV="$v";;
+    MANDATORY_HOST)      MANDATORY_HOST="$v";;
+    INFERENCE_ALLOW)     INFERENCE_ALLOW="$v";;
+    INFERENCE_SHORT)     INFERENCE_SHORT="$v";;
+    CREDENTIAL_VENDOR)   CREDENTIAL_VENDOR="$v";;
+    IDE)                 PROFILE_IDE="$v";;
+    PERM_DEFAULT)        PERM_DEFAULT+=("$v");;
+    PERM_OVERRIDE)       PERM_OVERRIDE+=("$v");;
+    PROTECTED)           PROTECTED+=("$v");;
+    ROOT)                IFS='|' read -r r_path r_shadow r_project <<<"$v"
+                         ROOT_PATHS+=("$r_path"); ROOT_SHADOWS+=("$r_shadow"); ROOT_PROJECTS+=("$r_project");;
+    RW_DIR)              SPEC_RW_DIR+=("$v");;
+    RW_FILE)             SPEC_RW_FILE+=("$v");;
+    RO)                  SPEC_RO+=("$v");;
+    OVERLAY)             SPEC_OVERLAY+=("$v");;
+    '')                  ;;
+    *)                   die "unknown profile field from the profile module: $k";;
+  esac
+done <<EOF
+$PROFILE_TEXT
+EOF
+VERSION="latest"
+[ -n "$VERSION_ENV" ] && VERSION="${!VERSION_ENV:-latest}"
 
 # ---- defaults, then the config file, then CLI flags (later wins) ----
 # Only the installed config is read — never a project file, so a repo cannot
@@ -120,16 +112,16 @@ config_py(){ python3 "$CONFIG_PY" "$@"; }
 RW=(); RO=(); EGRESS="allow-list"
 PROXY_PORT=3128
 TELEMETRY=0
-DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; DO_CLEANUP=0; DO_CLEANUP_ALL=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
+DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; DO_CLEANUP=0; DO_CLEANUP_ALL=0; TOOL_ARGS=(); EXTRA_ALLOW=()
 IDE=0
 # The [open-weight] table, as the config module reports it; OW_PEER empty = no table.
 OW=0; OW_PEER=""; OW_PORT=""; OW_PROXY_PORT=""; OW_TAGS=(); OW_TARGETS=()
-if [ -f "$CLAUDE_DEV_HOME/claude-dev.toml" ]; then
-  CONFIG="$CLAUDE_DEV_HOME/claude-dev.toml"
-elif [ -f "$SELF_DIR/claude-dev.toml" ]; then
-  CONFIG="$SELF_DIR/claude-dev.toml"
+if [ -f "$AGENT_HOME/$CMD.toml" ]; then
+  CONFIG="$AGENT_HOME/$CMD.toml"
+elif [ -f "$SELF_DIR/$CMD.toml" ]; then
+  CONFIG="$SELF_DIR/$CMD.toml"
 else
-  die "no config file (looked in $CLAUDE_DEV_HOME/claude-dev.toml, $SELF_DIR/claude-dev.toml) — run install.sh"
+  die "no config file (looked in $AGENT_HOME/$CMD.toml, $SELF_DIR/$CMD.toml) — run install.sh"
 fi
 # Read, never eval: a value carrying shell metacharacters stays inert text.
 CFG_SETTINGS="$(config_py settings "$CONFIG")" || exit 1
@@ -156,7 +148,7 @@ done <<EOF
 $CFG_SETTINGS
 EOF
 
-# ---- management subcommands (verb style, like `claude`); first arg only ----
+# ---- management subcommands (verb style, like the tool's own); first arg only ----
 case "${1:-}" in
   build)  DO_BUILD=1; shift;;
   update) shift; if [ "${1:-}" = "--all" ]; then DO_UPDATE_ALL=1; shift; else DO_UPDATE=1; fi;;
@@ -173,14 +165,14 @@ while [ $# -gt 0 ]; do
     --allowlist-egress) EGRESS="allow-list"; shift;;
     --ide)           IDE=1; shift;;
     --ow)            OW=1; shift;;
-    --)              shift; while [ $# -gt 0 ]; do CLAUDE_ARGS+=("$1"); shift; done;;
-    *)               CLAUDE_ARGS+=("$1"); shift;;
+    --)              shift; while [ $# -gt 0 ]; do TOOL_ARGS+=("$1"); shift; done;;
+    *)               TOOL_ARGS+=("$1"); shift;;
   esac
 done
 
 case "$EGRESS" in allow-list|open) ;; *) die "EGRESS must be \"allow-list\" or \"open\" (got: $EGRESS)";; esac
 # The peer is policy, so it lives in the file: the flag only turns it on.
-[ "$OW" = 1 ] && [ -z "$OW_PEER" ] && die "--ow needs an [open-weight] table in $CONFIG (peer, port, [open-weight.models]); the shipped claude-dev.toml documents it"
+[ "$OW" = 1 ] && [ -z "$OW_PEER" ] && die "--ow needs an [open-weight] table in $CONFIG (peer, port, [open-weight.models]); the shipped $CMD.toml documents it"
 OW_GATEWAY="$OW_PEER"; [ "$OW_PEER" = host ] && OW_GATEWAY="$HOST_GATEWAY"
 
 # ---- resolve the docker context (one rule, no override; target: Rancher Desktop) ----
@@ -200,11 +192,11 @@ fi
 # installs. Within this install, ps(1) is an honest liveness probe; PID reuse
 # can only under-reap. A restored or synced data dir clones the id across
 # hosts — delete host-id on the clone so no reaper judges foreign PIDs.
-HOST_ID_FILE="$CLAUDE_DEV_HOME/host-id"
+HOST_ID_FILE="$AGENT_HOME/host-id"
 [ -s "$HOST_ID_FILE" ] || (uuidgen 2>/dev/null || echo "$(date +%s)-$$-$RANDOM") > "$HOST_ID_FILE"
 HOST_ID="$(cat "$HOST_ID_FILE")"
 [[ "$HOST_ID" =~ ^[A-Za-z0-9-]+$ ]] || die "invalid host-id in $HOST_ID_FILE (expected [A-Za-z0-9-]+)"
-LABEL="claude-dev.launcher=$HOST_ID:$$"
+LABEL="$CMD.launcher=$HOST_ID:$$"
 
 launcher_dead(){ # <label-value>; true only for a dead PID of THIS install
   [ "${1%:*}" = "$HOST_ID" ] || return 1
@@ -218,27 +210,27 @@ reap_dead(){
   while IFS=$'\t' read -r name value; do
     [ -n "$name" ] || continue
     launcher_dead "$value" && "${DOCKER[@]}" rm -f "$name" >/dev/null 2>&1 || true
-  done < <("${DOCKER[@]}" ps -a --filter label=claude-dev.launcher --format '{{.Names}}\t{{.Label "claude-dev.launcher"}}' 2>/dev/null || true)
+  done < <("${DOCKER[@]}" ps -a --filter "label=$CMD.launcher" --format "{{.Names}}\t{{.Label \"$CMD.launcher\"}}" 2>/dev/null || true)
   while IFS= read -r net; do
     [ -n "$net" ] || continue
-    value="$("${DOCKER[@]}" network inspect -f '{{index .Labels "claude-dev.launcher"}}' "$net" 2>/dev/null || true)"
+    value="$("${DOCKER[@]}" network inspect -f "{{index .Labels \"$CMD.launcher\"}}" "$net" 2>/dev/null || true)"
     [ -n "$value" ] || continue
     launcher_dead "$value" && "${DOCKER[@]}" network rm "$net" >/dev/null 2>&1 || true
-  done < <("${DOCKER[@]}" network ls --filter label=claude-dev.launcher --format '{{.Name}}' 2>/dev/null || true)
+  done < <("${DOCKER[@]}" network ls --filter "label=$CMD.launcher" --format '{{.Name}}' 2>/dev/null || true)
 }
 
 # ---- locate the Dockerfile (data dir when installed; repo dir when run from source) ----
-if   [ -f "$CLAUDE_DEV_HOME/Dockerfile" ]; then DOCKERFILE="$CLAUDE_DEV_HOME/Dockerfile"
+if   [ -f "$AGENT_HOME/Dockerfile" ]; then DOCKERFILE="$AGENT_HOME/Dockerfile"
 elif [ -f "$SELF_DIR/Dockerfile" ];        then DOCKERFILE="$SELF_DIR/Dockerfile"
 else DOCKERFILE=""; fi
 
 # ---- build helpers (empty context: the Dockerfile has no COPY/ADD) ----
 _build(){
-  [ -n "$DOCKERFILE" ] || die "no Dockerfile (looked in $CLAUDE_DEV_HOME and $SELF_DIR) — run install.sh"
+  [ -n "$DOCKERFILE" ] || die "no Dockerfile (looked in $AGENT_HOME and $SELF_DIR) — run install.sh"
   local ctx; ctx="$(mktemp -d)"
   # `if !` keeps errexit from aborting before the temp context is removed.
   if ! "${DOCKER[@]}" build --progress=plain "$@" \
-       --build-arg CLAUDE_VERSION="$CLAUDE_VERSION" \
+       --target "$IMAGE_TARGET" --build-arg "$BUILD_ARG=$VERSION" \
        -t "$TAG" -f "$DOCKERFILE" "$ctx"; then
     rm -rf "$ctx"; die "build failed"
   fi
@@ -247,50 +239,50 @@ _build(){
   # this tool's images by the Dockerfile's label — so updates never
   # accumulate superseded copies. Prune never removes an image a container
   # still references, so a live session's image stays even untagged.
-  "${DOCKER[@]}" image prune -f --filter label=claude-dev.image >/dev/null 2>&1 || true
+  "${DOCKER[@]}" image prune -f --filter "label=$CMD.image" >/dev/null 2>&1 || true
 }
-build_full(){ echo "claude-dev: building $TAG (first time pulls toolchains, a few min) ..." >&2; _build; }
-update_claude(){
-  echo "claude-dev: rebuilding only the claude layer to '$CLAUDE_VERSION' (toolchains cached) ..." >&2
-  _build --build-arg CLAUDE_CACHE_BUST="$(date +%s)"
+build_full(){ echo "$CMD: building $TAG (first time pulls toolchains, a few min) ..." >&2; _build; }
+update_tool(){
+  echo "$CMD: rebuilding only the $BINARY layer to '$VERSION' (toolchains cached) ..." >&2
+  _build --build-arg "$CACHE_BUST_ARG=$(date +%s)"
 }
 update_all(){
-  echo "claude-dev: rebuilding ALL layers to latest (--no-cache --pull) ..." >&2
+  echo "$CMD: rebuilding ALL layers to latest (--no-cache --pull) ..." >&2
   _build --no-cache --pull
 }
 
 # ---- cleanup verb: remove what this tool left behind, touch nothing else ----
 # Scope is the two labels this tool writes: session objects whose launcher is
-# dead (claude-dev.launcher) and dangling images from its own rebuilds
-# (claude-dev.image). Other images, other containers and the engine's build
+# dead ($CMD.launcher) and dangling images from its own rebuilds
+# ($CMD.image). Other images, other containers and the engine's build
 # cache belong to the operator — `docker system df` shows what remains.
 # --all crosses that line on the operator's word: an engine-wide prune of
-# everything unused. The label!= filter spares the labeled claude-dev image,
+# everything unused. The label!= filter spares the labeled $CMD image,
 # so the next launch pays no rebuild. Containers inherit the image's label
 # and are spared with it; reap_dead has already removed this install's dead
 # ones. Anything a live session holds is in use and safe from prune.
 if [ "$DO_CLEANUP" = 1 ]; then
   reap_dead
-  "${DOCKER[@]}" image prune -f --filter label=claude-dev.image \
+  "${DOCKER[@]}" image prune -f --filter "label=$CMD.image" \
     || die "image prune failed — is the engine running?"
   if [ "$DO_CLEANUP_ALL" = 1 ]; then
     # An image built before the label exists is not spared by the label!=
     # filter — refuse rather than prune the tool's own current image.
-    if labeled="$("${DOCKER[@]}" image inspect -f '{{index .Config.Labels "claude-dev.image"}}' "$TAG" 2>/dev/null)"; then
-      [ -n "$labeled" ] || die "$TAG predates the claude-dev.image label and --all would prune it — run 'claude-dev update' first"
+    if labeled="$("${DOCKER[@]}" image inspect -f "{{index .Config.Labels \"$CMD.image\"}}" "$TAG" 2>/dev/null)"; then
+      [ -n "$labeled" ] || die "$TAG predates the $CMD.image label and --all would prune it — run '$CMD update' first"
     fi
-    "${DOCKER[@]}" system prune -a -f --volumes --filter 'label!=claude-dev.image' \
+    "${DOCKER[@]}" system prune -a -f --volumes --filter "label!=$CMD.image" \
       || die "system prune failed — is the engine running?"
-    echo "claude-dev: cleanup --all done — dead session objects reaped, engine-wide unused images, containers, networks, volumes and build cache pruned (claude-dev image kept)" >&2
+    echo "$CMD: cleanup --all done — dead session objects reaped, engine-wide unused images, containers, networks, volumes and build cache pruned ($CMD image kept)" >&2
   else
-    echo "claude-dev: cleanup done — dead session objects reaped, superseded claude-dev images pruned (engine-wide: cleanup --all)" >&2
+    echo "$CMD: cleanup done — dead session objects reaped, superseded $CMD images pruned (engine-wide: cleanup --all)" >&2
   fi
   exit 0
 fi
 
 # ---- resolve image (maintenance verbs build then exit) ----
 [ "$DO_UPDATE_ALL" = 1 ] && { update_all;    exit 0; }
-[ "$DO_UPDATE"     = 1 ] && { update_claude; exit 0; }
+[ "$DO_UPDATE"     = 1 ] && { update_tool;   exit 0; }
 [ "$DO_BUILD"      = 1 ] && { build_full;    exit 0; }
 # `access` needs no image and asks docker only guarded questions, so it works
 # before the image (or docker) exists.
@@ -299,111 +291,140 @@ fi
 # ---- where we run ----
 HOME_P="$(cd "$HOME" && pwd -P)"
 [ "$WORKDIR" = "$HOME_P" ] && die "run from a project directory, not \$HOME (inside, home is an ephemeral tmpfs)"
-case "$WORKDIR" in "$HOME_P/.claude"|"$HOME_P/.claude"/*)
-  die "run from a project directory, not inside ~/.claude (the config boundary is not a workspace)";; esac
-case "$WORKDIR" in "$CLAUDE_DEV_HOME"|"$CLAUDE_DEV_HOME"/*)
-  die "run from a project directory, not inside $CLAUDE_DEV_HOME";; esac
+for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
+  case "$WORKDIR" in "$HOME_P/$p"|"$HOME_P/$p"/*)
+    die "run from a project directory, not inside ~/$p (the config boundary is not a workspace)";; esac
+done
+case "$WORKDIR" in "$AGENT_HOME"|"$AGENT_HOME"/*)
+  die "run from a project directory, not inside $AGENT_HOME";; esac
 
-# ---- auth: log in ONCE inside; credentials stay private, NOT in ~/.claude ----
-# CLAUDE_SECURESTORAGE_CONFIG_DIR relocates only .credentials.json into a
-# private persistent dir. Neither ANTHROPIC_API_KEY (would silently switch to
-# API billing) nor a Keychain token (cannot self-refresh) is forwarded.
-AUTH_DIR="$CLAUDE_DEV_HOME/auth"
+# ---- auth: log in ONCE inside; credentials stay private, NOT in the shared tree ----
+# The tool's credential store is relocated into a private persistent dir.
+# Neither an API key (would silently switch to API billing) nor a Keychain
+# token (cannot self-refresh) is forwarded.
+AUTH_DIR="$AGENT_HOME/auth"
 mkdir -p "$AUTH_DIR" && chmod 700 "$AUTH_DIR"
 AUTH_DIR="$(cd "$AUTH_DIR" && pwd -P)"
 # Under --ow the session authenticates to the peer with a placeholder token.
 # The credential directory stays on the host, so the session holds no real
 # credential. Its store points at an unmounted path under the tmpfs home: a
-# /login run inside lands nowhere that persists.
-OW_AUTH_DIR="$HOME_P/.config/claude-dev-ow-auth"
-if [ "$OW" = 0 ] && [ ! -f "$AUTH_DIR/.credentials.json" ]; then
-  echo "claude-dev: first run — type '/login' once inside (persists to $AUTH_DIR/.credentials.json)." >&2
+# login run inside lands nowhere that persists.
+OW_AUTH_DIR="$HOME_P/$CREDENTIAL_OW_PATH"
+if [ "$OW" = 0 ] && [ ! -f "$AUTH_DIR/$CREDENTIAL_FILE" ]; then
+  echo "$CMD: first run — $LOGIN_HINT (persists to $AUTH_DIR/$CREDENTIAL_FILE)." >&2
 fi
 
-# ---- the container's ~/.claude: default-deny, enumerated shared paths only ----
-# Inside, ~/.claude is a PRIVATE shadow dir persisted under the data dir.
-# Session state shares read-write, behavior config read-only; anything not
-# named stays private, so the failure direction is state loss, never exposure.
-# The full shared-path list and its residuals: README § Files.
-SHARE_RW_DIRS="paste-cache plans tasks todos"
-SHARE_RW_FILES="history.jsonl"
-SHARE_RO="CLAUDE.md agents commands hooks output-styles plugins rules settings.json settings.local.json skills workflows"
-
-HOST_CLAUDE="$HOME_P/.claude"
-STATE="$CLAUDE_DEV_HOME/state"
-SHADOW="$STATE/claude"
-mkdir -p "$SHADOW"
-# Claude Code's ~/.claude/projects key: the cwd with every non-alphanumeric
-# byte replaced by '-'. The same key on both sides makes resume seamless.
+# ---- the container's state roots: default-deny, enumerated shared paths only ----
+# Inside, each root (for Claude Code, ~/.claude) is a PRIVATE shadow dir
+# persisted under the data dir. Session state shares read-write, behavior
+# config read-only; anything not named stays private, so the failure direction
+# is state loss, never exposure. The full shared-path list and its residuals:
+# README § Files.
+STATE="$AGENT_HOME/state"
+# The tool's per-project key: the cwd with every non-alphanumeric byte replaced
+# by '-'. The same key on both sides makes resume seamless.
 PROJECT_KEY="$(printf '%s' "$WORKDIR" | sed 's/[^a-zA-Z0-9]/-/g')"
 
 # A bind mount needs its target to exist and match the source's kind (an
-# absent target would be auto-created root-owned). The session writes $SHADOW,
-# so unlink any symlink before acting: `: >` would follow it to a
+# absent target would be auto-created root-owned). The session writes the
+# shadows, so unlink any symlink before acting: `: >` would follow it to a
 # session-chosen host path, and a dangling target aborts every later launch.
 ensure_dir(){  [ -L "$1" ] && rm -f "$1"; [ -e "$1" ] && [ ! -d "$1" ] && rm -f "$1"; mkdir -p "$1"; }
 ensure_file(){ [ -L "$1" ] && rm -f "$1"; [ -d "$1" ] && rm -rf "$1"; mkdir -p "$(dirname "$1")"; [ -e "$1" ] || : > "$1"; }
 
-CLAUDE_MOUNTS=()
-for d in $SHARE_RW_DIRS "projects/$PROJECT_KEY"; do
-  ensure_dir "$HOST_CLAUDE/$d"; ensure_dir "$SHADOW/$d"
-  CLAUDE_MOUNTS+=(-v "$HOST_CLAUDE/$d:$HOME_P/.claude/$d")
+# The spec entries of one root: `<root>|<name>`, in profile order.
+root_names(){ # <root-path> <entry>...  -> prints the names that belong to the root
+  local rp="$1" e er en; shift
+  for e in "$@"; do
+    IFS='|' read -r er en <<<"$e"
+    [ "$er" = "$rp" ] && printf '%s\n' "$en"
+  done
+  return 0
+}
+
+ROOT_MOUNTS=()
+ROOT_DSTS=(); ROOT_SHADOW_DIRS=(); OVERLAY_DSTS=(); OVERLAY_SRCS=(); OVERLAY_NOTES=()
+for i in "${!ROOT_PATHS[@]}"; do
+  rp="${ROOT_PATHS[$i]}"
+  HOST_ROOT="$HOME_P/$rp"
+  SHADOW="$STATE/${ROOT_SHADOWS[$i]}"
+  mkdir -p "$SHADOW"
+  ROOT_DSTS+=("$HOME_P/$rp"); ROOT_SHADOW_DIRS+=("$SHADOW")
+  ROOT_MOUNTS+=(-v "$SHADOW:$HOME_P/$rp")      # the private shadow; the shared paths below land inside it
+  dirs=()
+  while IFS= read -r n; do [ -n "$n" ] && dirs+=("$n"); done < <(root_names "$rp" ${SPEC_RW_DIR[@]+"${SPEC_RW_DIR[@]}"})
+  [ -n "${ROOT_PROJECTS[$i]}" ] && dirs+=("${ROOT_PROJECTS[$i]}/$PROJECT_KEY")
+  for d in ${dirs[@]+"${dirs[@]}"}; do
+    ensure_dir "$HOST_ROOT/$d"; ensure_dir "$SHADOW/$d"
+    ROOT_MOUNTS+=(-v "$HOST_ROOT/$d:$HOME_P/$rp/$d")
+  done
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    ensure_file "$HOST_ROOT/$f"; ensure_file "$SHADOW/$f"
+    ROOT_MOUNTS+=(-v "$HOST_ROOT/$f:$HOME_P/$rp/$f")
+  done < <(root_names "$rp" ${SPEC_RW_FILE[@]+"${SPEC_RW_FILE[@]}"})
+  # Behavior config: read-only, and only what the host actually has. An absent
+  # file is simply not shared — inside, that path stays private.
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    if [ -d "$HOST_ROOT/$n" ]; then
+      ensure_dir "$SHADOW/$n"
+      ROOT_MOUNTS+=(-v "$HOST_ROOT/$n:$HOME_P/$rp/$n:ro")
+    elif [ -f "$HOST_ROOT/$n" ]; then
+      ensure_file "$SHADOW/$n"
+      ROOT_MOUNTS+=(-v "$HOST_ROOT/$n:$HOME_P/$rp/$n:ro")
+    fi
+  done < <(root_names "$rp" ${SPEC_RO[@]+"${SPEC_RO[@]}"})
+  # An overlay is a private writable directory beneath a read-only share.
+  # Claude Code creates ~/.claude/plugins/data/<plugin> before executing a
+  # plugin hook; under the read-only plugins share that mkdir fails EROFS and
+  # every plugin hook dies unrun — a 1-exit is a non-blocking hook error, so
+  # the guards silently vanish. The overlay restores them: runtime state lands
+  # in the shadow (persists across runs, never on the host), while the code
+  # beneath the read-only mount stays host-owned. The engine applies nested
+  # binds by target depth, so the overlay wins regardless of argv order.
+  for e in ${SPEC_OVERLAY[@]+"${SPEC_OVERLAY[@]}"}; do
+    IFS='|' read -r o_root o_under o_sub o_shadow o_note <<<"$e"
+    [ "$o_root" = "$rp" ] || continue
+    if [ -d "$HOST_ROOT/$o_under" ]; then
+      # The overlay's mountpoint must already exist beneath the read-only
+      # share — the engine cannot create it inside a ro mount, and a missing
+      # host directory aborts the launch. The tool creates the directory on
+      # first use; a host that has never run one lacks it.
+      ensure_dir "$HOST_ROOT/$o_under/$o_sub"
+      ensure_dir "$SHADOW/$o_shadow"
+      ROOT_MOUNTS+=(-v "$SHADOW/$o_shadow:$HOME_P/$rp/$o_under/$o_sub")
+      OVERLAY_DSTS+=("$HOME_P/$rp/$o_under/$o_sub"); OVERLAY_SRCS+=("$SHADOW/$o_shadow"); OVERLAY_NOTES+=("$o_note")
+    fi
+  done
 done
-for f in $SHARE_RW_FILES; do
-  ensure_file "$HOST_CLAUDE/$f"; ensure_file "$SHADOW/$f"
-  CLAUDE_MOUNTS+=(-v "$HOST_CLAUDE/$f:$HOME_P/.claude/$f")
-done
-# Behavior config: read-only, and only what the host actually has. An absent
-# file is simply not shared — inside, that path stays private.
-for n in $SHARE_RO; do
-  if [ -d "$HOST_CLAUDE/$n" ]; then
-    ensure_dir "$SHADOW/$n"
-    CLAUDE_MOUNTS+=(-v "$HOST_CLAUDE/$n:$HOME_P/.claude/$n:ro")
-  elif [ -f "$HOST_CLAUDE/$n" ]; then
-    ensure_file "$SHADOW/$n"
-    CLAUDE_MOUNTS+=(-v "$HOST_CLAUDE/$n:$HOME_P/.claude/$n:ro")
-  fi
-done
-# Claude Code creates ~/.claude/plugins/data/<plugin> before executing a
-# plugin hook; under the read-only plugins share that mkdir fails EROFS and
-# every plugin hook dies unrun — a 1-exit is a non-blocking hook error, so
-# the guards silently vanish. A private writable overlay restores them:
-# plugin runtime state lands in the shadow (persists across runs, never on
-# the host), while the plugin code beneath the read-only mount stays
-# host-owned. The engine applies nested binds by target depth, so this
-# overlay wins regardless of argv order.
-if [ -d "$HOST_CLAUDE/plugins" ]; then
-  # The overlay's mountpoint must already exist beneath the read-only
-  # plugins share — the engine cannot create it inside a ro mount, and a
-  # missing host plugins/data aborts the launch. Claude Code creates the
-  # dir on first plugin-hook use; a host that has never run one lacks it.
-  ensure_dir "$HOST_CLAUDE/plugins/data"
-  ensure_dir "$SHADOW/plugins-data"
-  CLAUDE_MOUNTS+=(-v "$SHADOW/plugins-data:$HOME_P/.claude/plugins/data")
-fi
 
 # ---- the run directory: everything generated for exactly this launch ----
 RUN_ID="$$-${RANDOM}"
-RUNDIR="$CLAUDE_DEV_HOME/run/$RUN_ID"
+RUNDIR="$AGENT_HOME/run/$RUN_ID"
 mkdir -p "$RUNDIR" && chmod 700 "$RUNDIR"
 # Own it from creation: a die before the full cleanup trap would otherwise
 # leave the replica behind, and nothing ever reaps run/.
 trap 'rm -rf "$RUNDIR"' EXIT
 
-# ~/.claude.json is never shared: replicated per launch, scrubbed to this
-# project; the host copy always wins — nothing written inside reaches it.
-REPLICA="$RUNDIR/claude.json"
-SCRUB="$CLAUDE_DEV_HOME/claude_dev_scrub.py"
-[ -f "$SCRUB" ] || SCRUB="$SELF_DIR/claude_dev_scrub.py"
-if [ -f "$SCRUB" ] && command -v python3 >/dev/null 2>&1; then
-  python3 "$SCRUB" "$HOME_P/.claude.json" "$WORKDIR" > "$REPLICA" || die "could not build the ~/.claude.json replica"
-else
-  # No scrubber, no unscrubbed fallback: an empty replica loses recoverable
-  # state; the host file wholesale would hand over every project's config.
-  warn "WARNING — no python3 or scrubber ($SCRUB): starting from an EMPTY ~/.claude.json (the session may ask to trust this folder)"
-  printf '{}' > "$REPLICA"
+# The tool's own config file in the home directory is never shared: replicated
+# per launch, scrubbed to this project; the host copy always wins — nothing
+# written inside reaches it.
+REPLICA_PATH=""
+if [ -n "$REPLICA_NAME" ]; then
+  REPLICA_PATH="$RUNDIR/replica.json"
+  SCRUB="$AGENT_HOME/$REPLICA_SCRUBBER"
+  [ -f "$SCRUB" ] || SCRUB="$SELF_DIR/$REPLICA_SCRUBBER"
+  if [ -f "$SCRUB" ] && command -v python3 >/dev/null 2>&1; then
+    python3 "$SCRUB" "$HOME_P/$REPLICA_NAME" "$WORKDIR" > "$REPLICA_PATH" || die "could not build the ~/$REPLICA_NAME replica"
+  else
+    # No scrubber, no unscrubbed fallback: an empty replica loses recoverable
+    # state; the host file wholesale would hand over every project's config.
+    warn "WARNING — no python3 or scrubber ($SCRUB): starting from an EMPTY ~/$REPLICA_NAME (the session may ask to trust this folder)"
+    printf '{}' > "$REPLICA_PATH"
+  fi
+  chmod 600 "$REPLICA_PATH"
 fi
-chmod 600 "$REPLICA"
 
 # Host managed policy is deliberately NOT shared: personal tool, not
 # enterprise MDM plumbing. The cost is disclosed in the README § Files.
@@ -414,13 +435,12 @@ chmod 600 "$REPLICA"
 # paths in shared config (a statusLine command, a hook) resolve identically.
 # exec: docker defaults tmpfs to noexec; size is a RAM cap, allocated as used.
 RUN=(run --rm
-     --user "$(id -u):$(id -g)"           # the operator's uid: mounted files keep their owner; non-root => Claude accepts a passed-through --dangerously-skip-permissions
+     --user "$(id -u):$(id -g)"           # the operator's uid: mounted files keep their owner; non-root => the tool accepts a passed-through permission skip
      -e HOME="$HOME_P" -e USER="${USER:-$(id -un)}"
      --tmpfs "$HOME_P:rw,exec,size=2g,mode=700,uid=$(id -u),gid=$(id -g)"
-     -v "$WORKDIR:$WORKDIR" -w "$WORKDIR"  # same-path mount keeps ~/.claude project keys identical to host
-     -v "$SHADOW:$HOME_P/.claude"          # the private shadow; the shared paths below land inside it
-     "${CLAUDE_MOUNTS[@]}"
-     -v "$REPLICA:$HOME_P/.claude.json")
+     -v "$WORKDIR:$WORKDIR" -w "$WORKDIR"  # same-path mount keeps the tool's project keys identical to host
+     "${ROOT_MOUNTS[@]}")
+[ -n "$REPLICA_PATH" ] && RUN+=(-v "$REPLICA_PATH:$HOME_P/$REPLICA_NAME")
 [ -f "$HOME_P/.gitconfig" ]   && RUN+=(-v "$HOME_P/.gitconfig:$HOME_P/.gitconfig:ro")
 [ -d "$HOME_P/.config/git" ]  && RUN+=(-v "$HOME_P/.config/git:$HOME_P/.config/git:ro")  # XDG git dir: global ignore, includes
 # Resolve one mount source, or die naming it. Refusals: a leading dash
@@ -439,19 +459,22 @@ resolve_mount(){ # <entry> <flag-name>  -> prints the real path
   # would dodge the ancestor globs below; it contains everything, so refuse it.
   case "$rp" in *[!/]*) ;; *) die "$what may not mount the filesystem root";; esac
   case "$rp" in
-    "$CLAUDE_DEV_HOME"|"$CLAUDE_DEV_HOME"/*)
+    "$AGENT_HOME"|"$AGENT_HOME"/*)
       die "$what may not mount $rp: it holds the modules that run on the host and every session's state";;
   esac
-  case "$CLAUDE_DEV_HOME" in "$rp"/*)
-    die "$what may not mount $rp: it contains $CLAUDE_DEV_HOME, which holds the modules that run on the host and every session's state";; esac
-  # ~/.claude is read-only-shareable; writable is the refusal — those files
-  # decide how `claude` runs on the HOST, so editing them escapes the boundary.
-  # Containing counts like being inside: a writable ancestor edits them too.
+  case "$AGENT_HOME" in "$rp"/*)
+    die "$what may not mount $rp: it contains $AGENT_HOME, which holds the modules that run on the host and every session's state";; esac
+  # A protected path (for Claude Code, ~/.claude) is read-only-shareable;
+  # writable is the refusal — those files decide how the tool runs on the HOST,
+  # so editing them escapes the boundary. Containing counts like being inside:
+  # a writable ancestor edits them too.
   if [ "$what" = --rw ]; then
-    case "$rp" in "$HOME_P/.claude"|"$HOME_P/.claude"/*)
-      die "--rw may not mount $rp: ~/.claude decides how claude runs on the host, so it is shared read-only or by the enumerated list";; esac
-    case "$HOME_P/.claude" in "$rp"/*)
-      die "--rw may not mount $rp: it contains $HOME_P/.claude, which decides how claude runs on the host, so it is shared read-only or by the enumerated list";; esac
+    for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
+      case "$rp" in "$HOME_P/$p"|"$HOME_P/$p"/*)
+        die "--rw may not mount $rp: ~/$p decides how $BINARY runs on the host, so it is shared read-only or by the enumerated list";; esac
+      case "$HOME_P/$p" in "$rp"/*)
+        die "--rw may not mount $rp: it contains $HOME_P/$p, which decides how $BINARY runs on the host, so it is shared read-only or by the enumerated list";; esac
+    done
   fi
   printf '%s' "$rp"
 }
@@ -462,9 +485,9 @@ for d in ${RO[@]+"${RO[@]}"}; do
   rp="$(resolve_mount "$d" --ro)"; RUN+=(-v "$rp:$rp:ro")
 done
 if [ "$OW" = 0 ]; then
-  RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$AUTH_DIR")
+  RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e "$CREDENTIAL_ENV=$AUTH_DIR")
 else
-  RUN+=(-e CLAUDE_SECURESTORAGE_CONFIG_DIR="$OW_AUTH_DIR")
+  RUN+=(-e "$CREDENTIAL_ENV=$OW_AUTH_DIR")
 fi
 # terminal: TERM/COLORTERM for the TUI; a UTF-8 locale (built into Debian 13's
 # glibc) so pasted non-ASCII text survives the C/POSIX default.
@@ -475,12 +498,12 @@ RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
 # hosts stay off the list without filling the proxy log with denials.
 # telemetry.enabled = true lifts the declaration only — the intakes still have
 # to clear the allow-list. README § Egress has the full trade.
-[ "$TELEMETRY" = 1 ] || RUN+=(-e DISABLE_TELEMETRY=1)
+[ "$TELEMETRY" = 1 ] || RUN+=(-e "$TELEMETRY_OFF")
 # Hardening — all runtime flags, no packages: no capability, no setuid
 # escalation, Docker's default seccomp/AppArmor kept (=unconfined never passed).
 RUN+=(--cap-drop=ALL --security-opt no-new-privileges:true)
 # No -t here: the container is created detached on a placeholder; the TTY
-# belongs to the `docker exec` that runs Claude.
+# belongs to the `docker exec` that runs the tool.
 
 # ---- the effective allow-list ----
 # The config module validates every entry, per-run --allow ones included.
@@ -490,10 +513,10 @@ EFFECTIVE_ALLOW="$RUNDIR/allowlist.txt"
 if [ "$EGRESS" = allow-list ]; then
   config_py allowlist "$CONFIG" ${ALLOW_ARGS[@]+"${ALLOW_ARGS[@]}"} > "$EFFECTIVE_ALLOW" || exit 1
   ALLOW_COUNT="$(grep -c . "$EFFECTIVE_ALLOW" || true)"
-  # Under --ow the model is the peer, so a missing Anthropic entry is not a
+  # Under --ow the model is the peer, so a missing vendor entry is not a
   # defect; a present one stays reachable, with no credential behind it.
-  [ "$OW" = 1 ] || grep -qx 'api\.anthropic\.com' "$EFFECTIVE_ALLOW" \
-    || warn "WARNING — api.anthropic.com is not on the allow-list; Claude Code will not reach its API"
+  [ "$OW" = 1 ] || grep -qxF "$MANDATORY_HOST" "$EFFECTIVE_ALLOW" \
+    || warn "WARNING — $MANDATORY_HOST is not on the allow-list; $BINARY will not reach its API"
 elif [ ${#EXTRA_ALLOW[@]} -gt 0 ]; then
   warn "--allow has no effect under --open-egress (every destination outside the private ranges is already reachable)"
 fi
@@ -510,16 +533,29 @@ if [ "$DO_ACCESS" = 1 ]; then
       want_spec=0
       rest="${a#*:}"
       case "$rest" in *:ro) mode=ro; dst="${rest%:ro}";; *) mode=rw; dst="$rest";; esac
-      case "$dst" in
-        "$HOME_P/.claude")        note="private shadow <- $(home_abbrev "$SHADOW")";;
-        "$HOME_P/.claude/plugins/data")
-          note="private plugin state (persists across runs) <- $(home_abbrev "$SHADOW/plugins-data")";;
-        "$WORKDIR"|"$HOME_P/.claude"/*|"$HOME_P/.gitconfig"|"$HOME_P/.config/git")
-          note="shared from host"; [ "$mode" = ro ] && note="shared from host - read only";;
-        "$HOME_P/.claude.json")   note="host replica, scrubbed to this project, discarded on exit";;
-        "$AUTH_DIR")              note="credentials (private, persists across runs) <- $(home_abbrev "$AUTH_DIR")";;
-        *)                        note="operator policy";;
-      esac
+      note=""
+      for j in "${!ROOT_DSTS[@]}"; do
+        [ "$dst" = "${ROOT_DSTS[$j]}" ] && note="private shadow <- $(home_abbrev "${ROOT_SHADOW_DIRS[$j]}")"
+      done
+      for j in ${OVERLAY_DSTS[@]+"${!OVERLAY_DSTS[@]}"}; do
+        [ "$dst" = "${OVERLAY_DSTS[$j]}" ] && note="${OVERLAY_NOTES[$j]} <- $(home_abbrev "${OVERLAY_SRCS[$j]}")"
+      done
+      if [ -z "$note" ]; then
+        shared=0
+        for j in "${!ROOT_DSTS[@]}"; do
+          case "$dst" in "${ROOT_DSTS[$j]}"/*) shared=1;; esac
+        done
+        case "$dst" in "$WORKDIR"|"$HOME_P/.gitconfig"|"$HOME_P/.config/git") shared=1;; esac
+        if [ "$shared" = 1 ]; then
+          note="shared from host"; [ "$mode" = ro ] && note="shared from host - read only"
+        elif [ -n "$REPLICA_NAME" ] && [ "$dst" = "$HOME_P/$REPLICA_NAME" ]; then
+          note="host replica, scrubbed to this project, discarded on exit"
+        elif [ "$dst" = "$AUTH_DIR" ]; then
+          note="credentials (private, persists across runs) <- $(home_abbrev "$AUTH_DIR")"
+        else
+          note="operator policy"
+        fi
+      fi
       dst="$(home_abbrev "$dst")"
       MODES+=("$mode"); DSTS+=("$dst"); NOTES+=("$note")
       [ ${#dst} -gt "$W" ] && W=${#dst}
@@ -551,7 +587,7 @@ if [ "$DO_ACCESS" = 1 ]; then
   # one request shape, and the session's model map.
   if [ "$OW" = 1 ]; then
     printf '\nopen-weight: reverse port proxy:%s -> %s:%s (peer "%s"), plain HTTP read by the proxy\n' "$OW_PROXY_PORT" "$OW_GATEWAY" "$OW_PORT" "$OW_PEER"
-    printf 'allow  POST /v1/messages (and /count_tokens), any query string\n'
+    printf 'allow  %s\n' "$INFERENCE_ALLOW"
     printf 'deny   every other path and method on that port (model pull, delete, push, listings)\n'
     for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do printf 'model  %s\n' "$m"; done
     printf 'session: placeholder token, no credential mounted\n'
@@ -564,8 +600,8 @@ if [ "$DO_ACCESS" = 1 ]; then
   # forwarded request is a URL, kept as host/path so a refused model-management
   # call reads as such. Docker is only asked guarded questions, so `access`
   # still answers when no engine is up.
-  TRAFFIC_LOG="$CLAUDE_DEV_HOME/last-egress.log"
-  LIVE_PROXY="$("${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null | grep '^claude-dev-.*-proxy$' | head -1 || true)"
+  TRAFFIC_LOG="$AGENT_HOME/last-egress.log"
+  LIVE_PROXY="$("${DOCKER[@]}" ps --format '{{.Names}}' 2>/dev/null | grep "^$CMD-.*-proxy\$" | head -1 || true)"
   if [ -n "$LIVE_PROXY" ]; then
     # stdout only: the access log, which squid percent-escapes. stderr is the
     # cache log, where a request header can land verbatim. Control bytes go,
@@ -605,8 +641,9 @@ fi
 # (gating rationale: the exposed-set ADR's amendments).
 IDE_PORTS=()
 IDE_LABELS=()
+[ "$IDE" = 1 ] && [ "$PROFILE_IDE" != 1 ] && die "--ide is not offered by $CMD"
 if [ "$IDE" = 1 ]; then
-  PREFLIGHT="$CLAUDE_DEV_HOME/ide_preflight.py"
+  PREFLIGHT="$AGENT_HOME/ide_preflight.py"
   [ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
   if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
     # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
@@ -638,7 +675,7 @@ done
 # ends the launch: the session would fail at its first request. An unlisted
 # cloud tag only warns, since the daemon serves it on demand.
 if [ "$OW" = 1 ]; then
-  OW_PREFLIGHT="$CLAUDE_DEV_HOME/open_weight_preflight.py"
+  OW_PREFLIGHT="$AGENT_HOME/open_weight_preflight.py"
   [ -f "$OW_PREFLIGHT" ] || OW_PREFLIGHT="$SELF_DIR/open_weight_preflight.py"
   if [ -f "$OW_PREFLIGHT" ]; then
     OW_PROBE_HOST="$OW_PEER"; [ "$OW_PEER" = host ] && OW_PROBE_HOST="127.0.0.1"
@@ -657,34 +694,41 @@ if [ "$OW" = 1 ]; then
   fi
 fi
 
-CMD=(claude)
-# The permission posture. Default: auto mode — the classifier approves routine
-# actions and prompts on the flagged ones. A behavioral layer, not a boundary:
-# the container and the proxy hold without it. The launcher owns no permission
-# flag — a passed-through --permission-mode or --dangerously-skip-permissions
-# suppresses the injection rather than fighting it over argv order.
-PERM_DEFAULT=1
-for a in ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}; do
-  case "$a" in --permission-mode|--permission-mode=*|--dangerously-skip-permissions) PERM_DEFAULT=0;; esac
-done
-[ "$PERM_DEFAULT" = 1 ] && CMD+=(--permission-mode auto)
-# One --settings document from the config module. It declares Claude's
-# in-process sandbox off: under Docker's default seccomp profile bubblewrap
-# cannot create a user namespace (measured, README § Process has the matrix),
-# and turning it on would mean seccomp=unconfined for the whole container.
-# Under --ow it also carries the peer's base URL, the placeholder token and
-# the model map. --settings sits at CLI precedence, above every project file.
-# A user-passed --settings lands after this one in argv and displaces the
-# whole document (the opt-out).
+SESSION_CMD=("$BINARY")
+# The permission posture. Where the profile has a default (for Claude Code,
+# auto mode — the classifier approves routine actions and prompts on the
+# flagged ones) it is a behavioral layer, not a boundary: the container and
+# the proxy hold without it. The launcher owns no permission flag — a
+# passed-through override flag suppresses the injection rather than fighting
+# it over argv order.
+if [ ${#PERM_DEFAULT[@]} -gt 0 ]; then
+  PERM_INJECT=1
+  for a in ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}; do
+    for o in ${PERM_OVERRIDE[@]+"${PERM_OVERRIDE[@]}"}; do
+      case "$a" in "$o"|"$o"=*) PERM_INJECT=0;; esac
+    done
+  done
+  [ "$PERM_INJECT" = 1 ] && SESSION_CMD+=("${PERM_DEFAULT[@]}")
+fi
+# One settings document from the config module, delivered the way the profile
+# names: an argv flag or an environment variable. For Claude Code it declares
+# the in-process sandbox off: under Docker's default seccomp profile
+# bubblewrap cannot create a user namespace (measured, README § Process has
+# the matrix), and turning it on would mean seccomp=unconfined for the whole
+# container. Under --ow it also carries the peer's base URL, the placeholder
+# token and the model map. --settings sits at CLI precedence, above every
+# project file. A user-passed --settings lands after this one in argv and
+# displaces the whole document (the opt-out).
 OW_SETTINGS_ARGS=(); [ "$OW" = 1 ] && OW_SETTINGS_ARGS=(--ow)
-CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG" ${OW_SETTINGS_ARGS[@]+"${OW_SETTINGS_ARGS[@]}"})" || exit 1
-CMD+=(--settings "$CLAUDE_SETTINGS")
-FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
+SESSION_SETTINGS="$(config_py session-settings "$CONFIG" ${OW_SETTINGS_ARGS[@]+"${OW_SETTINGS_ARGS[@]}"})" || exit 1
+[ -n "$SETTINGS_FLAG" ] && SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")
+FINAL=("${SESSION_CMD[@]}" ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"})
+[ -n "$SETTINGS_ENV" ] && RUN+=(-e "$SETTINGS_ENV=$SESSION_SETTINGS")
 
 # ---- names, then the reaper (identity and reap_dead: defined above, after the docker-context block) ----
 # The role is a SUFFIX so every object a session owns sorts next to it in
 # `docker ps`; the session keeps the bare name `docker exec` targets.
-SESSION_NAME="claude-dev-$RUN_ID"
+SESSION_NAME="$CMD-$RUN_ID"
 PROXY_NAME="$SESSION_NAME-proxy"
 NET_INT="$SESSION_NAME-internal"
 NET_EXT="$SESSION_NAME-egress"
@@ -702,7 +746,7 @@ cleanup(){
     # to be grepped to a TTY, which renders escapes.
     "${DOCKER[@]}" logs -t "$PROXY_NAME" 2>&1 \
       | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177' \
-      > "$CLAUDE_DEV_HOME/last-egress.log" || true
+      > "$AGENT_HOME/last-egress.log" || true
     "${DOCKER[@]}" rm -f "$PROXY_NAME" >/dev/null 2>&1 || true
   fi
   [ "$CREATED_POD" = 1 ] && { "${DOCKER[@]}" rm -f "$SESSION_NAME" >/dev/null 2>&1 || true; }
@@ -757,8 +801,8 @@ config_py squid-conf "$CONFIG" --subnet "$INT_SUBNET" --mode "$EGRESS" \
 chmod 644 "$SQUID_CONF"
 [ -f "$EFFECTIVE_ALLOW" ] && chmod 644 "$EFFECTIVE_ALLOW"
 
-PROXY_MOUNTS=(-v "$SQUID_CONF:/etc/claude-dev/squid.conf:ro")
-[ "$EGRESS" = allow-list ] && PROXY_MOUNTS+=(-v "$EFFECTIVE_ALLOW:/etc/claude-dev/allowlist.txt:ro")
+PROXY_MOUNTS=(-v "$SQUID_CONF:/etc/$CMD/squid.conf:ro")
+[ "$EGRESS" = allow-list ] && PROXY_MOUNTS+=(-v "$EFFECTIVE_ALLOW:/etc/$CMD/allowlist.txt:ro")
 # The proxy runs unprivileged (squid binds 3128, which needs no root or
 # capability) — a compromise yields code in its own container, no host access.
 # It joins the egress network at create and the internal one after, so its
@@ -769,8 +813,8 @@ PROXY_MOUNTS=(-v "$SQUID_CONF:/etc/claude-dev/squid.conf:ro")
     --user proxy \
     --cap-drop=ALL --security-opt no-new-privileges:true \
     "${PROXY_MOUNTS[@]}" \
-    "$TAG" squid -N -f /etc/claude-dev/squid.conf >/dev/null \
-  || die "could not start the egress proxy (image without squid? run: claude-dev build)"
+    "$TAG" squid -N -f "/etc/$CMD/squid.conf" >/dev/null \
+  || die "could not start the egress proxy (image without squid? run: $CMD build)"
 CREATED_PROXY=1
 "${DOCKER[@]}" network connect --alias proxy "$NET_INT" "$PROXY_NAME" >/dev/null \
   || die "could not attach the egress proxy to the session network"
@@ -805,9 +849,9 @@ done
 if [ "$PROXY_READY" != 1 ]; then
   warn "WARNING — the egress proxy did not become ready: this session has NO working network (denied, not exposed). Check: docker logs $PROXY_NAME"
 elif [ "$EGRESS" = allow-list ]; then
-  echo "claude-dev: egress: $ALLOW_COUNT allow-list entries, CONNECT :443 only, host and private ranges refused" >&2
+  echo "$CMD: egress: $ALLOW_COUNT allow-list entries, CONNECT :443 only, host and private ranges refused" >&2
 else
-  echo "claude-dev: egress: OPEN (any public destination), CONNECT :443 only, host and private ranges refused" >&2
+  echo "$CMD: egress: OPEN (any public destination), CONNECT :443 only, host and private ranges refused" >&2
 fi
 
 # The gateway must actually resolve from the proxy: `docker exec -d` below
@@ -827,9 +871,9 @@ if [ "$OW" = 1 ]; then
   # Operator-facing: where the models run and what may reach them. The
   # proxy's own port and gateway name are internals; `access --ow` has them.
   OW_WHERE="$OW_PEER:$OW_PORT"; [ "$OW_PEER" = host ] && OW_WHERE="this machine, port $OW_PORT"
-  echo "claude-dev: --ow model server: $OW_WHERE; inference requests only (POST /v1/messages), filtered and logged by the proxy; no Anthropic credential mounted" >&2
+  echo "$CMD: --ow model server: $OW_WHERE; inference requests only ($INFERENCE_SHORT), filtered and logged by the proxy; no $CREDENTIAL_VENDOR credential mounted" >&2
   # One line per served model: the pinned names it answers for, ranked.
-  for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do echo "claude-dev: --ow $m" >&2; done
+  for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do echo "$CMD: --ow $m" >&2; done
 fi
 
 # The --ide bridge: an unprivileged socat in the session container listens on
@@ -841,9 +885,9 @@ for i in ${IDE_PORTS[@]+"${!IDE_PORTS[@]}"}; do
   if "${DOCKER[@]}" exec -d "$SESSION_NAME" \
        socat "TCP4-LISTEN:$p,bind=127.0.0.1,reuseaddr,fork" \
              "PROXY:proxy:$IDE_GATEWAY:$p,proxyport=$PROXY_PORT" >/dev/null 2>&1; then
-    echo "claude-dev: --ide bridging ${IDE_LABELS[$i]} — 127.0.0.1:$p (session) -> $IDE_GATEWAY:$p through the proxy" >&2
+    echo "$CMD: --ide bridging ${IDE_LABELS[$i]} — 127.0.0.1:$p (session) -> $IDE_GATEWAY:$p through the proxy" >&2
   else
-    warn "--ide: could not start the tunnel for port $p (image without socat? run: claude-dev build); continuing without the oracle"
+    warn "--ide: could not start the tunnel for port $p (image without socat? run: $CMD build); continuing without the oracle"
   fi
 done
 

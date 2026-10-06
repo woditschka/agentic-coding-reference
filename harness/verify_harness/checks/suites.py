@@ -28,8 +28,9 @@ CONFINEMENT_BINARIES = ("squid", "socat")
 # --settings document; the launcher must ask the module for it and pass it
 # through verbatim, so all three links are pinned.
 SANDBOX_OFF_DECLARATION = '"sandbox": {"enabled": False, "failIfUnavailable": False}'
-SETTINGS_SOURCE = 'CLAUDE_SETTINGS="$(config_py claude-settings "$CONFIG"'
-SETTINGS_PASSTHROUGH = '--settings "$CLAUDE_SETTINGS"'
+SETTINGS_FLAG_DECLARATION = 'settings_flag="--settings"'
+SETTINGS_SOURCE = 'SESSION_SETTINGS="$(config_py session-settings "$CONFIG"'
+SETTINGS_PASSTHROUGH = 'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")'
 
 # Per-stack build-binding file. Project builds carry no harness suite wiring,
 # so zero .py references is the norm; a reference that exists must resolve.
@@ -353,7 +354,7 @@ def _workflow_pin_problems(dockerfile_text: str) -> list[str]:
 def _egress_subset_problems() -> list[str]:
     """Check that the eval runner's --allow hosts sit inside the shipped egress policy."""
     run_eval = ROOT / "evals" / "run_eval.py"
-    policy = ROOT / "tools/claude-dev/claude-dev.toml"
+    policy = ROOT / "tools/agent-dev/claude-dev.toml"
     if not (run_eval.exists() and policy.exists()):
         return []
     bench_hosts = set(
@@ -377,13 +378,13 @@ def _egress_subset_problems() -> list[str]:
 def check_pod_toolchain_pins(b: Battery) -> None:
     """Hold the dev image's toolchain pins and confinement controls to their sources."""
     b.note("claude-dev toolchain and confinement pins")
-    dockerfile = ROOT / "tools/claude-dev/Dockerfile"
-    launcher = ROOT / "tools/claude-dev/claude-dev"
-    config_module = ROOT / "tools/claude-dev/claude_dev_config.py"
+    dockerfile = ROOT / "tools/agent-dev/Dockerfile"
+    launcher = ROOT / "tools/agent-dev/agent-dev"
+    profiles_module = ROOT / "tools/agent-dev/agent_dev_profiles.py"
     pyproject = ROOT / "pyproject.toml"
     missing = [
         path
-        for path in (dockerfile, launcher, config_module, pyproject)
+        for path in (dockerfile, launcher, profiles_module, pyproject)
         if not path.exists()
     ]
     if missing:
@@ -401,14 +402,17 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     # Claude's in-process sandbox needs bubblewrap, which cannot create a user
     # namespace under Docker's default seccomp profile.
     launcher_text = launcher.read_text(encoding="utf-8")
+    profiles_text = profiles_module.read_text(encoding="utf-8")
     if (
-        SANDBOX_OFF_DECLARATION not in config_module.read_text(encoding="utf-8")
+        SANDBOX_OFF_DECLARATION not in profiles_text
+        or SETTINGS_FLAG_DECLARATION not in profiles_text
         or SETTINGS_SOURCE not in launcher_text
         or SETTINGS_PASSTHROUGH not in launcher_text
     ):
         problems.append(
-            "the sandbox-off --settings injection is broken: the config module "
-            "must declare it and the launcher must fetch and pass its document "
+            "the sandbox-off --settings injection is broken: the claude profile "
+            "must declare it and deliver it by --settings, and the launcher must "
+            "fetch and pass its document "
             "(bubblewrap cannot create a user namespace under the default "
             "seccomp profile; see the Dockerfile)"
         )

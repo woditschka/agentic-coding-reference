@@ -46,4 +46,4 @@ Negative:
 ## References
 
 - [Egress Is Enforced by an External Proxy, Not by the Workload](2026-07-29-proxy-enforced-egress.md) — the boundary set this posture sits above; also holds the sandbox measurement this ADR defers to.
-- [`tools/claude-dev/README.md`](../../tools/claude-dev/README.md) — the operator-facing statement of the postures and their flags.
+- [`tools/agent-dev/README.md`](../../tools/agent-dev/README.md) — the operator-facing statement of the postures and their flags.

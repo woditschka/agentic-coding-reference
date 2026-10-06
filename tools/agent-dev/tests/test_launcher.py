@@ -5,6 +5,7 @@ import http.server
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -156,6 +157,56 @@ class MountFence(unittest.TestCase):
         result = self.access()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.home / ".claude" / "plugins" / "data").is_dir())
+
+
+class InProjectCopy(unittest.TestCase):
+    """A command script inside the project it would mount is refused, whichever engine it would run."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = pathlib.Path(tmp.name).resolve()
+        self.home = self.tmp / "home"
+        self.data = self.tmp / "data"
+        self.project = self.tmp / "project"
+        for d in (self.home, self.data, self.project):
+            d.mkdir(parents=True)
+        # An installed engine exists, as on a machine that ran install.sh.
+        for name in (
+            "agent-dev",
+            "agent_dev.py",
+            "agent_dev_config.py",
+            "agent_dev_profiles.py",
+            "claude-dev.toml",
+        ):
+            shutil.copy(LAUNCHER.parent / name, self.data / name)
+        self.copy = self.project / "claude-dev"
+        shutil.copy(LAUNCHER, self.copy)
+
+    def run_copy(self, *args: str):
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": str(self.home),
+            "CLAUDE_DEV_HOME": str(self.data),
+        }
+        return subprocess.run(
+            [str(self.copy), *args],
+            cwd=str(self.project),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=LAUNCH_TIMEOUT_S,
+            check=False,
+        )
+
+    def test_the_copy_is_refused_even_with_an_installed_engine(self):
+        result = self.run_copy("access")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refusing to run the copy at", result.stderr)
+
+    def test_help_still_answers(self):
+        result = self.run_copy("help")
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class OpenWeightFlag(unittest.TestCase):
