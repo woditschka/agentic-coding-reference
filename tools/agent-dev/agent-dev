@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# agent-dev — the engine behind the claude-dev command and its siblings: an
+# agent-dev — the engine behind the claude-dev and opencode-dev commands: an
 # agent tool with approvals heavily reduced, confined in a Linux container
 # whose only path to the internet is a proxy it cannot reconfigure.
 #
@@ -10,46 +10,104 @@
 # `profile` verb as data. The boundary, its limits and the platform notes:
 # tools/agent-dev/README.md.
 set -euo pipefail
+# A relative `cd` below must never follow the caller's CDPATH.
+unset CDPATH
 
-SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+# A directory's physical path, spelled as the filesystem lists it. The shell's
+# own `pwd -P` keeps the typed letter case on a case-insensitive filesystem, so
+# two spellings of one directory would compare unequal. /bin/pwd reports
+# getcwd(3), which returns the listed spelling.
+physical_dir(){ (cd "$1" && /bin/pwd -P); }
+
+SELF_DIR="$(physical_dir "$(dirname "$0")")"
 # The command names itself; the engine runs only through one.
-TOOL="${AGENT_DEV_TOOL:?run through a command (claude-dev), not agent-dev directly}"
+TOOL="${AGENT_DEV_TOOL:?run through a command (claude-dev, opencode-dev), not agent-dev directly}"
 CMD="${AGENT_DEV_CMD:?AGENT_DEV_CMD is unset}"
 SHIM="${AGENT_DEV_SHIM:?AGENT_DEV_SHIM is unset}"
 AGENT_HOME="${AGENT_DEV_HOME:?AGENT_DEV_HOME is unset}"
 # One tag, always built here from the shipped Dockerfile: the proxy runs from
 # this image too, so an image built elsewhere could shape its own confinement.
 TAG="$CMD:latest"
-# Where the proxy reaches the host machine: the --ide pinhole and an [open-weight]
-# peer of "host". Every VM engine defines this name; plain Docker Engine on
-# Linux does not (see the README).
+# Where the proxy reaches the host machine: the --ide pinhole and an
+# [open-weight] peer of "host". Every VM engine defines this name; plain Docker
+# Engine on Linux does not (see the README).
 HOST_GATEWAY="host.docker.internal"
 IDE_GATEWAY="$HOST_GATEWAY"
 
 die(){ printf '%s: %s\n' "$CMD" "$1" >&2; exit 1; }
 warn(){ printf '%s: %s\n' "$CMD" "$1" >&2; }
+
+# Every check on a path compares physical paths. resolve_path follows every
+# symlink, including one as the last component, resolves `..`, and spells each
+# name as its directory lists it: a check that read the path as typed would
+# let a link, a trailing `..` or another letter case walk around it.
+listed_name(){ # <physical dir> <name> -> the name as the directory lists it
+  local d="$1" b="$2" e n
+  for e in "$d"/* "$d"/.[!.]* "$d"/..?*; do
+    [ "${e##*/}" = "$b" ] && { printf '%s' "$b"; return 0; }
+  done
+  # No entry carries the typed spelling, so the filesystem folded it: take
+  # the entry that is the same file under a case-insensitive match.
+  shopt -s nocasematch
+  for e in "$d"/* "$d"/.[!.]* "$d"/..?*; do
+    n="${e##*/}"
+    if [[ "$n" == "$b" ]] && [ "$e" -ef "$d/$b" ]; then
+      shopt -u nocasematch; printf '%s' "$n"; return 0
+    fi
+  done
+  shopt -u nocasematch
+  printf '%s' "$b"
+}
+resolve_path(){ # <existing path> -> its physical absolute path
+  local p="$1" d b t n=0
+  if [ -d "$p" ]; then physical_dir "$p"; return; fi
+  d="$(dirname "$p")"; b="$(basename "$p")"
+  d="$(physical_dir "$d")" || return 1
+  while [ -L "$d/$b" ] && [ "$n" -lt 40 ]; do
+    t="$(readlink "$d/$b")"
+    case "$t" in /*) ;; *) t="$d/$t";; esac
+    if [ -d "$t" ]; then physical_dir "$t"; return; fi
+    d="$(dirname "$t")"; b="$(basename "$t")"
+    d="$(physical_dir "$d")" || return 1
+    n=$((n+1))
+  done
+  printf '%s/%s' "$d" "$(listed_name "$d" "$b")"
+}
+
+# The command's own header is its usage text. A symlink to the command is
+# followed, so the text and the check below read the file where it really lives.
+SHIM="$(resolve_path "$SHIM")" || die "cannot find the command file $AGENT_DEV_SHIM"
 show_help(){ awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$SHIM"; }
 
 # Help answers before anything is read: the only flag reference must work when
 # the config is broken, and install.sh's smoke test runs it on a stale policy.
-# It comes from the command's own header, so it needs neither python nor a profile.
+# It needs neither python nor a profile.
 case "${1:-}" in help|-h|--help) show_help; exit 0;; esac
 
-# The python modules below run ON THE HOST, so a copy launched from inside its
-# own checkout would hand the next launch to whatever this session wrote.
-WORKDIR="$(pwd -P)"
+# The command, this engine and the python modules beside it run ON THE HOST, so
+# a copy inside the project this session mounts read-write would hand the next
+# launch to whatever the session wrote.
+WORKDIR="$(/bin/pwd -P)"
 # Normalized once, here: every later comparison is a realpath one — on macOS a
 # raw $TMPDIR-style value differs by a /private prefix and would never match.
 mkdir -p "$AGENT_HOME"
-AGENT_HOME="$(cd "$AGENT_HOME" && pwd -P)"
-case "$SELF_DIR" in "$WORKDIR"|"$WORKDIR"/*)
-  die "refusing to run the copy at $SELF_DIR: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/agent-dev/install.sh) and run $HOME/.local/bin/$CMD";; esac
+AGENT_HOME="$(physical_dir "$AGENT_HOME")"
+for where in "$(dirname "$SHIM")" "$SELF_DIR"; do
+  case "$where" in "$WORKDIR"|"$WORKDIR"/*)
+    # The installed engine lives in the data dir and the installed command in
+    # ~/.local/bin: a project that contains either is the wrong project, and
+    # no other copy exists to install.
+    [ "$where" = "$AGENT_HOME" ] && die "run from a project directory that does not contain $AGENT_HOME, which holds the engine and every session's state"
+    [ "$where" = "$HOME/.local/bin" ] && die "run from a project directory that does not contain $where, which holds the commands that run on the host"
+    die "refusing to run the copy at $where: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/agent-dev/install.sh $TOOL) and run $HOME/.local/bin/$CMD";; esac
+done
 
 # The config module owns everything that reads or decides; this script only
 # sequences docker (ADR 2026-07-06) — the policy is unit-tested, not inline.
-CONFIG_PY="$AGENT_HOME/agent_dev.py"
-[ -f "$CONFIG_PY" ] || CONFIG_PY="$SELF_DIR/agent_dev.py"
-[ -f "$CONFIG_PY" ] || die "missing agent_dev.py (looked in $AGENT_HOME and $SELF_DIR) — run install.sh"
+# Every code file sits beside the engine, installed or run from a checkout, so
+# an engine never runs another version's modules.
+CONFIG_PY="$SELF_DIR/agent_dev.py"
+[ -f "$CONFIG_PY" ] || die "missing agent_dev.py beside the engine in $SELF_DIR — run install.sh"
 command -v python3 >/dev/null 2>&1 || die "python3 is required (it parses the policy and generates the proxy's rules)"
 config_py(){ python3 "$CONFIG_PY" --tool "$TOOL" "$@"; }
 
@@ -57,15 +115,17 @@ config_py(){ python3 "$CONFIG_PY" --tool "$TOOL" "$@"; }
 # Every fact that differs between agent tools arrives here. A record's own
 # fields are separated by '|'; the profile module refuses a value carrying
 # a newline.
-PROTECTED=(); PERM_DEFAULT=(); PERM_OVERRIDE=()
-ROOT_PATHS=(); ROOT_SHADOWS=(); ROOT_PROJECTS=()
+PROTECTED=(); PERM_DEFAULT=(); PERM_OVERRIDE=(); PROXY_ENV=()
+ROOT_PATHS=(); ROOT_SHADOWS=(); ROOT_PROJECTS=(); ROOT_LIFETIMES=(); OTHER_COMMANDS=()
 SPEC_RW_DIR=(); SPEC_RW_FILE=(); SPEC_RO=(); SPEC_OVERLAY=()
 BINARY=""; IMAGE_TARGET=""; BUILD_ARG=""; CACHE_BUST_ARG=""; VERSION_ENV=""; REPLICA_NAME=""; REPLICA_SCRUBBER=""
-CREDENTIAL_ENV=""; CREDENTIAL_OW_PATH=""; CREDENTIAL_FILE=""; LOGIN_HINT=""; TELEMETRY_OFF=""
+CREDENTIAL_ENV=""; CREDENTIAL_OW_PATH=""; CREDENTIAL_FILE=""; LOGIN_HINT=""; TELEMETRY_OFF=""; PREPARE=""
 SETTINGS_FLAG=""; SETTINGS_ENV=""; MANDATORY_HOST=""; INFERENCE_ALLOW=""; INFERENCE_SHORT=""
 CREDENTIAL_VENDOR=""; PROFILE_IDE=0
 PROFILE_TEXT="$(config_py profile)" || exit 1
-while IFS='=' read -r k v; do
+# Split on the first '=' by hand: `IFS='=' read` drops a trailing '=' of the value.
+while IFS= read -r line; do
+  k="${line%%=*}"; v=""; case "$line" in *=*) v="${line#*=}";; esac
   case "$k" in
     NAME)                ;;
     COMMAND)             [ "$v" = "$CMD" ] || die "the profile for '$TOOL' names the command '$v', not '$CMD'";;
@@ -81,6 +141,7 @@ while IFS='=' read -r k v; do
     CREDENTIAL_FILE)     CREDENTIAL_FILE="$v";;
     LOGIN_HINT)          LOGIN_HINT="$v";;
     TELEMETRY_OFF)       TELEMETRY_OFF="$v";;
+    PREPARE)             PREPARE="$v";;
     SETTINGS_FLAG)       SETTINGS_FLAG="$v";;
     SETTINGS_ENV)        SETTINGS_ENV="$v";;
     MANDATORY_HOST)      MANDATORY_HOST="$v";;
@@ -90,9 +151,11 @@ while IFS='=' read -r k v; do
     IDE)                 PROFILE_IDE="$v";;
     PERM_DEFAULT)        PERM_DEFAULT+=("$v");;
     PERM_OVERRIDE)       PERM_OVERRIDE+=("$v");;
+    PROXY_ENV)           PROXY_ENV+=("$v");;
     PROTECTED)           PROTECTED+=("$v");;
-    ROOT)                IFS='|' read -r r_path r_shadow r_project <<<"$v"
-                         ROOT_PATHS+=("$r_path"); ROOT_SHADOWS+=("$r_shadow"); ROOT_PROJECTS+=("$r_project");;
+    OTHER_COMMAND)       OTHER_COMMANDS+=("$v");;
+    ROOT)                IFS='|' read -r r_path r_shadow r_project r_lifetime <<<"$v"
+                         ROOT_PATHS+=("$r_path"); ROOT_SHADOWS+=("$r_shadow"); ROOT_PROJECTS+=("$r_project"); ROOT_LIFETIMES+=("$r_lifetime");;
     RW_DIR)              SPEC_RW_DIR+=("$v");;
     RW_FILE)             SPEC_RW_FILE+=("$v");;
     RO)                  SPEC_RO+=("$v");;
@@ -103,6 +166,10 @@ while IFS='=' read -r k v; do
 done <<EOF
 $PROFILE_TEXT
 EOF
+# bash 3.2 does not abort when it cannot create a here-document: the loop is
+# skipped and every list stays empty, which would drop every fence. Assert
+# that the profile arrived.
+{ [ -n "$BINARY" ] && [ -n "$IMAGE_TARGET" ] && [ ${#ROOT_PATHS[@]} -gt 0 ]; } || die "the profile for '$TOOL' did not load"
 VERSION="latest"
 [ -n "$VERSION_ENV" ] && VERSION="${!VERSION_ENV:-latest}"
 
@@ -124,15 +191,17 @@ else
   die "no config file (looked in $AGENT_HOME/$CMD.toml, $SELF_DIR/$CMD.toml) — run install.sh"
 fi
 # Read, never eval: a value carrying shell metacharacters stays inert text.
+SETTINGS_LOADED=0
 CFG_SETTINGS="$(config_py settings "$CONFIG")" || exit 1
-while IFS='=' read -r k v; do
+while IFS= read -r line; do
+  k="${line%%=*}"; v=""; case "$line" in *=*) v="${line#*=}";; esac
   case "$k" in
     RW)          RW+=("$v");;
     RO)          RO+=("$v");;
     EGRESS)      EGRESS="$v";;
     PROXY_PORT)  [[ "$v" =~ ^[0-9]+$ ]] && [ "$v" -gt 0 ] && [ "$v" -lt 65536 ] \
                    || die "invalid PROXY_PORT from the config module: $v"
-                 PROXY_PORT="$v";;
+                 PROXY_PORT="$v"; SETTINGS_LOADED=1;;
     TELEMETRY)   case "$v" in 0|1) TELEMETRY="$v";; *) die "invalid TELEMETRY from the config module: $v";; esac;;
     OW_PEER)     OW_PEER="$v";;
     OW_PORT)     [[ "$v" =~ ^[0-9]+$ ]] || die "invalid OW_PORT from the config module: $v"
@@ -147,6 +216,12 @@ while IFS='=' read -r k v; do
 done <<EOF
 $CFG_SETTINGS
 EOF
+[ "$SETTINGS_LOADED" = 1 ] || die "the policy $CONFIG did not load"
+# A cloud tag (`:cloud` or `-cloud`, as the preflight reads them) runs on the
+# peer's vendor, not on the peer: say so wherever the plan or the launch names
+# the peer.
+OW_CLOUD=0
+for t in ${OW_TAGS[@]+"${OW_TAGS[@]}"}; do case "$t" in *:cloud|*-cloud) OW_CLOUD=1;; esac; done
 
 # ---- management subcommands (verb style, like the tool's own); first arg only ----
 case "${1:-}" in
@@ -164,12 +239,13 @@ while [ $# -gt 0 ]; do
     --open-egress)      EGRESS="open"; shift;;
     --allowlist-egress) EGRESS="allow-list"; shift;;
     --ide)           IDE=1; shift;;
-    --ow)            OW=1; shift;;
+    --ow|--open-weight) OW=1; shift;;
     --)              shift; while [ $# -gt 0 ]; do TOOL_ARGS+=("$1"); shift; done;;
     *)               TOOL_ARGS+=("$1"); shift;;
   esac
 done
 
+[ "$IDE" = 1 ] && [ "$PROFILE_IDE" != 1 ] && die "--ide is not offered by $CMD"
 case "$EGRESS" in allow-list|open) ;; *) die "EGRESS must be \"allow-list\" or \"open\" (got: $EGRESS)";; esac
 # The peer is policy, so it lives in the file: the flag only turns it on.
 [ "$OW" = 1 ] && [ -z "$OW_PEER" ] && die "--ow needs an [open-weight] table in $CONFIG (peer, port, [open-weight.models]); the shipped $CMD.toml documents it"
@@ -190,8 +266,10 @@ fi
 # whose recorded launcher is dead. A PID only means something where it was
 # issued, so the label carries a per-install id and the reaper skips other
 # installs. Within this install, ps(1) is an honest liveness probe; PID reuse
-# can only under-reap. A restored or synced data dir clones the id across
-# hosts — delete host-id on the clone so no reaper judges foreign PIDs.
+# can only under-reap, and a ps that cannot see this launcher itself judges
+# nothing, so every launcher counts as alive. A restored or synced data dir
+# clones the id across hosts — delete host-id on the clone so no reaper judges
+# foreign PIDs.
 HOST_ID_FILE="$AGENT_HOME/host-id"
 [ -s "$HOST_ID_FILE" ] || (uuidgen 2>/dev/null || echo "$(date +%s)-$$-$RANDOM") > "$HOST_ID_FILE"
 HOST_ID="$(cat "$HOST_ID_FILE")"
@@ -202,11 +280,12 @@ launcher_dead(){ # <label-value>; true only for a dead PID of THIS install
   [ "${1%:*}" = "$HOST_ID" ] || return 1
   local pid="${1##*:}"
   [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  ps -p "$$" >/dev/null 2>&1 || return 1
   ps -p "$pid" >/dev/null 2>&1 && return 1
   return 0
 }
 reap_dead(){
-  local name value net
+  local name value net d pid
   while IFS=$'\t' read -r name value; do
     [ -n "$name" ] || continue
     launcher_dead "$value" && "${DOCKER[@]}" rm -f "$name" >/dev/null 2>&1 || true
@@ -217,16 +296,25 @@ reap_dead(){
     [ -n "$value" ] || continue
     launcher_dead "$value" && "${DOCKER[@]}" network rm "$net" >/dev/null 2>&1 || true
   done < <("${DOCKER[@]}" network ls --filter "label=$CMD.launcher" --format '{{.Name}}' 2>/dev/null || true)
+  # A SIGKILLed launcher never runs its trap, so its run directory (and the
+  # per-run shadows in it) stays. The name carries the host id and the PID.
+  for d in "$AGENT_HOME"/run/"$HOST_ID".*; do
+    [ -d "$d" ] || continue
+    [ "$d" = "${RUNDIR:-}" ] && continue
+    name="${d##*/}"; pid="${name#"$HOST_ID".}"; pid="${pid%%.*}"
+    launcher_dead "$HOST_ID:$pid" || continue
+    chmod -R u+w "$d" 2>/dev/null || true
+    rm -rf "$d"
+  done
+  return 0
 }
 
-# ---- locate the Dockerfile (data dir when installed; repo dir when run from source) ----
-if   [ -f "$AGENT_HOME/Dockerfile" ]; then DOCKERFILE="$AGENT_HOME/Dockerfile"
-elif [ -f "$SELF_DIR/Dockerfile" ];        then DOCKERFILE="$SELF_DIR/Dockerfile"
-else DOCKERFILE=""; fi
+# ---- the Dockerfile sits beside the engine, like every code file ----
+DOCKERFILE="$SELF_DIR/Dockerfile"
 
 # ---- build helpers (empty context: the Dockerfile has no COPY/ADD) ----
 _build(){
-  [ -n "$DOCKERFILE" ] || die "no Dockerfile (looked in $AGENT_HOME and $SELF_DIR) — run install.sh"
+  [ -f "$DOCKERFILE" ] || die "no Dockerfile beside the engine in $SELF_DIR — run install.sh"
   local ctx; ctx="$(mktemp -d)"
   # `if !` keeps errexit from aborting before the temp context is removed.
   if ! "${DOCKER[@]}" build --progress=plain "$@" \
@@ -257,23 +345,28 @@ update_all(){
 # ($CMD.image). Other images, other containers and the engine's build
 # cache belong to the operator — `docker system df` shows what remains.
 # --all crosses that line on the operator's word: an engine-wide prune of
-# everything unused. The label!= filter spares the labeled $CMD image,
-# so the next launch pays no rebuild. Containers inherit the image's label
-# and are spared with it; reap_dead has already removed this install's dead
-# ones. Anything a live session holds is in use and safe from prune.
+# everything unused. One label!= filter spares every tool's image, so the next
+# launch pays no rebuild: Docker spares an object only when it carries EVERY
+# label that label!= filters name, so each image carries the same shared label
+# (agent-dev.image) beside its own. Containers inherit the image's label and
+# are spared with it; reap_dead has already removed this install's dead ones.
+# Anything a live session holds is in use and safe from prune.
 if [ "$DO_CLEANUP" = 1 ]; then
   reap_dead
   "${DOCKER[@]}" image prune -f --filter "label=$CMD.image" \
     || die "image prune failed — is the engine running?"
   if [ "$DO_CLEANUP_ALL" = 1 ]; then
-    # An image built before the label exists is not spared by the label!=
-    # filter — refuse rather than prune the tool's own current image.
-    if labeled="$("${DOCKER[@]}" image inspect -f "{{index .Config.Labels \"$CMD.image\"}}" "$TAG" 2>/dev/null)"; then
-      [ -n "$labeled" ] || die "$TAG predates the $CMD.image label and --all would prune it — run '$CMD update' first"
-    fi
-    "${DOCKER[@]}" system prune -a -f --volumes --filter "label!=$CMD.image" \
+    # An image without the shared label is not spared by the label!= filter.
+    # Refuse rather than prune a tool's current image, this tool's or another's.
+    for c in "$CMD" ${OTHER_COMMANDS[@]+"${OTHER_COMMANDS[@]}"}; do
+      if labeled="$("${DOCKER[@]}" image inspect -f '{{index .Config.Labels "agent-dev.image"}}' "$c:latest" 2>/dev/null)"; then
+        [ -n "$labeled" ] || die "$c:latest lacks the agent-dev.image label and --all would prune it — run '$c update' first"
+      fi
+    done
+    # The build cache is shared between the tools and goes with the rest.
+    "${DOCKER[@]}" system prune -a -f --volumes --filter "label!=agent-dev.image" \
       || die "system prune failed — is the engine running?"
-    echo "$CMD: cleanup --all done — dead session objects reaped, engine-wide unused images, containers, networks, volumes and build cache pruned ($CMD image kept)" >&2
+    echo "$CMD: cleanup --all done — dead session objects reaped, engine-wide unused images, containers, networks, volumes and build cache pruned (agent-dev tool images kept)" >&2
   else
     echo "$CMD: cleanup done — dead session objects reaped, superseded $CMD images pruned (engine-wide: cleanup --all)" >&2
   fi
@@ -289,29 +382,86 @@ fi
 [ "$DO_ACCESS" = 1 ] || "${DOCKER[@]}" image inspect "$TAG" >/dev/null 2>&1 || build_full
 
 # ---- where we run ----
-HOME_P="$(cd "$HOME" && pwd -P)"
+HOME_P="$(physical_dir "$HOME")"
+home_abbrev(){ case "$1" in "$HOME_P"|"$HOME_P"/*) printf '~%s' "${1#"$HOME_P"}";; *) printf '%s' "$1";; esac; }
+
+# A fenced path may not exist yet, or may sit behind a symlinked parent (a
+# dotfile manager's ~/.config). real_or_self gives its physical form by
+# resolving the nearest existing ancestor.
+real_or_self(){ # <path> -> its physical form
+  local p="$1" suffix="" r
+  while [ ! -e "$p" ] && [ ! -L "$p" ] && [ "$p" != "/" ] && [ "$p" != "." ]; do
+    suffix="/$(basename "$p")$suffix"; p="$(dirname "$p")"
+  done
+  r="$(resolve_path "$p")" || { printf '%s' "$1"; return 0; }
+  [ "$r" = "/" ] && [ -n "$suffix" ] && r=""
+  printf '%s%s' "$r" "$suffix"
+}
+candidates(){ # <path> -> the path as given, then its physical form when that differs
+  local r; printf '%s\n' "$1"
+  r="$(real_or_self "$1")"
+  [ "$r" = "$1" ] || printf '%s\n' "$r"
+  return 0
+}
+# Another agent-dev tool's data directory holds host-run code and credentials.
+# It is fenced where it lives by default and where its variable points.
+sibling_homes(){ # <command> -> its data directory at the default place, then where its variable names
+  local var; var="$(printf '%s' "$1" | tr 'a-z-' 'A-Z_')_HOME"
+  printf '%s\n' "$HOME_P/.config/$1"
+  [ -z "${!var:-}" ] || printf '%s\n' "${!var}"
+  return 0
+}
+workdir_fence(){ # <fenced path> [why, for the inside case]
+  local c label; label="$(home_abbrev "$1")"
+  while IFS= read -r c; do
+    case "$WORKDIR" in "$c"|"$c"/*) die "run from a project directory, not inside $label${2:-}";; esac
+    # The project is mounted read-write, so one that contains the path hands
+    # it over. A path that does not exist hands over nothing.
+    if [ -e "$c" ]; then
+      case "$c" in "$WORKDIR"/*) die "run from a project directory that does not contain $label";; esac
+    fi
+  done < <(candidates "$1")
+}
+
 [ "$WORKDIR" = "$HOME_P" ] && die "run from a project directory, not \$HOME (inside, home is an ephemeral tmpfs)"
-for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
-  case "$WORKDIR" in "$HOME_P/$p"|"$HOME_P/$p"/*)
-    die "run from a project directory, not inside ~/$p (the config boundary is not a workspace)";; esac
+[ "$WORKDIR" = "/" ] && die "run from a project directory, not the filesystem root"
+for e in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
+  IFS='|' read -r p b <<<"$e"
+  workdir_fence "$HOME_P/$p" " (the config boundary is not a workspace)"
 done
-case "$WORKDIR" in "$AGENT_HOME"|"$AGENT_HOME"/*)
-  die "run from a project directory, not inside $AGENT_HOME";; esac
+workdir_fence "$AGENT_HOME"
+for c in ${OTHER_COMMANDS[@]+"${OTHER_COMMANDS[@]}"}; do
+  while IFS= read -r h; do workdir_fence "$h"; done < <(sibling_homes "$c")
+done
+workdir_fence "$HOME_P/.local/bin" " (it holds the commands that run on the host)"
+# The project is mounted at its physical path. A directory reached through a
+# link or another spelling is a different place than the one typed, so a
+# launch names the place it mounts.
+if [ "$DO_ACCESS" = 0 ] && [ -n "${PWD:-}" ] && [ "$PWD" != "$WORKDIR" ]; then
+  echo "$CMD: the project directory is $WORKDIR (reached as $PWD)" >&2
+fi
 
 # ---- auth: log in ONCE inside; credentials stay private, NOT in the shared tree ----
 # The tool's credential store is relocated into a private persistent dir.
 # Neither an API key (would silently switch to API billing) nor a Keychain
 # token (cannot self-refresh) is forwarded.
-AUTH_DIR="$AGENT_HOME/auth"
-mkdir -p "$AUTH_DIR" && chmod 700 "$AUTH_DIR"
-AUTH_DIR="$(cd "$AUTH_DIR" && pwd -P)"
-# Under --ow the session authenticates to the peer with a placeholder token.
-# The credential directory stays on the host, so the session holds no real
-# credential. Its store points at an unmounted path under the tmpfs home: a
-# login run inside lands nowhere that persists.
-OW_AUTH_DIR="$HOME_P/$CREDENTIAL_OW_PATH"
-if [ "$OW" = 0 ] && [ ! -f "$AUTH_DIR/$CREDENTIAL_FILE" ]; then
-  echo "$CMD: first run — $LOGIN_HINT (persists to $AUTH_DIR/$CREDENTIAL_FILE)." >&2
+# A tool that keeps its credential inside one of its own state roots has no
+# separate directory: it lives in that root's shadow, which is per project and
+# separate under --ow, so no session on a peer holds a real credential.
+AUTH_DIR=""
+OW_AUTH_DIR=""
+if [ -n "$CREDENTIAL_ENV" ]; then
+  AUTH_DIR="$AGENT_HOME/auth"
+  mkdir -p "$AUTH_DIR" && chmod 700 "$AUTH_DIR"
+  AUTH_DIR="$(physical_dir "$AUTH_DIR")"
+  # Under --ow the session authenticates to the peer with a placeholder token.
+  # The credential directory stays on the host, so the session holds no real
+  # credential. Its store points at an unmounted path under the tmpfs home: a
+  # login run inside lands nowhere that persists.
+  OW_AUTH_DIR="$HOME_P/$CREDENTIAL_OW_PATH"
+  if [ "$OW" = 0 ] && [ ! -f "$AUTH_DIR/$CREDENTIAL_FILE" ]; then
+    echo "$CMD: first run — $LOGIN_HINT (persists to $AUTH_DIR/$CREDENTIAL_FILE)." >&2
+  fi
 fi
 
 # ---- the container's state roots: default-deny, enumerated shared paths only ----
@@ -321,9 +471,32 @@ fi
 # is state loss, never exposure. The full shared-path list and its residuals:
 # README § Files.
 STATE="$AGENT_HOME/state"
-# The tool's per-project key: the cwd with every non-alphanumeric byte replaced
-# by '-'. The same key on both sides makes resume seamless.
+mkdir -p "$STATE"; chmod 700 "$STATE"
+# The run directory: everything generated for exactly this launch, including
+# the shadows of per-run roots.
+RUN_ID="$$-${RANDOM}"
+mkdir -p "$AGENT_HOME/run" && chmod 700 "$AGENT_HOME/run"
+# mktemp makes the name unique, so a leftover directory is never reused, and
+# the name carries this launch's host id and PID for reap_dead. The session may
+# have made files read-only, so write permission returns before removal.
+RUNDIR="$(mktemp -d "$AGENT_HOME/run/$HOST_ID.$$.XXXXXX")" || die "could not create the run directory"
+chmod 700 "$RUNDIR"
+# Own it from creation: a die before the full cleanup trap would otherwise
+# leave the replica behind.
+trap 'chmod -R u+w "$RUNDIR" 2>/dev/null || true; rm -rf "$RUNDIR"' EXIT
+# A project-lifetime shadow is keyed by the project path, and separately under
+# --ow: a session on a peer never shares state with one that holds a real
+# credential.
+MODE_SUFFIX=""; [ "$OW" = 1 ] && MODE_SUFFIX=".ow"
+# The tool's own per-project key, for a root that shares one project directory
+# with the host: the cwd with every non-alphanumeric byte replaced by '-'. The
+# same key on both sides makes resume seamless.
 PROJECT_KEY="$(printf '%s' "$WORKDIR" | sed 's/[^a-zA-Z0-9]/-/g')"
+# A project-lifetime shadow is the engine's own, so its key is a hash of the
+# whole physical path: replacing characters would let `/a/b-c` and `/a/b/c`
+# share a shadow.
+SHADOW_KEY="$(config_py project-key "$WORKDIR")" || die "could not derive the project key"
+[ -n "$SHADOW_KEY" ] || die "could not derive the project key"
 
 # A bind mount needs its target to exist and match the source's kind (an
 # absent target would be auto-created root-owned). The session writes the
@@ -331,6 +504,17 @@ PROJECT_KEY="$(printf '%s' "$WORKDIR" | sed 's/[^a-zA-Z0-9]/-/g')"
 # session-chosen host path, and a dangling target aborts every later launch.
 ensure_dir(){  [ -L "$1" ] && rm -f "$1"; [ -e "$1" ] && [ ! -d "$1" ] && rm -f "$1"; mkdir -p "$1"; }
 ensure_file(){ [ -L "$1" ] && rm -f "$1"; [ -d "$1" ] && rm -rf "$1"; mkdir -p "$(dirname "$1")"; [ -e "$1" ] || : > "$1"; }
+
+# The same holds one level up: a symlink planted as a parent directory inside
+# the shadow would send the mkdir or unlink above to a host path it names.
+shadow_parents(){ # <shadow> <relative path>: unlink every symlinked parent
+  local base="$1" rel="$2"
+  while case "$rel" in */*) true;; *) false;; esac; do
+    base="$base/${rel%%/*}"; rel="${rel#*/}"
+    [ -L "$base" ] && rm -f "$base"
+  done
+  return 0
+}
 
 # The spec entries of one root: `<root>|<name>`, in profile order.
 root_names(){ # <root-path> <entry>...  -> prints the names that belong to the root
@@ -342,31 +526,56 @@ root_names(){ # <root-path> <entry>...  -> prints the names that belong to the r
   return 0
 }
 
-ROOT_MOUNTS=()
-ROOT_DSTS=(); ROOT_SHADOW_DIRS=(); OVERLAY_DSTS=(); OVERLAY_SRCS=(); OVERLAY_NOTES=()
+ROOT_MOUNTS=(); ROOT_PARENTS=(); FIRST_PROJECT_RUN=0
+ROOT_DSTS=(); ROOT_NOTES=(); OVERLAY_DSTS=(); OVERLAY_SRCS=(); OVERLAY_NOTES=()
 for i in "${!ROOT_PATHS[@]}"; do
   rp="${ROOT_PATHS[$i]}"
   HOST_ROOT="$HOME_P/$rp"
-  SHADOW="$STATE/${ROOT_SHADOWS[$i]}"
+  case "${ROOT_LIFETIMES[$i]}" in
+    project)    SHADOW="$STATE/${ROOT_SHADOWS[$i]}/$SHADOW_KEY$MODE_SUFFIX";;
+    run)        SHADOW="$RUNDIR/state/${ROOT_SHADOWS[$i]}";;
+    *)          die "unknown root lifetime from the profile: ${ROOT_LIFETIMES[$i]}";;
+  esac
   mkdir -p "$SHADOW"
-  ROOT_DSTS+=("$HOME_P/$rp"); ROOT_SHADOW_DIRS+=("$SHADOW")
+  # A tool that keeps its login in a project-lifetime root starts each project
+  # without one: an empty shadow is that project's first run. A relocated
+  # credential store is one login for every project and has its own hint.
+  if [ -z "$CREDENTIAL_ENV" ] && [ "${ROOT_LIFETIMES[$i]}" = project ] && [ -z "$(ls -A "$SHADOW")" ]; then FIRST_PROJECT_RUN=1; fi
+  # A root nested below the home directory needs its parent directories inside
+  # the home tmpfs. The engine would create them owned by root, and then
+  # nothing could write beside the root: ~/.cache holds the Go build cache next
+  # to ~/.cache/opencode. Each parent becomes its own tmpfs with the home's
+  # options; the engine mounts by depth, so it sits above the binds below it.
+  parent="$rp"
+  while case "$parent" in */*) true;; *) false;; esac; do
+    parent="${parent%/*}"; known=0
+    for q in ${ROOT_PARENTS[@]+"${ROOT_PARENTS[@]}"}; do [ "$q" = "$parent" ] && known=1; done
+    [ "$known" = 1 ] || ROOT_PARENTS+=("$parent")
+  done
+  ROOT_DSTS+=("$HOME_P/$rp")
+  if [ "${ROOT_LIFETIMES[$i]}" = run ]; then
+    ROOT_NOTES+=("private shadow, discarded on exit")
+  else
+    ROOT_NOTES+=("private shadow <- $(home_abbrev "$SHADOW")")
+  fi
   ROOT_MOUNTS+=(-v "$SHADOW:$HOME_P/$rp")      # the private shadow; the shared paths below land inside it
   dirs=()
   while IFS= read -r n; do [ -n "$n" ] && dirs+=("$n"); done < <(root_names "$rp" ${SPEC_RW_DIR[@]+"${SPEC_RW_DIR[@]}"})
   [ -n "${ROOT_PROJECTS[$i]}" ] && dirs+=("${ROOT_PROJECTS[$i]}/$PROJECT_KEY")
   for d in ${dirs[@]+"${dirs[@]}"}; do
-    ensure_dir "$HOST_ROOT/$d"; ensure_dir "$SHADOW/$d"
+    ensure_dir "$HOST_ROOT/$d"; shadow_parents "$SHADOW" "$d"; ensure_dir "$SHADOW/$d"
     ROOT_MOUNTS+=(-v "$HOST_ROOT/$d:$HOME_P/$rp/$d")
   done
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    ensure_file "$HOST_ROOT/$f"; ensure_file "$SHADOW/$f"
+    ensure_file "$HOST_ROOT/$f"; shadow_parents "$SHADOW" "$f"; ensure_file "$SHADOW/$f"
     ROOT_MOUNTS+=(-v "$HOST_ROOT/$f:$HOME_P/$rp/$f")
   done < <(root_names "$rp" ${SPEC_RW_FILE[@]+"${SPEC_RW_FILE[@]}"})
   # Behavior config: read-only, and only what the host actually has. An absent
   # file is simply not shared — inside, that path stays private.
   while IFS= read -r n; do
     [ -n "$n" ] || continue
+    shadow_parents "$SHADOW" "$n"
     if [ -d "$HOST_ROOT/$n" ]; then
       ensure_dir "$SHADOW/$n"
       ROOT_MOUNTS+=(-v "$HOST_ROOT/$n:$HOME_P/$rp/$n:ro")
@@ -399,24 +608,22 @@ for i in "${!ROOT_PATHS[@]}"; do
   done
 done
 
-# ---- the run directory: everything generated for exactly this launch ----
-RUN_ID="$$-${RANDOM}"
-RUNDIR="$AGENT_HOME/run/$RUN_ID"
-mkdir -p "$RUNDIR" && chmod 700 "$RUNDIR"
-# Own it from creation: a die before the full cleanup trap would otherwise
-# leave the replica behind, and nothing ever reaps run/.
-trap 'rm -rf "$RUNDIR"' EXIT
+if [ "$FIRST_PROJECT_RUN" = 1 ] && [ "$OW" = 0 ] && [ -n "$LOGIN_HINT" ]; then
+  echo "$CMD: first run in this project — $LOGIN_HINT." >&2
+fi
 
 # The tool's own config file in the home directory is never shared: replicated
 # per launch, scrubbed to this project; the host copy always wins — nothing
-# written inside reaches it.
+# written inside reaches it. Under --ow the scrubber also drops the stored API
+# key and every MCP server entry but a bare loopback endpoint, so no credential
+# of the host file reaches a session on a peer.
 REPLICA_PATH=""
 if [ -n "$REPLICA_NAME" ]; then
   REPLICA_PATH="$RUNDIR/replica.json"
-  SCRUB="$AGENT_HOME/$REPLICA_SCRUBBER"
-  [ -f "$SCRUB" ] || SCRUB="$SELF_DIR/$REPLICA_SCRUBBER"
+  SCRUB="$SELF_DIR/$REPLICA_SCRUBBER"
   if [ -f "$SCRUB" ] && command -v python3 >/dev/null 2>&1; then
-    python3 "$SCRUB" "$HOME_P/$REPLICA_NAME" "$WORKDIR" > "$REPLICA_PATH" || die "could not build the ~/$REPLICA_NAME replica"
+    SCRUB_ARGS=(); [ "$OW" = 1 ] && SCRUB_ARGS=(--ow)
+    python3 "$SCRUB" ${SCRUB_ARGS[@]+"${SCRUB_ARGS[@]}"} "$HOME_P/$REPLICA_NAME" "$WORKDIR" > "$REPLICA_PATH" || die "could not build the ~/$REPLICA_NAME replica"
   else
     # No scrubber, no unscrubbed fallback: an empty replica loses recoverable
     # state; the host file wholesale would hand over every project's config.
@@ -434,60 +641,94 @@ fi
 # the named shared paths bind-mounted at their real paths, so absolute host
 # paths in shared config (a statusLine command, a hook) resolve identically.
 # exec: docker defaults tmpfs to noexec; size is a RAM cap, allocated as used.
+HOME_TMPFS="rw,exec,size=2g,mode=700,uid=$(id -u),gid=$(id -g)"
 RUN=(run --rm
      --user "$(id -u):$(id -g)"           # the operator's uid: mounted files keep their owner; non-root => the tool accepts a passed-through permission skip
      -e HOME="$HOME_P" -e USER="${USER:-$(id -un)}"
-     --tmpfs "$HOME_P:rw,exec,size=2g,mode=700,uid=$(id -u),gid=$(id -g)"
+     --tmpfs "$HOME_P:$HOME_TMPFS"
      -v "$WORKDIR:$WORKDIR" -w "$WORKDIR"  # same-path mount keeps the tool's project keys identical to host
      "${ROOT_MOUNTS[@]}")
+for parent in ${ROOT_PARENTS[@]+"${ROOT_PARENTS[@]}"}; do RUN+=(--tmpfs "$HOME_P/$parent:$HOME_TMPFS"); done
 [ -n "$REPLICA_PATH" ] && RUN+=(-v "$REPLICA_PATH:$HOME_P/$REPLICA_NAME")
 [ -f "$HOME_P/.gitconfig" ]   && RUN+=(-v "$HOME_P/.gitconfig:$HOME_P/.gitconfig:ro")
 [ -d "$HOME_P/.config/git" ]  && RUN+=(-v "$HOME_P/.config/git:$HOME_P/.config/git:ro")  # XDG git dir: global ignore, includes
 # Resolve one mount source, or die naming it. Refusals: a leading dash
 # (dirname would read it as an option and silently resolve to the project
-# directory); a path that does not exist; and the tool's own data dir in
-# EITHER direction — the dir itself, a path inside it, or a path containing
-# it. The data dir holds the host-run python modules, auth/, and every
-# session's state, so a source containing it hands them over the same way.
+# directory); a path that does not exist; and, in EITHER direction — the path
+# itself, a path inside it, or a path containing it — every agent-dev tool's
+# data dir, read-write or read-only. A data dir holds the host-run engine and
+# modules, the login, and every session's state, so a source containing it
+# hands them over the same way. A writable mount is refused the same way for
+# the protected host paths, ~/.local/bin, and a checkout the engine runs from.
+# The session sees a directory at its physical path. It sees a file where the
+# entry names it, so a link to a file keeps the path a hook or a status line
+# refers to; the source is the resolved target, which the checks judged.
+mount_target(){ # <entry> <resolved source> -> the path inside the session
+  local d="$1" parent
+  if [ -d "$d" ]; then printf '%s' "$2"; return 0; fi
+  parent="$(physical_dir "$(dirname "$d")")" || return 1
+  printf '%s/%s' "$parent" "$(listed_name "$parent" "$(basename "$d")")"
+}
+# A state root's parent directory is the session's own tmpfs, so an operator
+# mount at the same path would collide with it.
+parent_fence(){ # <flag> <destination>
+  local q
+  for q in ${ROOT_PARENTS[@]+"${ROOT_PARENTS[@]}"}; do
+    [ "$2" = "$HOME_P/$q" ] && die "$1 may not mount $2: the session keeps $BINARY's own directories under it; mount a directory inside it instead"
+  done
+  return 0
+}
+mount_fence(){ # <flag> <resolved source> <fenced path> <subject> <what the path does>
+  local what="$1" rp="$2" c
+  while IFS= read -r c; do
+    case "$rp" in "$c"|"$c"/*) die "$what may not mount $rp: $4 $5";; esac
+    # A path that does not exist exposes nothing, so only an existing one is contained.
+    if [ -e "$c" ]; then
+      case "$c" in "$rp"/*) die "$what may not mount $rp: it contains $c, which $5";; esac
+    fi
+  done < <(candidates "$3")
+}
 resolve_mount(){ # <entry> <flag-name>  -> prints the real path
-  local d="$1" what="$2" rp
+  local d="$1" what="$2" rp c e h p b
+  local holds="holds the modules that run on the host and every session's state"
   case "$d" in -*) die "$what path may not start with '-': $d";; esac
   [ -e "$d" ] || die "no such $what path: $d"
-  rp="$(cd "$(dirname "$d")" && printf '%s/%s' "$(pwd -P)" "$(basename "$d")")" \
-    || die "no such $what path: $d"
-  # basename of "/" is "/", so the root resolves to an all-slash string and
-  # would dodge the ancestor globs below; it contains everything, so refuse it.
-  case "$rp" in *[!/]*) ;; *) die "$what may not mount the filesystem root";; esac
-  case "$rp" in
-    "$AGENT_HOME"|"$AGENT_HOME"/*)
-      die "$what may not mount $rp: it holds the modules that run on the host and every session's state";;
-  esac
-  case "$AGENT_HOME" in "$rp"/*)
-    die "$what may not mount $rp: it contains $AGENT_HOME, which holds the modules that run on the host and every session's state";; esac
-  # A protected path (for Claude Code, ~/.claude) is read-only-shareable;
-  # writable is the refusal — those files decide how the tool runs on the HOST,
-  # so editing them escapes the boundary. Containing counts like being inside:
-  # a writable ancestor edits them too.
+  rp="$(resolve_path "$d")" || die "no such $what path: $d"
+  [ "$rp" = "/" ] && die "$what may not mount the filesystem root"
+  mount_fence "$what" "$rp" "$AGENT_HOME" "it" "$holds"
+  for c in ${OTHER_COMMANDS[@]+"${OTHER_COMMANDS[@]}"}; do
+    while IFS= read -r h; do
+      mount_fence "$what" "$rp" "$h" "it is the data directory of $c, which" "$holds"
+    done < <(sibling_homes "$c")
+  done
   if [ "$what" = --rw ]; then
-    for p in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
-      case "$rp" in "$HOME_P/$p"|"$HOME_P/$p"/*)
-        die "--rw may not mount $rp: ~/$p decides how $BINARY runs on the host, so it is shared read-only or by the enumerated list";; esac
-      case "$HOME_P/$p" in "$rp"/*)
-        die "--rw may not mount $rp: it contains $HOME_P/$p, which decides how $BINARY runs on the host, so it is shared read-only or by the enumerated list";; esac
+    # A protected path (for Claude Code, ~/.claude) is read-only-shareable;
+    # writable is the refusal — those files decide how a tool runs on the HOST,
+    # so editing them escapes the boundary. Containing counts like being
+    # inside: a writable ancestor edits them too.
+    for e in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
+      IFS='|' read -r p b <<<"$e"
+      mount_fence --rw "$rp" "$HOME_P/$p" "$(home_abbrev "$HOME_P/$p")" "decides how $b runs on the host, so it is shared read-only or by the enumerated list"
     done
+    # The installed commands run on the host, and so does a checkout the
+    # engine runs from: a writable mount lets the session rewrite them.
+    mount_fence --rw "$rp" "$HOME_P/.local/bin" "$(home_abbrev "$HOME_P/.local/bin")" "holds the commands that run on the host"
+    [ "$SELF_DIR" = "$AGENT_HOME" ] || mount_fence --rw "$rp" "$SELF_DIR" "it" "is where this command's engine and modules run on the host"
   fi
   printf '%s' "$rp"
 }
 for d in ${RW[@]+"${RW[@]}"}; do
-  rp="$(resolve_mount "$d" --rw)"; RUN+=(-v "$rp:$rp")
+  rp="$(resolve_mount "$d" --rw)"; dst="$(mount_target "$d" "$rp")"; parent_fence --rw "$dst"; RUN+=(-v "$rp:$dst")
 done
 for d in ${RO[@]+"${RO[@]}"}; do
-  rp="$(resolve_mount "$d" --ro)"; RUN+=(-v "$rp:$rp:ro")
+  rp="$(resolve_mount "$d" --ro)"; dst="$(mount_target "$d" "$rp")"; parent_fence --ro "$dst"; RUN+=(-v "$rp:$dst:ro")
 done
-if [ "$OW" = 0 ]; then
-  RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e "$CREDENTIAL_ENV=$AUTH_DIR")
-else
-  RUN+=(-e "$CREDENTIAL_ENV=$OW_AUTH_DIR")
+if [ -n "$CREDENTIAL_ENV" ]; then
+  if [ "$OW" = 0 ]; then
+    RUN+=(-v "$AUTH_DIR:$AUTH_DIR" -e "$CREDENTIAL_ENV=$AUTH_DIR")
+  else
+    RUN+=(-e "$CREDENTIAL_ENV=$OW_AUTH_DIR")
+  fi
 fi
 # terminal: TERM/COLORTERM for the TUI; a UTF-8 locale (built into Debian 13's
 # glibc) so pasted non-ASCII text survives the C/POSIX default.
@@ -498,7 +739,7 @@ RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
 # hosts stay off the list without filling the proxy log with denials.
 # telemetry.enabled = true lifts the declaration only — the intakes still have
 # to clear the allow-list. README § Egress has the full trade.
-[ "$TELEMETRY" = 1 ] || RUN+=(-e "$TELEMETRY_OFF")
+[ "$TELEMETRY" = 1 ] || [ -z "$TELEMETRY_OFF" ] || RUN+=(-e "$TELEMETRY_OFF")
 # Hardening — all runtime flags, no packages: no capability, no setuid
 # escalation, Docker's default seccomp/AppArmor kept (=unconfined never passed).
 RUN+=(--cap-drop=ALL --security-opt no-new-privileges:true)
@@ -515,7 +756,7 @@ if [ "$EGRESS" = allow-list ]; then
   ALLOW_COUNT="$(grep -c . "$EFFECTIVE_ALLOW" || true)"
   # Under --ow the model is the peer, so a missing vendor entry is not a
   # defect; a present one stays reachable, with no credential behind it.
-  [ "$OW" = 1 ] || grep -qxF "$MANDATORY_HOST" "$EFFECTIVE_ALLOW" \
+  [ "$OW" = 1 ] || [ -z "$MANDATORY_HOST" ] || grep -qxF "$MANDATORY_HOST" "$EFFECTIVE_ALLOW" \
     || warn "WARNING — $MANDATORY_HOST is not on the allow-list; $BINARY will not reach its API"
 elif [ ${#EXTRA_ALLOW[@]} -gt 0 ]; then
   warn "--allow has no effect under --open-egress (every destination outside the private ranges is already reachable)"
@@ -526,7 +767,6 @@ fi
 # and a policy defect dies here with the launch's own message. Nothing starts;
 # the EXIT trap removes the run dir.
 if [ "$DO_ACCESS" = 1 ]; then
-  home_abbrev(){ case "$1" in "$HOME_P"|"$HOME_P"/*) printf '~%s' "${1#"$HOME_P"}";; *) printf '%s' "$1";; esac; }
   MODES=(); DSTS=(); NOTES=(); W=0; want_spec=0
   for a in "${RUN[@]}"; do
     if [ "$want_spec" = 1 ]; then
@@ -535,7 +775,7 @@ if [ "$DO_ACCESS" = 1 ]; then
       case "$rest" in *:ro) mode=ro; dst="${rest%:ro}";; *) mode=rw; dst="$rest";; esac
       note=""
       for j in "${!ROOT_DSTS[@]}"; do
-        [ "$dst" = "${ROOT_DSTS[$j]}" ] && note="private shadow <- $(home_abbrev "${ROOT_SHADOW_DIRS[$j]}")"
+        [ "$dst" = "${ROOT_DSTS[$j]}" ] && note="${ROOT_NOTES[$j]}"
       done
       for j in ${OVERLAY_DSTS[@]+"${!OVERLAY_DSTS[@]}"}; do
         [ "$dst" = "${OVERLAY_DSTS[$j]}" ] && note="${OVERLAY_NOTES[$j]} <- $(home_abbrev "${OVERLAY_SRCS[$j]}")"
@@ -590,8 +830,13 @@ if [ "$DO_ACCESS" = 1 ]; then
     printf 'allow  %s\n' "$INFERENCE_ALLOW"
     printf 'deny   every other path and method on that port (model pull, delete, push, listings)\n'
     for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do printf 'model  %s\n' "$m"; done
-    printf 'session: placeholder token, no credential mounted\n'
+    if [ -n "$CREDENTIAL_ENV" ]; then
+      printf 'session: placeholder credential; the stored login is not mounted\n'
+    else
+      printf 'session: placeholder credential; its data shadow is apart from the one that holds this project'"'"'s login\n'
+    fi
     [ "$OW_PEER" = host ] || printf 'note   the peer is not this machine: prompts and code leave it in plain HTTP, and its daemon must listen beyond loopback\n'
+    [ "$OW_CLOUD" = 0 ] || printf "note   a cloud tag is served by the peer's vendor: prompts and code leave through the peer, outside this proxy's log\n"
   fi
   # The plan above, the record below: per-host counts from the proxy's access
   # log — live when a session runs, else the file the last exit saved. deny =
@@ -607,7 +852,7 @@ if [ "$DO_ACCESS" = 1 ]; then
     # cache log, where a request header can land verbatim. Control bytes go,
     # as on the saved path, since the rows are printed to a TTY.
     TRAFFIC_SRC="live, $LIVE_PROXY"
-    TRAFFIC_RAW="$("${DOCKER[@]}" logs "$LIVE_PROXY" 2>/dev/null | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177' || true)"
+    TRAFFIC_RAW="$("${DOCKER[@]}" logs "$LIVE_PROXY" 2>/dev/null | LC_ALL=C tr -d '\000-\010\013-\037\177-\377' || true)"
   elif [ -f "$TRAFFIC_LOG" ]; then
     TRAFFIC_SRC="saved on last exit, $(home_abbrev "$TRAFFIC_LOG")"
     TRAFFIC_RAW="$(cat "$TRAFFIC_LOG")"
@@ -641,10 +886,8 @@ fi
 # (gating rationale: the exposed-set ADR's amendments).
 IDE_PORTS=()
 IDE_LABELS=()
-[ "$IDE" = 1 ] && [ "$PROFILE_IDE" != 1 ] && die "--ide is not offered by $CMD"
 if [ "$IDE" = 1 ]; then
-  PREFLIGHT="$AGENT_HOME/ide_preflight.py"
-  [ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
+  PREFLIGHT="$SELF_DIR/ide_preflight.py"
   if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
     # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
     # Each stdout line is `port<TAB>server label`; the label is display-only
@@ -675,8 +918,7 @@ done
 # ends the launch: the session would fail at its first request. An unlisted
 # cloud tag only warns, since the daemon serves it on demand.
 if [ "$OW" = 1 ]; then
-  OW_PREFLIGHT="$AGENT_HOME/open_weight_preflight.py"
-  [ -f "$OW_PREFLIGHT" ] || OW_PREFLIGHT="$SELF_DIR/open_weight_preflight.py"
+  OW_PREFLIGHT="$SELF_DIR/open_weight_preflight.py"
   if [ -f "$OW_PREFLIGHT" ]; then
     OW_PROBE_HOST="$OW_PEER"; [ "$OW_PEER" = host ] && OW_PROBE_HOST="127.0.0.1"
     OW_TAG_ARGS=()
@@ -705,7 +947,8 @@ if [ ${#PERM_DEFAULT[@]} -gt 0 ]; then
   PERM_INJECT=1
   for a in ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}; do
     for o in ${PERM_OVERRIDE[@]+"${PERM_OVERRIDE[@]}"}; do
-      case "$a" in "$o"|"$o"=*) PERM_INJECT=0;; esac
+      # shellcheck disable=SC2254  # the profile's override entries are glob patterns
+      case "$a" in $o) PERM_INJECT=0;; esac
     done
   done
   [ "$PERM_INJECT" = 1 ] && SESSION_CMD+=("${PERM_DEFAULT[@]}")
@@ -723,6 +966,9 @@ OW_SETTINGS_ARGS=(); [ "$OW" = 1 ] && OW_SETTINGS_ARGS=(--ow)
 SESSION_SETTINGS="$(config_py session-settings "$CONFIG" ${OW_SETTINGS_ARGS[@]+"${OW_SETTINGS_ARGS[@]}"})" || exit 1
 [ -n "$SETTINGS_FLAG" ] && SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")
 FINAL=("${SESSION_CMD[@]}" ${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"})
+# A profile's prepare step runs inside the session first and ends by exec-ing
+# the tool: the session container's own shell, never the host's.
+[ -n "$PREPARE" ] && FINAL=(sh -c "$PREPARE" sh "${FINAL[@]}")
 [ -n "$SETTINGS_ENV" ] && RUN+=(-e "$SETTINGS_ENV=$SESSION_SETTINGS")
 
 # ---- names, then the reaper (identity and reap_dead: defined above, after the docker-context block) ----
@@ -741,17 +987,19 @@ CREATED_POD=0; CREATED_PROXY=0; CREATED_INT=0; CREATED_EXT=0
 cleanup(){
   if [ "$CREATED_PROXY" = 1 ]; then
     # Save the session's egress record before the container goes (-t: ISO 8601
-    # timestamps; concurrent sessions share the file, last exit wins). Strip
-    # control bytes: CONNECT targets are session-chosen and the file is meant
-    # to be grepped to a TTY, which renders escapes.
-    "${DOCKER[@]}" logs -t "$PROXY_NAME" 2>&1 \
-      | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177' \
+    # timestamps; concurrent sessions share the file, last exit wins). stdout
+    # only, as on the live path: the access log. Everything but printable
+    # ASCII goes: CONNECT targets are session-chosen and the file is meant to
+    # be grepped to a TTY, which renders escapes.
+    "${DOCKER[@]}" logs -t "$PROXY_NAME" 2>/dev/null \
+      | LC_ALL=C tr -d '\000-\010\013-\037\177-\377' \
       > "$AGENT_HOME/last-egress.log" || true
     "${DOCKER[@]}" rm -f "$PROXY_NAME" >/dev/null 2>&1 || true
   fi
   [ "$CREATED_POD" = 1 ] && { "${DOCKER[@]}" rm -f "$SESSION_NAME" >/dev/null 2>&1 || true; }
   [ "$CREATED_INT" = 1 ] && { "${DOCKER[@]}" network rm "$NET_INT" >/dev/null 2>&1 || true; }
   [ "$CREATED_EXT" = 1 ] && { "${DOCKER[@]}" network rm "$NET_EXT" >/dev/null 2>&1 || true; }
+  chmod -R u+w "$RUNDIR" 2>/dev/null || true
   rm -rf "$RUNDIR"
 }
 trap cleanup EXIT
@@ -826,10 +1074,9 @@ CREATED_PROXY=1
 # port is an origin request; the forward port would refuse it as plaintext.
 PROXY_URL="http://proxy:$PROXY_PORT"
 NO_PROXY_LIST="localhost,127.0.0.1"; [ "$OW" = 1 ] && NO_PROXY_LIST="$NO_PROXY_LIST,proxy"
-RUN+=(--network "$NET_INT"
-      -e HTTP_PROXY="$PROXY_URL"  -e HTTPS_PROXY="$PROXY_URL"
-      -e http_proxy="$PROXY_URL"  -e https_proxy="$PROXY_URL"
-      -e NO_PROXY="$NO_PROXY_LIST"  -e no_proxy="$NO_PROXY_LIST"
+RUN+=(--network "$NET_INT")
+for name in ${PROXY_ENV[@]+"${PROXY_ENV[@]}"}; do RUN+=(-e "$name=$PROXY_URL"); done
+RUN+=(-e NO_PROXY="$NO_PROXY_LIST"  -e no_proxy="$NO_PROXY_LIST"
       # JVMs ignore the proxy variables above; JAVA_TOOL_OPTIONS carries the
       # same route as system properties, so Java network clients (the gradle
       # wrapper and daemon among them) reach the proxy instead of no route.
@@ -871,7 +1118,12 @@ if [ "$OW" = 1 ]; then
   # Operator-facing: where the models run and what may reach them. The
   # proxy's own port and gateway name are internals; `access --ow` has them.
   OW_WHERE="$OW_PEER:$OW_PORT"; [ "$OW_PEER" = host ] && OW_WHERE="this machine, port $OW_PORT"
-  echo "$CMD: --ow model server: $OW_WHERE; inference requests only ($INFERENCE_SHORT), filtered and logged by the proxy; no $CREDENTIAL_VENDOR credential mounted" >&2
+  # A relocated credential store stays on the host. A tool that keeps its login
+  # in a state root runs --ow on a separate shadow of that root.
+  OW_HOLDS="no $CREDENTIAL_VENDOR credential mounted"
+  [ -n "$CREDENTIAL_ENV" ] || OW_HOLDS="a data shadow apart from the one that holds this project's $CREDENTIAL_VENDOR login"
+  echo "$CMD: --ow model server: $OW_WHERE; inference requests only ($INFERENCE_SHORT), filtered and logged by the proxy; $OW_HOLDS" >&2
+  [ "$OW_CLOUD" = 0 ] || echo "$CMD: --ow note: a cloud tag is served by the peer's vendor, so prompts and code leave through the peer, outside this proxy's log" >&2
   # One line per served model: the pinned names it answers for, ranked.
   for m in ${OW_TARGETS[@]+"${OW_TARGETS[@]}"}; do echo "$CMD: --ow $m" >&2; done
 fi

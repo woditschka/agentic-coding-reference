@@ -4,8 +4,9 @@ description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
   Java Spring Boot samples and the bookstore workspace members — including the init skeletons
   that restate them — plus the SHA-pinned GitHub Actions in the root CI
-  workflow and the dated pricing override in the harness-stats accounting,
-  against upstream stable releases. Reports drift as a table, applies
+  workflow, the agent model pins with the [open-weight.models] keys in
+  tools/agent-dev/*.toml that restate them, and the dated pricing override in
+  the harness-stats accounting, against upstream stable releases. Reports drift as a table, applies
   approved bumps to build files, version tables, and workflow pins, and
   verifies each change.
 compatibility:
@@ -21,7 +22,7 @@ metadata:
 
 | Scope | What It Checks |
 |-------|---------------|
-| *(all)* | Go and Java samples, plus the root CI workflow actions |
+| *(all)* | Go and Java samples, the root CI workflow actions, the agent model pins, and the dated pricing overrides |
 | `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` |
 | `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, and the bookstore members under `samples/product-workspace/` (three `build.gradle`, three wrapper properties, the workspace `README.md`) |
 | `actions` | `.github/workflows/*.yml` (SHA-pinned GitHub Actions) |
@@ -73,7 +74,7 @@ The two model tiers are pinned per tool in the harness agent frontmatter ([ADR 2
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
-| Opus and Sonnet tier pins | `harness/core` and `harness/stacks/*` agent frontmatter (`.claude/agents`, `.github/agents`, `.opencode/agents`), the `audit-agents` skill's mapping table, `docs/cross-tool-strategy.md` § Agents / Subagents, `docs/open-weight-models.md` | https://platform.claude.com/docs/en/models/overview (Claude Code id); https://docs.github.com/en/copilot/reference/ai-models/supported-models (Copilot names); https://openrouter.ai/anthropic (OpenCode slug) |
+| Opus and Sonnet tier pins | `harness/core` and `harness/stacks/*` agent frontmatter (`.claude/agents`, `.github/agents`, `.opencode/agents`), the `audit-agents` skill's mapping table, `docs/cross-tool-strategy.md` § Agents / Subagents, `docs/open-weight-models.md`, the `[open-weight.models]` keys in `tools/agent-dev/claude-dev.toml` and `opencode-dev.toml` (a tools test holds them equal to the frontmatter pins) | https://platform.claude.com/docs/en/models/overview (Claude Code id); https://docs.github.com/en/copilot/reference/ai-models/supported-models (Copilot names); https://openrouter.ai/anthropic (OpenCode slug) |
 
 ### Dated pricing overrides
 

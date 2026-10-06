@@ -159,6 +159,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - Review fan-out needs parallel subagent execution
 - The team standardizes on Anthropic models
 - The workflow leans on the skill and agent features listed below, and the other two tools lack an equivalent for the larger part of them
+- A confined run is wanted: `claude-dev` runs Claude Code in a container behind a filtering proxy ([tools/agent-dev](../tools/agent-dev/README.md))
 
 **Where it is strongest:**
 - Subagent architecture ships four built-in agents (Explore, Plan, General-purpose, Bash) that cover the common delegation needs out of the box
@@ -181,6 +182,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - Cost optimization routes cheap tasks to cheaper models
 - The team has mixed model subscriptions
 - Full control over system prompts matters
+- A confined run is wanted: `opencode-dev` runs OpenCode in the confinement `claude-dev` gives Claude Code ([tools/agent-dev](../tools/agent-dev/README.md#opencode-dev))
 
 **Where it is strongest:**
 - Provider-agnostic: any model, any provider, per-agent model selection; powered by Models.dev provider list

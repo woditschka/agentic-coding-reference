@@ -17,12 +17,23 @@ SOME_DOMAIN = "api.anthropic.com"
 SOME_EXTRA_DOMAIN = "extra.example.com"
 SOME_GATEWAY = "host.docker.internal"
 UNKNOWN_TOOL = "nonesuch"
+URL_NOT_A_DOMAIN = "https://extra.example.com"
 BASIC_POLICY = f'[egress]\nallow = ["{SOME_DOMAIN}"]\n'
 EMPTY_ALLOW_POLICY = "[egress]\nallow = []\n"
 OW_POLICY = (
     BASIC_POLICY
     + '[open-weight]\npeer = "host"\n[open-weight.models]\n"claude-opus-5-5" = "glm-5.3:cloud"\n'
 )
+# Two names on one target, the lower tier written first: alphabetical order
+# and file order both put haiku ahead of opus, and the tier order does not.
+SOME_TAG = "glm-5.3:cloud"
+TWO_TIERS_ONE_TARGET_POLICY = (
+    BASIC_POLICY
+    + '[open-weight]\nmodel = "claude-opus-5-5"\n[open-weight.models]\n'
+    + f'"claude-haiku-4-5" = "{SOME_TAG}"\n"claude-opus-5-5" = "{SOME_TAG}"\n'
+)
+ALLOW_LIST_RULE = "http_access allow session allowed"
+OPEN_MODE_RULE = "http_access allow session"
 BAD_TOML = "this is = = not toml"
 
 
@@ -34,7 +45,7 @@ def run_cli(*argv: str) -> tuple[int, str, str]:
     return status, out.getvalue(), err.getvalue()
 
 
-class VerbTests(unittest.TestCase):
+class VerbCase(unittest.TestCase):
     def setUp(self):
         self._dir = tempfile.TemporaryDirectory()
         self.addCleanup(self._dir.cleanup)
@@ -49,14 +60,14 @@ class VerbTests(unittest.TestCase):
         return run_cli("--tool", "claude", *argv)
 
 
-class Profile(VerbTests):
+class Profile(VerbCase):
     def test_the_profile_verb_prints_the_shell_view_and_needs_no_config(self):
         status, out, _ = self.claude("profile")
         self.assertEqual(status, 0)
         self.assertEqual(out, p.shell_profile(p.CLAUDE))
 
 
-class SessionSettings(VerbTests):
+class SessionSettings(VerbCase):
     def test_the_verb_prints_the_profiles_document(self):
         status, out, _ = self.claude("session-settings", self.config(BASIC_POLICY))
         self.assertEqual(status, 0)
@@ -71,7 +82,7 @@ class SessionSettings(VerbTests):
         self.assertTrue(err.startswith(f"{p.CLAUDE.command}: "), err)
 
 
-class SquidConf(VerbTests):
+class SquidConf(VerbCase):
     def conf(self, policy: str, *extra: str) -> tuple[int, str, str]:
         return self.claude(
             "squid-conf", self.config(policy), "--subnet", SOME_SUBNET, *extra
@@ -99,6 +110,13 @@ class SquidConf(VerbTests):
             f"acl ow_paths urlpath_regex {p.CLAUDE.inference_path_regex}", out
         )
 
+    def test_a_per_run_mode_overrides_the_files(self):
+        # The file's mode is the default; --open-egress applies to one launch.
+        status, out, err = self.conf(BASIC_POLICY, "--mode", "open")
+        self.assertEqual(status, 0, err)
+        self.assertIn(OPEN_MODE_RULE, out.splitlines())
+        self.assertNotIn(ALLOW_LIST_RULE, out.splitlines())
+
     def test_the_per_run_allow_entries_reach_the_allow_list_verb_last(self):
         status, out, _ = self.claude(
             "allowlist", self.config(BASIC_POLICY), "--allow", SOME_EXTRA_DOMAIN
@@ -107,7 +125,31 @@ class SquidConf(VerbTests):
         self.assertEqual(out.splitlines(), [SOME_DOMAIN, SOME_EXTRA_DOMAIN])
 
 
-class Refusals(VerbTests):
+class Settings(VerbCase):
+    def test_the_settings_verb_is_the_engines_shell_view(self):
+        status, out, _ = self.claude("settings", self.config(BASIC_POLICY))
+        self.assertEqual(status, 0)
+        self.assertIn(f"PROXY_PORT={c.PROXY_PORT}", out.splitlines())
+
+    def test_names_sharing_a_target_list_in_the_profiles_tier_order(self):
+        _, out, _ = self.claude("settings", self.config(TWO_TIERS_ONE_TARGET_POLICY))
+        self.assertIn(
+            f"OW_TARGET={SOME_TAG} <- claude-opus-5-5 (session), claude-haiku-4-5",
+            out.splitlines(),
+        )
+
+
+class Refusals(VerbCase):
+    def test_a_telemetry_table_is_refused_for_opencode_and_read_for_claude(self):
+        path = self.config(BASIC_POLICY + "[telemetry]\nenabled = true\n")
+        status, _, err = run_cli("--tool", "opencode", "settings", path)
+        self.assertEqual(status, 1)
+        self.assertTrue(err.startswith("opencode-dev: "), err)
+        self.assertIn("[telemetry]", err)
+        status, out, _ = self.claude("settings", path)
+        self.assertEqual(status, 0)
+        self.assertIn("TELEMETRY=1", out.splitlines())
+
     def test_an_unknown_tool_is_refused_before_anything_is_read(self):
         status, out, err = run_cli("--tool", UNKNOWN_TOOL, "profile")
         self.assertEqual(status, 1)
@@ -121,10 +163,17 @@ class Refusals(VerbTests):
         self.assertEqual(status, 1)
         self.assertIn(path, err)
 
-    def test_the_settings_verb_is_the_engines_shell_view(self):
-        status, out, _ = self.claude("settings", self.config(BASIC_POLICY))
-        self.assertEqual(status, 0)
-        self.assertIn(f"PROXY_PORT={c.PROXY_PORT}", out.splitlines())
+    def test_a_per_run_allow_entry_that_is_not_a_domain_is_refused_naming_the_flag(
+        self,
+    ):
+        # squid ignores a malformed entry, which would then read as allowed.
+        status, out, err = self.claude(
+            "allowlist", self.config(BASIC_POLICY), "--allow", URL_NOT_A_DOMAIN
+        )
+        self.assertEqual(status, 1)
+        self.assertEqual(out, "")
+        self.assertIn("--allow", err)
+        self.assertIn(URL_NOT_A_DOMAIN, err)
 
 
 if __name__ == "__main__":

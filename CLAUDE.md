@@ -26,11 +26,15 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── harness-code-standards.md  # The shipped code bar realized for the harness's own Python
 │   ├── harness-testing-principles.md  # The shipped testing brief applied to the harness's own suites
 │   ├── harness-project-api.md
+│   ├── human-teams.md             # More than one person on one codebase: each person's checkout, slice and tracker
+│   ├── backlog-connector.md       # How /next reads the tracker: the candidate set and the scripts/backlog.sh connector
 │   ├── product-workspace.md       # One product across repositories: umbrella, members, tiers, layout (design; the change set and review plan fan out, the rest is pending)
 │   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
 │   ├── open-weight-models.md      # Pinned-model mapping to open-weight providers (version-stamped; update-research refreshes)
 │   ├── ddd-principles.md
 │   ├── deck/                      # Conference slides (talk + lightning talk) and landing page, served by GitHub Pages from /docs
+│   ├── index.html                 # Pages site root; redirects to deck/
+│   ├── images/                    # Figure sources (.drawio) and exports; update-diagrams owns them
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
 │   ├── core/                      # Runtime shared by every stack
@@ -43,7 +47,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── *.py, *.sh                 # Maintainer scripts — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
-│   ├── agent-dev/                 # Container-confined agent tools for reduced-approval runs; installs the claude-dev command (user-level install)
+│   ├── agent-dev/                 # Container-confined agent tools for reduced-approval runs; installs the claude-dev and opencode-dev commands (user-level install)
 │   └── deck/                      # Deck generator: ledger-replay casts and the casts bundle
 ├── evals/                         # Harness eval bench: frozen tasks vs. the spring-petclinic SUT, per version (evals/README.md)
 ├── samples/                       # Materialized instances of the harness (copy channel)
@@ -94,10 +98,11 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs propagate-harness, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
 | `update-research` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, `docs/open-weight-models.md`, and the workflow doc's stamped sections |
 | `update-history` | Update the milestone timeline in `docs/project-history.md` with executive-level milestones since the last entry |
-| `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, eval trend, claude-dev egress, human teams) when the harness changes or a sweep changes the eval story, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
-| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the bookstore workspace members, the init skeletons restating them, the CI workflow's SHA-pinned actions, and the harness-stats pricing override |
+| `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, eval trend, claude-dev egress, human teams, the deck slide figures) when the harness changes or a sweep changes the eval story, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
+| `upgrade-deps` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. Covers the Go and Java samples, the bookstore workspace members, the init skeletons restating them, and the CI workflow's SHA-pinned actions. Also covers the agent model pins, the `[open-weight.models]` keys in `tools/agent-dev/*.toml` that restate them, and the harness-stats pricing override |
 | `install-harness-statusline` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `install-claude-dev` | Install or update the user-level claude-dev tooling into `~/.local/bin` and `~/.config/claude-dev` (front-end for `tools/agent-dev/install.sh`) |
+| `install-opencode-dev` | Install or update the user-level opencode-dev tooling into `~/.local/bin` and `~/.config/opencode-dev` (front-end for `tools/agent-dev/install.sh`); never touches claude-dev |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, backlog.sh, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, verify the installed suites, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/`, and a brief's realization rules to the stack's fragment |

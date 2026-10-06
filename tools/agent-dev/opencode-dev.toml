@@ -1,5 +1,5 @@
-# claude-dev.toml — the operator's confinement policy.
-# Location: ~/.config/claude-dev/claude-dev.toml
+# opencode-dev.toml — the operator's confinement policy.
+# Location: ~/.config/opencode-dev/opencode-dev.toml
 #
 # This file is DATA. It is read with tomllib and never executed, so nothing
 # here can run code on the host, and a file that will not parse is refused by
@@ -14,7 +14,7 @@
 #            which is where docker's own DOCKER_HOST/DOCKER_CONTEXT still
 #            apply. Choosing another engine is a considered edit to the
 #            launcher, not a flag: it is a different security posture.
-#   network  always on: the session cannot reach the Claude API without it.
+#   network  always on: the session cannot reach its model provider without it.
 #   bridge   the session network's engine-side interface always gets no
 #            address. An engine too old for that warns and names what stays
 #            reachable — the fix is the engine, not a key here.
@@ -26,10 +26,9 @@
 # Files as well as directories; "$HOME" expands, nothing else does.
 rw = []
 
-# Read-only paths mounted in. Assets kept in ~/.claude beyond the
-# enumerated shared paths stay private by default — share them here. The
-# harness-stats statusline is the common case, and install.sh writes those
-# entries itself when it creates this file and finds them present.
+# Read-only paths mounted in. Anything in the host's
+# ~/.config/opencode, ~/.claude or elsewhere beyond the enumerated shared paths
+# stays private by default — share it here.
 ro = []
 
 [egress]
@@ -55,19 +54,19 @@ mode = "allow-list"
 # wrapper's distribution chain — drop it if sessions never bootstrap gradle.
 #
 # To see what a session asked for and was refused:
-#   grep TCP_DENIED ~/.config/claude-dev/last-egress.log
+#   grep TCP_DENIED ~/.config/opencode-dev/last-egress.log
 allow = [
-  # mandatory — Claude Code's own endpoints. The API is what the session
-  # cannot work without; the rest carry OAuth login, docs and connectors.
-  "api.anthropic.com",
-  "claude.ai",
-  "claude.com",
-  "code.claude.com",
-  "console.anthropic.com",
-  "docs.anthropic.com",
-  "downloads.claude.ai",
-  "mcp-proxy.anthropic.com",
-  "platform.claude.com",
+  # OpenCode's catalog, fetched at startup. A refusal is harmless: the session
+  # falls back to the bundled snapshot. opencode.ai (login to its own provider,
+  # share links) is not listed: it accepts authenticated uploads, so add it
+  # only for a session that uses that provider.
+  "models.opencode.ai",
+  # The model provider is the operator's choice, so none is implied: a session
+  # that cannot reach its provider cannot work. Add exactly the hosts the
+  # chosen provider needs, for example one of:
+  # "api.anthropic.com",
+  # "api.openai.com",
+  # "openrouter.ai",
   # the image's toolchains: package registries. Remove unused ecosystems —
   # every line here is an open channel.
   "files.pythonhosted.org",
@@ -86,44 +85,26 @@ allow = [
   # thereby also source control: weigh the channel note above.
   "github.com",
   ".githubusercontent.com",
-  # Claude Code's own telemetry, paired with telemetry.enabled below. Both are
-  # WRITE channels out of the session, authenticated by a public client token
-  # compiled into the binary — anything inside can POST arbitrary JSON to them.
-  # Reading it back needs Datadog-org access, so this is a drop-box rather than
-  # a round trip, but it is still a channel. Uncomment BOTH or neither:
-  # "browser-intake-us5-datadoghq.com",   # error tracking
-  # "http-intake.logs.us5.datadoghq.com", # event logs
 ]
 
-[telemetry]
-# false declares Claude Code's optional telemetry off inside the session
-#       (DISABLE_TELEMETRY=1): no error reporting, no Datadog export, no
-#       feature-flag fetch. The default, and the reason the two intake hosts
-#       above are commented out.
-# true  stops declaring it off. This key opens NOTHING by itself — with the
-#       hosts still commented out the same telemetry is attempted, refused at
-#       the proxy and logged as TCP_DENIED. Sending it takes this key AND both
-#       intakes uncommented.
-#
-# The two are separate on purpose. One says what the session may do, the other
-# says what the network permits, and a policy where the second is implied by
-# the first cannot be read off the allow-list.
-enabled = false
+# There is no [telemetry] table: OpenCode's telemetry is opt-in and the launcher
+# declares nothing about it. The reader refuses a [telemetry] table for this tool.
 
-# [open-weight] — an open-weight model server the session may use instead of the
-# Anthropic API, on `claude-dev --ow` only. The table is the whole policy.
+# [open-weight] — an open-weight model server the session may use instead of its
+# provider, on `opencode-dev --ow` only. The table is the whole policy.
 # The flag has no arguments, so a session can never be pointed at a peer
 # nobody wrote down here. Absent table: --ow refuses to launch. A present
 # table is validated on every launch, flag or not.
 #
 # How it reaches the peer: the proxy gains a second listener, a reverse port
 # with this peer as its one fixed origin. The session sends it ordinary
-# requests (ANTHROPIC_BASE_URL=http://proxy:3129), so the proxy reads method
-# and path instead of tunnelling bytes. It admits POST /v1/messages and its
-# count_tokens sibling, with a plain query string, and logs each request. A
-# model pull, delete or push, a
-# listing, any other method is refused on that port. The session mounts no
-# real credential: it authenticates to the peer with a placeholder token.
+# requests (the provider's baseURL is http://proxy:3129/v1), so the proxy
+# reads method and path instead of tunnelling bytes. It admits
+# POST /v1/chat/completions only, with a plain query string, and logs each
+# request. A
+# model pull, delete or push, a listing, any other method is refused on that
+# port. The session uses a data directory apart from the one that holds the
+# project's login.
 #
 # What the proxy cannot read is the request body, where the model name
 # travels. A peer signed in to a cloud registry serves cloud tags on demand;
@@ -161,15 +142,15 @@ port = 11434
 #
 # The root session's model: a key of [open-weight.models], the first one when
 # absent. The agents name their pins; the session itself would otherwise
-# run whatever /model or a settings file says, which reaches the peer
-# unmapped.
-model = "claude-opus-5-5"
+# run whatever it is told, which reaches the peer unmapped.
+model = "claude-opus-5.5"
 #
-# Pinned model name -> the tag the peer serves. Injected as modelOverrides,
-# so every specialist dispatch that pins an Anthropic ID is rewritten on the
-# way out. Keys are the IDs in the harness agents' frontmatter. A key that
+# Pinned model name -> the tag the peer serves. A pin is the part of an
+# agent's model after openrouter/anthropic/, so "claude-opus-5.5" rewrites
+# every dispatch that names openrouter/anthropic/claude-opus-5.5. A key that
 # matches no pin is inert; a pin with no key reaches the peer unmapped and
-# fails with an unknown model. docs/open-weight-models.md discusses tiers.
+# fails with an unknown model. The lowest tier mapped also serves title
+# generation. docs/open-weight-models.md discusses tiers.
 [open-weight.models]
-"claude-opus-5-5"   = "glm-5.3:cloud"
-"claude-sonnet-5-5" = "glm-5.3-flash:cloud"
+"claude-opus-5.5"   = "glm-5.3:cloud"
+"claude-sonnet-5.5" = "glm-5.3-flash:cloud"

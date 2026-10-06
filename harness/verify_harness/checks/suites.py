@@ -1,5 +1,6 @@
 """Run the sample, harness, tools, and eval suites and the marketplace re-render."""
 
+import ast
 import re
 import subprocess
 import sys
@@ -24,11 +25,13 @@ SCRIPT_SUITE_FLOOR = 16
 HOOK_SUITE_FLOOR = 4
 PINNED_TOOLS = ("mypy", "bandit")
 CONFINEMENT_BINARIES = ("squid", "socat")
-# The sandbox-off declaration lives in the config module, which emits the one
-# --settings document; the launcher must ask the module for it and pass it
-# through verbatim, so all three links are pinned.
-SANDBOX_OFF_DECLARATION = '"sandbox": {"enabled": False, "failIfUnavailable": False}'
-SETTINGS_FLAG_DECLARATION = 'settings_flag="--settings"'
+# The sandbox-off declaration lives in the profiles module, whose claude
+# profile emits the one --settings document; the launcher must ask for that
+# document and pass it through verbatim, so all three links are pinned.
+SANDBOX_OFF_NAME = "SANDBOX_OFF"
+SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}
+CLAUDE_PROFILE_NAME = "CLAUDE"
+SETTINGS_FLAG = "--settings"
 SETTINGS_SOURCE = 'SESSION_SETTINGS="$(config_py session-settings "$CONFIG"'
 SETTINGS_PASSTHROUGH = 'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")'
 
@@ -375,6 +378,66 @@ def _egress_subset_problems() -> list[str]:
     return []
 
 
+def _assigned(tree: ast.Module, name: str) -> ast.expr | None:
+    """Return the value one module-level assignment gives a name."""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == name
+            for target in node.targets
+        ):
+            return node.value
+    return None
+
+
+def _is_literal(node: ast.expr | None, value: object) -> bool:
+    """Check that an expression is the literal spelling of one value."""
+    if node is None:
+        return False
+    try:
+        return bool(ast.literal_eval(node) == value)
+    except ValueError:
+        return False
+
+
+def _reads_name(tree: ast.Module, function: ast.expr | None, name: str) -> bool:
+    """Check that the module-level function an expression names reads a name."""
+    if not isinstance(function, ast.Name):
+        return False
+    return any(
+        isinstance(node, ast.Name) and node.id == name
+        for definition in tree.body
+        if isinstance(definition, ast.FunctionDef) and definition.name == function.id
+        for node in ast.walk(definition)
+    )
+
+
+def _profile_declares_sandbox_off(profiles_text: str) -> bool:
+    """Check that the claude profile delivers by --settings a document built on the declaration."""
+    # The syntax tree, never the text: a declaration inside a comment, or a
+    # settings flag on another tool's profile, proves nothing about claude.
+    try:
+        tree = ast.parse(profiles_text)
+    except SyntaxError:
+        return False
+    profile = _assigned(tree, CLAUDE_PROFILE_NAME)
+    if not isinstance(profile, ast.Call):
+        return False
+    keywords = {keyword.arg: keyword.value for keyword in profile.keywords}
+    return (
+        _is_literal(_assigned(tree, SANDBOX_OFF_NAME), SANDBOX_OFF)
+        and _is_literal(keywords.get("settings_flag"), SETTINGS_FLAG)
+        and _reads_name(tree, keywords.get("session_settings"), SANDBOX_OFF_NAME)
+    )
+
+
+def _launcher_passes_settings(launcher_text: str) -> bool:
+    """Check that the launcher fetches the settings document and passes it to the session."""
+    code = "\n".join(
+        line for line in launcher_text.splitlines() if not line.lstrip().startswith("#")
+    )
+    return SETTINGS_SOURCE in code and SETTINGS_PASSTHROUGH in code
+
+
 def check_pod_toolchain_pins(b: Battery) -> None:
     """Hold the dev image's toolchain pins and confinement controls to their sources."""
     b.note("claude-dev toolchain and confinement pins")
@@ -401,13 +464,9 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     problems.extend(_workflow_pin_problems(dockerfile.read_text(encoding="utf-8")))
     # Claude's in-process sandbox needs bubblewrap, which cannot create a user
     # namespace under Docker's default seccomp profile.
-    launcher_text = launcher.read_text(encoding="utf-8")
-    profiles_text = profiles_module.read_text(encoding="utf-8")
-    if (
-        SANDBOX_OFF_DECLARATION not in profiles_text
-        or SETTINGS_FLAG_DECLARATION not in profiles_text
-        or SETTINGS_SOURCE not in launcher_text
-        or SETTINGS_PASSTHROUGH not in launcher_text
+    if not (
+        _profile_declares_sandbox_off(profiles_module.read_text(encoding="utf-8"))
+        and _launcher_passes_settings(launcher.read_text(encoding="utf-8"))
     ):
         problems.append(
             "the sandbox-off --settings injection is broken: the claude profile "

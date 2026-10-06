@@ -20,11 +20,15 @@
 #                    host/LAN/metadata deny stay
 #   --allowlist-egress  force allow-list mode, overriding [egress] mode = "open"
 #   --ide            bridge one running JetBrains IDE's MCP oracle in (opt-in)
-#   --ow             run on the open-weight peer declared in [open-weight]. The
+#   --ow, --open-weight
+#                    run on the open-weight peer declared in [open-weight]. The
 #                    proxy gains a reverse port to it that admits POST
-#                    /v1/messages only. The session gets the base URL, a
-#                    placeholder token and the [open-weight.models] map; no real
-#                    credential is mounted.
+#                    /v1/messages and its count_tokens sibling only. The
+#                    session gets the base URL, a placeholder token and the
+#                    [open-weight.models] map. No real credential is mounted,
+#                    and the ~/.claude.json replica carries no stored key. A
+#                    :cloud tag is served by the peer's vendor, outside this
+#                    proxy's log.
 #   -h, --help
 #
 # Any other flag goes to `claude` inside: --resume, --continue, --model,
@@ -61,39 +65,31 @@
 #   ~/.local/bin/claude-dev                the command (on PATH)
 #   ~/.config/claude-dev/Dockerfile        the image definition
 #   ~/.config/claude-dev/claude-dev.toml   the operator's policy: [mounts],
-#                                          [egress] and [open-weight]; read as data,
-#                                          never executed; documents its own keys
-#   ~/.config/claude-dev/state/            the session's private ~/.claude
+#                                          [egress], [telemetry] and [open-weight];
+#                                          read as data, never executed;
+#                                          documents its own keys
+#   ~/.config/claude-dev/state/            the private ~/.claude, one per project
 #   ~/.config/claude-dev/auth/             the session's private credentials
 #   ~/.config/claude-dev/last-egress.log   the proxy's access log, saved on exit
 #
 # Env: CLAUDE_DEV_HOME           data dir (default ~/.config/claude-dev)
 #      CLAUDE_DEV_CLAUDE_VERSION claude version to build/update (default latest)
-# Those are the only two. CLAUDE_DEV_HOME relocates the config, the Dockerfile,
-# the credentials, and the python modules this script runs ON THE HOST —
-# pointing it at a directory outside the operator's control is equivalent to
-# running that directory's code. No project file is ever read, so a repo
-# steers nothing.
+# The engine also reads the data-dir variable of every other agent-dev tool,
+# only to keep that directory out of this session. CLAUDE_DEV_HOME relocates
+# the config, the Dockerfile, the credentials, and the engine and python
+# modules this script runs ON THE HOST — pointing it at a directory outside the
+# operator's control is equivalent to running that directory's code. No project
+# file is ever read, so a repo steers nothing.
 set -euo pipefail
 
 # This file is the claude-dev command: it names the tool and hands everything
-# else to the shared agent-dev engine, which holds the confinement. The engine
-# runs ON THE HOST from the data dir when installed, from this directory when
-# run from source. This file runs on the host too, so a copy inside the project
-# this session mounts read-write could be rewritten by the session and run on
-# the next launch. Help answers before anything is checked; everything else
-# refuses an in-project copy.
-SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-case "${1:-}" in help|-h|--help) ;; *)
-  WORKDIR="$(pwd -P)"
-  case "$SELF_DIR" in "$WORKDIR"|"$WORKDIR"/*)
-    printf '%s: refusing to run the copy at %s: it is inside the project this session mounts read-write, so the session could rewrite the launcher and its python modules, which run on the host. Install it (tools/agent-dev/install.sh claude) and run %s/.local/bin/%s\n' 'claude-dev' "$SELF_DIR" "$HOME" 'claude-dev' >&2
-    exit 1;;
-  esac;;
-esac
+# else to the shared agent-dev engine. The engine holds the confinement, prints
+# this header as the help text, and decides where this file may run from. The
+# engine beside this file runs when there is one (a source checkout), the
+# installed one otherwise.
 AGENT_DEV_HOME="${CLAUDE_DEV_HOME:-$HOME/.config/claude-dev}"
-ENGINE="$AGENT_DEV_HOME/agent-dev"
-[ -f "$ENGINE" ] || ENGINE="$SELF_DIR/agent-dev"
-[ -f "$ENGINE" ] || { printf 'claude-dev: missing agent-dev (looked in %s and %s) — run install.sh\n' "$AGENT_DEV_HOME" "$SELF_DIR" >&2; exit 1; }
+ENGINE="$(dirname "$0")/agent-dev"
+[ -f "$ENGINE" ] || ENGINE="$AGENT_DEV_HOME/agent-dev"
+[ -f "$ENGINE" ] || { printf 'claude-dev: missing agent-dev (looked beside %s and in %s) — run install.sh\n' "$0" "$AGENT_DEV_HOME" >&2; exit 1; }
 export AGENT_DEV_TOOL=claude AGENT_DEV_CMD=claude-dev AGENT_DEV_HOME AGENT_DEV_SHIM="$0"
 exec "$ENGINE" "$@"

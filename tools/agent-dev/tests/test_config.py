@@ -5,7 +5,6 @@ import dataclasses
 import ipaddress
 import json
 import pathlib
-import re
 import tempfile
 import unittest
 
@@ -28,7 +27,7 @@ SOME_IDE_PORT = 64342
 PORT_ABOVE_MAX = c.MAX_PORT + 1
 LAUNCHER_LABEL = "claude-dev-123-4567"
 SOME_TOOL = "claude-dev"
-SOME_PATH_REGEX = r"^/v1/messages(/count_tokens)?(\?.*)?$"
+SOME_PATH_REGEX = "^/some/path$"
 
 CLIENT_RESTRICTION = "http_access deny !session"
 PLAINTEXT_DENY = "http_access deny !CONNECT"
@@ -37,10 +36,12 @@ OW_ESCAPE_DENY = "http_access deny ow_port ow_escaped"
 OW_ALLOW = "http_access allow session ow_port POST ow_paths"
 OW_PORT_DENY = "http_access deny ow_port"
 PRIVATE_DENY = "http_access deny to_private"
+PRIVATE_V6_DENY = "http_access deny to_private6"
 PORT_RESTRICTION = "http_access deny CONNECT !SSL_ports"
 ALLOW_LIST_RULE = "http_access allow session allowed"
 OPEN_MODE_RULE = "http_access allow session"
 DENY_ALL = "http_access deny all"
+ACCESS_DIRECTIVES = ("http_access", "never_direct", "cache_peer_access")
 
 # Every destination class the private deny covers: host, LAN, metadata, carrier NAT.
 LOOPBACK_V4 = "127.0.0.0/8"
@@ -48,6 +49,12 @@ LOOPBACK_V6 = "::1/128"
 RFC1918_RANGES = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 LINK_LOCAL_METADATA = "169.254.0.0/16"
 CARRIER_NAT = "100.64.0.0/10"
+# The IPv6 routes to the same places: NAT64 and 6to4 embed an IPv4 address,
+# unique-local is the LAN, link-local is the host's own segment.
+NAT64_RANGE = "64:ff9b::/96"
+SIX_TO_FOUR_RANGE = "2002::/16"
+UNIQUE_LOCAL_RANGE = "fc00::/7"
+LINK_LOCAL_V6_RANGE = "fe80::/10"
 # Squid holds every IPv4 destination in this mapped form, so a deny on it
 # refuses all IPv4 egress.
 V4_MAPPED_RANGE = ipaddress.ip_network("::ffff:0:0/96")
@@ -71,28 +78,24 @@ REFUSED_DOMAIN_SHAPES = (
     "x.com-",
 )
 REFUSED_TOKEN_SHAPES = ("", "a b", "a\tb", "a#b", 'a"b')
+# ipaddress reads the text after a percent sign as an IPv6 zone and accepts
+# any character in it.
+SUBNET_WITH_A_LINE_BREAK_IN_ITS_ZONE = "fe80::%x\nhttp_access allow all/64"
+SUBNET_WITH_A_ZONE = "fe80::%eth0/64"
+SUBNET_WITH_A_PREFIX_TOO_LONG = "172.30.0.0/33"
+ESCAPE = "\x1b"
+CONTROL_CHARACTERS = (ESCAPE, "\r", "\n", "\x00", "\x7f", "\x9b")
+
+
+def toml_escaped(character: str) -> str:
+    """Spell one character as the escape a TOML basic string carries it in."""
+    return f"\\u{ord(character):04x}"
+
 
 # The [open-weight] table: a peer on the host or on the LAN, and the model map.
 SOME_LAN_PEER = "192.168.1.123"
 SOME_OW_PORT = 11434
 MESSAGES_PATH = "/v1/messages"
-# What Claude Code sends, what the Messages API also carries, and what a
-# session might try instead.
-ADMITTED_PATHS = (
-    "/v1/messages",
-    "/v1/messages?beta=true",
-    "/v1/messages/count_tokens",
-    "/v1/messages/count_tokens?beta=true",
-)
-REFUSED_PATHS = (
-    "/v1/messagesX",
-    "/v1/messages/x",
-    "/v1/messages/../api/pull",
-    "/api/pull",
-    "/api/tags",
-    "/v1/chat/completions",
-    "v1/messages",
-)
 SOME_OPUS_PIN = "claude-opus-5-5"
 SOME_SONNET_PIN = "claude-sonnet-5-5"
 SOME_OPUS_TAG = "glm-5.3:cloud"
@@ -107,7 +110,17 @@ REFUSED_PEER_SHAPES = (
     "--help",
     "::1",
 )
-REFUSED_MODEL_TOKENS = ("a b", "", "-x", "--tag", "a\x1bb", "a\nb", "\u00e9")
+REFUSED_MODEL_TOKENS = (
+    "a b",
+    "",
+    "-x",
+    "--tag",
+    "a\x1bb",
+    "a\nb",
+    "\u00e9",
+    "a=b",
+    "a=",
+)
 OW_MODELS_TOML = (
     f'[open-weight.models]\n"{SOME_OPUS_PIN}" = "{SOME_OPUS_TAG}"\n'
     f'"{SOME_SONNET_PIN}" = "{SOME_SONNET_TAG}"\n'
@@ -134,7 +147,8 @@ def an_ow_policy(**overrides) -> c.OpenWeightPolicy:
 
 def an_ow_config(**overrides) -> c.OpenWeightConfig:
     base = c.OpenWeightConfig(
-        models=((SOME_OPUS_PIN, SOME_OPUS_TAG), (SOME_SONNET_PIN, SOME_SONNET_TAG))
+        models=((SOME_OPUS_PIN, SOME_OPUS_TAG), (SOME_SONNET_PIN, SOME_SONNET_TAG)),
+        model=SOME_OPUS_PIN,
     )
     return dataclasses.replace(base, **overrides)
 
@@ -151,12 +165,32 @@ def rules(text):
     return [line for line in text.splitlines() if line.startswith("http_access")]
 
 
+def by_length(name: str) -> tuple[int, str]:
+    """Rank the shortest name first: an order no engine default would produce."""
+    return len(name), name
+
+
+def acls_named_before_their_definition(text: str) -> list[str]:
+    """List every ACL an access directive names above the line that defines it."""
+    defined = {"all"}
+    early = []
+    for line in text.splitlines():
+        words = line.split()
+        if words[:1] == ["acl"]:
+            defined.add(words[1])
+        elif words[:1] and words[0] in ACCESS_DIRECTIVES:
+            verb = next(i for i, word in enumerate(words) if word in ("allow", "deny"))
+            named = [word.lstrip("!") for word in words[verb + 1 :]]
+            early += [name for name in named if name not in defined]
+    return early
+
+
 def launcher_read_keys() -> set[str]:
     """Collect the setting names the launcher's read loop has a case arm for."""
     # The launcher reads two documents with this loop shape; the settings one
     # follows the config module's `settings` verb.
     text = LAUNCHER.read_text().split('config_py settings "$CONFIG"', 1)[1]
-    body = text.split("done <<EOF", 1)[0].rsplit("while IFS='='", 1)[1]
+    body = text.split("done <<EOF", 1)[0].rsplit("while IFS= read -r line", 1)[1]
     return {
         line.split(")", 1)[0].strip()
         for line in body.splitlines()
@@ -177,10 +211,12 @@ class PolicyOrder(unittest.TestCase):
         )
         self.assertLess(r.index(PLAINTEXT_DENY), first_allow)
 
-    def test_the_private_deny_sits_above_the_allow_list(self):
-        # An allow-listed name resolving into the host or LAN must not connect.
+    def test_the_private_denies_sit_above_the_allow_list(self):
+        # An allow-listed name resolving into the host or LAN must not
+        # connect, over either address family.
         r = rules(squid_conf())
         self.assertLess(r.index(PRIVATE_DENY), r.index(ALLOW_LIST_RULE))
+        self.assertLess(r.index(PRIVATE_V6_DENY), r.index(ALLOW_LIST_RULE))
 
     def test_the_ide_pinhole_sits_above_the_private_deny(self):
         # The IDE is reached at a private address, so a pinhole below the
@@ -204,47 +240,47 @@ class PolicyOrder(unittest.TestCase):
             CLIENT_RESTRICTION,
             PLAINTEXT_DENY,
             PRIVATE_DENY,
+            PRIVATE_V6_DENY,
             PORT_RESTRICTION,
         ):
             self.assertLess(r.index(rule), r.index(OPEN_MODE_RULE))
 
+    def test_every_acl_is_defined_above_the_first_line_that_names_it(self):
+        # squid resolves an ACL where it is named; a use above its definition
+        # aborts the proxy at startup.
+        text = squid_conf(
+            open_weight=an_ow_policy(),
+            ide_gateway=IDE_GATEWAY_NAME,
+            ide_port=SOME_IDE_PORT,
+        )
+        self.assertEqual(acls_named_before_their_definition(text), [])
 
-class OpenWeightReversePort(unittest.TestCase):
+
+class OwReversePort(unittest.TestCase):
     """The --ow listener: one fixed origin, one request shape, nothing else on that port."""
 
-    def test_the_reverse_port_block_sits_right_after_the_client_restriction(self):
-        # It must precede the plaintext and private denies: the request is
-        # plain HTTP and the peer sits at a private address.
-        r = rules(squid_conf(open_weight=an_ow_policy()))
-        self.assertEqual(r[0], CLIENT_RESTRICTION)
-        self.assertEqual(r[2], OW_ALLOW)
-        self.assertLess(r.index(OW_ALLOW), r.index(PLAINTEXT_DENY))
-        self.assertLess(r.index(OW_ALLOW), r.index(PRIVATE_DENY))
-
-    def test_everything_else_on_the_reverse_port_is_refused_before_any_other_rule(
+    def test_the_reverse_port_block_sits_between_the_client_restriction_and_the_forward_rules(
         self,
     ):
-        # A model pull, delete or push, a listing, any other method: refused
-        # on the port itself, so no later allow can reach them.
-        r = rules(squid_conf(open_weight=an_ow_policy()))
-        self.assertEqual(r[3], OW_PORT_DENY)
-
-    def test_the_forward_port_rules_are_unchanged(self):
-        # The reverse port's rules are scoped to its own listener and inserted
-        # as one block; every rule the forward port had stays, in its order.
+        # The block precedes the plaintext and private denies: the request is
+        # plain HTTP and the peer sits at a private address. Inside it the
+        # escape deny comes first and the port's own deny last, so a model
+        # pull, a listing or another method reaches no later allow. Every
+        # rule the forward port had stays, in its order.
         with_ow = rules(squid_conf(open_weight=an_ow_policy()))
-        block = [OW_ESCAPE_DENY, OW_ALLOW, OW_PORT_DENY]
-        self.assertEqual(with_ow[1:4], block)
+        self.assertEqual(with_ow[1:4], [OW_ESCAPE_DENY, OW_ALLOW, OW_PORT_DENY])
         self.assertEqual(with_ow[:1] + with_ow[4:], rules(squid_conf()))
 
-    def test_an_escaped_path_is_refused_before_the_allow(self):
+    def test_the_escape_rule_matches_every_percent_sign(self):
         # squid matches the decoded path, so %00 would end the match early
-        # while the raw bytes reach the peer.
-        r = rules(squid_conf(open_weight=an_ow_policy()))
-        self.assertLess(r.index(OW_ESCAPE_DENY), r.index(OW_ALLOW))
-        self.assertIn(
-            "acl ow_escaped urlpath_regex %", squid_conf(open_weight=an_ow_policy())
-        )
+        # while the raw bytes reach the peer; a rule naming one escape would
+        # leave the others.
+        lines = squid_conf(open_weight=an_ow_policy()).splitlines()
+        self.assertIn("acl ow_escaped urlpath_regex %", lines)
+
+    def test_the_admitted_shape_is_the_given_regex_verbatim(self):
+        lines = squid_conf(open_weight=an_ow_policy()).splitlines()
+        self.assertIn(f"acl ow_paths urlpath_regex {SOME_PATH_REGEX}", lines)
 
     def test_the_listener_is_an_accelerator_with_the_peer_as_its_only_origin(self):
         text = squid_conf(open_weight=an_ow_policy())
@@ -261,31 +297,6 @@ class OpenWeightReversePort(unittest.TestCase):
         self.assertIn("never_direct allow ow_port", text)
         self.assertIn("cache_peer_access ow deny all", text)
 
-    def test_the_acls_are_defined_before_the_lines_that_name_them(self):
-        # squid resolves an ACL where it is named; a use above its definition
-        # aborts the proxy at startup.
-        lines = squid_conf(open_weight=an_ow_policy()).splitlines()
-        definition = lines.index("acl ow_port myportname ow")
-        for user in (
-            "never_direct allow ow_port",
-            "cache_peer_access ow allow ow_port",
-        ):
-            self.assertLess(definition, lines.index(user))
-
-    def test_the_path_regex_admits_what_claude_code_sends_and_nothing_wider(self):
-        # squid's urlpath_regex sees the query string, and the client posts
-        # to /v1/messages?beta=true; the regex is matched here as squid
-        # would, path plus query, against both lists.
-        text = squid_conf(open_weight=an_ow_policy())
-        line = next(ln for ln in text.splitlines() if "acl ow_paths" in ln)
-        pattern = re.compile(line.split("urlpath_regex ", 1)[1])
-        for path in ADMITTED_PATHS:
-            with self.subTest(path=path):
-                self.assertIsNotNone(pattern.search(path))
-        for path in REFUSED_PATHS:
-            with self.subTest(path=path):
-                self.assertIsNone(pattern.search(path))
-
     def test_a_lan_peer_is_the_origin_as_given(self):
         text = squid_conf(open_weight=an_ow_policy(gateway=SOME_LAN_PEER))
         self.assertIn(f"cache_peer {SOME_LAN_PEER} parent", text)
@@ -299,8 +310,9 @@ class OpenWeightReversePort(unittest.TestCase):
     def test_an_unresolved_host_peer_and_a_bad_port_are_refused(self):
         with self.assertRaises(c.ConfigError):
             squid_conf(open_weight=an_ow_policy(gateway=c.OW_PEER_HOST))
-        with self.assertRaises(c.ConfigError):
-            squid_conf(open_weight=an_ow_policy(port=PORT_ABOVE_MAX))
+        for port in (0, PORT_ABOVE_MAX):
+            with self.subTest(port=port), self.assertRaises(c.ConfigError):
+                squid_conf(open_weight=an_ow_policy(port=port))
 
     def test_a_newline_in_the_peer_cannot_forge_a_directive(self):
         with self.assertRaises(c.ConfigError):
@@ -349,6 +361,21 @@ class PolicyContent(unittest.TestCase):
         ):
             self.assertIn(cidr, text)
 
+    def test_the_v6_ranges_cover_translated_tunnelled_and_local_destinations(self):
+        acl = next(
+            line
+            for line in squid_conf().splitlines()
+            if line.startswith("acl to_private6 dst ")
+        )
+        for cidr in (
+            NAT64_RANGE,
+            SIX_TO_FOUR_RANGE,
+            UNIQUE_LOCAL_RANGE,
+            LINK_LOCAL_V6_RANGE,
+        ):
+            with self.subTest(cidr=cidr):
+                self.assertIn(cidr, acl.split())
+
     def test_the_v6_deny_never_carries_the_v4_mapped_range(self):
         for entry in c.PRIVATE_V6:
             net = ipaddress.ip_network(entry)
@@ -396,11 +423,12 @@ class PolicyRefusals(unittest.TestCase):
 
     def test_a_bad_subnet_mode_or_port_is_refused(self):
         with self.assertRaises(ValueError):
-            squid_conf(subnet="not-a-subnet")
+            squid_conf(subnet=SUBNET_WITH_A_PREFIX_TOO_LONG)
         with self.assertRaises(c.ConfigError):
             squid_conf(mode="whatever")
-        with self.assertRaises(c.ConfigError):
-            squid_conf(ide_gateway=IDE_GATEWAY_NAME, ide_port=PORT_ABOVE_MAX)
+        for port in (0, PORT_ABOVE_MAX):
+            with self.subTest(port=port), self.assertRaises(c.ConfigError):
+                squid_conf(ide_gateway=IDE_GATEWAY_NAME, ide_port=port)
 
     def test_half_an_ide_bridge_is_refused(self):
         with self.assertRaises(c.ConfigError):
@@ -413,6 +441,15 @@ class InterpolatedValueValidation(unittest.TestCase):
     def test_a_newline_in_the_label_cannot_forge_a_directive(self):
         with self.assertRaises(c.ConfigError):
             squid_conf(label="x\nhttp_access allow all\n# ")
+
+    def test_a_newline_in_the_tool_name_cannot_forge_a_directive(self):
+        with self.assertRaises(c.ConfigError):
+            squid_conf(tool="x\nhttp_access allow all\n# ")
+
+    def test_a_line_break_in_a_subnets_zone_cannot_forge_a_directive(self):
+        for subnet in (SUBNET_WITH_A_LINE_BREAK_IN_ITS_ZONE, SUBNET_WITH_A_ZONE):
+            with self.subTest(subnet=subnet), self.assertRaises(c.ConfigError):
+                squid_conf(subnet=subnet)
 
     def test_a_newline_in_the_ide_gateway_cannot_forge_a_directive(self):
         with self.assertRaises(c.ConfigError):
@@ -462,6 +499,29 @@ class Loading(unittest.TestCase):
 
     def _load(self, text):
         return c.load(self._write(text), SOME_HOME)
+
+    def test_a_telemetry_table_is_refused_for_a_tool_without_one(self):
+        path = self.dir / "t.toml"
+        path.write_text('[egress]\nallow = ["a.com"]\n[telemetry]\nenabled = true\n')
+        with self.assertRaises(c.ConfigError) as caught:
+            c.load(path, SOME_HOME, reads_telemetry=False)
+        self.assertIn("[telemetry]", str(caught.exception))
+        self.assertIn(str(path), str(caught.exception))
+
+    def test_an_unknown_table_names_only_the_tables_the_tool_reads(self):
+        path = self._write("[egress]\n[llm]\n")
+        with self.assertRaises(c.ConfigError) as caught:
+            c.load(path, SOME_HOME, reads_telemetry=False)
+        self.assertIn("[open-weight]", str(caught.exception))
+        self.assertNotIn("[telemetry]", str(caught.exception))
+        with self.assertRaises(c.ConfigError) as caught:
+            c.load(path, SOME_HOME)
+        self.assertIn("[telemetry]", str(caught.exception))
+
+    def test_a_telemetry_table_loads_for_a_tool_that_declares_it(self):
+        path = self.dir / "t.toml"
+        path.write_text('[egress]\nallow = ["a.com"]\n[telemetry]\nenabled = true\n')
+        self.assertTrue(c.load(path, SOME_HOME).telemetry)
 
     def test_defaults_apply_to_an_empty_file(self):
         cfg = self._load("")
@@ -519,6 +579,31 @@ class Loading(unittest.TestCase):
                 with self.assertRaises(c.ConfigError) as cm:
                     self._load(text)
                 self.assertIn(named, str(cm.exception))
+
+    def test_an_unknown_name_reaches_the_terminal_as_printable_ascii(self):
+        # A quoted TOML key may carry an escape sequence.
+        escape = toml_escaped(ESCAPE)
+        for text, shown in (
+            (f'["se{escape}ssion"]\n', "[se?ssion]"),
+            (f'"se{escape}ssion" = 1\n', "'se?ssion'"),
+            (f'[egress]\n"mo{escape}de" = "open"\n', "egress.mo?de"),
+        ):
+            with self.subTest(text=text):
+                with self.assertRaises(c.ConfigError) as cm:
+                    self._load(text)
+                self.assertNotIn(ESCAPE, str(cm.exception))
+                self.assertIn(shown, str(cm.exception))
+
+    def test_a_mount_path_carrying_a_control_character_is_refused_by_name(self):
+        # The path reaches the terminal and one line of the launcher's view.
+        for key in ("rw", "ro"):
+            for character in CONTROL_CHARACTERS:
+                path = f"/srv/a{toml_escaped(character)}b"
+                with self.subTest(key=key, character=character):
+                    with self.assertRaises(c.ConfigError) as cm:
+                        self._load(f'[mounts]\n{key} = ["{path}"]\n')
+                    self.assertIn(f"mounts.{key}", str(cm.exception))
+                    self.assertNotIn(character, str(cm.exception))
 
     def test_a_bad_allow_entry_names_the_file(self):
         path = self._write(f'[egress]\nallow = ["{REFUSED_DOMAIN_SHAPES[0]}"]\n')
@@ -648,7 +733,7 @@ class ShellSettings(unittest.TestCase):
     def test_scalars_emit_once_and_lists_emit_one_line_per_entry(self):
         another_rw = SOME_RW + "2"
         cfg = dataclasses.replace(a_config(), rw=(SOME_RW, another_rw))
-        lines = c.shell_settings(cfg).splitlines()
+        lines = c.shell_settings(cfg, by_length).splitlines()
         self.assertIn("EGRESS=allow-list", lines)
         self.assertIn(f"PROXY_PORT={c.PROXY_PORT}", lines)
         self.assertEqual(
@@ -664,14 +749,17 @@ class ShellSettings(unittest.TestCase):
         # The launcher's case arm accepts 0|1 and dies on anything else.
         on = dataclasses.replace(a_config(), telemetry=True)
         off = dataclasses.replace(a_config(), telemetry=False)
-        self.assertIn("TELEMETRY=1", c.shell_settings(on))
-        self.assertIn("TELEMETRY=0", c.shell_settings(off))
+        self.assertIn("TELEMETRY=1", c.shell_settings(on, by_length))
+        self.assertIn("TELEMETRY=0", c.shell_settings(off, by_length))
 
     def test_every_emitted_key_is_one_the_launcher_reads(self):
         # The launcher dies on a key it does not know; reading its case arms
         # rather than restating them keeps the two sides from drifting apart.
         cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
-        emitted = {line.split("=", 1)[0] for line in c.shell_settings(cfg).splitlines()}
+        emitted = {
+            line.split("=", 1)[0]
+            for line in c.shell_settings(cfg, by_length).splitlines()
+        }
         read = launcher_read_keys()
         self.assertTrue(
             emitted <= read, f"launcher does not read: {sorted(emitted - read)}"
@@ -682,7 +770,7 @@ class ShellSettings(unittest.TestCase):
 
     def test_the_ow_lines_carry_the_peer_and_the_map(self):
         cfg = dataclasses.replace(a_config(), open_weight=an_ow_config())
-        lines = c.shell_settings(cfg).splitlines()
+        lines = c.shell_settings(cfg, by_length).splitlines()
         self.assertIn(f"OW_PEER={c.OW_PEER_HOST}", lines)
         self.assertIn(f"OW_PORT={c.OW_DEFAULT_PORT}", lines)
         self.assertIn(f"OW_PROXY_PORT={c.OW_PROXY_PORT}", lines)
@@ -690,40 +778,53 @@ class ShellSettings(unittest.TestCase):
         self.assertIn(f"OW_TARGET={SOME_OPUS_TAG} <- {SOME_OPUS_PIN} (session)", lines)
 
     def test_target_lines_group_by_served_model_and_rank_the_names(self):
-        # Names sharing a target list on one line, capability tier first;
-        # each distinct target is a tag line once, for the preflight.
-        open_weight = c.OpenWeightConfig(
+        # Names sharing a target list on one line, in the order the given
+        # rank puts them; each distinct target is a tag line once, for the
+        # preflight.
+        shorter_pin, longer_pin = "model-a", "model-with-a-longer-name"
+        open_weight = an_ow_config(
             models=(
                 (SOME_OPUS_PIN, SOME_OPUS_TAG),
                 (SOME_SONNET_PIN, SOME_SONNET_TAG),
-                ("claude-haiku-4-5", SOME_OPUS_TAG),
-                ("claude-fable-5-1[1m]", SOME_OPUS_TAG),
-                ("other-model", SOME_OPUS_TAG),
+                (longer_pin, SOME_OPUS_TAG),
+                (shorter_pin, SOME_OPUS_TAG),
             )
         )
         self.assertEqual(c.served_tags(open_weight), [SOME_OPUS_TAG, SOME_SONNET_TAG])
         self.assertEqual(
-            c.target_lines(open_weight),
+            c.target_lines(open_weight, by_length),
             [
-                f"{SOME_OPUS_TAG} <- claude-fable-5-1[1m], {SOME_OPUS_PIN} (session), "
-                "claude-haiku-4-5, other-model",
+                f"{SOME_OPUS_TAG} <- {shorter_pin}, {SOME_OPUS_PIN} (session), "
+                f"{longer_pin}",
                 f"{SOME_SONNET_TAG} <- {SOME_SONNET_PIN}",
             ],
         )
 
     def test_no_ow_table_emits_no_ow_line(self):
-        self.assertNotIn("OW_", c.shell_settings(a_config()))
+        self.assertNotIn("OW_", c.shell_settings(a_config(), by_length))
 
     def test_shell_metacharacters_stay_inert_text(self):
         # The launcher reads these lines and never evals them.
         path = "/srv/$(touch pwned);`id`;x"
         cfg = dataclasses.replace(a_config(), ro=(path,))
-        self.assertIn(f"RO={path}", c.shell_settings(cfg).splitlines())
+        self.assertIn(f"RO={path}", c.shell_settings(cfg, by_length).splitlines())
 
     def test_a_newline_in_a_value_is_refused(self):
         cfg = dataclasses.replace(a_config(), ro=("/a\nRW=/etc",))
         with self.assertRaises(c.ConfigError):
-            c.shell_settings(cfg)
+            c.shell_settings(cfg, by_length)
+
+
+class ProjectShadowKey(unittest.TestCase):
+    def test_two_paths_that_reduce_to_one_readable_name_get_different_keys(self):
+        # One hostile project must not land in another project's shadow.
+        dotted, dashed = "/work/my.app", "/elsewhere/my-app"
+        self.assertNotEqual(c.project_shadow_key(dotted), c.project_shadow_key(dashed))
+
+    def test_a_key_is_the_readable_name_and_a_fixed_width_hash_of_the_path(self):
+        key = c.project_shadow_key("/work/my.app")
+        self.assertRegex(key, r"^my-app-[0-9a-f]{16}$")
+        self.assertEqual(key, c.project_shadow_key("/work/my.app"))
 
 
 if __name__ == "__main__":

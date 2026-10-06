@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Run one agent-dev verb: read the policy file and the tool's profile, write one document to stdout.
 
-The launcher calls this for everything that reads or decides, so the policy is
-unit-tested rather than inline in shell. Every verb names its tool with --tool.
+The launcher calls this for everything that reads or decides.
 """
 
 import argparse
@@ -17,10 +16,11 @@ from agent_dev_config import (
     emit_squid_conf,
     load,
     open_weight_policy,
+    project_shadow_key,
     shell_settings,
     validate_domain,
 )
-from agent_dev_profiles import Profile, profile_for, shell_profile
+from agent_dev_profiles import Profile, name_rank, profile_for, shell_profile
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -28,6 +28,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--tool", required=True)
     verbs = parser.add_subparsers(dest="verb", required=True)
     verbs.add_parser("profile", help="the tool's profile as KEY=VALUE lines")
+    key = verbs.add_parser("project-key", help="the shadow key of one project path")
+    key.add_argument("path")
     settings = verbs.add_parser("settings", help="KEY=VALUE lines for the launcher")
     settings.add_argument("config")
     conf = verbs.add_parser("squid-conf", help="the proxy policy for one launch")
@@ -39,7 +41,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     conf.add_argument("--ide-port", type=int)
     # --ow opens the reverse port to the [open-weight] peer; --host-gateway is what
     # a peer of "host" resolves to (the engine's name for the host machine).
-    conf.add_argument("--ow", action="store_true")
+    conf.add_argument("--ow", dest="open_weight", action="store_true")
     conf.add_argument("--host-gateway")
     conf.add_argument("--label")
     allowlist = verbs.add_parser(
@@ -51,16 +53,16 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         "session-settings", help="the settings document the session receives"
     )
     session.add_argument("config")
-    session.add_argument("--ow", action="store_true")
+    session.add_argument("--ow", dest="open_weight", action="store_true")
     return parser.parse_args(argv)
 
 
 def _render(args: argparse.Namespace, profile: Profile, config: Config) -> str:
     """Render the document one verb asks for."""
     if args.verb == "settings":
-        return shell_settings(config)
+        return shell_settings(config, name_rank)
     if args.verb == "session-settings":
-        return profile.session_settings(config, open_weight=args.ow)
+        return profile.session_settings(config, open_weight=args.open_weight)
     # Per-run --allow entries apply to this launch only; the file is never
     # rewritten.
     extra = tuple(validate_domain(entry, "--allow") for entry in args.allow)
@@ -80,7 +82,7 @@ def _render(args: argparse.Namespace, profile: Profile, config: Config) -> str:
                 open_weight_policy(
                     config, args.host_gateway, profile.inference_path_regex
                 )
-                if args.ow
+                if args.open_weight
                 else None
             ),
         )
@@ -96,8 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         prefix = profile.command
         if args.verb == "profile":
             sys.stdout.write(shell_profile(profile))
+        elif args.verb == "project-key":
+            sys.stdout.write(project_shadow_key(args.path) + "\n")
         else:
-            config = load(Path(args.config), str(Path.home()))
+            config = load(
+                Path(args.config),
+                str(Path.home()),
+                reads_telemetry=bool(profile.telemetry_off),
+            )
             sys.stdout.write(_render(args, profile, config))
     except (ConfigError, ValueError) as exc:
         print(f"{prefix}: {exc}", file=sys.stderr)

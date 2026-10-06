@@ -241,8 +241,16 @@ tools/agent-dev/install.sh claude   # command -> ~/.local/bin/claude-dev
 claude-dev                    # from a project directory: builds the image once, then runs confined
 ```
 
+`opencode-dev` confines OpenCode the same way, with its own installer arm, data directory and image. `--ow` on either command runs the session on an open-weight model server. [Confined Runs](open-weight-models.md#confined-runs---ow) covers the shipped default, the prerequisites and how to change the map.
+
+```bash
+tools/agent-dev/install.sh opencode # command -> ~/.local/bin/opencode-dev
+opencode-dev                  # OpenCode confined; /connect once per project
+```
+
 | Skill | Purpose |
 |-------|---------|
 | `install-claude-dev` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites an existing `claude-dev.toml`. |
+| `install-opencode-dev` | The same for `opencode-dev`: its own check, apply and policy file, and no change to `claude-dev`. |
 
 **Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/agent-dev/README.md`](../tools/agent-dev/README.md) for the security model, the egress policy, mount flags, and platform support. For trusted repos on macOS without a container engine, [`docs/native-sandbox.md`](native-sandbox.md) configures Claude Code's built-in sandbox, the container-free counterpart, and compares the two boundaries.

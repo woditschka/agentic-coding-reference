@@ -220,7 +220,8 @@ Every input the harness's Python reads is bounded, and no path is hot: the cost 
 | Shipped runtime | The consumer's project root, under whichever agent tool dispatched it | None | The ledger, the layout, the diff, the PRD, the test tree, transcripts, the connector's output, the project's docs |
 | Producer tooling and battery | The maintainer's host | One sanctioned `git ls-remote` in the deps report | The working tree it renders from; nothing it writes lands outside a declared scope |
 | Eval bench | The agent turn inside the claude-dev container by default, measurement on the host | Proxy-allowed HTTPS to the model API and the build dependency chain, every request logged per run | Everything the agent leaves behind: ledger, patch, build scripts; the patch text shown to the judge |
-| claude-dev | Host launcher, container workload, proxy container | Proxy allow-list only, plus one filtered plain-HTTP path to the `[open-weight]` peer under `--ow`; telemetry off by default | The project directory, the settings replica, the IDE's exposed tool set |
+| claude-dev | Host launcher, container workload, proxy container | Proxy allow-list, plus one filtered plain-HTTP path to the `[open-weight]` peer under `--ow`. The shipped map's cloud tags leave through that peer to the tag's vendor, outside the proxy's log. Telemetry off by default | The project directory, the settings replica, the per-project `~/.claude` shadow, the IDE's exposed tool set |
+| opencode-dev | The same three components, run by the same engine | Its own allow-list under the same rule order, and the reverse port admitting `POST /v1/chat/completions`, with the same cloud-tag leg under the shipped map; `HTTPS_PROXY` only | The project directory, the host's `opencode.json`, the per-project data shadow |
 | harness-stats | The host, reading `~/.claude` | None | Transcript JSON; a malformed line is skipped |
 
 ## Threat Model

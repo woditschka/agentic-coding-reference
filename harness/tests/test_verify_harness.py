@@ -807,6 +807,27 @@ def _pod_dockerfile(
     )
 
 
+POD_SANDBOX_OFF = (
+    'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n'
+)
+POD_SETTINGS_FETCH = 'SESSION_SETTINGS="$(config_py session-settings "$CONFIG")"\n'
+POD_SETTINGS_PASS = 'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")\n'
+
+
+def _pod_profiles(
+    declaration=POD_SANDBOX_OFF,
+    emitter_body="return dict(SANDBOX_OFF)",
+    claude_flag="--settings",
+    other_profile="",
+):
+    return (
+        f"{declaration}"
+        f"def claude_session_settings():\n    {emitter_body}\n"
+        f'CLAUDE = Profile(settings_flag="{claude_flag}", '
+        "session_settings=claude_session_settings)\n" + other_profile
+    )
+
+
 class PodToolchainPins(unittest.TestCase):
     """The pod Dockerfile's toolchain pins agree with the pyproject and stay ==-pinned."""
 
@@ -833,15 +854,9 @@ class PodToolchainPins(unittest.TestCase):
             encoding="utf-8",
         )
         (pod / "agent-dev").write_text(
-            'SESSION_SETTINGS="$(config_py session-settings "$CONFIG")"\n'
-            'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")\n',
-            encoding="utf-8",
+            POD_SETTINGS_FETCH + POD_SETTINGS_PASS, encoding="utf-8"
         )
-        (pod / "agent_dev_profiles.py").write_text(
-            'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n'
-            'CLAUDE = Profile(settings_flag="--settings")\n',
-            encoding="utf-8",
-        )
+        (pod / "agent_dev_profiles.py").write_text(_pod_profiles(), encoding="utf-8")
         (Path(root) / "pyproject.toml").write_text(
             f'[tool.ruff]\nrequired-version = "{PYPROJECT_RUFF_PIN}"\n',
             encoding="utf-8",
@@ -899,9 +914,29 @@ class PodToolchainPins(unittest.TestCase):
             self._write(root)
             pod = Path(root) / "tools/agent-dev"
             (pod / "agent-dev").write_text(
-                "SESSION_SETTINGS='{}'\n"
-                'SESSION_CMD+=("$SETTINGS_FLAG" "$SESSION_SETTINGS")\n',
-                encoding="utf-8",
+                "SESSION_SETTINGS='{}'\n" + POD_SETTINGS_PASS, encoding="utf-8"
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_launcher_that_fetches_the_settings_and_never_passes_them_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent-dev").write_text(
+                POD_SETTINGS_FETCH + "SESSION_CMD=(claude)\n", encoding="utf-8"
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_launcher_whose_settings_lines_are_commented_out_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent-dev").write_text(
+                f"# {POD_SETTINGS_FETCH}  # {POD_SETTINGS_PASS}", encoding="utf-8"
             )
             failed, err = self._run(root)
             self.assertTrue(failed)
@@ -914,8 +949,7 @@ class PodToolchainPins(unittest.TestCase):
             self._write(root)
             pod = Path(root) / "tools/agent-dev"
             (pod / "agent_dev_profiles.py").write_text(
-                'SANDBOX_OFF = {}\nCLAUDE = Profile(settings_flag="--settings")\n',
-                encoding="utf-8",
+                _pod_profiles(declaration="SANDBOX_OFF = {}\n"), encoding="utf-8"
             )
             failed, err = self._run(root)
             self.assertTrue(failed)
@@ -927,9 +961,35 @@ class PodToolchainPins(unittest.TestCase):
             self._write(root)
             pod = Path(root) / "tools/agent-dev"
             (pod / "agent_dev_profiles.py").write_text(
-                'SANDBOX_OFF = {"sandbox": {"enabled": False, "failIfUnavailable": False}}\n'
-                'CLAUDE = Profile(settings_flag="")\n',
+                _pod_profiles(claude_flag=""), encoding="utf-8"
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_settings_flag_on_another_tools_profile_does_not_stand_in_for_claudes(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent_dev_profiles.py").write_text(
+                _pod_profiles(
+                    claude_flag="",
+                    other_profile='OPENCODE = Profile(settings_flag="--settings")\n',
+                ),
                 encoding="utf-8",
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("sandbox-off --settings injection", err)
+
+    def test_a_claude_emitter_that_ignores_the_declaration_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root)
+            pod = Path(root) / "tools/agent-dev"
+            (pod / "agent_dev_profiles.py").write_text(
+                _pod_profiles(emitter_body="return {}"), encoding="utf-8"
             )
             failed, err = self._run(root)
             self.assertTrue(failed)

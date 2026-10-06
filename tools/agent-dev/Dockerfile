@@ -1,6 +1,7 @@
 # agent-dev image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go,
-# then one stage per agent tool: `claude` is Claude Code. Each command builds
-# its own stage with --target, so the toolchain layers are cached once.
+# then one stage per agent tool: `claude` is Claude Code and `opencode` is
+# OpenCode. Each command builds its own stage with --target, so the toolchain
+# layers are cached once.
 #
 # Layer order: the `base` stage (system tools, egress runtime, non-root
 # account, dev toolchains), then the tool's stage LAST. `claude-dev update`
@@ -132,9 +133,50 @@ RUN set -eux; \
 # overrides this.
 USER dev
 
-# Attribution label, LAST: `claude-dev cleanup` and the launcher's post-build
-# prune retire superseded images by this label, and `cleanup --all` spares the
-# labeled image — scoping both to this tool's images instead of an unscoped
-# dangling-image prune. Placed after every build layer so adding it never
-# invalidates the layer cache.
-LABEL claude-dev.image=1
+# Attribution labels, LAST: `claude-dev cleanup` and the launcher's post-build
+# prune retire superseded images by the per-tool label, scoped to this tool's
+# images instead of an unscoped dangling-image prune. `cleanup --all` spares
+# every image carrying the shared agent-dev.image label: Docker spares an
+# object only when it carries every label a label!= filter names, so one shared
+# label does what one label per tool cannot. Placed after every build layer so
+# adding it never invalidates the layer cache.
+LABEL agent-dev.image=1 claude-dev.image=1
+
+# ══ stage opencode: OpenCode — LAST layer ══
+FROM base AS opencode
+
+# opencode-ai from the npm registry, TLS alone like Node and Go: resolved to
+# latest at build time, refreshed by `opencode-dev update`. The platform
+# binary arrives as an optional dependency of the same package.
+#
+# npm runs package lifecycle scripts, and the proxy container starts from this
+# same image. So the install runs as the unprivileged dev account, into
+# directories only that account owns: a compromised package cannot replace
+# squid or any other root-owned file. The directory joins PATH last, so nothing
+# in it can shadow a system command either.
+#
+# The plugin SDK opencode would fetch from the registry at startup is installed
+# as a seed, at the same version, so the session needs no registry access for
+# it: the session copies the seed into its per-run config shadow at every start.
+RUN install -d -o dev -g dev /opt/opencode /opt/opencode-seed
+ENV PATH="${PATH}:/opt/opencode/node_modules/.bin"
+USER dev
+ARG OPENCODE_VERSION=latest
+ARG OPENCODE_CACHE_BUST=0
+RUN set -eux; \
+    echo "opencode cache-bust: ${OPENCODE_CACHE_BUST}"; \
+    cache="$(mktemp -d)"; \
+    npm install --prefix /opt/opencode --cache "$cache" --no-fund --no-audit "opencode-ai@${OPENCODE_VERSION}"; \
+    v="$(node -p "require('/opt/opencode/node_modules/opencode-ai/package.json').version")"; \
+    printf '{"name":"opencode-config","private":true}\n' > /opt/opencode-seed/package.json; \
+    npm install --prefix /opt/opencode-seed --cache "$cache" --no-fund --no-audit "@opencode-ai/plugin@${v}"; \
+    rm -rf "$cache"; \
+    chmod -R a+rX /opt/opencode /opt/opencode-seed; \
+    smoke="$(mktemp -d)"; HOME="$smoke" opencode --version; rm -rf "$smoke"
+
+# The stage already runs as dev: a direct `docker run` of this image never
+# lands on root, as in the claude stage.
+
+# Attribution labels, LAST, as in the claude stage: the per-tool label scopes
+# `opencode-dev cleanup`, and the shared label is what `cleanup --all` spares.
+LABEL agent-dev.image=1 opencode-dev.image=1

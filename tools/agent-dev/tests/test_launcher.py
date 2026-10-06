@@ -5,13 +5,16 @@ import http.server
 import json
 import os
 import pathlib
-import shutil
+import re
 import subprocess
 import tempfile
 import threading
 import unittest
 
-LAUNCHER = pathlib.Path(__file__).resolve().parent.parent / "claude-dev"
+from agent_dev_config import project_shadow_key
+
+TOOLS_DIR = pathlib.Path(__file__).resolve().parent.parent
+LAUNCHER = TOOLS_DIR / "claude-dev"
 LAUNCH_TIMEOUT_S = 60
 
 SOME_HOST_ID = "testhost"
@@ -28,8 +31,10 @@ def write_executable(path: pathlib.Path, script: str) -> None:
     path.chmod(0o755)
 
 
-def docker_stub(*, image_labeled: bool) -> str:
+def docker_stub(*, unlabeled: tuple[str, ...] = ()) -> str:
     """Log every call; answer ps with one dead and one live launcher container."""
+    # `image inspect -f <template> <tag>` prints the shared label's value: empty
+    # for a tag named as unlabeled.
     return (
         "#!/usr/bin/env bash\n"
         'printf \'%s\\n\' "$*" >> "$DOCKER_LOG"\n'
@@ -39,18 +44,20 @@ def docker_stub(*, image_labeled: bool) -> str:
         f"  printf '{LIVE_CONTAINER}\\t{SOME_HOST_ID}:{LIVE_PID}\\n'\n"
         "fi\n"
         'if [ "$1" = image ] && [ "$2" = inspect ]; then\n'
-        f'  echo "{("1" if image_labeled else "")}"\n'
+        f'  case " {" ".join(unlabeled)} " in *" $5 "*) echo;; *) echo 1;; esac\n'
         "fi\n"
         "exit 0\n"
     )
 
 
-def ps_stub() -> str:
-    """Report exactly one PID as alive, independent of the sandbox's process view."""
+def ps_stub(*, usable: bool = True) -> str:
+    """Report every PID but one as alive, independent of the sandbox's process view."""
+    if not usable:
+        return "#!/usr/bin/env bash\nexit 127\n"
     return (
         "#!/usr/bin/env bash\n"
-        f'[ "$1" = -p ] && [ "$2" = {LIVE_PID} ] && exit 0\n'
-        "exit 1\n"
+        f'[ "$1" = -p ] && [ "$2" = {DEAD_PID} ] && exit 1\n'
+        "exit 0\n"
     )
 
 
@@ -70,6 +77,9 @@ class MountFence(unittest.TestCase):
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "HOME": str(self.home),
             "CLAUDE_DEV_HOME": str(data if data is not None else self.data),
+            # The sibling tool's data dir is fenced too; keep it outside any
+            # path a test mounts.
+            "OPENCODE_DEV_HOME": str(self.tmp / "opencode-data"),
         }
         return subprocess.run(
             [str(LAUNCHER), "access", *flags],
@@ -123,6 +133,49 @@ class MountFence(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(nest.name, result.stdout)
 
+    def test_a_policy_mount_whose_name_ends_in_an_equals_sign_keeps_it(self):
+        extra = self.tmp / "data="
+        extra.mkdir()
+        (self.data / "claude-dev.toml").write_text(
+            f'[mounts]\nro = ["{extra}"]\n[egress]\nallow = ["api.anthropic.com"]\n'
+        )
+        result = self.access()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertRegex(
+            result.stdout, rf"ro  {re.escape(str(extra))} +operator policy"
+        )
+
+    def test_open_egress_is_one_flag_for_this_run(self):
+        result = self.access("--open-egress")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("egress: open", result.stdout)
+
+    def test_the_allowlist_flag_overrides_a_policy_of_open_egress(self):
+        (self.data / "claude-dev.toml").write_text(
+            '[egress]\nmode = "open"\nallow = ["api.anthropic.com"]\n'
+        )
+        self.assertIn("egress: open", self.access().stdout)
+        result = self.access("--allowlist-egress")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("egress: allow-list", result.stdout)
+
+    def test_a_symlink_planted_as_a_shadow_parent_is_unlinked_not_followed(self):
+        # The session writes its shadow. A link it leaves where the launcher
+        # creates <shadow>/projects/<key> would aim that at a host directory.
+        shadow = (
+            self.data / "state" / "claude-state" / project_shadow_key(str(self.project))
+        )
+        shadow.mkdir(parents=True)
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        project_key = re.sub(r"[^a-zA-Z0-9]", "-", str(self.project))
+        (outside / project_key).write_text("a host file")
+        (shadow / "projects").symlink_to(outside)
+        result = self.access()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((outside / project_key).read_text(), "a host file")
+        self.assertFalse((shadow / "projects").is_symlink())
+
     def test_the_filesystem_root_is_refused_as_a_rw_source(self):
         self.assert_refused(self.access("--rw", "/"), "filesystem root")
 
@@ -159,57 +212,7 @@ class MountFence(unittest.TestCase):
         self.assertTrue((self.home / ".claude" / "plugins" / "data").is_dir())
 
 
-class InProjectCopy(unittest.TestCase):
-    """A command script inside the project it would mount is refused, whichever engine it would run."""
-
-    def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.tmp = pathlib.Path(tmp.name).resolve()
-        self.home = self.tmp / "home"
-        self.data = self.tmp / "data"
-        self.project = self.tmp / "project"
-        for d in (self.home, self.data, self.project):
-            d.mkdir(parents=True)
-        # An installed engine exists, as on a machine that ran install.sh.
-        for name in (
-            "agent-dev",
-            "agent_dev.py",
-            "agent_dev_config.py",
-            "agent_dev_profiles.py",
-            "claude-dev.toml",
-        ):
-            shutil.copy(LAUNCHER.parent / name, self.data / name)
-        self.copy = self.project / "claude-dev"
-        shutil.copy(LAUNCHER, self.copy)
-
-    def run_copy(self, *args: str):
-        env = {
-            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "HOME": str(self.home),
-            "CLAUDE_DEV_HOME": str(self.data),
-        }
-        return subprocess.run(
-            [str(self.copy), *args],
-            cwd=str(self.project),
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=LAUNCH_TIMEOUT_S,
-            check=False,
-        )
-
-    def test_the_copy_is_refused_even_with_an_installed_engine(self):
-        result = self.run_copy("access")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("refusing to run the copy at", result.stderr)
-
-    def test_help_still_answers(self):
-        result = self.run_copy("help")
-        self.assertEqual(result.returncode, 0, result.stderr)
-
-
-class OpenWeightFlag(unittest.TestCase):
+class OwFlag(unittest.TestCase):
     """--ow through the access verb: the plan it prints and the refusal without a table."""
 
     def setUp(self):
@@ -259,7 +262,7 @@ class OpenWeightFlag(unittest.TestCase):
         self.assertIn("proxy:3129 -> host.docker.internal:11434", out)
         self.assertIn("allow  POST /v1/messages", out)
         self.assertIn("model  glm-5.3:cloud <- claude-opus-5-5 (session)", out)
-        self.assertIn("no credential mounted", out)
+        self.assertIn("the stored login is not mounted", out)
         # The credential directory is not in the mount table under --ow.
         self.assertNotIn("credentials (private", out)
 
@@ -279,7 +282,7 @@ class OpenWeightFlag(unittest.TestCase):
         )
         result = self.access()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn("open-weight:", result.stdout)
+        self.assertNotIn("open_weight:", result.stdout)
         self.assertIn("credentials (private", result.stdout)
 
     def test_without_the_flag_an_invalid_table_still_refuses_by_name(self):
@@ -310,6 +313,8 @@ def engine_stub() -> str:
         "#!/usr/bin/env bash\n"
         'printf \'%s\\n\' "$*" >> "$DOCKER_LOG"\n'
         '[ "$1" = context ] && exit 1\n'
+        # The replica is discarded with the run directory, so keep a copy.
+        'for a in "$@"; do case "$a" in */replica.json:*) cp "${a%%:*}" "$DOCKER_LOG.replica";; esac; done\n'
         'if [ "$1" = network ] && [ "$2" = inspect ] && [ "$3" = -f ] && [[ "$4" == *Subnet* ]]; then\n'
         "  echo 172.30.0.0/16\n"
         "fi\n"
@@ -317,7 +322,7 @@ def engine_stub() -> str:
     )
 
 
-class OpenWeightLaunch(unittest.TestCase):
+class OwLaunch(unittest.TestCase):
     """A --ow launch driven to the session exec against a stub engine and a local listing."""
 
     def setUp(self):
@@ -340,7 +345,7 @@ class OpenWeightLaunch(unittest.TestCase):
         self.addCleanup(server.shutdown)
         self.peer_port = server.server_address[1]
 
-    def launch(self, *flags: str):
+    def launch(self, *flags: str, cwd: pathlib.Path | None = None, **env_extra: str):
         (self.data / "claude-dev.toml").write_text(
             '[egress]\nallow = ["api.anthropic.com"]\n'
             f'[open-weight]\npeer = "127.0.0.1"\nport = {self.peer_port}\n'
@@ -351,10 +356,13 @@ class OpenWeightLaunch(unittest.TestCase):
             "HOME": str(self.home),
             "CLAUDE_DEV_HOME": str(self.data),
             "DOCKER_LOG": str(self.log),
+            **env_extra,
         }
+        # One launch, one record: a second launch in the same test starts clean.
+        self.log.unlink(missing_ok=True)
         result = subprocess.run(
             [str(LAUNCHER), *flags],
-            cwd=str(self.project),
+            cwd=str(cwd or self.project),
             env=env,
             capture_output=True,
             text=True,
@@ -395,6 +403,214 @@ class OpenWeightLaunch(unittest.TestCase):
         self.assertNotIn("modelOverrides", session_exec)
 
 
+class PermissionPosture(OwLaunch):
+    """The launcher injects auto mode unless a passed-through flag names the posture."""
+
+    def session_exec(self, *flags: str) -> str:
+        result, calls = self.launch(*flags)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return next(c for c in calls if c.startswith("exec -i ") and " claude " in c)
+
+    def test_auto_mode_is_injected_by_default(self):
+        self.assertIn(" claude --permission-mode auto --settings ", self.session_exec())
+
+    def test_either_spelling_of_the_mode_flag_replaces_the_default(self):
+        for flags in (("--permission-mode", "plan"), ("--permission-mode=plan",)):
+            with self.subTest(flags=flags):
+                call = self.session_exec(*flags)
+                self.assertNotIn("--permission-mode auto", call)
+                self.assertTrue(call.endswith(" ".join(flags)), call)
+
+    def test_the_skip_flag_replaces_the_default(self):
+        call = self.session_exec("--dangerously-skip-permissions")
+        self.assertNotIn("--permission-mode auto", call)
+
+    def test_a_flag_that_only_starts_like_one_keeps_the_default(self):
+        # The skip flag is boolean, so an `=` form is not that flag; neither is
+        # a longer name that begins with the mode flag's.
+        for flag in ("--dangerously-skip-permissions=1", "--permission-modes"):
+            with self.subTest(flag=flag):
+                self.assertIn("--permission-mode auto", self.session_exec(flag))
+
+    def test_an_unrelated_flag_passes_through_beside_the_default(self):
+        call = self.session_exec("--model", "x")
+        self.assertIn("--permission-mode auto", call)
+        self.assertTrue(call.endswith("--model x"), call)
+
+
+class SessionEnvironment(OwLaunch):
+    def session_run(self, *flags: str) -> str:
+        result, calls = self.launch(*flags)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return next(c for c in calls if c.startswith("run --rm"))
+
+    def test_claude_code_gets_both_proxy_variables_in_both_cases(self):
+        run = self.session_run()
+        for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+            with self.subTest(name=name):
+                self.assertIn(f"-e {name}=http://proxy:3128", run)
+
+    def test_no_nested_tmpfs_is_added_when_every_root_sits_at_home_level(self):
+        self.assertEqual(self.session_run().count("--tmpfs "), 1)
+
+    def test_a_launch_on_a_cloud_tag_says_prompts_leave_through_the_peer(self):
+        result, _ = self.launch("--ow")
+        self.assertIn("--ow note: a cloud tag", result.stderr)
+
+
+class ProjectShadow(OwLaunch):
+    """The private ~/.claude is one shadow per project, and another under --ow."""
+
+    def shadow(self, *flags: str, cwd: pathlib.Path | None = None) -> str:
+        result, calls = self.launch(*flags, cwd=cwd)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        run = next(c for c in calls if c.startswith("run --rm"))
+        return re.search(rf"-v (\S+):{re.escape(str(self.home))}/\.claude ", run)[1]
+
+    def test_two_projects_get_two_shadows_under_the_state_directory(self):
+        other = self.tmp / "other-project"
+        other.mkdir()
+        first, second = self.shadow(), self.shadow(cwd=other)
+        self.assertNotEqual(first, second)
+        for shadow in (first, second):
+            self.assertTrue(
+                shadow.startswith(f"{self.data}/state/claude-state/"), shadow
+            )
+
+    def test_one_project_keeps_its_shadow_across_launches(self):
+        self.assertEqual(self.shadow(), self.shadow())
+
+    def test_a_session_on_a_peer_gets_a_shadow_of_its_own(self):
+        plain, on_peer = self.shadow(), self.shadow("--ow")
+        self.assertEqual(on_peer, plain + ".ow")
+
+    def test_a_new_project_is_not_announced_as_a_first_login(self):
+        # The login lives in the relocated store, one for every project.
+        (self.data / "auth").mkdir()
+        (self.data / "auth" / ".credentials.json").write_text("{}")
+        result, _ = self.launch()
+        self.assertNotIn("first run", result.stderr)
+
+
+class Replica(OwLaunch):
+    """The ~/.claude.json replica a session receives, with and without --ow."""
+
+    def replica(self, *flags: str) -> dict:
+        (self.home / ".claude.json").write_text(
+            json.dumps(
+                {
+                    "theme": "dark",
+                    "primaryApiKey": "a-stored-key",
+                    "mcpServers": {
+                        "x": {"headers": {"Authorization": "a-token"}},
+                        "ide": {"type": "sse", "url": "http://127.0.0.1:64342/sse"},
+                    },
+                    "projects": {
+                        str(self.project): {
+                            "hasTrustDialogAccepted": True,
+                            "mcpServers": {"y": {"env": {"TOKEN": "another"}}},
+                        }
+                    },
+                }
+            )
+        )
+        result, _ = self.launch(*flags)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(pathlib.Path(f"{self.log}.replica").read_text())
+
+    def test_a_session_on_a_peer_receives_no_stored_key_and_no_mcp_table(self):
+        replica = self.replica("--ow")
+        self.assertNotIn("a-stored-key", json.dumps(replica))
+        self.assertNotIn("a-token", json.dumps(replica))
+        self.assertNotIn("another", json.dumps(replica))
+        self.assertEqual(list(replica["mcpServers"]), ["ide"])
+        self.assertEqual(replica["theme"], "dark")
+        self.assertTrue(
+            replica["projects"][str(self.project)]["hasTrustDialogAccepted"]
+        )
+
+    def test_a_credentialed_session_receives_the_file_scrubbed_to_the_project_only(
+        self,
+    ):
+        replica = self.replica()
+        self.assertEqual(replica["primaryApiKey"], "a-stored-key")
+        self.assertIn("mcpServers", replica["projects"][str(self.project)])
+
+
+class LinkedPaths(OwLaunch):
+    """What a launch mounts when a path is reached through a link."""
+
+    def test_a_linked_file_mounts_its_target_at_the_links_own_path(self):
+        real = self.tmp / "dotfiles" / "statusline-real.sh"
+        real.parent.mkdir()
+        real.write_text("#!/bin/sh\n")
+        link = self.tmp / "statusline.sh"
+        link.symlink_to(real)
+        result, calls = self.launch("--ro", str(link))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        run = next(c for c in calls if c.startswith("run --rm"))
+        self.assertIn(f"-v {real}:{link}:ro", run)
+
+    def test_a_project_reached_through_a_link_is_named_at_launch(self):
+        link = self.tmp / "project-link"
+        link.symlink_to(self.project)
+        result, calls = self.launch(cwd=link, PWD=str(link))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(
+            f"the project directory is {self.project} (reached as {link})",
+            result.stderr,
+        )
+        run = next(c for c in calls if c.startswith("run --rm"))
+        self.assertIn(f"-v {self.project}:{self.project} ", run)
+
+    def test_a_project_entered_directly_gets_no_such_line(self):
+        result, _ = self.launch(PWD=str(self.project))
+        self.assertNotIn("the project directory is", result.stderr)
+
+
+class RunDirectories(OwLaunch):
+    """A killed launcher leaves its run directory; the next launch of this install reaps it."""
+
+    def leftover(self, pid: int) -> pathlib.Path:
+        path = self.data / "run" / f"{SOME_HOST_ID}.{pid}.abc123"
+        (path / "state" / "x").mkdir(parents=True)
+        (path / "state" / "x" / "file").write_text("left behind")
+        return path
+
+    def test_a_dead_launchers_run_directory_is_removed(self):
+        dead = self.leftover(DEAD_PID)
+        self.launch()
+        self.assertFalse(dead.exists())
+
+    def test_a_read_only_leftover_is_still_removed(self):
+        dead = self.leftover(DEAD_PID)
+        (dead / "state" / "x").chmod(0o555)
+        self.launch()
+        self.assertFalse(dead.exists())
+
+    def test_a_ps_that_cannot_run_keeps_every_run_directory(self):
+        # A probe that cannot see this launcher cannot call another one dead.
+        write_executable(self.bin_dir / "ps", ps_stub(usable=False))
+        dead = self.leftover(DEAD_PID)
+        self.launch()
+        self.assertTrue(dead.exists())
+
+    def test_a_live_launchers_run_directory_is_kept(self):
+        live = self.leftover(LIVE_PID)
+        self.launch()
+        self.assertTrue(live.exists())
+
+    def test_another_installs_run_directory_is_kept(self):
+        foreign = self.data / "run" / f"otherhost.{DEAD_PID}.abc123"
+        foreign.mkdir(parents=True)
+        self.launch()
+        self.assertTrue(foreign.exists())
+
+    def test_this_launch_leaves_no_run_directory_behind(self):
+        self.launch()
+        self.assertEqual(list((self.data / "run").iterdir()), [])
+
+
 class CleanupVerb(unittest.TestCase):
     """The cleanup verb against a stub docker and a stub ps, run from $HOME."""
 
@@ -412,11 +628,9 @@ class CleanupVerb(unittest.TestCase):
         write_executable(self.bin_dir / "ps", ps_stub())
 
     def _run_cleanup(
-        self, *flags: str, image_labeled: bool = True
+        self, *flags: str, unlabeled: tuple[str, ...] = ()
     ) -> tuple["subprocess.CompletedProcess[str]", list[str]]:
-        write_executable(
-            self.bin_dir / "docker", docker_stub(image_labeled=image_labeled)
-        )
+        write_executable(self.bin_dir / "docker", docker_stub(unlabeled=unlabeled))
         env = {
             "PATH": f"{self.bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
             "HOME": str(self.home),
@@ -457,17 +671,40 @@ class CleanupVerb(unittest.TestCase):
         system_prunes = [c for c in calls if c.startswith("system prune")]
         self.assertEqual(
             system_prunes,
-            [f"system prune -a -f --volumes --filter {IMAGE_LABEL.replace('=', '!=')}"],
+            ["system prune -a -f --volumes --filter label!=agent-dev.image"],
             calls,
         )
 
-    def test_cleanup_all_refuses_while_the_current_image_is_unlabeled(self):
-        # A pre-label image is not spared by label!=, so the verb refuses
-        # rather than prune the tool's own current image.
-        result, calls = self._run_cleanup("--all", image_labeled=False)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("predates the claude-dev.image label", result.stderr)
-        self.assertEqual([c for c in calls if c.startswith("system prune")], [])
+    def test_cleanup_all_names_exactly_one_spare_filter(self):
+        # Docker spares an image only when it carries every label the label!=
+        # filters name, so a filter per tool would spare no image at all.
+        result, calls = self._run_cleanup("--all")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        prune = next(c for c in calls if c.startswith("system prune"))
+        self.assertEqual(prune.count("label!="), 1, prune)
+
+    def test_cleanup_all_refuses_while_any_tool_image_is_unlabeled(self):
+        # An image without the shared label is not spared by label!=, so the
+        # verb refuses rather than prune a tool's current image: its own, or
+        # the other tool's, which the same engine-wide prune would take.
+        for tool in ("claude-dev", "opencode-dev"):
+            with self.subTest(tool=tool):
+                self.log.unlink(missing_ok=True)
+                result, calls = self._run_cleanup(
+                    "--all", unlabeled=(f"{tool}:latest",)
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    f"{tool}:latest lacks the agent-dev.image label", result.stderr
+                )
+                self.assertIn(f"run '{tool} update' first", result.stderr)
+                self.assertEqual([c for c in calls if c.startswith("system prune")], [])
+
+    def test_a_ps_that_cannot_run_reaps_no_container(self):
+        write_executable(self.bin_dir / "ps", ps_stub(usable=False))
+        result, calls = self._run_cleanup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([c for c in calls if c.startswith("rm -f")], [])
 
 
 if __name__ == "__main__":

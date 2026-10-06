@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """The engine every agent-dev tool shares: the policy file's reader and the proxy's rules.
 
-The config is data: parsed with tomllib, never executed. This module knows no
-agent tool: the per-tool facts (names, the inference path, the settings the
-session gets) live in agent_dev_profiles and arrive as parameters.
+It knows no agent tool: the per-tool facts live in agent_dev_profiles and arrive as parameters.
 """
 
+import hashlib
 import ipaddress
+import re
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import TypeAlias
 
 # The launcher reads the port back from `settings` rather than keeping a copy.
 PROXY_PORT = 3128
@@ -24,12 +26,9 @@ MAX_PORT = 65535
 # gateway name the launcher passes in.
 OW_PEER_HOST = "host"
 OW_DEFAULT_PORT = 11434
-# API_TIMEOUT_MS for the session under --ow. One value: a local model answers
+# The session's request timeout under --ow. One value: a local model answers
 # in tens of seconds, and a ceiling nobody reaches costs nothing.
 OW_TIMEOUT_MS = 1_800_000
-# Display order of pinned names that share a target: the Claude family's
-# capability tiers, top first; a name outside the family sorts after them.
-OW_NAME_RANK = ("fable", "opus", "sonnet", "haiku")
 # squid matches the path after percent-decoding; a decoded NUL ends the match
 # early while the raw bytes reach the peer. No admitted path carries a
 # percent sign, so the whole class is refused.
@@ -78,6 +77,10 @@ _TOKEN_CHARS = frozenset(
 _DOMAIN_CHARS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
 )
+_SUBNET_CHARS = frozenset("0123456789abcdefABCDEF.:/")
+
+# The sort key of the pinned names that share a target on one display line.
+NameRank: TypeAlias = Callable[[str], tuple[int, str]]
 
 
 class ConfigError(Exception):
@@ -88,19 +91,14 @@ class ConfigError(Exception):
 class OpenWeightConfig:
     """The [open-weight] table: one open-weight peer and the model map the session gets."""
 
+    # Pinned model name -> the tag the peer serves.
+    models: tuple[tuple[str, str], ...]
+    # The root session's model, one of the mapped names. The agents name
+    # their pins; the session itself runs whatever its own settings say, and
+    # an unmapped name reaches the peer as is.
+    model: str
     peer: str = OW_PEER_HOST
     port: int = OW_DEFAULT_PORT
-    # Pinned model name -> the tag the peer serves; injected as modelOverrides.
-    models: tuple[tuple[str, str], ...] = ()
-    # The root session's model: one of the mapped names, the first by default.
-    # The agents name their pins; the session itself runs whatever /model or
-    # a settings file says, and an unmapped name reaches the peer as is.
-    model: str = ""
-
-    def __post_init__(self) -> None:
-        """Default the root model to the first mapping."""
-        if not self.model and self.models:
-            object.__setattr__(self, "model", self.models[0][0])
 
 
 @dataclass(frozen=True)
@@ -149,6 +147,16 @@ class ProxyPolicy:
     open_weight: OpenWeightPolicy | None = None
 
 
+def project_shadow_key(path: str) -> str:
+    """Name a per-project shadow: a readable slug of the last path part plus a hash of the whole path."""
+    # Two projects must never share a shadow. A key built by replacing
+    # characters collides (`/a/b-c` and `/a/b/c`), so the whole physical path
+    # is hashed and the slug only helps a human read the directory listing.
+    digest = hashlib.sha256(path.encode("utf-8", "surrogateescape")).hexdigest()[:16]
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", PurePosixPath(path).name).strip("-")
+    return f"{slug[:32]}-{digest}" if slug else digest
+
+
 def expand_home(entry: str, home: str) -> str:
     """Expand a leading $HOME, the one expansion a config path gets."""
     if entry == "$HOME" or entry.startswith("$HOME/"):
@@ -163,23 +171,31 @@ def _table(data: dict[str, object], name: str) -> dict[str, object]:
     return value
 
 
-def _check_schema(data: dict[str, object], where: str) -> None:
-    """Refuse anything the file may not carry, naming it."""
+def _printable(name: str) -> str:
+    """Reduce a name the file chose to printable ASCII."""
+    # A quoted TOML key may carry an escape sequence, and the refusal that
+    # names it is printed to the operator's terminal.
+    return "".join(c if " " <= c <= "~" else "?" for c in name)
+
+
+def _check_schema(data: dict[str, object], where: str, tables: list[str]) -> None:
+    """Refuse anything the file may not carry, naming it and the tables this tool reads."""
     for table, keys in sorted(data.items()):
-        if table not in SCHEMA:
+        if table not in tables:
             # A scalar at file scope is the forgotten-header typo, not an
             # unknown table; naming it a table would misdirect the operator.
-            kind = f"table [{table}]" if isinstance(keys, dict) else f"key {table!r}"
+            shown = _printable(table)
+            kind = f"table [{shown}]" if isinstance(keys, dict) else f"key {shown!r}"
             raise ConfigError(
                 f"unknown {kind} at the top level of {where} — this version has "
-                f"{', '.join('[' + t + ']' for t in sorted(SCHEMA))}"
+                f"{', '.join('[' + t + ']' for t in tables)}"
             )
         if not isinstance(keys, dict):
             continue
         for key in sorted(keys):
             if key not in SCHEMA[table]:
                 raise ConfigError(
-                    f"unknown key {table}.{key} in {where} — [{table}] takes "
+                    f"unknown key {table}.{_printable(key)} in {where} — [{table}] takes "
                     f"{', '.join(SCHEMA[table])}"
                 )
 
@@ -205,6 +221,23 @@ def _str_list(table: dict[str, object], key: str, where: str) -> tuple[str, ...]
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         raise ConfigError(f"{where}.{key} must be an array of strings")
     return tuple(str(v) for v in value)
+
+
+def _mount_paths(
+    table: dict[str, object], key: str, home: str, where: str
+) -> tuple[str, ...]:
+    """Read one [mounts] list with $HOME expanded, refusing a control character."""
+    # A path reaches the terminal and a KEY=VALUE line the launcher reads
+    # record by record: an escape sequence repaints the screen and a line
+    # break starts another record.
+    entries = _str_list(table, key, "mounts")
+    for entry in entries:
+        if any(c < " " or "\x7f" <= c <= "\x9f" for c in entry):
+            raise ConfigError(
+                f"invalid mounts.{key} entry in {where}: {entry!r} — a path "
+                "carries no control character"
+            )
+    return tuple(expand_home(entry, home) for entry in entries)
 
 
 def validate_token(value: str, what: str) -> str:
@@ -244,13 +277,9 @@ def validate_domain(entry: str, where: str) -> str:
     )
 
 
-def _int(
-    table: dict[str, object], key: str, default: int | None, where: str
-) -> int | None:
+def _int(table: dict[str, object], key: str, default: int, where: str) -> int:
     # bool is an int subclass; `port = true` must not read as 1.
     value = table.get(key, default)
-    if value is None:
-        return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise ConfigError(f"{where}.{key} must be an integer")
     return value
@@ -284,15 +313,18 @@ def validate_model_token(value: object, what: str) -> str:
     # Both sides reach the session as JSON, the launcher's output and a
     # command line: printable ASCII keeps a control byte off the terminal, no
     # whitespace keeps it one token, no leading dash keeps it an argument.
+    # The launcher splits each line it reads at an equals sign and drops a
+    # trailing one, so a token carries none.
     if (
         not isinstance(value, str)
         or not value
         or value.startswith("-")
+        or "=" in value
         or any(c.isspace() or not (" " < c <= "~") for c in value)
     ):
         raise ConfigError(
             f"invalid {what}: {value!r} — one token of printable ASCII, no "
-            "whitespace, no leading dash"
+            "whitespace, no equals sign, no leading dash"
         )
     return value
 
@@ -308,7 +340,6 @@ def _open_weight(data: dict[str, object], where: str) -> OpenWeightConfig | None
         _str(table, "peer", OW_PEER_HOST, "open-weight"), "open-weight"
     )
     port = _int(table, "port", OW_DEFAULT_PORT, "open-weight")
-    assert port is not None
     if not 0 < port <= MAX_PORT:
         raise ConfigError(f"open-weight.port out of range: {port}")
     if port == SSL_PORT:
@@ -329,8 +360,8 @@ def _open_weight(data: dict[str, object], where: str) -> OpenWeightConfig | None
         validate_model_token(name, "pinned model name in [open-weight.models]")
         models.append((name, validate_model_token(tag, f"open-weight.models.{name}")))
     if not models:
-        # Without the map every dispatch names a pinned Anthropic model the
-        # peer does not serve, and fails one request at a time.
+        # Without the map every dispatch names a pinned model the peer does
+        # not serve, and fails one request at a time.
         raise ConfigError(
             f"[open-weight.models] in {where} is empty — map each pinned model name to "
             "the tag the peer serves"
@@ -341,10 +372,10 @@ def _open_weight(data: dict[str, object], where: str) -> OpenWeightConfig | None
             f"open-weight.model {model!r} is not a key of [open-weight.models] — the root "
             "session's model must be a mapped name"
         )
-    return OpenWeightConfig(peer=peer, port=port, models=tuple(models), model=model)
+    return OpenWeightConfig(models=tuple(models), model=model, peer=peer, port=port)
 
 
-def load(path: Path, home: str) -> Config:
+def load(path: Path, home: str, *, reads_telemetry: bool = True) -> Config:
     """Parse and validate one config file, naming the file in every defect."""
     try:
         with path.open("rb") as handle:
@@ -353,7 +384,14 @@ def load(path: Path, home: str) -> Config:
         raise ConfigError(f"cannot read {path}: {exc.strerror}") from exc
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"{path} is not valid TOML: {exc}") from exc
-    _check_schema(data, str(path))
+    if "telemetry" in data and not reads_telemetry:
+        # A key that does nothing would read as policy: refuse it by name.
+        raise ConfigError(
+            f"{path} has a [telemetry] table, which this tool has no setting "
+            "for — remove it"
+        )
+    tables = sorted(t for t in SCHEMA if reads_telemetry or t != "telemetry")
+    _check_schema(data, str(path), tables)
     mounts = _table(data, "mounts")
     egress = _table(data, "egress")
     telemetry = _table(data, "telemetry")
@@ -367,8 +405,8 @@ def load(path: Path, home: str) -> Config:
         for entry in _str_list(egress, "allow", "egress")
     )
     return Config(
-        rw=tuple(expand_home(p, home) for p in _str_list(mounts, "rw", "mounts")),
-        ro=tuple(expand_home(p, home) for p in _str_list(mounts, "ro", "mounts")),
+        rw=_mount_paths(mounts, "rw", home, str(path)),
+        ro=_mount_paths(mounts, "ro", home, str(path)),
         mode=mode,
         allow=allow,
         telemetry=_bool(telemetry, "enabled", "telemetry", default=False),
@@ -376,7 +414,7 @@ def load(path: Path, home: str) -> Config:
     )
 
 
-def shell_settings(config: Config) -> str:
+def shell_settings(config: Config, rank: NameRank) -> str:
     """Render the launcher's view: one KEY=VALUE per line, list values repeated."""
     # The launcher reads these in a loop and never evals; newlines are the
     # record separator, so a value may not contain one.
@@ -395,7 +433,7 @@ def shell_settings(config: Config) -> str:
             f"OW_PORT={config.open_weight.port}",
             f"OW_PROXY_PORT={OW_PROXY_PORT}",
             *(f"OW_TAG={tag}" for tag in served_tags(config.open_weight)),
-            *(f"OW_TARGET={line}" for line in target_lines(config.open_weight)),
+            *(f"OW_TARGET={line}" for line in target_lines(config.open_weight, rank)),
         ]
     for line in lines:
         if "\n" in line:
@@ -408,19 +446,11 @@ def served_tags(open_weight: OpenWeightConfig) -> list[str]:
     return list(dict.fromkeys(tag for _, tag in open_weight.models))
 
 
-def _name_rank(name: str) -> tuple[int, str]:
-    lowered = name.lower()
-    for rank, family in enumerate(OW_NAME_RANK):
-        if family in lowered:
-            return rank, lowered
-    return len(OW_NAME_RANK), lowered
-
-
-def target_lines(open_weight: OpenWeightConfig) -> list[str]:
+def target_lines(open_weight: OpenWeightConfig, rank: NameRank) -> list[str]:
     """Render one line per target: the names that map to it, ranked, session marked."""
     lines = []
     for tag in served_tags(open_weight):
-        names = sorted((n for n, t in open_weight.models if t == tag), key=_name_rank)
+        names = sorted((n for n, t in open_weight.models if t == tag), key=rank)
         shown = [f"{n} (session)" if n == open_weight.model else n for n in names]
         lines.append(f"{tag} <- {', '.join(shown)}")
     return lines
@@ -479,14 +509,28 @@ def _ow_rules(path_regex: str) -> list[str]:
     ]
 
 
+def _validate_subnet(subnet: str) -> None:
+    """Refuse a subnet that is not an address and a prefix length."""
+    # ipaddress accepts an IPv6 zone after a percent sign, and a zone may
+    # carry any character, a line break included; squid.conf takes the value
+    # raw, above every deny.
+    if any(c not in _SUBNET_CHARS for c in subnet):
+        raise ConfigError(
+            f"invalid subnet: {subnet!r} — an address and a prefix length; "
+            "hex digits, dots, colons and a slash only"
+        )
+    ipaddress.ip_network(subnet, strict=False)
+
+
 def _validate_policy(policy: ProxyPolicy) -> None:
     """Refuse a policy squid would misread."""
     if policy.mode not in MODES:
         raise ConfigError(f"unknown egress mode: {policy.mode!r}")
-    ipaddress.ip_network(policy.subnet, strict=False)
+    _validate_subnet(policy.subnet)
     if policy.mode == "allow-list" and not policy.allow:
+        needed = policy.mandatory_host or "the hosts the session needs"
         raise ConfigError(
-            f"the allow-list is empty — add at least {policy.mandatory_host}, or "
+            f"the allow-list is empty — add at least {needed}, or "
             "launch with --open-egress"
         )
     if (policy.ide_gateway is None) != (policy.ide_port is None):
@@ -524,7 +568,7 @@ def emit_squid_conf(policy: ProxyPolicy) -> str:
         "pid_filename none",
         "coredump_dir /tmp",
         # The pinger opens raw ICMP sockets, which cap-drop=ALL denies; it
-        # only ranks cache peers, and there are none.
+        # only ranks cache peers against each other, and at most one exists.
         "pinger_enable off",
         "cache deny all",
         "cache_mem 8 MB",
