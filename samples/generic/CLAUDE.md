@@ -28,19 +28,19 @@ Agents speak only in the verbs above, never in tool names. That is what lets the
 
 ## Memory
 
-Durable knowledge lives in this repo — `CLAUDE.md`, `docs/`, `.claude/skills/`, `.claude/agents/`. Do not write to the auto-memory store at `~/.claude/projects/.../memory/`. If a fact is worth remembering across sessions, it is worth committing. If the user asks to "remember" something, edit the right file in the repo instead of saving a memory.
+Durable knowledge lives in this repo — `CLAUDE.md` and `docs/` — and in the harness's skills and agents. Do not write to the auto-memory store at `~/.claude/projects/.../memory/`. If a fact is worth remembering across sessions, it is worth committing. If the user asks to "remember" something, edit the right file in the repo instead of saving a memory.
 
 ## Agent Usage (Mandatory)
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/handoff-routing/agentic-harness.md`](.claude/skills/handoff-routing/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/handoff-routing/agentic-harness.md#harness-invariants`](.claude/skills/handoff-routing/agentic-harness.md#harness-invariants).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see the `handoff-routing` skill's `agentic-harness.md`. For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see its § Harness Invariants.
 
 ### Pipeline Routing
 
 Mid-slice, run `python3 scripts/handoff.py route` after each dispatch returns and follow its decision. A dispatch returns when the agent's completion arrives, never when the tool call does: a background agent still running means the turn is not over. The JSON names the decision kind (`dispatch`, `blocked`, `escalate`), the next agent(s), the matched `rule`, and the context to relay; `blocked` always halts for a human. Dispatch the `pipeline-coordinator` only for `escalate` decisions and for classifying an untriaged fresh request — never for a transition `route` already decided. A pick the `next` skill already triaged — `route`'s `no-active-slice` escalate included — records its `intake-decision` and follows the `intake-ready` dispatch. A recovery dispatch assembles its prompt from the section the `handoff-routing` skill § Handoff Conditions maps to the decision's `rule`; a reviewer dispatch carries a paste-ready `prompt_note` — append it verbatim as the prompt's final sentence, composing no round context. A `process-findings` decision with `halt_after: true` halts after the dispatch returns (`handoff-routing` § Blocking). For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
 
-**Discussions run in root.** A feature or architecture discussion is a conversation, and subagents cannot converse — root conducts it per [`agentic-harness.md` § Conversations Stay in Root](.claude/skills/handoff-routing/agentic-harness.md). Slice intake runs under the `intake` skill and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches the product expert on the record, even when recorded non-goals make the outcome look foregone. Root relays and quotes; it never authors a product or design statement. A specialist can open one mid-dispatch: a `consultation-request` targeting `human` halts the pipeline (`human-consultation`) until root records the human's answer as the `consultation-response`. A scope question never ends the session in prose. When no reply can arrive — or when unsure — record and proceed: fresh intake seeds an `intake-decision` from the request as stated; a mid-slice question dispatches the owning expert with the question as stated. A conflict pauses as its recorded `consultation-request`, never an unrecorded refusal. The shortcut covers questions, never answers: root never authors a `consultation-response`, and `author: "human"` marks a human's actual words. Absent a reply, the recorded pause is the session's correct end. The seed license lapses while a `consultation-request` targeting `human` is pending: that pause resolves only through the human's reply, never through a re-seeded intake. An answer that only restates the request decides nothing — the request is never the override.
+**Discussions run in root.** A feature or architecture discussion is a conversation, and subagents cannot converse — root conducts it per `agentic-harness.md` § Conversations Stay in Root (the `handoff-routing` skill). Slice intake runs under the `intake` skill and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches the product expert on the record, even when recorded non-goals make the outcome look foregone. Root relays and quotes; it never authors a product or design statement. A specialist can open one mid-dispatch: a `consultation-request` targeting `human` halts the pipeline (`human-consultation`) until root records the human's answer as the `consultation-response`. A scope question never ends the session in prose. When no reply can arrive — or when unsure — record and proceed: fresh intake seeds an `intake-decision` from the request as stated; a mid-slice question dispatches the owning expert with the question as stated. A conflict pauses as its recorded `consultation-request`, never an unrecorded refusal. The shortcut covers questions, never answers: root never authors a `consultation-response`, and `author: "human"` marks a human's actual words. Absent a reply, the recorded pause is the session's correct end. The seed license lapses while a `consultation-request` targeting `human` is pending: that pause resolves only through the human's reply, never through a re-seeded intake. An answer that only restates the request decides nothing — the request is never the override.
 
 **Skip agents for** work that leaves no pipeline artifact to audit: git operations, one-off commands, answering questions about the codebase. A scope decline is never artifact-less: the expert's `consultation-request` is the deliverable, so the conflict dispatches rather than ends the session. **Use review agents for** formal code reviews: "review changes" or "review code" triggers the review agents, never direct implementation.
 
@@ -68,7 +68,7 @@ CLAUDE.md is the legitimate channel for pre-authorizing routine activity, and pi
 - Destructive git: `reset --hard`, `branch -D`, `push --force`, `clean -fd`, history rewrites on shared branches, `--no-verify` / `--no-gpg-sign`.
 - A pipeline verdict that pushes the slice past its PRD scope, shortcuts a stage, or escalates a block — the owning skills (`design-validation`, `review-workflow`, `handoff-routing`) define these verdicts and when they fire.
 - A second consecutive review failure on the same slice.
-- Edits to durable instructions (`CLAUDE.md`, `docs/`, `.claude/agents/`, `.claude/skills/`) that are *not* the active slice's declared implementation target.
+- Edits to durable instructions (`CLAUDE.md`, `docs/`, the harness's agents and skills) that are *not* the active slice's declared implementation target.
 - The user's previous message contains a question, doubt, or disagreement — answer it before proceeding.
 
 **Do not pause for:**
@@ -92,18 +92,18 @@ Do not narrate "Truncated at N tool calls. Continuing." — recovery runs throug
 
 **Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `handoff-routing` table. `general-purpose` is dispatched only when **both** hold:
 
-1. **No named persona fits.** Walk the built-ins and the project agents (`.claude/agents/README.md`). A recurring `general-purpose` shape signals extracting a dedicated agent, not re-use.
+1. **No named persona fits.** Walk the built-ins and the project agents (the `README.md` beside the agent bodies). A recurring `general-purpose` shape signals extracting a dedicated agent, not re-use.
 2. **The Scoping Pre-Check is written into the dispatch prompt** — the tool-call estimate and one named checkpoint milestone.
 
 Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere: each agent's `toolCallBudget` front-matter, and the `tdd-workflow` and `review-workflow` skills. Do not restate the numbers or record shapes here.
 
 ### Agent teams and the continue hook
 
-The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`), so a truncated dispatch can resume in place with a bare `continue`. A `PreToolUse` hook (`.claude/hooks/sendmessage-continue-only.py`, registered in the same settings file) allows only the literal `continue` and denies everything else, failing closed. The invariant: a resume may not carry new instructions — all new work is a fresh, schema-validated dispatch on `.scratch/handoff.jsonl`, so the resume channel can never bypass the auditable handoff log. Use `SendMessage` only for the bare-`continue` resume — never for peer-to-peer coordination (or the agent-teams `TeamCreate`/teammate model) that bypasses the log. Commit the hook and `settings.json` together; a missing hook file fails the guard open. The flag is project-scoped (`.claude/settings.json` `env` block), not a user-level default.
+The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`), so a truncated dispatch can resume in place with a bare `continue`. A `PreToolUse` hook (`sendmessage-continue-only.py`) allows only the literal `continue` and denies everything else, failing closed. On the copy and manifest channels it lives in `.claude/hooks/` and is registered in the same settings file; on the marketplace channel the plugin ships and registers it from its cache. The invariant: a resume may not carry new instructions — all new work is a fresh, schema-validated dispatch on `.scratch/handoff.jsonl`, so the resume channel can never bypass the auditable handoff log. Use `SendMessage` only for the bare-`continue` resume — never for peer-to-peer coordination (or the agent-teams `TeamCreate`/teammate model) that bypasses the log. With a committed runtime, commit the hook and `settings.json` together; a missing hook file fails the guard open. The flag is project-scoped (`.claude/settings.json` `env` block), not a user-level default.
 
 ### Skills (Portable Workflow Knowledge)
 
-Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All three tools (Claude Code, Copilot CLI, OpenCode) read skills from this location.
+Pipeline logic lives in skills, not in agent definitions. All three tools (Claude Code, Copilot CLI, OpenCode) read skills from the harness's skill directory — committed under `.claude/skills/`, or shipped in the plugin cache on the marketplace channel.
 
 | Skill | Purpose |
 |-------|---------|
@@ -131,11 +131,11 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
-This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they are always discoverable in `.claude/skills/`.
+This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they are always discoverable in the same skill directory.
 
 ### Reference
 
-See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles and model assignments, and the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-append/scratch-contract.md) for the scratch directory lifecycle.
+See the `README.md` beside the agent bodies for agent roles and model assignments, and the `handoff-append` skill's `scratch-contract.md` for the scratch directory lifecycle.
 
 ## Toolchain
 
@@ -167,7 +167,7 @@ See [`docs/system-design.md`](docs/system-design.md) for module structure, patte
 
 ## Writing Standards
 
-All documentation, comments, and PRDs must follow the writing standards of the `document-writing` skill ([`.claude/skills/document-writing/documentation-standards.md`](.claude/skills/document-writing/documentation-standards.md)).
+All documentation, comments, and PRDs must follow the writing standards of the `document-writing` skill (`documentation-standards.md`).
 
 ## Testing Strategy
 
@@ -177,7 +177,7 @@ See [`docs/testing-principles.md`](docs/testing-principles.md) for test structur
 
 Agents collaborate through `.scratch/` (git-ignored). One feature at a time. Never use system `/tmp` — use `.scratch/tmp/`.
 
-See the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-append/scratch-contract.md) for structure, file lifecycle, templates, and rules.
+See the `handoff-append` skill's `scratch-contract.md` for structure, file lifecycle, templates, and rules.
 
 ## Quality Gate
 
