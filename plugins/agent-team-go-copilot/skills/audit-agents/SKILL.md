@@ -30,9 +30,9 @@ Run this audit after any change to:
 
 ### 1. Skills Coverage
 
-- [ ] CLAUDE.md skills table lists every skill in `.claude/skills/` — no missing, no extras.
-- [ ] `.claude/agents/README.md` skills table matches CLAUDE.md.
-- [ ] Every skill referenced in an agent file (`Load the X skill`) resolves to an existing `.claude/skills/X/SKILL.md`.
+- [ ] CLAUDE.md skills table lists every shipped skill — no missing, no extras.
+- [ ] The agents README skills table (a project-side runtime ships one beside the agent bodies) matches CLAUDE.md.
+- [ ] Every skill referenced in an agent file (`Load the X skill`) resolves to a shipped skill. One the agent executes on every dispatch is in its `skills:` preload; agents hold no Skill tool, so an unpreloaded skill is an on-demand read by path.
 
 ### 2. Agent Thinness
 

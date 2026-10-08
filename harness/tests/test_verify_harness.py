@@ -243,6 +243,109 @@ class FrontmatterSkills(unittest.TestCase):
         self.assertEqual(sync._frontmatter_skills(fm), ["a"])
 
 
+class SkillReach(unittest.TestCase):
+    RULE = sync.ON_DEMAND_RULE + "\n"
+    COPILOT = (
+        "- A skill not preloaded is read on demand: its `SKILL.md` and supporting "
+        "files sit under the installed plugin's `skills/<name>/`.\n"
+    )
+
+    def _agent(self, core, name, *, skills=("handoff-append",), body=None):
+        fm = "---\nname: x\nskills:\n" + "".join(f"  - {s}\n" for s in skills) + "---\n"
+        text = "## Skills\n\n" + self.RULE + "\n## Next\n" if body is None else body
+        (core / ".claude/agents").mkdir(parents=True, exist_ok=True)
+        (core / ".claude/agents" / name).write_text(fm + text, encoding="utf-8")
+
+    def _tree(self, td):
+        core = Path(td) / "core"
+        (core / ".claude/skills/handoff-append").mkdir(parents=True)
+        plugins = Path(td) / "plugins"
+        for plugin, suffix, content in (
+            ("agent-team-x", ".md", "`${CLAUDE_PLUGIN_ROOT}/skills/a/`"),
+            ("agent-team-x-copilot", ".agent.md", self.COPILOT),
+        ):
+            (plugins / plugin / "agents").mkdir(parents=True)
+            (plugins / plugin / "agents" / f"a{suffix}").write_text(
+                content, encoding="utf-8"
+            )
+        return core, plugins
+
+    def _problems(self, core, plugins):
+        return "\n".join(sync.skill_reach_problems([core], core, plugins))
+
+    def test_a_conforming_tree_has_no_problems(self):
+        with tempfile.TemporaryDirectory() as td:
+            core, plugins = self._tree(td)
+            self._agent(core, "good.md")
+            self._agent(core, "last.md", body="## Skills\n\n" + self.RULE)
+            self.assertEqual(sync.skill_reach_problems([core], core, plugins), [])
+
+    def test_each_base_defect_is_named(self):
+        with tempfile.TemporaryDirectory() as td:
+            core, plugins = self._tree(td)
+            self._agent(core, "no-rule.md", body="## Skills\n\n- Load x.\n")
+            self._agent(core, "misplaced.md", body="## Skills\n\n## Next\n" + self.RULE)
+            self._agent(
+                core, "clipped.md", body="## Skills\n\n" + self.RULE[:-12] + "\n"
+            )
+            self._agent(
+                core,
+                "rel-link.md",
+                body="## Skills\n\n" + self.RULE + "see ../skills/x/SKILL.md\n",
+            )
+            self._agent(core, "ghost.md", skills=("ghost",))
+            problems = self._problems(core, plugins)
+            for name in ("no-rule", "misplaced", "clipped"):
+                self.assertIn(
+                    f"{name}.md: Skills section lacks the on-demand rule", problems
+                )
+            self.assertIn("rel-link.md: agents-dir-relative skill link", problems)
+            self.assertIn("ghost.md: preloads 'ghost', not a shipped skill", problems)
+
+    def test_plugin_forms_are_held_per_tool(self):
+        with tempfile.TemporaryDirectory() as td:
+            core, plugins = self._tree(td)
+            self._agent(core, "good.md")
+            (plugins / "agent-team-x/agents/a.md").write_text(
+                "`.claude/skills/a/`", encoding="utf-8"
+            )
+            (plugins / "agent-team-x-copilot/agents/a.agent.md").write_text(
+                "`${CLAUDE_PLUGIN_ROOT}/skills/a/` " + self.RULE, encoding="utf-8"
+            )
+            problems = self._problems(core, plugins)
+            self.assertIn("survives the claude plugin render", problems)
+            self.assertIn("plugin-root variable in a copilot plugin", problems)
+            self.assertIn("copilot render of the on-demand rule is missing", problems)
+
+    def test_an_empty_tree_fails_instead_of_passing(self):
+        with tempfile.TemporaryDirectory() as td:
+            core = Path(td) / "core"
+            core.mkdir()
+            problems = self._problems(core, Path(td) / "plugins")
+            self.assertIn("no agent bases scanned", problems)
+            self.assertIn("no plugin agent files scanned", problems)
+
+
+class PreCheckPin(unittest.TestCase):
+    def test_section_ends_at_the_next_heading_of_its_level_or_higher(self):
+        text = "## A\n\nx\n### sub\ny\n## B\nz\n"
+        self.assertEqual(sync.pre_check_section(text, "## A"), ["x", "### sub", "y"])
+        self.assertEqual(sync.pre_check_section(text, "### sub"), ["y"])
+        self.assertEqual(sync.pre_check_section(text, "## none"), [])
+
+    def test_a_comment_inside_a_fence_does_not_end_the_section(self):
+        text = "## A\n```sh\n# not a heading\n```\nafter\n## B\n"
+        self.assertEqual(
+            sync.pre_check_section(text, "## A"),
+            ["```sh", "# not a heading", "```", "after"],
+        )
+
+    def test_every_source_contributes_lines(self):
+        lines = sync._pre_check_lines()
+        labels = {line.split(": ", 1)[0] for line in lines}
+        self.assertEqual(labels, {label for label, _, _ in sync.PRE_CHECK_SOURCES})
+
+
 class BundledSkillDenylist(unittest.TestCase):
     def test_the_proven_collision_is_pinned(self):
         self.assertIn("security-review", sync.CLAUDE_CODE_BUNDLED_SKILLS)

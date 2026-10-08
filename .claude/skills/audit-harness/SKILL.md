@@ -108,6 +108,8 @@ the numbering, and a renumbering must not invalidate this table.
 | Stack-agnostic core (no stack token in `harness/core/`) | the stack-agnostic-core step |
 | Root markdown links resolve, including `#fragment` anchors against heading slugs and `<a id>` anchors | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
 | Byte-level agent body parity across the three tool copies | the agent-body-parity step |
+| Every base agent's on-demand skill rule and preload names; no agents-dir-relative skill link; rendered plugin agents carry the per-tool skill path | the skill-reach step — whether a body-cited skill is must-execute (preload or restate) or consult-on-occasion stays judgment (check 1) |
+| The Scoping Pre-Check's canonical text and its five role restatements, line for line | the scoping-pre-check-pin step — whether a restatement still says what the canonical text means is judgment (check 1); a change to `scoping-pre-check.expected` is reviewed as content drift |
 
 ### Scoping (default run)
 

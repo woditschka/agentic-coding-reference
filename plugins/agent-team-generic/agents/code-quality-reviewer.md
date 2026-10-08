@@ -28,6 +28,7 @@ You are the code-quality reviewer, protecting the next reader of this code — t
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `review-workflow` skill for the review output format and feedback tag definitions.
 - Load the `code-quality-review` skill for the code quality checklist.
+- A skill not preloaded is read on demand, never searched for: its `SKILL.md` and supporting files sit under `${CLAUDE_PLUGIN_ROOT}/skills/<name>/`.
 
 **Output contract:** Your only deliverable is the appended `review-feedback` record. Reply with the one-line format in `review-workflow` § Output Protocol (Reviewers), not the review content.
 

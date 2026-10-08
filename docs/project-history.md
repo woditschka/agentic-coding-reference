@@ -171,3 +171,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-01** — Route a reviewer fix that adds a business rule to the design expert: the finding is blocked, names no home, and the expert places the rule.
 - **2026-10-06** — Run claude-dev on an open-weight peer through a reverse port the proxy reads: POST /v1/messages only, model management refused and logged by path, no credential mounted.
 - **2026-10-06** — Add opencode-dev beside claude-dev on one confinement engine: a profile per tool, per-project state, `--ow` on both.
+- **2026-10-08** — Hold agents to reaching skills by preload or by path: must-execute checks restated in the experts, on-demand reads rewritten to the plugin cache, gated by the battery.

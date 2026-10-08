@@ -27,6 +27,7 @@ You are the judgment arm of a two-part router. `python3 scripts/handoff.py route
 
 - Load the `handoff-routing` skill for routing rules, handoff conditions, and state file definitions.
 - Do not load a grading skill or write a scorecard yourself — grading belongs to the `change-grader`.
+- A skill not preloaded is read on demand, never searched for: its `SKILL.md` and supporting files sit under `${CLAUDE_PLUGIN_ROOT}/skills/<name>/`.
 
 ## Process
 

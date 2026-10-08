@@ -32,7 +32,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 
 **Agents own behavior.** Each agent is a thin wrapper: persona, tool permissions, model selection. Domain mechanics live in the skills the agent references.
 
-**Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All three tools (Claude Code, GitHub Copilot, OpenCode) read skills from this location.
+**Skills own knowledge.** Portable workflow logic lives in the harness's skills, under `.claude/skills/` in the project or in the plugin cache on the marketplace channel. Claude Code and GitHub Copilot read either form; OpenCode reads the project form.
 
 **Project docs own truth.** Requirements (`docs/prd.md`), architecture (`docs/system-design.md`), and decisions (`docs/adr/`) are the authoritative sources.
 

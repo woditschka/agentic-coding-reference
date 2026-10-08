@@ -735,6 +735,122 @@ def _frontmatter_problems(file: Path, agents_dir: str) -> list[str]:
     return problems
 
 
+# ADR 2026-10-08 skill-reach-without-a-skill-tool: agents hold no Skill tool,
+# so a skill not preloaded is an on-demand read by path, never a search. A base
+# body states the backticked project form; the packager rewrites it per plugin
+# tool, so no plugin may carry the project form and only Claude's may carry
+# the plugin-root variable.
+ON_DEMAND_RULE = (
+    "A skill not preloaded is read on demand, never searched for: its `SKILL.md` "
+    "and supporting files sit under `.claude/skills/<name>/`."
+)
+PROJECT_SKILL_PATH = "`.claude/skills/"
+PLUGIN_SKILL_PATH = "`${CLAUDE_PLUGIN_ROOT}/skills/"
+# The Copilot render of the rule: no plugin-root variable exists there, so the
+# packager names the installed plugin's own skills directory and drops the
+# no-search clause (package-marketplace.py SKILL_PATH_REWRITES).
+COPILOT_RULE_START = "read on demand: its `SKILL.md`"
+COPILOT_SKILL_PATH = "the installed plugin's `skills/"
+SKILLS_SECTION = re.compile(r"^## Skills\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+
+
+def check_skill_reach(b: Battery) -> None:
+    """Hold every agent to reaching a skill by preload or by path, and every plugin to its rewritten form."""
+    b.note("agent skill reach (preload or path)")
+    problems = skill_reach_problems(LAYERS, HERE / "core", ROOT / "plugins")
+    b.report(
+        problems,
+        "every agent reaches skills by preload or by path; plugin paths rewritten",
+    )
+
+
+def skill_reach_problems(
+    layers: Collection[Path], core: Path, plugins: Path
+) -> list[str]:
+    """Return every skill-reach problem across the base agents and the rendered plugin agents."""
+    problems: list[str] = []
+    core_skills = _skill_names(core)
+    bases = 0
+    for layer in layers:
+        shipped = core_skills | _skill_names(layer)
+        for path in _surface_files(layer, CLAUDE_AGENTS, ".md"):
+            agent = _AgentFile.load(path)
+            if agent.scalar("variant-of"):
+                continue
+            bases += 1
+            problems.extend(_base_reach_problems(path, agent, shipped))
+    if not bases:
+        problems.append("no agent bases scanned — roster empty or path renamed")
+    # A plugin directory is named <namespace>-<stack> for Claude and
+    # <namespace>-<stack>-<tool> for every other plugin tool (package-marketplace
+    # plugin_name); the registry's plugin flag says which tools ship one.
+    other_tools = [t for t, row in TOOLS.items() if row["plugin"] and t != "claude"]
+    rendered = 0
+    for plugin in sorted(plugins.glob(f"{registry.PLUGIN_NAMESPACE}-*")):
+        tool = next((t for t in other_tools if plugin.name.endswith(f"-{t}")), "claude")
+        for path in sorted((plugin / "agents").glob("*.md")):
+            rendered += 1
+            problems.extend(_plugin_reach_problems(path, tool, read_text(path)))
+    if not rendered:
+        problems.append(
+            "no plugin agent files scanned — marketplace not rendered or namespace renamed"
+        )
+    return problems
+
+
+def _plugin_reach_problems(path: Path, tool: str, content: str) -> list[str]:
+    """Return one rendered plugin agent's problems: the project form gone, the tool's own form present."""
+    problems: list[str] = []
+    if PROJECT_SKILL_PATH in content:
+        problems.append(
+            f"{rel(path)}: project skill path survives the {tool} plugin render"
+        )
+    if tool != "claude" and PLUGIN_SKILL_PATH in content:
+        problems.append(
+            f"{rel(path)}: Claude-only plugin-root variable in a {tool} plugin"
+        )
+    if tool == "copilot" and (
+        "never searched for" in content
+        or COPILOT_RULE_START not in content
+        or COPILOT_SKILL_PATH not in content
+    ):
+        problems.append(
+            f"{rel(path)}: the copilot render of the on-demand rule is missing"
+        )
+    return problems
+
+
+def _base_reach_problems(path: Path, agent: _AgentFile, shipped: set[str]) -> list[str]:
+    """Return one base agent's skill-reach problems: the rule, the link form, the preload names."""
+    problems: list[str] = []
+    body = "\n".join(agent.body)
+    match = SKILLS_SECTION.search(body)
+    section = match.group(1) if match else ""
+    if ON_DEMAND_RULE not in section:
+        problems.append(
+            f"{rel(path)}: Skills section lacks the on-demand rule verbatim"
+        )
+    if LOCAL_SKILL_LINK in body:
+        problems.append(
+            f"{rel(path)}: agents-dir-relative skill link ({LOCAL_SKILL_LINK}) "
+            f"— use {PROJECT_SKILL_PATH}<name>/`"
+        )
+    problems.extend(
+        f"{rel(path)}: preloads {name!r}, not a shipped skill"
+        for name in _frontmatter_skills(agent.text)
+        if name not in shipped
+    )
+    return problems
+
+
+def _skill_names(layer: Path) -> set[str]:
+    """Return the skill directory names one layer ships."""
+    skills = layer / ".claude/skills"
+    return (
+        {p.name for p in skills.iterdir() if p.is_dir()} if skills.is_dir() else set()
+    )
+
+
 def check_frontmatter_vocabulary(b: Battery) -> None:
     """Hold every agent file's frontmatter keys inside its tool's pinned vocabulary."""
     b.note("frontmatter vocabulary (per-tool)")
@@ -1643,6 +1759,81 @@ def _enforcer_pin_problems() -> list[str]:
         "or add it to harness/enforcer-tactics.expected as a judged decision; "
         "remove a pinned line that is gone.",
     )
+
+
+# The Scoping Pre-Check doctrine has one canonical statement and five role
+# restatements (ADR 2026-10-08 skill-reach-without-a-skill-tool). The pin holds
+# all six: a change to any one fails the battery until every restatement has
+# been reviewed and the file regenerated, so the copies cannot drift unseen.
+PRE_CHECK_SOURCES: tuple[tuple[str, str, str], ...] = (
+    (
+        "tdd-workflow",
+        "core/.claude/skills/tdd-workflow/SKILL.md",
+        "## Scoping Pre-Check",
+    ),
+    (
+        "review-workflow",
+        "core/.claude/skills/review-workflow/SKILL.md",
+        "### Scoping Pre-Check (reviewer)",
+    ),
+    (
+        "product-requirements-expert",
+        "core/.claude/agents/product-requirements-expert.md",
+        "## Scoping Pre-Check",
+    ),
+    *(
+        (
+            f"{stack}/system-design-expert",
+            f"stacks/{stack}/.claude/agents/system-design-expert.md",
+            "## Scoping Pre-Check",
+        )
+        for stack in STACKS
+    ),
+)
+
+
+def pre_check_section(text: str, heading: str) -> list[str]:
+    """Return the non-blank lines under heading, up to the next heading of its level or higher."""
+    level = heading.split(" ", 1)[0]
+    stop = re.compile(rf"^#{{1,{len(level)}}} ")
+    lines: list[str] = []
+    inside = fenced = False
+    for line in text.splitlines():
+        if line.strip().startswith("```"):
+            fenced = not fenced
+        if line.strip() == heading:
+            inside = True
+            continue
+        if inside and stop.match(line) and not fenced:
+            break
+        if inside and line.strip():
+            lines.append(line)
+    return lines
+
+
+def _pre_check_lines() -> Counter[str]:
+    """Count the live lines of the pre-check doctrine across its canonical home and restatements."""
+    found: Counter[str] = Counter()
+    for label, relpath, heading in PRE_CHECK_SOURCES:
+        for line in pre_check_section(read_text(HERE / relpath), heading):
+            found[f"{label}: {line}"] += 1
+    return found
+
+
+def check_pre_check_pin(b: Battery) -> None:
+    """Pin the Scoping Pre-Check doctrine and its role restatements to one reviewed set."""
+    b.note(
+        "scoping pre-check pin (canonical + restatements vs scoping-pre-check.expected)"
+    )
+    problems = _pinned_multiset_problems(
+        HERE / "scoping-pre-check.expected",
+        _pre_check_lines(),
+        "the scoping pre-check doctrine",
+        "Fix: the canonical text or a restatement changed. Review every source in "
+        "PRE_CHECK_SOURCES against the change, then regenerate "
+        "harness/scoping-pre-check.expected per its header.",
+    )
+    b.report(problems, "canonical pre-check and its five restatements match the pin")
 
 
 def check_enforcer_pin(b: Battery) -> None:

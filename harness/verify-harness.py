@@ -16,9 +16,11 @@ re-enumerating:
                                          3n  shipped prose self-containment
                                          3o  runtime-number-free prose
                                          3p  enforcer tactic pin (stack skills)
+                                         3q  scoping pre-check pin
   2  python syntax                       4   sample test suites
   2a annotation evaluation (runtime)     4b  sample build-file script refs
   2b agent body parity (per-tool copies)
+  2bb agent skill reach (preload or path)
   2c agent-mirror renderer self-test     4c  pinned-version sync (deps-report)
   2d accounting vendored-copy sync       5   sample doctors
   2e frontmatter vocabulary (per-tool)   6   harness unit suites
@@ -103,6 +105,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_layout_invariants,
     check_parity_gates,
     check_placeholder_gate,
+    check_pre_check_pin,
     check_prose_self_containment,
     check_published_figures,
     check_retired_paths,
@@ -110,6 +113,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_roster_sync,
     check_route_rules,
     check_runtime_number_free_prose,
+    check_skill_reach,
     check_spec_version_sync,
     check_stack_agnostic_core,
     check_verdict_enums,
@@ -159,6 +163,7 @@ def _run_steps(b: Battery) -> None:
     check_python_syntax(b)
     check_annotation_evaluation(b)
     check_agent_body_parity(b)
+    check_skill_reach(b)
     b.run_suite(
         "agent-mirror renderer self-test", "harness/tests/test_render_agent_mirrors.py"
     )
@@ -183,6 +188,7 @@ def _run_steps(b: Battery) -> None:
     check_prose_self_containment(b)
     check_runtime_number_free_prose(b)
     check_enforcer_pin(b)
+    check_pre_check_pin(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)

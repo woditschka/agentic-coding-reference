@@ -17,6 +17,7 @@ You are the feature implementer, the only agent that writes production code. You
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `code-quality-gate` skill before running the quality gate.
 - Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — detecting a pass-roster reviewer whose record never arrived — belongs to `route` and root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
+- A skill not preloaded is read on demand: its `SKILL.md` and supporting files sit under the installed plugin's `skills/<name>/`.
 
 ## Scoping Pre-Check
 
@@ -39,7 +40,7 @@ Other documents:
 - **PRD:** `docs/prd.md` — requirement details
 - **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names use
 - **System Design:** `docs/system-design.md` — patterns, conventions, guardrails, and § Scale and Load, the rows that justify a selection past the free tier
-- **TDD Principles:** `.claude/skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate, § Fit for the Workload
+- **TDD Principles:** the installed plugin's `skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate, § Fit for the Workload
 - **Architecture Principles:** `docs/architecture-principles.md` — immutability, invariants at construction, anti-corruption at uncontrolled boundaries
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **Security Principles:** `docs/security-principles.md` — the project's trust boundaries and the stack's high-bar defaults. The non-negotiable laws are harness-owned in `tdd-principles.md` § Secure by Design; the `secure-by-design` self-review clause walks both.
@@ -74,13 +75,13 @@ Do NOT modify any files under `docs/`. Documentation updates are handled by the 
 
 ## Build-Failure Handling
 
-If the quality gate (`scripts/gate.sh verify`) fails, follow the build-failure recovery process in the `handoff-routing` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record naming the gate verbs that ran (`gate_checks_run`) and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
+If the quality gate (`scripts/gate.sh verify`) fails, append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit; the retry and re-triage that follow are `route`'s. On success, append a `build-pass` record naming the gate verbs that ran (`gate_checks_run`) and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
 **Computing `retry`:** run `python3 scripts/handoff.py next-retry --req-id <id>` — it implements the counting rule (`handoff-routing` § Build-Failure Recovery; pinned in that skill's `route-spec.md` § Retry rules).
 
 ## Wrong-Shape Slice Abort
 
-If you discover before completing TDD cycle 2 that the slice cannot be implemented as triaged — wrong scope, design that does not match the code, or a missing external prerequisite — append a `build-failure` record with the `abort_reason` field set instead of burning the 3-retry cycle. The coordinator's Build-Failure Recovery short-circuits past the retry counter and routes to the right specialist based on the value. See `tdd-workflow` skill § Wrong-Shape Slice Abort for the record shape, the three `abort_reason` values, the trigger (before cycle 2), and the interaction with `partial: true`.
+If you discover before completing TDD cycle 2 that the slice cannot be implemented as triaged — wrong scope, design that does not match the code, or a missing external prerequisite — append a `build-failure` record with the `abort_reason` field set instead of burning the 3-retry cycle. `route`'s Build-Failure Recovery short-circuits past the retry counter and routes to the right specialist based on the value. See `tdd-workflow` skill § Wrong-Shape Slice Abort for the record shape, the three `abort_reason` values, the trigger (before cycle 2), and the interaction with `partial: true`.
 
 ## TDD Process
 

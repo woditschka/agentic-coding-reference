@@ -92,18 +92,18 @@ Do not narrate "Truncated at N tool calls. Continuing." — recovery runs throug
 
 **Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `handoff-routing` table. `general-purpose` is dispatched only when **both** hold:
 
-1. **No named persona fits.** Walk the built-ins and the project agents (the `README.md` beside the agent bodies). A recurring `general-purpose` shape signals extracting a dedicated agent, not re-use.
+1. **No named persona fits.** Walk the built-ins and the project agents (the `handoff-routing` skill's `agentic-harness.md` § Specialist Agents). A recurring `general-purpose` shape signals extracting a dedicated agent, not re-use.
 2. **The Scoping Pre-Check is written into the dispatch prompt** — the tool-call estimate and one named checkpoint milestone.
 
 Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere: each agent's `toolCallBudget` front-matter, and the `tdd-workflow` and `review-workflow` skills. Do not restate the numbers or record shapes here.
 
 ### Agent teams and the continue hook
 
-The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`), so a truncated dispatch can resume in place with a bare `continue`. A `PreToolUse` hook (`sendmessage-continue-only.py`) allows only the literal `continue` and denies everything else, failing closed. On the copy and manifest channels it lives in `.claude/hooks/` and is registered in the same settings file; on the marketplace channel the plugin ships and registers it from its cache. The invariant: a resume may not carry new instructions — all new work is a fresh, schema-validated dispatch on `.scratch/handoff.jsonl`, so the resume channel can never bypass the auditable handoff log. Use `SendMessage` only for the bare-`continue` resume — never for peer-to-peer coordination (or the agent-teams `TeamCreate`/teammate model) that bypasses the log. With a committed runtime, commit the hook and `settings.json` together; a missing hook file fails the guard open. The flag is project-scoped (`.claude/settings.json` `env` block), not a user-level default.
+The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`), so a truncated dispatch can resume in place with a bare `continue`. A `PreToolUse` hook (`sendmessage-continue-only.py`) allows only the literal `continue` and denies everything else, failing closed. On the copy and manifest channels it lives in `.claude/hooks/`, registered in the same settings file; on marketplace the plugin ships and registers it from its cache. The invariant: a resume may not carry new instructions — all new work is a fresh, schema-validated dispatch on `.scratch/handoff.jsonl`, so the resume channel can never bypass the auditable handoff log. Use `SendMessage` only for the bare-`continue` resume — never for peer-to-peer coordination (or the agent-teams `TeamCreate`/teammate model) that bypasses the log. With a committed runtime, commit the hook and `settings.json` together; a missing hook file fails the guard open. The flag is project-scoped (`.claude/settings.json` `env` block), not a user-level default.
 
 ### Skills (Portable Workflow Knowledge)
 
-Pipeline logic lives in skills, not in agent definitions. All three tools (Claude Code, Copilot CLI, OpenCode) read skills from the harness's skill directory — committed under `.claude/skills/`, or shipped in the plugin cache on the marketplace channel.
+Pipeline logic lives in skills, not in agent definitions. All three tools read them from `.claude/skills/` in the project; Claude Code and Copilot CLI also read them from the plugin cache on the marketplace channel.
 
 | Skill | Purpose |
 |-------|---------|
@@ -131,11 +131,11 @@ Pipeline logic lives in skills, not in agent definitions. All three tools (Claud
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
-This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they are always discoverable in the same skill directory.
+This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they sit in the same skill directory.
 
 ### Reference
 
-See the `README.md` beside the agent bodies for agent roles and model assignments, and the `handoff-append` skill's `scratch-contract.md` for the scratch directory lifecycle.
+See the `handoff-routing` skill's `agentic-harness.md` § Specialist Agents for agent roles, each agent's frontmatter for its model, and the `handoff-append` skill's `scratch-contract.md` for the scratch directory lifecycle.
 
 ## Toolchain
 

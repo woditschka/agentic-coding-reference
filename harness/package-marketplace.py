@@ -61,6 +61,18 @@ HOOK_COMMAND_SHAPE = re.compile(
 )
 PROJECT_HOOK_PREFIX = "${CLAUDE_PROJECT_DIR}/.claude/hooks/"
 PLUGIN_HOOK_PREFIX = "${CLAUDE_PLUGIN_ROOT}/hooks/"
+# An agent body names an on-demand skill read by its backticked project path.
+# In a plugin the skills sit in the tool's cache: Claude Code substitutes the
+# variable when it loads the body; Copilot has no such variable, so its render
+# names the installed plugin's own skills directory and drops the no-search
+# clause, since locating the install is that tool's own step.
+SKILL_PATH_REWRITES: dict[str, tuple[tuple[str, str], ...]] = {
+    "claude": (("`.claude/skills/", "`${CLAUDE_PLUGIN_ROOT}/skills/"),),
+    "copilot": (
+        ("`.claude/skills/", "the installed plugin's `skills/"),
+        ("read on demand, never searched for:", "read on demand:"),
+    ),
+}
 BUNDLED_PRODUCER_MODULES = ("init.py", "registry.py", "write_guard.py")
 
 
@@ -99,8 +111,10 @@ def copy_merged(stack: str, rel_src: str, dest: Path) -> None:
             write_guard.copy(src / rel, target)
 
 
-def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
+def copy_agents(stack: str, tool: str, dest: Path) -> None:
     """Copy a tool's agent files flat into dest, dropping any README-prefixed file."""
+    src_rel, suffix = TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"]
+    rewrites = SKILL_PATH_REWRITES.get(tool, ())
     # The drop is broader than the sanctioned doc stems on purpose: an
     # unlisted README fails the battery, but must never ship into a plugin's
     # agent discovery while the tree is red.
@@ -115,7 +129,15 @@ def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
                 and f.name.endswith(suffix)
                 and not f.name.startswith("README")
             ):
-                write_guard.copy(f, dest / f.name)
+                if not rewrites:
+                    write_guard.copy(f, dest / f.name)
+                    continue
+                # newline="" keeps the copy byte-faithful outside the rewrite.
+                with f.open(encoding="utf-8", newline="") as src_file:
+                    body = src_file.read()
+                for old, new in rewrites:
+                    body = body.replace(old, new)
+                write_guard.write_text(dest / f.name, body, encoding="utf-8")
 
 
 def plugin_name(stack: str, tool: str) -> str:
@@ -135,9 +157,7 @@ def render_plugin(stack: str, tool: str, out: Path, release: Release) -> Plugin:
     pdir = out / "plugins" / name
     write_guard.mkdir(pdir / ".claude-plugin", parents=True)
     copy_merged(stack, ".claude/skills", pdir / "skills")
-    copy_agents(
-        stack, TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"], pdir / "agents"
-    )
+    copy_agents(stack, tool, pdir / "agents")
     hooknote = _render_hooks(pdir) if tool == "claude" else ""
     _render_engine(stack, pdir)
     _render_setup_bundle(stack, pdir, release)

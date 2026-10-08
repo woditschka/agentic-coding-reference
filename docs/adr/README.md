@@ -145,3 +145,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-09-21 | [A Stack Ships Its Brief Realization as a Fragment](2026-09-21-stack-brief-fragments.md) | Accepted |
 | 2026-10-06 | [One Confinement Engine Hosts Every Agent Tool](2026-10-06-one-engine-for-agent-dev-tools.md) | Accepted |
 | 2026-10-06 | [An Open-Weight Peer Is Reached Through a Reverse Port the Proxy Can Read](2026-10-06-open-weight-reverse-port.md) | Accepted |
+| 2026-10-08 | [An Agent Reaches a Skill by Preload or by Path, Never by Search](2026-10-08-skill-reach-without-a-skill-tool.md) | Accepted |
