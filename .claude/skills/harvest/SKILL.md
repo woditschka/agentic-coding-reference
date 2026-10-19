@@ -163,7 +163,7 @@ A schema that is structurally identical across stacks lives in `core/`; one that
 
 ### Harness Scripts (`scripts/*.py`)
 
-The engines `handoff.py`, `grading.py`, and `changeset.py` live in `core/scripts/`, their suites under `core/scripts/tests/` — shared by every stack. A logic improvement to any of them is harvested to `core/`. The real-layout grading suites (`tests/grading/test_config_layout.py`, `test_features_layout.py`) are layout-coupled and live per stack (`stacks/<stack>/scripts/tests/grading/`): harvest logic changes, never a downstream's fixture paths or sensitive-path cases. `scripts/layout.toml` is project configuration: never harvest its module rules. After a `core/` script change, run every stack's script-test suite via re-materialize, not just the source stack's.
+The engines `handoff.py`, `grading.py`, and `changeset.py` live in `core/scripts/`, their suites under `core/scripts/tests/` — shared by every stack. A logic improvement to any of them is harvested to `core/`. The per-stack grading suites (`tests/grading/test_config_layout.py`, `test_features_layout.py`, under `stacks/<stack>/scripts/tests/grading/`) pin the stack's shipped defaults and module strategies, never a downstream's layout; a downstream edit to them is the orphan case, not a harvest. The skeleton layout is pinned by `harness/tests/test_stack_layouts.py`, so a harvested skeleton change updates that table too. `scripts/layout.toml` is project configuration: never harvest its module rules. After a `core/` script change, run every stack's script-test suite via re-materialize, not just the source stack's.
 
 ### ADR Files (`docs/adr/*.md`)
 

@@ -25,16 +25,29 @@ DEPENDENCY_MANIFESTS = (
 
 
 def _tool_available(b: Battery, tool: str, hint: str) -> bool:
-    """Tell whether a static tool is on PATH, failing under --strict or skipping otherwise."""
-    if shutil.which(tool) is not None:
-        return True
-    if b.strict:
-        b.fail(
-            f"{tool} required under --strict but not installed "
-            f"(the push-time gates run --strict; {hint})"
-        )
+    """Tell whether a static tool runs, failing under --strict or skipping otherwise.
+
+    A PATH hit alone is not enough: a pipx shim outlives the interpreter its
+    venv points at (a Homebrew Python upgrade removes the old one), and exec
+    then fails with ENOENT on the tool's own name. Probing --version turns that
+    into the same verdict as a missing tool, with the repair named.
+    """
+    if shutil.which(tool) is None:
+        problem = f"not installed ({hint})"
     else:
-        b.skip(f"{tool} not installed ({hint})")
+        try:
+            subprocess.run([tool, "--version"], capture_output=True, check=False)
+        except OSError as exc:
+            problem = (
+                f"on PATH but does not run: {exc.strerror}; "
+                f"a pipx shim whose venv interpreter is gone needs: pipx reinstall-all"
+            )
+        else:
+            return True
+    if b.strict:
+        b.fail(f"{tool} required under --strict (the push-time gate) and is {problem}")
+    else:
+        b.skip(f"{tool} is {problem}")
     return False
 
 

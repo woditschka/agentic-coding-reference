@@ -146,3 +146,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-10-06 | [One Confinement Engine Hosts Every Agent Tool](2026-10-06-one-engine-for-agent-dev-tools.md) | Accepted |
 | 2026-10-06 | [An Open-Weight Peer Is Reached Through a Reverse Port the Proxy Can Read](2026-10-06-open-weight-reverse-port.md) | Accepted |
 | 2026-10-08 | [An Agent Reaches a Skill by Preload or by Path, Never by Search](2026-10-08-skill-reach-without-a-skill-tool.md) | Accepted |
+| 2026-10-19 | [A Vendored Suite Asserts Harness-Owned Facts, Never a Project's Own](2026-10-19-vendored-suites-assert-harness-owned-facts.md) | Accepted |

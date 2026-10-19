@@ -59,7 +59,7 @@ def _tests_under(scripts: Path) -> set[str]:
 
 def _script_suites() -> tuple[str, ...]:
     """Derive the scripts-suite roster every sample receives from the source tree."""
-    # Core ships most suites; the layout-bound pair ships from each stack
+    # Core ships most suites; the layout pair ships from each stack
     # layer under the same path, so the intersection keeps only what every
     # sample receives. The floor keeps a shrunken source tree loud.
     core = _tests_under(HERE / "core" / "scripts")

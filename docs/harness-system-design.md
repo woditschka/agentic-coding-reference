@@ -51,7 +51,7 @@ The Python lives in five trees with one direction of flow. The shipped runtime u
 | `accounting.py` | vendored module | Transcript usage to tokens and list-price cost; the byte-identical copy of the tools module |
 | `.claude/hooks/*.py` | hooks | Four Claude Code backstops: the sanctioned append form, the ledger write guard, the intake stop guard, the continue-only resume |
 
-The stack slices under `harness/stacks/<stack>/scripts/` ship no Python: each carries a `layout-defaults.toml` and the layout-bound tests; the generic stack adds the verb dispatcher `gate.sh`.
+The stack slices under `harness/stacks/<stack>/scripts/` ship no Python: each carries a `layout-defaults.toml` and the stack-default tests ([ADR: vendored suites assert harness-owned facts](adr/2026-10-19-vendored-suites-assert-harness-owned-facts.md)); the generic stack adds the verb dispatcher `gate.sh`.
 
 Execution model, as it exists:
 

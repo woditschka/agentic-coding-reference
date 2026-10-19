@@ -85,7 +85,8 @@ harness/
 │   │                source script by path (the hyphenated names stay).
 │   ├── test_*.py    Unit suites for every Python tool here (materialize, init,
 │   │                the refresh writers, the renderer, the battery's own
-│   │                helpers) — battery steps 2c and 6.
+│   │                helpers) plus the skeleton-layout classification pin
+│   │                (test_stack_layouts.py) — battery steps 2c and 6.
 │   ├── claude-md/test_refresh_chapters.py   The chapter writer's suite.
 │   └── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
 │                    Battery sub-suites: marketplace acceptance, real install,

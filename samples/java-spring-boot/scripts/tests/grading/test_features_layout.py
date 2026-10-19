@@ -1,32 +1,10 @@
-"""Classification against this stack's real layout.toml (Java Spring Boot) and the module strategies it exercises."""
+"""The module strategies the Java Spring Boot slice exercises, on synthetic layouts; the skeleton layout is pinned in the reference's producer suite."""
 
 import unittest
-from pathlib import Path
 
 from grading import config, features
 
-# The scripts dir (tests/grading/ lives two levels under it).
-_LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
 SRC_TREE_PATTERN = "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/"
-
-# (path, kind, module, sensitive). Module ids come from the "gradle" named
-# layout: the module root, with or without a module prefix. The sensitive
-# rows each hit exactly one glob, so a silently deleted glob fails the table.
-CASES = [
-    ("src/main/java/com/example/Foo.java", "prod", "src", False),
-    ("src/test/java/com/example/FooTest.java", "test", "src", False),
-    ("src/test/java/com/example/FooTests.java", "test", "src", False),
-    ("src/test/java/com/example/FooIT.java", "test", "src", False),
-    ("src/main/java/com/example/security/SecurityConfig.java", "prod", "src", True),
-    ("src/main/java/com/example/auth/Session.java", "prod", "src", True),
-    ("src/test/java/com/example/auth/SessionTest.java", "test", "src", True),
-    ("src/main/java/com/example/secretstore/Load.java", "prod", "src", True),
-    ("src/main/java/com/example/credentials/Store.java", "prod", "src", True),
-    ("src/main/java/com/example/apikeys/Signer.java", "prod", "src", True),
-    ("src/main/java/com/example/apitoken/Mint.java", "prod", "src", True),
-    ("docs/prd.md", "unknown", None, False),
-    ("scripts/grading.py", "unknown", None, False),
-]
 
 
 def _one_rule_layout(match, strategy):
@@ -40,24 +18,6 @@ def _one_rule_layout(match, strategy):
         review={},
         conventions={},
     )
-
-
-@unittest.skipUnless(
-    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
-)
-class Classification(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.layout = config.load_layout(_LAYOUT.parent)
-
-    def test_every_path_classifies_as_the_layout_encodes(self):
-        for path, kind, module, sensitive in CASES:
-            with self.subTest(path=path, field="kind"):
-                self.assertEqual(features.classify_kind(path, self.layout), kind)
-            with self.subTest(path=path, field="module"):
-                self.assertEqual(features.module_of(path, self.layout), module)
-            with self.subTest(path=path, field="sensitive"):
-                self.assertEqual(features.is_sensitive(path, self.layout), sensitive)
 
 
 class ModuleStrategies(unittest.TestCase):

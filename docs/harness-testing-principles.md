@@ -113,9 +113,9 @@ Every decoder of agent-written input has one test per applicable shape, named af
 | Suite | Location | Loads the source how | Battery step |
 |---|---|---|---|
 | Runtime | `harness/core/scripts/tests/`, mirroring `handoff/`, `grading/`, `changeset/` | package import from the scripts root | 4, per materialized sample |
-| Stack slices | `harness/stacks/<stack>/scripts/tests/grading/` | same, against the stack's real layout | 4 |
+| Stack slices | `harness/stacks/<stack>/scripts/tests/grading/` | same, on synthetic layouts and the stack's shipped defaults; the project's layout only through the loader | 4 |
 | Hooks | `harness/core/.claude/hooks/test_<hook>.py` | runs the hook as a subprocess on stdin JSON | 4 |
-| Producer | `harness/tests/`, one file per script | `_loader.load` by path, since the scripts keep hyphenated names | 6 |
+| Producer | `harness/tests/`, one file per script plus the skeleton-layout pin | `_loader.load` by path, since the scripts keep hyphenated names; the pin imports the core package | 6 |
 | Tools | `tools/agent-dev/tests/` | direct import | 6b |
 | Eval bench | `evals/tests/` | direct import | 6bc |
 | End-to-end | `harness/tests/test-*.sh` | installs a channel into a throwaway tree | 6c, 8, 9 |

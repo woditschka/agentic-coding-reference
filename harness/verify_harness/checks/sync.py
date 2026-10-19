@@ -245,7 +245,9 @@ OPENCODE_PERMISSION_VALUES = frozenset({"allow", "ask", "deny"})
 
 ADOPTION_TRIO = ("init", "materialize", "harvest")
 ADOPTION_CHAPTER = "## Adopt in a Project"
-VERBATIM_OWNED_FILES = frozenset({"scripts/backlog.sh", "scripts/stack.sh"})
+VERBATIM_OWNED_FILES = frozenset(
+    {"scripts/backlog.sh", "scripts/stack.sh", "scripts/layout.toml"}
+)
 
 # The hand-owned parallel file pairs, gated on rosters and vocabulary, never
 # prose.

@@ -1,31 +1,10 @@
-"""Classification against this stack's real layout.toml (Go) and the module strategies it forks onto."""
+"""The module strategies the Go slice exercises, on synthetic layouts; the skeleton layout is pinned in the reference's producer suite."""
 
 import unittest
-from pathlib import Path
 
 from grading import config, features
 
-# The scripts dir (tests/grading/ lives two levels under it).
-_LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
 SRC_TREE_PATTERN = "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/"
-
-# (path, kind, module, sensitive). The sensitive rows each hit exactly one
-# glob, so a silently deleted glob fails the table.
-CASES = [
-    ("internal/report/summary.go", "prod", "internal/report", False),
-    ("internal/report/summary_test.go", "test", "internal/report", False),
-    ("cmd/example/main.go", "prod", "cmd/example", False),
-    ("pkg/foo/bar.go", "prod", "pkg/foo", False),
-    ("internal/auth/session.go", "prod", "internal/auth", True),
-    ("internal/auth/session_test.go", "test", "internal/auth", True),
-    ("internal/secretstore/load.go", "prod", "internal/secretstore", True),
-    ("internal/credentials/store.go", "prod", "internal/credentials", True),
-    ("internal/apikeys/signer.go", "prod", "internal/apikeys", True),
-    ("internal/apitoken/mint.go", "prod", "internal/apitoken", True),
-    ("docs/prd.md", "unknown", None, False),
-    ("scripts/grading.py", "unknown", None, False),
-    ("main_test.go", "test", None, False),
-]
 
 
 def _one_rule_layout(match, strategy):
@@ -39,24 +18,6 @@ def _one_rule_layout(match, strategy):
         review={},
         conventions={},
     )
-
-
-@unittest.skipUnless(
-    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
-)
-class Classification(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.layout = config.load_layout(_LAYOUT.parent)
-
-    def test_every_path_classifies_as_the_layout_encodes(self):
-        for path, kind, module, sensitive in CASES:
-            with self.subTest(path=path, field="kind"):
-                self.assertEqual(features.classify_kind(path, self.layout), kind)
-            with self.subTest(path=path, field="module"):
-                self.assertEqual(features.module_of(path, self.layout), module)
-            with self.subTest(path=path, field="sensitive"):
-                self.assertEqual(features.is_sensitive(path, self.layout), sensitive)
 
 
 class ModuleStrategies(unittest.TestCase):

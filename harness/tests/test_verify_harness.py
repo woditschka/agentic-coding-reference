@@ -811,17 +811,22 @@ class RetiredPathsCheck(unittest.TestCase):
 
 
 class StrictToolPresence(unittest.TestCase):
-    """A missing lint tool fails under --strict and skips without it."""
+    """A missing or non-running lint tool fails under --strict and skips without it."""
 
-    def _failed_when_absent(self, check, strict):
+    def _failed_when_absent(self, check, strict, on_path=False):
+        """Run one check with the tool absent, or on PATH but failing to exec when on_path."""
         import contextlib
         import io
         import unittest.mock as mock
 
         b = battery.Battery(quick=False, strict=strict)
         sink = io.StringIO()
+        which = SOME_MYPY_PATH if on_path else None
         with (
-            mock.patch.object(lint.shutil, "which", return_value=None),
+            mock.patch.object(lint.shutil, "which", return_value=which),
+            mock.patch.object(
+                lint.subprocess, "run", side_effect=FileNotFoundError(2, "No such file")
+            ),
             contextlib.redirect_stdout(sink),
             contextlib.redirect_stderr(sink),
         ):
@@ -845,6 +850,18 @@ class StrictToolPresence(unittest.TestCase):
         for check in self._GATED:
             with self.subTest(check=check.__name__):
                 self.assertFalse(self._failed_when_absent(check, strict=False))
+
+    def test_a_tool_on_path_that_does_not_exec_is_treated_as_missing(self):
+        # A pipx shim whose venv interpreter was removed is found by PATH lookup
+        # yet raises ENOENT on exec; the verdict must match a missing tool.
+        for check in self._GATED:
+            with self.subTest(check=check.__name__):
+                self.assertTrue(
+                    self._failed_when_absent(check, strict=True, on_path=True)
+                )
+                self.assertFalse(
+                    self._failed_when_absent(check, strict=False, on_path=True)
+                )
 
 
 class MypyScope(unittest.TestCase):
@@ -871,10 +888,11 @@ class MypyScope(unittest.TestCase):
         ):
             lint.check_mypy(b)
         self.assertFalse(b.failed)
-        self.assertEqual(run.call_count, len(lint.ENTRY_MODULES))
+        # The first call is the presence probe; every entry module follows it.
+        self.assertEqual(run.call_count, 1 + len(lint.ENTRY_MODULES))
         self.assertEqual(
             [c.args[0] for c in run.call_args_list],
-            [["mypy", entry] for entry in lint.ENTRY_MODULES],
+            [["mypy", "--version"], *(["mypy", entry] for entry in lint.ENTRY_MODULES)],
         )
 
 
