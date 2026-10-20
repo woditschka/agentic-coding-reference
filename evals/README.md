@@ -15,7 +15,7 @@ Metrics carry different evidential weight. The tiers never mix.
 | Tier | Metrics | Verification | Carries claims? |
 |------|---------|--------------|-----------------|
 | A | Oracle pass/fail, suite green (against a pristine-tree baseline), build green, the refusal bar's src-change count (§ Refusal tasks), agent spend, judge spend, tokens, resolved model IDs, wall-clock | Machine-verified | Yes |
-| B | Diff size, files touched as effort proxies (agent diff only — install writes sit below a baseline commit), handoff-ledger counts, per-agent wall spans, per-stage slices (the ledger is agent-authored); named-defect probe hits, a regex over the machine-collected diff (§ Named-defect probes) | Deterministic proxy | Context only |
+| B | Diff size, files touched as effort proxies (agent diff only — install writes sit below a baseline commit), handoff-ledger counts, per-agent wall spans, per-stage slices (the ledger is agent-authored); named-defect probe hits, a regex over the machine-collected diff (§ Named-defect probes); scope coverage, the diff's files and tests against the ledger's triage (§ Scope coverage) | Deterministic proxy | Context only |
 | C | design-fit, test-quality, maintainability, doc-fit scores | Blind LLM judge, frozen rubric | Advisory only |
 
 ### Tier C hardening
@@ -31,6 +31,18 @@ The rubric ([`judge/rubric-v1.md`](judge/rubric-v1.md)) and judge model are pinn
 ### Named-defect probes
 
 A task may declare `[[defect]]` probes in its `task.toml`: a named defect, a regex over the added lines of the recorded `change.patch`, an optional `guard` regex, and an optional `files` path prefix the probe reads. A file hits when an added line matches the probe and no added line in that file matches the guard. The summarizer computes every probe over every run on record at render time. A probe declared today reads across the whole series without re-running anything. The probe reads only the committed diff, so the bar, the cost cells, the judge scores, and the task fingerprint stay as recorded, and old rows stay comparable. The result renders per rep in `TREND.md` (`hit` · `clear` · `—` for a rep with no recorded patch), on each run page, and in `trend-data.json` (`known_defects`). It is Tier B: a probe counts one named defect the bench has already seen, never security in general. A pattern can miss a fix written in a shape it does not name, and a guard in the same file clears the hit whether or not it guards that handler. Precision beyond a pattern is a probe test applied to the recorded diff at the run's own baseline, which the bench does not run.
+
+### Scope coverage
+
+The summarizer compares every run's recorded `change.patch` with the triage in its `handoff.jsonl`, at render time, over every run on record. Both inputs are agent-authored; the figure trusts them as the probes trust the patch. Three figures result.
+
+`Outside triage` counts the files outside `docs/` the patch touches that no `design-block` names, over all such files. A `design-block` by the design expert names a path in `primary_paths`, `supporting_paths`, or a `patterns[*].ref`; an entry names a file, a directory above it, or a glob. Every such `design-block` counts: a mid-slice record, a fix round or the carry after a requirements consultation, need not repeat the original paths. A superseded re-triage's paths count too, which can only undercount. Files under `docs/` never count; that surface belongs to the experts. Files outside it include project files such as `CLAUDE.md`, never the implementer's to write, so a count mixes widening with misplacement until the run page names the files.
+
+`Required tests` counts the required test names an added line of a test file carries whole, over the names required. A test file has `test` in a directory or file name. The required names are the latest `prd-entry` per requirement id, united across ids. A rename the implementer's walk notes is legitimate under the prd-authoring skill, so a low figure is a prompt to read the run, never a breach.
+
+`Consultations` is the run's recorded `consultation-request` count. The tdd-workflow skill treats the triaged file set as exhaustive and routes a widening through a consultation. The figure does not read consultations against files, so a file widened on a recorded consultation still counts; the column lets a reader apply the rule.
+
+The result renders per rep in `TREND.md`, on each run page with the files named, and in `trend-data.json` (`scope`). The cells read `outside/files` · `delivered/required`, and `—` for a rep with no recorded patch or no `design-block`. A patch over 1 MB, a ledger over its cap, or a triage or test list over 500 entries renders `—`. It is Tier B: the figure reads only committed records, so the bar, the cost cells, and the task fingerprint stay as recorded.
 
 ## Cost accounting and statistical discipline
 

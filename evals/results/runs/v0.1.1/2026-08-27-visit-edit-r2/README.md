@@ -94,6 +94,14 @@ Tier B context, never part of the bar: a pattern over this run's added lines, de
 |---|---|---|
 | `owner-mass-assignment` | hit | A handler binds the persisted Owner aggregate from the request with no binder allow-list beside it |
 
+## Scope coverage
+
+Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).
+
+- files outside `docs/`: 3; outside the triage: 0
+- required test names carried whole: 0/5
+- consultation requests recorded: 0
+
 ## Figures
 
 | agent spend | wall | turns | cache hit | diff |

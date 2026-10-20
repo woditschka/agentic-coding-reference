@@ -7,6 +7,7 @@ view. Every rendered string is scrubbed to stay inert in a terminal.
 """
 
 import datetime
+import fnmatch
 import functools
 import itertools
 import json
@@ -310,6 +311,188 @@ def defect_hits(patch: str, probes: tuple[DefectProbe, ...]) -> dict[str, bool]:
     return hits
 
 
+# Scope coverage reads two agent-authored surfaces, the ledger's triage and
+# the patch. Each is capped so one committed hostile folder cannot stall
+# every later render; an input over its cap renders as unrecorded.
+MAX_PATCH_BYTES = 1024 * 1024
+MAX_TRIAGE_ENTRIES = 500
+MAX_TEST_NAMES = 500
+MAX_LISTED_PATHS = 100
+_DOCS_ROOT = "docs"
+_TRIAGE_PATH_FIELDS = ("primary_paths", "supporting_paths")
+_DESIGN_AUTHOR = "system-design-expert"
+_PRD_AUTHORS = frozenset({"product-requirements-expert", "system-design-expert"})
+_GLOB_CHARS = frozenset("*?[")
+_WORD = re.compile(r"\w+")
+# A test file: a path with `test` in a directory or file name, which covers
+# src/test/, *_test.go, *Test.java and *Tests.java without a stack layout.
+_TEST_PATH = re.compile(r"test", re.IGNORECASE)
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeFacts:
+    """The triage-versus-delivery comparison over one run's recorded ledger and patch."""
+
+    # Tier B context, deterministic over committed records, never part of
+    # the bar. A file outside the triage is one no design-block named; a
+    # required test name the patch never carries is one the slice's
+    # contract named and the change does not, dropped or renamed.
+
+    files: int
+    outside_triage: tuple[str, ...]
+    tests_required: int
+    tests_delivered: int
+
+
+def _unquoted(name: str) -> str:
+    """Return a header path without the quotes git puts around a name with special bytes."""
+    if name != '"' and name.startswith('"') and name.endswith('"'):
+        return name[1:-1]
+    return name
+
+
+def _header_path(target: str) -> str | None:
+    """Return a `---`/`+++` header's path without its `a/` or `b/` prefix, or None for /dev/null."""
+    name = _unquoted(target.strip())
+    if name == "/dev/null":
+        return None
+    return name[2:] if name[:2] in ("a/", "b/") else name
+
+
+def _patch_files(patch: str) -> set[str]:
+    """Return every path the patch touches by its header lines: post-image name, pre-image for a deletion."""
+    # A pure rename carries no `---`/`+++` pair, only `rename to`; the
+    # header forms are read only outside a file's hunks, as the added-line
+    # scan reads them, so hunk content never names a phantom file.
+    files: set[str] = set()
+    minus: str | None = None
+    seen_minus = False
+    in_hunks = False
+    for line in patch.splitlines():
+        if line.startswith("diff "):
+            in_hunks = False
+            seen_minus = False
+            continue
+        if in_hunks:
+            continue
+        if line.startswith("rename to "):
+            files.add(line[len("rename to ") :].strip())
+        elif line.startswith("--- "):
+            minus = _header_path(line[4:])
+            seen_minus = True
+            continue
+        elif line.startswith("+++ ") and seen_minus:
+            path = _header_path(line[4:])
+            if path is None:
+                path = minus
+            if path is not None:
+                files.add(path)
+            in_hunks = True
+        seen_minus = False
+    return files
+
+
+def _triage_entries(records: list[dict[str, object]]) -> tuple[str, ...] | None:
+    """Collect the entries every design expert's design-block names, or None when none was recorded."""
+    # Every design-block counts, not the latest: a mid-slice record, a fix
+    # round or the carry after a requirements consultation, need not repeat
+    # the original paths. A superseded re-triage's paths count too, which
+    # can only undercount.
+    entries: list[str] = []
+    seen = False
+    for record in records:
+        if (
+            record.get("type") != "design-block"
+            or record.get("author") != _DESIGN_AUTHOR
+        ):
+            continue
+        seen = True
+        for field in _TRIAGE_PATH_FIELDS:
+            entries += [p for p in _list(record.get(field)) if isinstance(p, str)]
+        for pattern in _list(record.get("patterns")):
+            ref = pattern.get("ref") if isinstance(pattern, dict) else None
+            if isinstance(ref, str):
+                entries.append(re.split(r"[:#\s]", ref, maxsplit=1)[0])
+    return (
+        tuple(dict.fromkeys(e.strip() for e in entries if e.strip())) if seen else None
+    )
+
+
+def _triaged(path: str, entries: tuple[str, ...]) -> bool:
+    """Tell whether an entry names the path: as the file, a directory above it, or a glob."""
+    return any(
+        fnmatch.fnmatchcase(path, entry)
+        if _GLOB_CHARS & set(entry)
+        else _under(path, entry)
+        for entry in entries
+    )
+
+
+def _required_tests(records: list[dict[str, object]]) -> tuple[str, ...]:
+    """Unite the latest prd-entry's test names per requirement id, blanks and duplicates dropped."""
+    latest: dict[str, list[str]] = {}
+    for record in records:
+        if (
+            record.get("type") != "prd-entry"
+            or record.get("author") not in _PRD_AUTHORS
+        ):
+            continue
+        latest[str(record.get("req_id"))] = [
+            n.strip() for n in _list(record.get("test_names")) if isinstance(n, str)
+        ]
+    return tuple(dict.fromkeys(n for names in latest.values() for n in names if n))
+
+
+def _delivered(names: tuple[str, ...], by_file: dict[str, list[str]]) -> int:
+    """Count the names an added line of a test file carries whole."""
+    # Word tokens are collected once, so an identifier name costs one set
+    # lookup; a name with other characters scans the joined text once.
+    added = [
+        line
+        for path, lines in by_file.items()
+        if _TEST_PATH.search(path) and not _under(path, _DOCS_ROOT)
+        for line in lines
+    ]
+    tokens = {token for line in added for token in _WORD.findall(line)}
+    text = "\n".join(added)
+    return sum(
+        1
+        for name in names
+        if (
+            name in tokens
+            if _WORD.fullmatch(name)
+            else re.search(rf"(?<!\w){re.escape(name)}(?!\w)", text) is not None
+        )
+    )
+
+
+def scope_facts(records: list[dict[str, object]], patch: str) -> ScopeFacts | None:
+    """Compare the recorded patch with the ledger's triage, or None when either input is unusable."""
+    entries = _triage_entries(records)
+    names = _required_tests(records)
+    if (
+        entries is None
+        or len(patch) > MAX_PATCH_BYTES
+        or len(entries) > MAX_TRIAGE_ENTRIES
+        or len(names) > MAX_TEST_NAMES
+    ):
+        return None
+    # docs/ is the experts' surface, written on the slice's behalf; every
+    # other file counts toward the implementer's scope.
+    # The added-line scan keys a quoted header by its quoted name.
+    by_file = {
+        _unquoted(path).removeprefix("b/") if path.startswith('"') else path: lines
+        for path, lines in _added_lines_by_file(patch).items()
+    }
+    files = sorted(p for p in _patch_files(patch) if not _under(p, _DOCS_ROOT))
+    return ScopeFacts(
+        files=len(files),
+        outside_triage=tuple(p for p in files if not _triaged(p, entries)),
+        tests_required=len(names),
+        tests_delivered=_delivered(names, by_file),
+    )
+
+
 # Control bytes, escape sequences, table syntax, code-span backticks, and
 # direction-control, zero-width, or line/paragraph-separator characters have
 # no place in a cell — a backtick in agent-influenced content could close
@@ -411,6 +594,9 @@ class Run:
     # Named-defect probe results over the recorded change.patch (probe id →
     # hit); None when the task declares no probe or the run kept no patch.
     known_defects: dict[str, bool] | None = None
+    # Triage-versus-delivery facts over the recorded ledger and patch; None
+    # when the run kept no patch or recorded no design-block.
+    scope: ScopeFacts | None = None
 
     @property
     def agent_spend(self) -> float:
@@ -549,6 +735,17 @@ def _known_defects(
     )
 
 
+def _scope(folder: Path) -> ScopeFacts | None:
+    """Compare the folder's recorded patch with its ledger's triage; None without a patch, a design-block, or within the caps."""
+    patch_path = folder / "change.patch"
+    if not patch_path.is_file():
+        return None
+    return scope_facts(
+        ledger_records(folder),
+        patch_path.read_text(encoding="utf-8", errors="replace"),
+    )
+
+
 def _warn(message: str, folder: Path) -> None:
     """Report one loading note on stderr, naming the run folder."""
     rel = folder.relative_to(RUNS_DIR.parent).as_posix()
@@ -636,6 +833,7 @@ def _run_from_folder(
         fingerprint=_str_or_none(task.get("fingerprint")) or "",
         route_decision=route,
         known_defects=_known_defects(folder, task_id, probes_by_task),
+        scope=_scope(folder),
         stalled=run_stalled(outcome, folder),
     )
 
@@ -1728,7 +1926,7 @@ def _sweep_lines(runs: list[Run], layout: _Layout) -> list[str]:
 
 
 def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
-    """Render the trend tables, the sweep spend, the judge medians, and the defect probes."""
+    """Render the trend tables, the sweep spend, the judge medians, the defect probes, and scope coverage."""
     layout = _layout(runs)
     bullets = list(_TREND_BULLETS)
     if _has_comparable_pair(runs):
@@ -1739,6 +1937,7 @@ def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
     lines += _sweep_lines(runs, layout)
     lines += _judge_section(runs)
     lines += defect_section(runs)
+    lines += scope_section(runs)
     return lines
 
 
@@ -1827,21 +2026,19 @@ def defect_section(runs: list[Run]) -> list[str]:
     ]
     # Every rep of a probed task renders, a rep that kept no patch as "—":
     # the cell keeps Reps order and the spread stays visible.
-    probed_tasks = {r.task for r in probed}
-    rows = sorted(
-        (r for r in runs if r.task in probed_tasks), key=lambda r: (r.task, r.started)
-    )
-    rows.sort(key=lambda r: version_key(r.version), reverse=True)
-    for task in sorted(probed_tasks):
-        task_rows = [r for r in rows if r.task == task]
-        ids = sorted({pid for r in task_rows for pid in (r.known_defects or {})})
+    for task, cells in _task_cells(runs, {r.task for r in probed}):
+        ids = sorted(
+            {
+                pid
+                for cell in cells.values()
+                for r in cell
+                for pid in (r.known_defects or {})
+            }
+        )
         lines.append(f"#### {scrub(task)}")
         lines.append("")
         lines.append("| Version | Reps | " + " | ".join(scrub(i) for i in ids) + " |")
         lines.append("|---" * (len(ids) + 2) + "|")
-        cells: dict[str, list[Run]] = {}
-        for r in task_rows:
-            cells.setdefault(scrub(r.version), []).append(r)
         for version, cell_runs in cells.items():
             rep_cell = ", ".join(rep_link(r) for r in cell_runs)
             probe_cells = " | ".join(
@@ -1850,6 +2047,24 @@ def defect_section(runs: list[Run]) -> list[str]:
             lines.append(f"| {version} | {rep_cell} | {probe_cells} |")
         lines.append("")
     return lines
+
+
+def _task_cells(
+    runs: list[Run], tasks: set[str]
+) -> list[tuple[str, dict[str, list[Run]]]]:
+    """Group every rep of the named tasks by task, then version newest first, reps in start order."""
+    rows = sorted(
+        (r for r in runs if r.task in tasks), key=lambda r: (r.task, r.started)
+    )
+    rows.sort(key=lambda r: version_key(r.version), reverse=True)
+    grouped: list[tuple[str, dict[str, list[Run]]]] = []
+    for task in sorted(tasks):
+        cells: dict[str, list[Run]] = {}
+        for r in rows:
+            if r.task == task:
+                cells.setdefault(scrub(r.version), []).append(r)
+        grouped.append((task, cells))
+    return grouped
 
 
 def _run_defect_lines(manifest: dict[str, object], patch: str | None) -> list[str]:
@@ -1884,6 +2099,61 @@ def _defect_cell(r: Run, probe_id: str) -> str:
     if probe_id not in hits:
         return "—"
     return "hit" if hits[probe_id] else "clear"
+
+
+def scope_section(runs: list[Run]) -> list[str]:
+    """Render one scope-coverage table per task with a comparable rep on record."""
+    scoped = [r for r in runs if r.scope is not None]
+    if not scoped:
+        return []
+    lines = [
+        "### Scope coverage",
+        "",
+        "Tier B context, never a claim: each rep's recorded `change.patch` is"
+        " compared with the triage in its ledger. `Outside triage` counts the"
+        " files outside `docs/` the patch touches that no `design-block`"
+        " names, over all such files. `Required tests` counts the required"
+        " test names an added test line carries whole, over the names"
+        " required. `Consultations` is the rep's recorded"
+        " `consultation-request` count. The run page names the files; the"
+        " bar and the cost cells never read it (README § Scope coverage).",
+        "",
+    ]
+    # Every rep of a scoped task renders, a rep without facts as "—": the
+    # cell keeps Reps order and the spread stays visible.
+    for task, cells in _task_cells(runs, {r.task for r in scoped}):
+        lines.append(f"#### {scrub(task)}")
+        lines.append("")
+        lines.append(
+            "| Version | Reps | Outside triage | Required tests | Consultations |"
+        )
+        lines.append("|---|---|---|---|---|")
+        for version, cell_runs in cells.items():
+            rep_cell = ", ".join(rep_link(r) for r in cell_runs)
+            outside = " · ".join(_outside_cell(r) for r in cell_runs)
+            tests = " · ".join(_tests_cell(r) for r in cell_runs)
+            consults = " · ".join(
+                "—" if r.scope is None else str(r.consultations) for r in cell_runs
+            )
+            lines.append(
+                f"| {version} | {rep_cell} | {outside} | {tests} | {consults} |"
+            )
+        lines.append("")
+    return lines
+
+
+def _outside_cell(r: Run) -> str:
+    """Render one rep's files outside the triage over its files outside docs/, or a dash."""
+    if r.scope is None:
+        return "—"
+    return f"{len(r.scope.outside_triage)}/{r.scope.files}"
+
+
+def _tests_cell(r: Run) -> str:
+    """Render one rep's delivered required tests over the required count, or a dash."""
+    if r.scope is None:
+        return "—"
+    return f"{r.scope.tests_delivered}/{r.scope.tests_required}"
 
 
 def grader_concordance_section(runs: list[Run]) -> list[str]:
@@ -2561,6 +2831,7 @@ class RunFolder:
     suite_failures: list[str] | None = None
     grade: str | None = None
     stalled: bool = False
+    scope: ScopeFacts | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -2956,6 +3227,36 @@ def _provenance_lines(folder: RunFolder, facts: _PageFacts) -> list[str]:
     ]
 
 
+def _run_scope_lines(folder: RunFolder) -> list[str]:
+    """Render the run page's scope-coverage figures and the files outside the triage, empty without facts."""
+    scope = folder.scope
+    if scope is None:
+        return []
+    consultations = _int_or_none(
+        _table(folder.result, "pipeline").get("consultation_requests")
+    )
+    lines = [
+        "",
+        "## Scope coverage",
+        "",
+        "Tier B context, never part of the bar: this run's recorded diff against"
+        " the triage in its ledger (README § Scope coverage).",
+        "",
+        f"- files outside `docs/`: {scope.files}; outside the triage:"
+        f" {len(scope.outside_triage)}",
+        f"- required test names carried whole: {scope.tests_delivered}/{scope.tests_required}",
+        f"- consultation requests recorded: {'—' if consultations is None else consultations}",
+    ]
+    if scope.outside_triage:
+        lines += ["", "Outside the triage:", ""]
+        lines += [
+            f"- `{scrub(path)}`" for path in scope.outside_triage[:MAX_LISTED_PATHS]
+        ]
+        if len(scope.outside_triage) > MAX_LISTED_PATHS:
+            lines.append(f"- … and {len(scope.outside_triage) - MAX_LISTED_PATHS} more")
+    return lines
+
+
 def render_run_page(folder: RunFolder) -> str:
     """Render one run folder as prose, derived from its records and texts alone."""
     facts = _page_facts(folder)
@@ -2965,6 +3266,7 @@ def render_run_page(folder: RunFolder) -> str:
         *_checkpoint_lines(facts),
         *_judge_lines(facts.judge),
         *_run_defect_lines(folder.manifest, folder.patch),
+        *_run_scope_lines(folder),
         *_figure_lines(folder, facts),
         *_change_lines(folder.patch),
         *_pipeline_lines(folder.board, folder.approved),
@@ -3003,6 +3305,7 @@ def _run_folder(out_dir: Path) -> RunFolder | None:
         suite_failures=failed_suite_tests(out_dir),
         grade=ledger_grader_verdict(out_dir),
         stalled=run_stalled(outcome, out_dir),
+        scope=_scope(out_dir),
     )
 
 
@@ -3041,7 +3344,7 @@ def trend_data_json(tagged: list[Run]) -> str:
         tagged, key=lambda r: (r.task, order[r.version], r.model_requested, r.rep)
     )
     payload = {
-        "spec_version": "0.2.0",
+        "spec_version": "0.3.0",
         "versions": versions,
         "reps": [
             {
@@ -3060,12 +3363,26 @@ def trend_data_json(tagged: list[Run]) -> str:
                 else round(r.delivery_wall, 1),
                 "judge_facet_medians": r.judge_median,
                 "known_defects": r.known_defects,
+                "scope": _scope_payload(r.scope),
                 "run_folder": r.folder,
             }
             for r in rows
         ],
     }
     return json.dumps(payload, indent=1, sort_keys=True) + "\n"
+
+
+def _scope_payload(scope: ScopeFacts | None) -> dict[str, object] | None:
+    """Return the rep's scope facts as JSON data, or None unrecorded."""
+    if scope is None:
+        return None
+    return {
+        "files": scope.files,
+        "outside_triage": list(scope.outside_triage[:MAX_LISTED_PATHS]),
+        "outside_triage_count": len(scope.outside_triage),
+        "tests_required": scope.tests_required,
+        "tests_delivered": scope.tests_delivered,
+    }
 
 
 FIGURE_SOURCE = EVALS.parent / "docs" / "images" / "eval-trend.drawio"

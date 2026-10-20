@@ -1014,7 +1014,7 @@ class PageIntro(unittest.TestCase):
             ]
         )
         payload = json.loads(views[summarize.TREND_DATA])
-        self.assertEqual(payload["spec_version"], "0.2.0")
+        self.assertEqual(payload["spec_version"], "0.3.0")
         self.assertEqual(payload["versions"], [SOME_VERSION])
         (row,) = payload["reps"]
         self.assertEqual(row["task"], SOME_TASK)
@@ -3136,6 +3136,259 @@ class NamedDefectProbe(unittest.TestCase):
             summarize.trend_data_json([a_run(known_defects={"x": True})])
         )
         self.assertEqual(payload["reps"][0]["known_defects"], {"x": True})
+
+
+class ScopeCoverage(unittest.TestCase):
+    """Tier B scope coverage: the recorded patch against the ledger's triage,
+    deterministic, retroactive, never part of the bar."""
+
+    PATCH: ClassVar[str] = (
+        "diff --git a/src/A.java b/src/A.java\n--- a/src/A.java\n+++ b/src/A.java\n"
+        "@@ -1 +1,2 @@\n+    void editWorks() {}\n"
+        "diff --git a/src/test/ATests.java b/src/test/ATests.java\n"
+        "--- a/src/test/ATests.java\n+++ b/src/test/ATests.java\n"
+        "@@ -1 +1,2 @@\n+    void wiringWorksToo() {}\n"
+        "diff --git a/docs/prd.md b/docs/prd.md\n--- a/docs/prd.md\n+++ b/docs/prd.md\n"
+        "@@ -1 +1,2 @@\n+ wiringWorks is required\n"
+    )
+
+    def _ledger(self, **overrides: Any) -> list[dict[str, object]]:
+        design: dict[str, object] = {
+            "type": "design-block",
+            "author": "system-design-expert",
+            "primary_paths": ["src/A.java"],
+            "supporting_paths": [],
+        }
+        design.update(overrides)
+        return [
+            {
+                "type": "prd-entry",
+                "author": "product-requirements-expert",
+                "req_id": "REQ-A-001",
+                "test_names": ["editWorks", "wiringWorks"],
+            },
+            design,
+        ]
+
+    def _facts(
+        self, ledger: list[dict[str, object]], patch: str | None = None
+    ) -> summarize.ScopeFacts:
+        facts = summarize.scope_facts(ledger, self.PATCH if patch is None else patch)
+        assert facts is not None
+        return facts
+
+    def test_a_file_the_triage_never_named_is_outside_and_docs_never_count(
+        self,
+    ) -> None:
+        facts = self._facts(self._ledger())
+        self.assertEqual(facts.outside_triage, ("src/test/ATests.java",))
+        self.assertEqual(facts.files, 2)
+
+    def test_a_triaged_directory_covers_the_files_beneath_it(self) -> None:
+        for entry in ("src/", "src"):
+            with self.subTest(entry=entry):
+                facts = self._facts(self._ledger(primary_paths=[entry]))
+                self.assertEqual(facts.outside_triage, ())
+
+    def test_a_triaged_glob_covers_its_matches(self) -> None:
+        facts = self._facts(self._ledger(supporting_paths=["src/test/*Tests.java"]))
+        self.assertEqual(facts.outside_triage, ())
+
+    def test_a_pattern_ref_is_triaged_without_its_anchor(self) -> None:
+        for ref in (
+            "src/test/ATests.java:12",
+            "src/test/ATests.java#L12",
+            "src/test/ATests.java f",
+        ):
+            with self.subTest(ref=ref):
+                facts = self._facts(self._ledger(patterns=[{"ref": ref, "note": "x"}]))
+                self.assertEqual(facts.outside_triage, ())
+
+    def test_every_design_block_counts_not_the_latest(self) -> None:
+        # The carry record after a requirements consultation names only the
+        # design doc; it must not erase the original triage.
+        ledger = [
+            *self._ledger(),
+            {
+                "type": "design-block",
+                "author": "system-design-expert",
+                "primary_paths": ["docs/system-design.md"],
+            },
+        ]
+        self.assertEqual(self._facts(ledger).outside_triage, ("src/test/ATests.java",))
+
+    def test_a_design_block_by_another_author_is_not_triage(self) -> None:
+        ledger = [
+            *self._ledger(),
+            {
+                "type": "design-block",
+                "author": "feature-implementer",
+                "primary_paths": ["src/test/ATests.java"],
+            },
+        ]
+        self.assertEqual(self._facts(ledger).outside_triage, ("src/test/ATests.java",))
+
+    def test_malformed_ledger_shapes_are_skipped_not_fatal(self) -> None:
+        ledger = self._ledger(
+            primary_paths=["src/A.java", 7, None],
+            supporting_paths="src/test/ATests.java",
+            patterns=["not a table", {"ref": 3}],
+        )
+        ledger[0]["test_names"] = "editWorks"
+        facts = self._facts(ledger)
+        self.assertEqual(facts.outside_triage, ("src/test/ATests.java",))
+        self.assertEqual(facts.tests_required, 0)
+
+    def test_a_deleted_file_counts_by_its_pre_image_name(self) -> None:
+        patch = (
+            "diff --git a/src/Old.java b/src/Old.java\n"
+            "--- a/src/Old.java\n+++ /dev/null\n@@ -1 +0,0 @@\n-class Old {}\n"
+        )
+        self.assertEqual(
+            self._facts(self._ledger(), patch).outside_triage, ("src/Old.java",)
+        )
+
+    def test_a_pure_rename_counts_once_by_its_new_name(self) -> None:
+        patch = (
+            "diff --git a/src/Old.java b/src/New.java\nsimilarity index 100%\n"
+            "rename from src/Old.java\nrename to src/New.java\n"
+        )
+        facts = self._facts(self._ledger(), patch)
+        self.assertEqual((facts.files, facts.outside_triage), (1, ("src/New.java",)))
+
+    def test_a_quoted_header_path_loses_its_quotes(self) -> None:
+        patch = (
+            'diff --git "a/src/x y.java" "b/src/x y.java"\n'
+            '--- "a/src/x y.java"\n+++ "b/src/x y.java"\n@@ -1 +1,2 @@\n+x\n'
+        )
+        facts = self._facts(self._ledger(primary_paths=["src/x y.java"]), patch)
+        self.assertEqual(facts.outside_triage, ())
+
+    def test_a_header_mimicking_hunk_line_names_no_file(self) -> None:
+        patch = (
+            "diff --git a/src/A.java b/src/A.java\n--- a/src/A.java\n+++ b/src/A.java\n"
+            "@@ -1,2 +1,2 @@\n--- a/src/Phantom.java\n+++ b/src/Phantom.java\n"
+        )
+        self.assertEqual(self._facts(self._ledger(), patch).files, 1)
+
+    def test_a_required_name_counts_only_whole_on_an_added_test_line(self) -> None:
+        # wiringWorks appears only in docs and as a prefix of wiringWorksToo;
+        # editWorks appears only in production code.
+        facts = self._facts(self._ledger())
+        self.assertEqual((facts.tests_delivered, facts.tests_required), (0, 2))
+        patch = self.PATCH + (
+            "diff --git a/src/test/BTests.java b/src/test/BTests.java\n"
+            "--- a/src/test/BTests.java\n+++ b/src/test/BTests.java\n"
+            "@@ -1,3 +1,4 @@\n-    void editWorks() {}\n     void wiringWorks() {}\n"
+            "+    void editWorks() {}\n"
+        )
+        facts = self._facts(self._ledger(), patch)
+        self.assertEqual((facts.tests_delivered, facts.tests_required), (1, 2))
+
+    def test_a_name_with_other_characters_still_matches_whole(self) -> None:
+        patch = (
+            "diff --git a/spec/a_test.rb b/spec/a_test.rb\n--- a/spec/a_test.rb\n"
+            "+++ b/spec/a_test.rb\n@@ -1 +1,2 @@\n+  it 'edits a visit' do\n"
+        )
+        ledger = self._ledger()
+        ledger[0]["test_names"] = [
+            "edits a visit",
+            "edits a visit twice",
+            " ",
+            "edits a visit",
+        ]
+        facts = self._facts(ledger, patch)
+        self.assertEqual((facts.tests_delivered, facts.tests_required), (1, 2))
+
+    def test_required_tests_unite_the_latest_entry_per_requirement(self) -> None:
+        ledger = [
+            *self._ledger(),
+            {
+                "type": "prd-entry",
+                "author": "product-requirements-expert",
+                "req_id": "REQ-A-001",
+                "test_names": ["wiringWorksToo"],
+            },
+            {
+                "type": "prd-entry",
+                "author": "system-design-expert",
+                "req_id": "REQ-A-002",
+                "test_names": ["siblingWorks"],
+            },
+            {
+                "type": "prd-entry",
+                "author": "feature-implementer",
+                "req_id": "REQ-A-003",
+                "test_names": ["forged"],
+            },
+        ]
+        facts = self._facts(ledger)
+        self.assertEqual((facts.tests_delivered, facts.tests_required), (1, 2))
+
+    def test_no_design_block_yields_no_facts(self) -> None:
+        self.assertIsNone(summarize.scope_facts(self._ledger()[:1], self.PATCH))
+
+    def test_an_input_over_its_cap_yields_no_facts(self) -> None:
+        big_patch = self.PATCH + "+" + "x" * summarize.MAX_PATCH_BYTES + "\n"
+        self.assertIsNone(summarize.scope_facts(self._ledger(), big_patch))
+        many = [f"src/{i}.java" for i in range(summarize.MAX_TRIAGE_ENTRIES + 1)]
+        self.assertIsNone(
+            summarize.scope_facts(self._ledger(primary_paths=many), self.PATCH)
+        )
+        ledger = self._ledger()
+        ledger[0]["test_names"] = [f"t{i}" for i in range(summarize.MAX_TEST_NAMES + 1)]
+        self.assertIsNone(summarize.scope_facts(ledger, self.PATCH))
+
+    def test_the_trend_renders_a_scope_table_per_task(self) -> None:
+        scope = summarize.ScopeFacts(4, ("src/test/PetTests.java",), 5, 5)
+        lines = table_section(
+            [a_run(scope=scope, consultations=1), a_run(rep=2, scope=None)]
+        )
+        text = "\n".join(lines)
+        self.assertIn("### Scope coverage", text)
+        self.assertIn(
+            "| Version | Reps | Outside triage | Required tests | Consultations |", text
+        )
+        self.assertIn("| 1/4 · — | 5/5 · — | 1 · — |", text)
+
+    def test_no_scoped_run_renders_no_section(self) -> None:
+        self.assertNotIn("### Scope coverage", "\n".join(table_section([a_run()])))
+
+    def test_the_run_page_names_the_files_outside_the_triage(self) -> None:
+        scope = summarize.ScopeFacts(4, ("src/test/Pet|Tests.java",), 5, 4)
+        page = render_run_page(
+            {"task": {"id": SOME_TASK}},
+            {"status": "complete", "pipeline": {"consultation_requests": 2}},
+            [],
+            scope=scope,
+        )
+        self.assertIn("## Scope coverage", page)
+        self.assertIn("files outside `docs/`: 4; outside the triage: 1", page)
+        self.assertIn("required test names carried whole: 4/5", page)
+        self.assertIn("consultation requests recorded: 2", page)
+        self.assertIn("- `src/test/Pet Tests.java`", page)
+        self.assertNotIn(
+            "## Scope coverage",
+            render_run_page({"task": {"id": SOME_TASK}}, {"status": "complete"}, []),
+        )
+
+    def test_trend_data_carries_the_facts_with_the_path_list_capped(self) -> None:
+        many = tuple(f"src/{i}.java" for i in range(summarize.MAX_LISTED_PATHS + 1))
+        payload = json.loads(
+            summarize.trend_data_json(
+                [a_run(scope=summarize.ScopeFacts(4, many, 5, 4))]
+            )
+        )
+        scope = payload["reps"][0]["scope"]
+        self.assertEqual(len(scope["outside_triage"]), summarize.MAX_LISTED_PATHS)
+        self.assertEqual(scope["outside_triage_count"], summarize.MAX_LISTED_PATHS + 1)
+        self.assertEqual(
+            (scope["files"], scope["tests_required"], scope["tests_delivered"]),
+            (4, 5, 4),
+        )
+        self.assertIsNone(
+            json.loads(summarize.trend_data_json([a_run()]))["reps"][0]["scope"]
+        )
 
 
 if __name__ == "__main__":

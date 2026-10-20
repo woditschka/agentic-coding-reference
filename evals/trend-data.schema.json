@@ -38,7 +38,8 @@
      "wall_seconds",
      "delivery_wall_seconds",
      "judge_facet_medians",
-    "known_defects",
+     "known_defects",
+     "scope",
      "run_folder",
      "models"
     ],
@@ -95,6 +96,51 @@
        "type": "boolean"
       },
       "description": "Named-defect probe results for this rep \u2014 probe id to whether the recorded diff carries the defect \u2014 or null when the task declares no [[defect]] probe or the run kept no change.patch. Tier B, computed over the recorded diff of every run on record; context only, never the bar."
+     },
+     "scope": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+       "files",
+       "outside_triage",
+       "outside_triage_count",
+       "tests_required",
+       "tests_delivered"
+      ],
+      "properties": {
+       "files": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Files outside docs/ the recorded diff touches."
+       },
+       "outside_triage": {
+        "type": "array",
+        "maxItems": 100,
+        "items": {
+         "type": "string"
+        },
+        "description": "The files among them that no design expert's design-block names in primary_paths, supporting_paths, or a patterns[*].ref \u2014 as a file, a directory above it, or a glob. The first 100 at most; outside_triage_count holds the full count."
+       },
+       "outside_triage_count": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "The number of files outside the triage, uncapped."
+       },
+       "tests_required": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Test names required: the latest prd-entry per requirement id, united across ids."
+       },
+       "tests_delivered": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Those names appearing whole on an added line of a test file."
+       }
+      },
+      "description": "Scope coverage for this rep \u2014 the recorded diff against the ledger's triage \u2014 or null when the run kept no change.patch, recorded no design-block, or an input is over its cap. Tier B, computed over every run on record; context only, never the bar."
      },
      "run_folder": {
       "type": "string",

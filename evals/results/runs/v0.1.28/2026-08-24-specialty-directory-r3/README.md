@@ -86,6 +86,27 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 </details>
 
+## Scope coverage
+
+Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).
+
+- files outside `docs/`: 15; outside the triage: 10
+- required test names carried whole: 0/5
+- consultation requests recorded: 0
+
+Outside the triage:
+
+- `src/main/resources/messages/messages_de.properties`
+- `src/main/resources/messages/messages_es.properties`
+- `src/main/resources/messages/messages_fa.properties`
+- `src/main/resources/messages/messages_hi.properties`
+- `src/main/resources/messages/messages_ja.properties`
+- `src/main/resources/messages/messages_ko.properties`
+- `src/main/resources/messages/messages_pt.properties`
+- `src/main/resources/messages/messages_ru.properties`
+- `src/main/resources/messages/messages_tr.properties`
+- `src/test/java/org/springframework/samples/petclinic/vet/SpecialtyRepositoryTests.java`
+
 ## Figures
 
 Delivery — the change grader's share below excluded from spend and wall:

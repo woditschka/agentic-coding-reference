@@ -92,6 +92,18 @@ Tier B context, never part of the bar: a pattern over this run's added lines, de
 |---|---|---|
 | `owner-mass-assignment` | clear | A handler binds the persisted Owner aggregate from the request with no binder allow-list beside it |
 
+## Scope coverage
+
+Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).
+
+- files outside `docs/`: 4; outside the triage: 1
+- required test names carried whole: 6/6
+- consultation requests recorded: 0
+
+Outside the triage:
+
+- `src/main/java/org/springframework/samples/petclinic/owner/Pet.java`
+
 ## Figures
 
 | agent spend | wall | turns | cache hit | diff |

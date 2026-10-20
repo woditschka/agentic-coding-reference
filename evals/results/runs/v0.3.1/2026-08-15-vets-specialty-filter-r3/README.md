@@ -91,6 +91,14 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 </details>
 
+## Scope coverage
+
+Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).
+
+- files outside `docs/`: 5; outside the triage: 0
+- required test names carried whole: 6/8
+- consultation requests recorded: 0
+
 ## Figures
 
 Delivery — the change grader's share below excluded from spend and wall:

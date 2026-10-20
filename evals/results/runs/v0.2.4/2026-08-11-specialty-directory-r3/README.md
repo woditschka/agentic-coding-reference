@@ -59,6 +59,18 @@ The kind's graded ladder, derived from the recorded facts — context only, outs
 - ✔ `theSpecialtyDirectoryShouldRender`
 - ✔ `theVetDirectoryShouldRenderTheSeededVets`
 
+## Scope coverage
+
+Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).
+
+- files outside `docs/`: 17; outside the triage: 1
+- required test names carried whole: 7/7
+- consultation requests recorded: 0
+
+Outside the triage:
+
+- `src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java`
+
 ## Figures
 
 | agent spend | wall | turns | cache hit | diff |
