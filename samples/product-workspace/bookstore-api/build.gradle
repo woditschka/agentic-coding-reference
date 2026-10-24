@@ -18,11 +18,11 @@ repositories {
 	mavenCentral()
 }
 
-// The versions Spring Boot 4.1.1 manages, restated here because the contract
+// The versions Spring Boot 4.1.2 manages, restated here because the contract
 // library carries no Spring dependency of its own.
 ext {
-	grpcVersion = '1.83.1'
-	protobufVersion = '4.35.1'
+	grpcVersion = '1.84.1'
+	protobufVersion = '4.36.2'
 }
 
 dependencies {

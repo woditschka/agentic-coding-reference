@@ -15,7 +15,7 @@ make ci          # Full pipeline: tidy, fmt, vet, lint, test, build
 | Tool | Version |
 |------|---------|
 | Go | 1.27 |
-| golangci-lint | v2.13.2 |
+| golangci-lint | v2.15.0 |
 
 ## Use with an Agent
 

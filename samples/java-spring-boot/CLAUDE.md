@@ -143,8 +143,8 @@ Installed for this stack, beyond the harness core catalogued in the Agent Usage 
 | Tool | Version | Notes |
 |------|---------|-------|
 | Java | 25 | Toolchain managed via Gradle |
-| Gradle | 9.7.1 | Groovy DSL; Spring Boot plugin |
-| Spring Boot | 4.1.1 | |
+| Gradle | 9.8.2 | Groovy DSL; Spring Boot plugin |
+| Spring Boot | 4.1.2 | |
 
 ## Build Commands
 

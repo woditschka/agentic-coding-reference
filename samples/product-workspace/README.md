@@ -38,6 +38,6 @@ bookstore/bookstore.sh start    # backend gRPC on :9090, web on http://localhost
 bookstore/bookstore.sh up       # both
 ```
 
-Each member is its own Gradle project on the Java sample's toolchain (Java 25, Gradle 9.7.1, Spring Boot 4.1.1), and builds alone with `./gradlew build` once the contract is published. Every build runs google-java-format before compiling, so formatting is never a separate step.
+Each member is its own Gradle project on the Java sample's toolchain (Java 25, Gradle 9.8.2, Spring Boot 4.1.2), and builds alone with `./gradlew build` once the contract is published. Every build runs google-java-format before compiling, so formatting is never a separate step.
 
 The transport carries one call, `Catalog.ListBooks`, and no TLS: the sample shows the shape, not a deployment.

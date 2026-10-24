@@ -139,8 +139,8 @@ The tools every member depends on. The pipeline does not read this table; review
 | Tool | Version | Install |
 |------|---------|---------|
 | Java (every member) | 25 | A JDK 25 on PATH or under `JAVA_HOME`; each member's Gradle toolchain resolves it |
-| Gradle (every member) | 9.7.1 | Each member's committed wrapper, `./gradlew` |
-| google-java-format via Spotless (Spring members) | 1.36.1 / 8.10.1 | Runs on every build before compiling |
+| Gradle (every member) | 9.8.2 | Each member's committed wrapper, `./gradlew` |
+| google-java-format via Spotless (Spring members) | 1.36.1 / 8.10.4 | Runs on every build before compiling |
 
 ## Build Commands
 

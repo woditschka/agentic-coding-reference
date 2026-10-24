@@ -14,8 +14,8 @@
 
 | Component | Technology | Version | Rationale |
 |-----------|-----------|---------|-----------|
-| Framework | Spring Boot | 4.1.1 | |
-| Build tool | Gradle (Groovy DSL) | 9.7.1 | |
+| Framework | Spring Boot | 4.1.2 | |
+| Build tool | Gradle (Groovy DSL) | 9.8.2 | |
 | Language | Java | 25 | |
 | JSON | Jackson | *(via Spring Boot)* | |
 | Logging | SLF4J + Logback | *(via Spring Boot)* | |
