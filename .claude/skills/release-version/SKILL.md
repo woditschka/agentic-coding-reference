@@ -31,6 +31,10 @@ A **clean working tree** — the script refuses anything else, so the release
 commit holds only the bump, its restamp, and any retired-paths append this
 cycle produced. Commit the feature work first.
 
+No **pending acceptance arm**. An ADR since the last tag that declares an
+acceptance arm names a recorded result, or the cut waits for the sweep. The
+plan-file ADR of 2026-10-20 is the form such an arm takes.
+
 ## Process
 
 1. **Find the baseline.** The latest release tag:
@@ -54,7 +58,9 @@ cycle produced. Commit the feature work first.
    `>= 1.0.0`, standard semver: breaking → major, feature → minor, fix → patch.)
 
 3. **Propose and confirm.** Present the computed version with the commits that
-   drove it. Ask the user to confirm or override.
+   drove it, and name any ADR since the baseline that declares an acceptance
+   arm with its recorded result; a pending arm stops here. Ask the user to
+   confirm or override.
 
 4. **Run the script** with the agreed version:
    ```bash

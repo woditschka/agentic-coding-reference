@@ -48,7 +48,7 @@ Judge placement against the components `docs/system-design.md` assigns first and
 ### Table-Driven Tests
 - [ ] Use explicit field names in test structs
 - [ ] Use `t.Run()` for subtests
-- [ ] One sentence covers every row of a table; a row that differs in outcome kind, in setup, or by branching is a separate named test (`tested-as-spec`)
+- [ ] A table is one assertion over an input set; its test name and subtest names state the one sentence that covers every row. A row that differs in outcome kind, in setup, or by branching is a separate named test (`tested-as-spec`)
 - [ ] Four-phase structure (Arrange/Act/Assert/Cleanup) separated by blank lines
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases are covered, in the table when they share its sentence and as named tests otherwise. `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers

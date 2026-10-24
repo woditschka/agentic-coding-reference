@@ -108,6 +108,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] `@ConditionalOnProperty` for optional components
 - [ ] `spring.main.web-application-type=none` (if CLI)
 - [ ] `CommandLineRunner` for the entry point, not `main()` logic (if CLI)
+- [ ] A renamed handler parameter keeps its bound request name explicit: `@RequestParam`, `@PathVariable`, and `@RequestHeader` bind by the Java name when none is given (`correct`)
 
 ### Error Handling
 - [ ] Follows the error-handling policy the project's briefs declare (system-design.md or architecture-principles.md)

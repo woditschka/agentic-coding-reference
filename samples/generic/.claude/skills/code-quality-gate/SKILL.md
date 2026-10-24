@@ -18,7 +18,7 @@ metadata:
 
 ## Quality Gate
 
-Before invoking reviewers, all checks must pass. The same gate runs once mid-slice at the planned checkpoint (`tdd-workflow` § Partial-Artifact Contract). Green there appends no `build-pass`. A red check keeps the record shape its procedure names; any other handoff appends the partial record. Run `scripts/gate.sh verify` to execute the full gate. It runs every lifecycle verb in order through the project's bindings in `scripts/stack.sh`. The pipeline speaks only in these verbs, never in tool names.
+Before invoking reviewers, all checks must pass. The same gate runs once per dispatch of two or more cycles, at the planned checkpoint (`tdd-workflow` § Partial-Artifact Contract). Green there appends no `build-pass`. A red check there appends the partial `build-failure`, unless its procedure prescribes its own record. At the final gate a red check appends the ordinary `build-failure`. Run `scripts/gate.sh verify` to execute the full gate. It runs every lifecycle verb in order through the project's bindings in `scripts/stack.sh`. The pipeline speaks only in these verbs, never in tool names.
 
 ### Required Checks
 

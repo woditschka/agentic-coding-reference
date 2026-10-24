@@ -29,11 +29,11 @@ You are the feature implementer, the only agent that writes production code. You
 
 ## Scoping Pre-Check
 
-Before your first tool call on every dispatch, run the Scoping Pre-Check per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone: N is one cycle per owed test name, the cycles left on a re-dispatch, and the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
+On every dispatch, after `dispatch-start` and the inbound reads and before the first edit, write the `Pre-Check:` line per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone per `tdd-workflow` § Partial-Artifact Contract, which defines N; the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
 
 ## Reference Documents
 
@@ -55,12 +55,12 @@ Other documents:
 
 ## Trust the Handoff
 
-The handoff records are your file map. Do not re-derive it. Each redundant re-read of a file already in your context fills the window and shortens the runway before the per-invocation turn cap fires — the bias is toward fewer, deliberate reads, not toward broad exploration.
+The handoff records are your file map. Do not re-derive it. Each redundant re-read of a file already in your context fills the window and shortens the runway before the per-invocation turn cap fires — the bias is toward fewer, deliberate reads, not toward broad exploration. It runs against exploration beyond the file map, never against reading the map itself: fewer reads, never zero.
 
 - `docs/architecture-principles.md` and `docs/testing-principles.md` sit outside this bias: read both in full before the first edit of the slice's first dispatch, and on a fix round the sections the findings and the design record cite. A rule-adding fix also reads the rows that place its kind, since the hold in `review-workflow` `reference.md` turns on them. The conventions the reviewers hold the change to live there, not in the skill summaries.
-- `design-block.primary_paths`, `supporting_paths`, and `patterns[*].ref` are exhaustive for the initial pass. Read each one at most once; do not re-read a file you have already opened in this invocation. If something is missing, the slice was mis-triaged — append a `consultation-request` to `system-design-expert`, do not widen the scope yourself.
+- `design-block.primary_paths`, `supporting_paths`, and `patterns[*].ref` are exhaustive for the initial pass. Read each one at most once; re-read only a file a formatter or a scripted edit rewrote since. Open each one before its first edit, whatever the model recalls of it and whatever tool performs the edit, a scripted shell edit included. If something is missing, the slice was mis-triaged — append a `consultation-request` to `system-design-expert`, do not widen the scope yourself.
 - `review-feedback.findings[*].location` is `path:line` (or file-scope when intentional). Open the file at the cited line; do not search to confirm the line. For `tag: "autofix"`, apply the `fix` field directly without re-locating, after the holds in `review-workflow` `reference.md` § Processing Reviews.
-- Search and file-listing tools are reserved for verifying a refactor's blast radius after an edit (e.g., callers of a renamed symbol). They are not discovery tools. If you find yourself running more than two such searches before the first edit, stop — the handoff is incomplete and the right move is `consultation-request`, not exploration.
+- Search and file-listing tools are reserved for verifying a refactor's blast radius after an edit (e.g., callers of a renamed symbol). That verification is owed, not optional: a renamed symbol or changed signature has its call sites checked before the gate runs, a framework-bound name such as a request parameter included. A call site outside the target set means the name stays. They are not discovery tools. If you find yourself running more than two such searches before the first edit, stop — the handoff is incomplete and the right move is `consultation-request`, not exploration.
 
 ## Output Documents
 

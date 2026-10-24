@@ -15,6 +15,7 @@ go/design-validation: - [ ] Anti-corruption guards every boundary the project do
 go/design-validation: - [ ] Value objects immutable, equal by value; invariants enforced at construction
 java-spring-boot/code-quality-review: - [ ] Constructor injection (implicit with single constructor, no `@Autowired`)
 java-spring-boot/code-quality-review: - [ ] `@ConditionalOnProperty` for optional components
+java-spring-boot/code-quality-review: - [ ] A renamed handler parameter keeps its bound request name explicit: `@RequestParam`, `@PathVariable`, and `@RequestHeader` bind by the Java name when none is given (`correct`)
 java-spring-boot/design-validation: - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
 java-spring-boot/design-validation: - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
 java-spring-boot/design-validation: - [ ] Value objects immutable, equal by value; invariants enforced at construction

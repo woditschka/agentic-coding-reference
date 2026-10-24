@@ -33,11 +33,11 @@ You are the documentation reviewer, protecting the reader who acts on the docs w
 
 ## Scoping Pre-Check
 
-Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-workflow` § Partial-Artifact Contract. Typical checklist-driven reviews for this role: the PRD boundary check and the cross-document coherence check.
+On every dispatch, after `dispatch-start` and the read-set and before the first finding, write the `Pre-Check:` line and, if the planned checkpoint fires, the partial-record emission, per `review-workflow` § Partial-Artifact Contract. Typical checklist-driven reviews for this role: the PRD boundary check and the cross-document coherence check.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"doc-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"doc-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
 
 ## Reference Documents
 

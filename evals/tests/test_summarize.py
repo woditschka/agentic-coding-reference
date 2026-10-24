@@ -3391,5 +3391,76 @@ class ScopeCoverage(unittest.TestCase):
         )
 
 
+class PatchParsingHostileLines(unittest.TestCase):
+    """Agent-authored patches split on newline alone, never on other line separators."""
+
+    PATCH: ClassVar[str] = (
+        "diff --git a/src/main/java/A.java b/src/main/java/A.java\n"
+        "--- a/src/main/java/A.java\n"
+        "+++ b/src/main/java/A.java\n"
+        "@@ -1,1 +1,2 @@\n"
+        "+// c\x0cdiff --git a/z b/phantom.txt\x0c--- a/z\x0c+++ b/phantom.txt\n"
+        "+bad()\n"
+    )
+
+    def test_a_form_feed_inside_an_added_line_names_no_phantom_file(self) -> None:
+        self.assertNotIn("phantom.txt", summarize._patch_files(self.PATCH))
+
+    def test_a_quoted_rename_target_is_unquoted(self) -> None:
+        patch = (
+            'diff --git "a/src/a b.java" "b/src/c d.java"\n'
+            'rename from "src/a b.java"\n'
+            'rename to "src/c d.java"\n'
+        )
+        self.assertIn("src/c d.java", summarize._patch_files(patch))
+
+    def test_an_added_line_with_a_form_feed_stays_with_its_real_file(self) -> None:
+        by_file = summarize._added_lines_by_file(self.PATCH)
+        self.assertNotIn("phantom.txt", by_file)
+        self.assertTrue(
+            any("bad()" in line for line in by_file["src/main/java/A.java"])
+        )
+
+
+class PageParamReboundProbe(unittest.TestCase):
+    """The owners-page-param probe hits a rebound page parameter and nothing else."""
+
+    HITS: ClassVar[tuple[str, ...]] = (
+        '+\tpublic String f(@RequestParam(defaultValue = "1") int requestedPage, Owner o,',
+        '+\tpublic String f(@RequestParam(defaultValue = "1") final int requestedPage) {',
+        "+\tpublic String f(@RequestParam int pageNo) {",
+        "+\tpublic String f(@RequestParam(required = false) Optional<Integer> pageNumber) {",
+        '+\tpublic String f(@RequestParam(defaultValue = "1") @Min(1) int requestedPage) {',
+    )
+    MISSES: ClassVar[tuple[str, ...]] = (
+        '+\tpublic String f(@RequestParam(name = "page", defaultValue = "1") int requestedPage,',
+        '+\tpublic String f(@RequestParam(value = "page", defaultValue = "1") int requested) {',
+        '+\tpublic String f(@RequestParam("page") int pageNumber) {',
+        '+\tpublic String f(@RequestParam(defaultValue = "1") int page, Owner owner,',
+        '+\tpublic String f(@RequestParam(defaultValue = "1") final int page) {',
+        '+\tpublic String f(@RequestParam(defaultValue = "") String lastName) {',
+        "+\tint page = Math.max(requestedPage, 1);",
+        '+\tpublic String f(@RequestParam(name = "pageSize") int pageSize) {',
+        "+\tpublic String f(@RequestParam(name = PAGE_PARAM) int requestedPage) {",
+        "+\tpublic String f(@RequestParam Pageable pageable) {",
+    )
+
+    def probe(self) -> Any:
+        probes = summarize.load_defect_probes(TASKS_DIR)["owners-page-param"]
+        return next(p for p in probes if p.id == "page-param-rebound")
+
+    def test_every_rebound_shape_hits(self) -> None:
+        probe = self.probe()
+        for line in self.HITS:
+            with self.subTest(line=line):
+                self.assertIsNotNone(probe.added.search(line))
+
+    def test_every_correct_binding_clears(self) -> None:
+        probe = self.probe()
+        for line in self.MISSES:
+            with self.subTest(line=line):
+                self.assertIsNone(probe.added.search(line))
+
+
 if __name__ == "__main__":
     unittest.main()

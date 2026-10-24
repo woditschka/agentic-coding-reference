@@ -260,7 +260,7 @@ def _added_lines_by_file(patch: str) -> dict[str, list[str]]:
     files: dict[str, list[str]] = {}
     current: str | None = None
     after_minus = False
-    for line in patch.splitlines():
+    for line in patch.split("\n"):
         if line.startswith("diff "):
             current = None
             after_minus = False
@@ -378,7 +378,7 @@ def _patch_files(patch: str) -> set[str]:
     minus: str | None = None
     seen_minus = False
     in_hunks = False
-    for line in patch.splitlines():
+    for line in patch.split("\n"):
         if line.startswith("diff "):
             in_hunks = False
             seen_minus = False
@@ -386,7 +386,7 @@ def _patch_files(patch: str) -> set[str]:
         if in_hunks:
             continue
         if line.startswith("rename to "):
-            files.add(line[len("rename to ") :].strip())
+            files.add(_unquoted(line[len("rename to ") :].strip()))
         elif line.startswith("--- "):
             minus = _header_path(line[4:])
             seen_minus = True

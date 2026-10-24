@@ -79,6 +79,7 @@ This checklist is structurally complete and language-agnostic. The principles be
 - [ ] No context already implied by the enclosing module or type
 - [ ] No dumping-ground names (util, common, misc); `Helper` only as a utility class of pure functions over one type the project does not own
 - [ ] **Stack-specific rules:** {{FILL: casing scheme, acronym and getter conventions}}
+- [ ] A renamed symbol or changed signature keeps every call site and every framework-derived name, such as a request parameter or a configuration key (`correct`)
 
 ### Documentation
 - [ ] Every public name carries a doc comment that starts with the name

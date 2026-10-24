@@ -135,11 +135,11 @@ A finding whose fix adds a business rule — a conditional, a validation, a comp
 
 ## Partial-Artifact Contract
 
-Reviewers carry the verifier half of the partial-artifact contract. Two halves: a Scoping Pre-Check before the first tool call, and a planned checkpoint named in that pre-check.
+Reviewers carry the verifier half of the partial-artifact contract. Two halves: a Scoping Pre-Check after the `dispatch-start` append and before the first finding, and a planned checkpoint named in that pre-check.
 
 ### Scoping Pre-Check (reviewer)
 
-Before the first tool call, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Write the estimate sentences into the transcript:
+After the `dispatch-start` append and before the first finding, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Write the estimate as one transcript line that begins `Pre-Check:`:
 
 1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `python3 scripts/changeset.py --name-only` for the changed files, `python3 scripts/changeset.py` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
 2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Add the class sweeps findings will trigger (§ Class-Exhaustive Findings). Each checklist is bounded; single-digit precision suffices.

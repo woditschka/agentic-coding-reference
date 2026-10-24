@@ -61,7 +61,7 @@ Do not narrate "Truncated at N tool calls. Continuing." — recovery runs throug
 **Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `handoff-routing` table. `general-purpose` is dispatched only when **both** hold:
 
 1. **No named persona fits.** Walk the built-ins and the project agents (the `handoff-routing` skill's `agentic-harness.md` § Specialist Agents). A recurring `general-purpose` shape signals extracting a dedicated agent, not re-use.
-2. **The Scoping Pre-Check is written into the dispatch prompt** — the tool-call estimate and the checkpoint milestone, which the implementer names for two or more cycles.
+2. **The Scoping Pre-Check is written into the dispatch prompt** — the tool-call estimate and, where the role's contract names one, the checkpoint milestone.
 
 Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere: each agent's `toolCallBudget` front-matter, and the `tdd-workflow` and `review-workflow` skills. Do not restate the numbers or record shapes here.
 
@@ -97,7 +97,7 @@ Pipeline logic lives in skills, not in agent definitions. All three tools read t
 | `derive-briefs` | Draft the `docs/` briefs by surveying an existing codebase, marking every statement derived, confirmed, or not recoverable |
 | `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
 | `ship` | Run quality gate, commit, and push in one step |
-| `prepare-ship` | Close a feature before it ships. Draft ADRs, those not yet on the default branch, fold into one per decision; unpushed commits regroup into one per concern after one confirmation. Then the feature's bar is read |
+| `prepare-ship` | Close a feature before it ships. Draft ADRs, those not yet on the default branch, fold into one per decision; unpushed commits regroup into one per concern after one confirmation; the whole-feature review closes it. Never rewrites a commit a remote holds, never pushes |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
 This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they sit in the same skill directory.

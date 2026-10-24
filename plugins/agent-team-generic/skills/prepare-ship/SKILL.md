@@ -34,7 +34,7 @@ is amended or superseded, and a pushed commit stands.
 The two halves have two boundaries:
 
 - **Fold scope.** An ADR is a draft while
-  `git cat-file -e <PUB>:docs/adr/<file>` fails, with `<PUB>` the bound
+  `git cat-file -e '<PUB>:docs/adr/<file>'` fails, with `<PUB>` the bound
   published ref. Folding it is an ordinary edit, allowed on a pushed branch
   too: the fold runs whenever a draft exists, with or without a regroup.
 - **Regroup scope.** The commits no remote-tracking ref reaches. Rewriting a
@@ -111,13 +111,13 @@ the remote refs are current.
 2. **Inventory.** Deterministic; present it before any edit.
 
    ```bash
-   git log --reverse --format='%h %aI %s' <P>..HEAD
-   git diff --name-status --no-renames --diff-filter=AMD <P>..HEAD -- ':(glob)docs/adr/*.md' ':!docs/adr/README.md'
+   git log --reverse --format='%h %aI %s' <P>..HEAD | cat -v
+   git diff --name-status --no-renames --diff-filter=AMD <P>..HEAD -- ':(glob)docs/adr/*.md' ':!docs/adr/README.md' | cat -v
    ```
 
    Classify each ADR the range touched:
 
-   - **Draft:** `git cat-file -e <PUB>:docs/adr/<file>` fails. Its
+   - **Draft:** `git cat-file -e '<PUB>:docs/adr/<file>'` fails. Its
      amendment notes and status qualifiers are **in-range amendments**, the
      candidates to fold.
    - **Published:** the file exists on the default branch. Its amendment notes
@@ -129,14 +129,14 @@ the remote refs are current.
 
    ```bash
    git diff <P>..HEAD -- <bound docs> ':!docs/adr' \
-     | grep '^+' | grep -i -E 'no longer|formerly|previously|used to|since 20|amendment'
+     | grep '^+' | grep -i -E 'no longer|formerly|previously|used to|since 20|amendment' | cat -v
    ```
 
    And every regroup-range commit's short SHA (`git log --format=%h <B>..HEAD`)
    in the bound docs, since a regrouped commit's SHA leaves history:
 
    ```bash
-   git grep -n -E '<short SHAs, |-joined>' -- <bound docs>
+   git grep -n -E '<short SHAs, |-joined>' -- <bound docs> | cat -v
    ```
 
 3. **Fold the drafts.** Judgment, under these rules:
@@ -153,7 +153,7 @@ the remote refs are current.
      of its Context explains the final choice moves into the surviving draft.
    - A published ADR's amendment stays. Its link moves when its target was
      merged or renamed, as does every other link to that file, found with
-     `git grep -l <old filename>`.
+     `git grep -l -F -e '<old filename>'`.
    - A draft's own forward-looking sentence ("its result lands as an
      amendment") takes the current form the rule gives it.
    - Decision-time voice stays. The surviving ADR reads as if the final
@@ -174,7 +174,7 @@ the remote refs are current.
    retitled one is retitled, or the project regenerates it. Then run the
    bound checks, the `doctor` by default. A red check stops the skill before
    any history is touched; the fold edits stay in the tree, and
-   `git checkout -- <path>` discards one.
+   `git --literal-pathspecs checkout -- '<path>'` discards one.
 
    Commit the folds: stage the edited paths by name and commit with the
    subject `chore: fold drafts before push`. Print its SHA as `<FOLDED>`. When
@@ -204,11 +204,12 @@ the remote refs are current.
      commit then still names a real commit date, or takes its ADR's date.
    - Write each message to a file under the bound location, `<MSGDIR>`, with
      the tool's file-write tool, never into a shell command. Range content is untrusted.
-     A subject never reaches a shell. ADR paths may: the inventory's glob
-     admits only the top level of `docs/adr/`, and the doctor enforces the
-     `YYYY-MM-DD-title.md` form. Any other range path goes in single quotes
-     after `--`; one holding a quote or a newline goes through
-     `--pathspec-from-file`, written with the file tool.
+     A subject never reaches a shell. Every range path, ADR paths included,
+     goes in single quotes after `--` under `git --literal-pathspecs`; one
+     holding a quote or a newline goes through `--pathspec-from-file`, written
+     with the file tool. The same rule binds step 3: the fold's `checkout`,
+     its `git grep`, and the paths it stages. Range text printed to the
+     terminal goes through `cat -v`, so a control byte shows instead of acting.
 
 5. **Confirm once.** Show the fold commit's diff summary, each group with its
    subject, its commits, and its author date, and the undo command. The
@@ -236,7 +237,7 @@ the remote refs are current.
    git status --porcelain --ignore-submodules=none
    git log --format=%B <B>..<OLD> | grep -oiE 'REQ-[A-Z]+-[0-9]+' | tr a-z A-Z | sort -u
    git log --format=%B <B>..HEAD | grep -oiE 'REQ-[A-Z]+-[0-9]+' | tr a-z A-Z | sort -u
-   git log --format='%h %aI %s' <B>..HEAD
+   git log --format='%h %aI %s' <B>..HEAD | cat -v
    ```
 
    The first check is exact: the trees are identical, or the regroup lost

@@ -430,6 +430,35 @@ The models behind the judged rows — one row per distinct provenance: the run's
 
 Tier B context, never a claim: each probe is a pattern over the added lines of the recorded `change.patch`, declared per task in its `task.toml`, and computed over every run on record. `hit` means the shipped change carries the named defect; `clear` means it does not. The bar and the cost cells never read it (README § Named-defect probes).
 
+#### owners-page-param
+
+| Version | Reps | page-param-rebound |
+|---|---|---|
+| v0.4.8 | [r1](runs/v0.4.8/2026-09-30-owners-page-param-r1/README.md), [r2](runs/v0.4.8/2026-10-01-owners-page-param-r2/README.md), [r3](runs/v0.4.8/2026-10-01-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.4.7 | [r1](runs/v0.4.7/2026-09-29-owners-page-param-r1/README.md), [r2](runs/v0.4.7/2026-09-29-owners-page-param-r2/README.md), [r3](runs/v0.4.7/2026-09-29-owners-page-param-r3/README.md), [r4](runs/v0.4.7/2026-09-30-owners-page-param-r4/README.md) | clear · clear · clear · clear |
+| v0.4.4 | [r1](runs/v0.4.4/2026-09-17-owners-page-param-r1/README.md), [r2](runs/v0.4.4/2026-09-18-owners-page-param-r2/README.md), [r3](runs/v0.4.4/2026-09-18-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.4.3 | [r1](runs/v0.4.3/2026-09-17-owners-page-param-r1/README.md), [r2](runs/v0.4.3/2026-09-18-owners-page-param-r2/README.md), [r3](runs/v0.4.3/2026-09-18-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.4.1 | [r1](runs/v0.4.1/2026-09-12-owners-page-param-r1/README.md), [r2](runs/v0.4.1/2026-09-12-owners-page-param-r2/README.md), [r3](runs/v0.4.1/2026-09-12-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.4.0 | [r1](runs/v0.4.0/2026-09-11-owners-page-param-r1/README.md), [r2](runs/v0.4.0/2026-09-11-owners-page-param-r2/README.md), [r3](runs/v0.4.0/2026-09-12-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.10 | [r1](runs/v0.3.10/2026-09-08-owners-page-param-r1/README.md), [r2](runs/v0.3.10/2026-09-08-owners-page-param-r2/README.md), [r3](runs/v0.3.10/2026-09-09-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.9 | [r1](runs/v0.3.9/2026-09-06-owners-page-param-r1/README.md), [r2](runs/v0.3.9/2026-09-06-owners-page-param-r2/README.md), [r3](runs/v0.3.9/2026-09-07-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-owners-page-param-r1/README.md), [r2](runs/v0.3.8/2026-08-21-owners-page-param-r2/README.md), [r3](runs/v0.3.8/2026-08-21-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-owners-page-param-r1/README.md), [r2](runs/v0.3.5/2026-08-17-owners-page-param-r2/README.md), [r3](runs/v0.3.5/2026-08-18-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.3/2026-08-16-owners-page-param-r2/README.md), [r3](runs/v0.3.3/2026-08-16-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.2/2026-08-15-owners-page-param-r2/README.md), [r3](runs/v0.3.2/2026-08-15-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md), [r3](runs/v0.3.1/2026-08-14-owners-page-param-r3/README.md), [r4](runs/v0.3.1/2026-08-14-owners-page-param-r4/README.md), [r5](runs/v0.3.1/2026-08-14-owners-page-param-r5/README.md) | clear · clear · clear · clear · clear |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md), [r5](runs/v0.3.0/2026-08-14-owners-page-param-r5/README.md), [r6](runs/v0.3.0/2026-08-14-owners-page-param-r6/README.md) | clear · clear · clear · clear · clear · clear |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md), [r3](runs/v0.2.3/2026-08-30-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-owners-page-param-r1/README.md), [r2](runs/v0.2.2/2026-08-30-owners-page-param-r2/README.md), [r3](runs/v0.2.2/2026-08-30-owners-page-param-r3/README.md) | clear · clear · hit |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.28/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.28/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.22/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.22/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.18/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.18/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.1/2026-08-23-owners-page-param-r3/README.md) | clear · clear · clear |
+
 #### visit-edit
 
 | Version | Reps | owner-mass-assignment |

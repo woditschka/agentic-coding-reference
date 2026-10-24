@@ -59,6 +59,14 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 </details>
 
+## Named-defect probes
+
+Tier B context, never part of the bar: a pattern over this run's added lines, declared in the task's `task.toml` (README § Named-defect probes).
+
+| probe | result | what it names |
+|---|---|---|
+| `page-param-rebound` | clear | A handler binds the page request parameter by a renamed Java parameter with no explicit name, so the  page  query key is no longer read |
+
 ## Scope coverage
 
 Tier B context, never part of the bar: this run's recorded diff against the triage in its ledger (README § Scope coverage).

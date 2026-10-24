@@ -88,7 +88,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Boundaries are tested where the code compares, and the error handling scenarios from system-design.md once each
 
 ### Parameterized Tests
-- [ ] A `@ParameterizedTest` holds one assertion over an input table (boundaries, equivalence classes), and its name states every row. A row that differs in outcome kind, in setup, or by a branch in the body is a distinct behavior and gets its own named test (`tested-as-spec`)
+- [ ] A `@ParameterizedTest` holds one assertion over an input table (boundaries, equivalence classes), and its name states every row; the brief's § Test Naming binds the form. A row that differs in outcome kind, in setup, or by a branch in the body is a distinct behavior and gets its own named test (`tested-as-spec`)
 - [ ] `@CsvSource` entries carry a comment only where the covered case is not evident from the values — comments explain WHY, not WHAT (`legible-cold`)
 - [ ] Each parameter combination is independently meaningful
 

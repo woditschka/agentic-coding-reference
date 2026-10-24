@@ -26,3 +26,19 @@ base_red = [
     "thePageZeroRequestShouldRenderTheFirstListingPage",
     "theNegativePageRequestShouldRenderTheFirstListingPage",
 ]
+
+# Known-defect probes (README § Known-defect probes). A probe reads the added
+# lines of the committed diff; a hit names one defect the bench has seen.
+#
+# Seen in the dev-d80578fd sweep of 2026-10-24: the implementer renamed the
+# handler's Java parameter without pinning the bound request name, so
+# `?page=` was silently ignored and every pager link fell back to page 1. The
+# probe hits an added `@RequestParam` that names no request key, by `name`,
+# `value`, a positional literal, or a constant, and binds a page-like Java
+# parameter other than `page`. Outside its reach: a multi-line signature, and a
+# rebind to a name with no `page` in it.
+[[defect]]
+id = "page-param-rebound"
+description = "A handler binds the page request parameter by a renamed Java parameter with no explicit name, so the `page` query key is no longer read"
+files = "src/main/java/"
+added = '@RequestParam(?:\((?![^)]*\b(?:name|value)\s*=)(?!\s*")(?!\s*[A-Z_][A-Z_0-9]*\s*[,)])[^)]*\))?\s+(?:@\w+(?:\([^)]*\))?\s+)*(?:final\s+)?(?!Pageable\b)[\w.]+(?:<[^>]*>)?\s+(?!page\b)\w*[Pp]age\w*'

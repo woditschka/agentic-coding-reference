@@ -14,7 +14,7 @@ The maintainer answered this with two recurring prompts at feature close. The fi
 2. **Write ADRs only at feature close.** Rejected: the decision-time context is the ADR's value, and the tier-1 audit reads the ADR with the commit it explains. The per-commit ADR is the better draft.
 3. **One ADR per feature by rule.** Rejected: a feature holds as many decisions as it holds. The feature that prompted this held three distinct ones, and merging them would hide two.
 4. **Rebuild the commits by staging paths onto the boundary.** Rejected after a prototype and an adversarial review. A rebuild by path loses rename sources and force-added ignored files, and creates trees no gate ran on. It drops author dates, and it collapses to one commit whenever two concerns share a file. At the root the ADR index and the project history are in nearly every feature commit.
-5. **A publication boundary, with whole-commit regrouping.** Chosen. A decision is published when it reaches the remote's default branch. Below that line, supersede and amend. Above it, edit in place, and fold the drafts once at feature close. The commits regroup as cherry-picks of whole commits in contiguous runs.
+5. **A publication boundary, with whole-commit regrouping.** Chosen. A decision is published when it reaches the remote's default branch. Below that line, on the published side, supersede and amend. Above it, among the drafts, edit in place, and fold them once at feature close. The commits regroup as cherry-picks of whole commits in contiguous runs.
 
 ## Decision
 
@@ -52,5 +52,5 @@ The maintainer answered this with two recurring prompts at feature close. The fi
 
 ## References
 
-- [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) — the draft ADR whose in-range amendment prompted this decision
+- [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) — the draft ADR whose in-range amendment, since folded, prompted this decision
 - [Marketplace Plugin Channel](2026-06-14-marketplace-plugin-channel.md) — the tag as the published snapshot, which is why a tag inside the range stops the fold

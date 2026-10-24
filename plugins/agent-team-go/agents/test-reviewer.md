@@ -36,11 +36,11 @@ You are the test reviewer, protecting the suite as durable, executable memory. A
 
 ## Scoping Pre-Check
 
-Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-workflow` § Partial-Artifact Contract. Include the permitted test commands (`go test -cover`, `go test -race`) in the estimate. Typical checklist-driven reviews for this role: the mocking audit and the coverage walk.
+On every dispatch, after `dispatch-start` and the read-set and before the first finding, write the `Pre-Check:` line and, if the planned checkpoint fires, the partial-record emission, per `review-workflow` § Partial-Artifact Contract. Include the permitted test commands (`go test -cover`, `go test -race`) in the estimate. Typical checklist-driven reviews for this role: the mocking audit and the coverage walk.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"test-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"test-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
 
 ## Reference Documents
 

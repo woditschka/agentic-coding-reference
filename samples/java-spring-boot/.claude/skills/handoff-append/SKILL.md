@@ -44,7 +44,7 @@ Never edit, reorder, or delete a prior record. If a prior record has a mistake, 
 
 ## Dispatch-Start (First Tool Call)
 
-Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends one `dispatch-start` record as its **first tool call**, right after its Scoping Pre-Check sentences (where the dispatch runs one). Skipping it leaves the harness blind to the dispatch's outcome: the record is the start half of the dispatch-event contract, and truncation detection keys on it (`handoff-routing` skill § Dispatch Truncation Detection). The append enforces the reviewer half: a `review-feedback` appended after a `build-pass` with no `dispatch-start` by its author since that build-pass is refused, with the fix named.
+Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends one `dispatch-start` record as its **first tool call**; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it (where the dispatch runs one). Skipping it leaves the harness blind to the dispatch's outcome: the record is the start half of the dispatch-event contract, and truncation detection keys on it (`handoff-routing` skill § Dispatch Truncation Detection). The append enforces the reviewer half: a `review-feedback` appended after a `build-pass` with no `dispatch-start` by its author since that build-pass is refused, with the fix named.
 
 ```bash
 python3 scripts/handoff.py append dispatch-start <<'EOF'

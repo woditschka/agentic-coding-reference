@@ -62,7 +62,7 @@ Triage-mode dispatches (returning a `design-block` for a `prd-entry`), fix dispa
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"system-design-expert"`; `responding_to`: typically the `prd-entry` line for a fresh triage, a `consultation-request` line in consultation mode, the `review-feedback` line(s) on a fix dispatch, or a prior `design-block` line on re-triage after a build-failure escalation. A `foundational` resume anchors to its `consultation-response` line.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"system-design-expert"`; `responding_to`: typically the `prd-entry` line for a fresh triage, a `consultation-request` line in consultation mode, the `review-feedback` line(s) on a fix dispatch, or a prior `design-block` line on re-triage after a build-failure escalation. A `foundational` resume anchors to its `consultation-response` line.
 
 ## Reference Documents
 

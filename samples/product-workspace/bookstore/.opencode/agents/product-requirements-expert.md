@@ -43,7 +43,7 @@ Triage-mode dispatches (scoping a slice into a new `prd-entry`) run the two-step
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"product-requirements-expert"`; `responding_to`: the `intake-decision` line for a fresh feature dispatch (`[0]` only on a legacy dispatch with no intake record), or a `consultation-request` line in consultation mode. A pushback resume anchors to its `consultation-response` line.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"product-requirements-expert"`; `responding_to`: the `intake-decision` line for a fresh feature dispatch (`[0]` only on a legacy dispatch with no intake record), or a `consultation-request` line in consultation mode. A pushback resume anchors to its `consultation-response` line.
 
 ## Reference Documents
 

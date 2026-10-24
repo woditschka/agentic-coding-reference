@@ -85,6 +85,7 @@ The free tier is the default on every path: where the better form costs nothing 
 - [ ] Constants describe meaning, not content (`MaxRetries` not `Three`)
 - [ ] Avoid shadowing standard package names (`context`, `errors`, `fmt`)
 - [ ] No util/common/misc package names; a package of pure functions is named for its subject (`slug`, never `helpers`)
+- [ ] A renamed symbol or changed signature keeps every call site and every framework-bound name: struct tags, query keys, flag and config names (`correct`)
 
 ### Documentation
 - [ ] All exported names have doc comments starting with the name
