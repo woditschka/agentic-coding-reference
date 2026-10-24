@@ -32,7 +32,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 ## Scoping Pre-Check
 
-Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. At the planned checkpoint run the quality gate. Green within budget continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
+Before your first tool call on every dispatch, run the Scoping Pre-Check per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone: N is one cycle per owed test name, the cycles left on a re-dispatch, and the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
 
 ## First Tool Call
 

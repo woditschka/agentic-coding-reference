@@ -1963,6 +1963,14 @@ def make_patch(workdir: Path, baseline_sha: str, out_dir: Path) -> dict[str, int
         "core.fsmonitor=false",
         "-c",
         "core.hooksPath=/dev/null",
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "-c",
+        "diff.srcPrefix=a/",
+        "-c",
+        "diff.dstPrefix=b/",
     ]
     sh([*hardened, "add", "-A"])
     sh([*hardened, "add", "-A", "-f", "--", "src"])

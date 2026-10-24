@@ -347,7 +347,17 @@ class ScopeFacts:
 def _unquoted(name: str) -> str:
     """Return a header path without the quotes git puts around a name with special bytes."""
     if name != '"' and name.startswith('"') and name.endswith('"'):
-        return name[1:-1]
+        inner = name[1:-1]
+        try:
+            # git writes a special byte as an octal escape of its UTF-8 form
+            return (
+                inner.encode("latin-1")
+                .decode("unicode_escape")
+                .encode("latin-1")
+                .decode("utf-8")
+            )
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            return inner
     return name
 
 
@@ -435,6 +445,7 @@ def _required_tests(records: list[dict[str, object]]) -> tuple[str, ...]:
         if (
             record.get("type") != "prd-entry"
             or record.get("author") not in _PRD_AUTHORS
+            or not isinstance(record.get("req_id"), str)
         ):
             continue
         latest[str(record.get("req_id"))] = [
@@ -738,7 +749,7 @@ def _known_defects(
 def _scope(folder: Path) -> ScopeFacts | None:
     """Compare the folder's recorded patch with its ledger's triage; None without a patch, a design-block, or within the caps."""
     patch_path = folder / "change.patch"
-    if not patch_path.is_file():
+    if not patch_path.is_file() or patch_path.stat().st_size > MAX_PATCH_BYTES:
         return None
     return scope_facts(
         ledger_records(folder),

@@ -82,6 +82,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `derive-briefs` | Draft the `docs/` briefs by surveying an existing codebase, marking every statement derived, confirmed, or not recoverable | Human / any agent |
 | `audit-docs` | Audit `docs/` against the high bar — the doctor (structure) then the advisory judgment review, individually and cross-document | Human / any agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
+| `prepare-ship` | Fold a feature's draft ADRs and unpushed commits into their shipped shape, then read the feature's bar, before it ships | root (user-invoked) |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
 
 **Stack-specific skills** (installed by the harness for this stack):

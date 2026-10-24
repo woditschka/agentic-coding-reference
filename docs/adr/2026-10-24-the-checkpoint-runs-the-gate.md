@@ -23,9 +23,9 @@ The Pre-Check's length rule also disagreed with the contract. The rule named a c
 
 **We adopt option 3. At the planned checkpoint the implementer runs the quality gate. Green means proceed with no record. Red means append the partial-artifact `build-failure` with the gate output, then stop.**
 
-- The checkpoint is named in every dispatch of two or more cycles, in the Pre-Check length sentence, at the end of cycle ⌈N/2⌉. The length rule now says so, and the contract is the single statement.
+- The checkpoint is named in every dispatch of two or more cycles, in the Pre-Check length sentence, at the end of cycle ⌈N/2⌉. On a re-dispatch N counts the cycles left, read from the coverage map, so a retry or a fix round gets a checkpoint of its own. The length rule now says so, and the contract is the single statement.
 - A one-cycle slice names no checkpoint; its final gate is the checkpoint. The gate at a checkpoint is the full `code-quality-gate`; green appends no `build-pass`, which waits for the final gate. A red check whose procedure prescribes its own record appends that record, never a partial.
-- An estimate over `toolCallBudget` no longer forces a handoff. The checkpoint's green tree and `route-spec.md` § Truncation Recovery replace the partial as the cap-hit protection. A marker value for `failed_check` was rejected: the field is enum-bound to each project's own `gate.verbs`, so a new value would break every installed consumer.
+- An estimate over `toolCallBudget` no longer forces a handoff. The checkpoint's gate run catches a red tree halfway. A cap hit after a green one falls to `route-spec.md` § Truncation Recovery, which re-dispatches on the tree as the dispatch left it. A marker value for `failed_check` was rejected: the field is enum-bound to each project's own `gate.verbs`, so a new value would break every installed consumer.
 - The stack's formatter runs before the checkpoint gate where the gate names one, so a format-only red does not spend a retry.
 - `failed_check` carries the gate step that failed; `error_output` carries the gate output beside the progress description.
 - The reviewers' Partial-Artifact Contract is unchanged: a review has no gate to run, and its checkpoint keeps the partial `review-feedback`.
@@ -34,17 +34,17 @@ The Pre-Check's length rule also disagreed with the contract. The rule named a c
 ## Consequences
 
 **Positive:**
-- A green checkpoint leaves a tree that builds, so a truncation after it hands a continuation a consistent state, which the former contract did not guarantee.
+- A red checkpoint hands off with the gate output, which the former contract's partials over green tests never carried. A green one costs one gate run instead of a re-dispatch.
 - The 2026-10-23 arm's three partials would have been three green gate runs, about a minute of wall each on the Gradle SUT and seconds on Go. The re-dispatches they caused cost about $1.50 and twelve minutes.
 - The honest N from the plan-file retirement stays honest; nothing in the slice-size gate changes.
 
 **Negative:**
 - One gate run per dispatch of two or more cycles: wall, and the gate's four to six tool calls against `toolCallBudget`, which the length estimate counts.
-- A dispatch truncated after a green checkpoint leaves no partial record, and an over-budget estimate no longer forces one. `route-spec.md` § Truncation Recovery re-dispatches from the building tree under its three-truncation ceiling; the continuation reads the tree and the coverage map instead of a progress description.
+- A dispatch truncated after a green checkpoint leaves no partial record, and an over-budget estimate no longer forces one. `route-spec.md` § Truncation Recovery re-dispatches under its three-truncation ceiling on the tree as the dispatch left it, which may hold edits past the checkpoint. The continuation reads the tree and the coverage map instead of a progress description. The `cycles` sum over a slice's records is a lower bound for the same reason: a dispatch truncated without a record, before or after the checkpoint, contributes nothing.
 
 ## Implementation
 
-**Non-goal:** This is harness coordination doctrine, not a feature requirement. The contract lives in the `tdd-workflow` skill (§ Scoping Pre-Check, § Partial-Artifact Contract), restated in the three stacks' `feature-implementer` agents and in `agentic-harness.md` § Budget. The partial record's meaning is restated in `route-spec.md` § Partial-record paths, the `build-failure` schema's `partial` description, the three `code-quality-gate` skills, and the glossary. The pinned Pre-Check text is re-pinned with the length rule's new sentence. The plan-file ADR's acceptance arm re-runs on the combined change; the partial count per implementing rep is read beside its three readings. The expected reading: no partial over a green tree, and the implementer wall back in the plan arm's range.
+**Non-goal:** This is harness coordination doctrine, not a feature requirement. The contract lives in the `tdd-workflow` skill (§ Scoping Pre-Check, § Partial-Artifact Contract). The three stacks' `feature-implementer` agents and `agentic-harness.md` § Budget restate it. The partial record's meaning is restated in `route-spec.md` § Partial-record paths, the `build-failure` schema's `partial` description, the three `code-quality-gate` skills, and the glossary. The pinned Pre-Check text is re-pinned with the length rule's new sentence. The plan-file ADR's acceptance arm re-runs on the combined change. The partial count per implementing rep is read beside its three readings, counted from the `partial: true` build-failure records in each run's `handoff.jsonl`. The expected reading: no partial over a green tree, and the implementer wall back in the plan arm's range.
 
 ## References
 

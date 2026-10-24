@@ -49,7 +49,7 @@ The principles below are language-agnostic. Each **Stack-specific rules** slot i
 
 ### Test Structure
 - [ ] Each test reads as Arrange / Act / Assert with one behavior under test
-- [ ] A data-driven test is one assertion over an input table, and its name states every row; a distinct behavior is its own named test (`tested-as-spec`)
+- [ ] A data-driven test is one assertion over an input table, and its name states every row. A row that differs in outcome kind, in setup, or by branching is a distinct behavior and its own named test (`tested-as-spec`)
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases are included alongside the nominal case — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets

@@ -5,7 +5,7 @@ This directory is the project's decision log. ADRs document the path to each dec
 
 ## Format
 
-Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`.
+Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. A published ADR, one on the remote's default branch, is superseded or amended when its decision changes, never deleted. An ADR not yet there is a draft and is edited in place; the `prepare-ship` skill folds a feature's drafts at feature close.
 
 ### Template
 
@@ -47,7 +47,7 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`.
 - Keep it concise: aim for under 60 lines
 - Write in present tense ("We use X" not "We will use X")
 - Link related ADRs when decisions interact
-- Update status when decisions change; supersede, don't delete
+- Update a published ADR's status when its decision changes; supersede, never delete. A draft, one not yet on the default branch, is edited in place
 
 ### Non-Goal ADRs
 

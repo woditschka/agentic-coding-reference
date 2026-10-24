@@ -64,7 +64,7 @@
       ]
     },
     "cycles": {
-      "description": "The red-green-refactor cycles this dispatch ran before it failed the gate or checkpointed. Optional. A slice's total is the sum over its build-pass and build-failure records, so a troubled slice's early dispatches still count toward the slice-size signal.",
+      "description": "The red-green-refactor cycles this dispatch ran before it failed the gate or checkpointed. Optional. A slice's total is the sum over its build-pass and build-failure records, so a troubled slice's early dispatches still count toward the slice-size signal. A dispatch truncated without a record is not counted.",
       "type": "integer",
       "minimum": 0
     }

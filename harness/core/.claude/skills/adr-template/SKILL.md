@@ -22,6 +22,8 @@ Create an ADR when a decision constrains future slices or reverses a recorded on
 - A rejected alternative a later reader would otherwise re-litigate.
 - A reversal or narrowing of a recorded decision (supersede or amend the old ADR).
 
+Supersede or amend only a published ADR, one that has reached the remote's default branch. An ADR still in unpushed or unmerged history has no reader a supersession would protect. A later decision of the same feature edits it in place, and the feature ships one ADR per decision.
+
 Do not create an ADR for a choice with no trade-off, or for one a single slice contains. That rationale is one clause on the current-state line in `docs/system-design.md`. ADRs are the project's decision log for people; agents execute from the current-state docs and read an ADR by back-link.
 
 ## What an ADR Owns

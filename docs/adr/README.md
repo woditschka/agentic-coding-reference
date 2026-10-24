@@ -10,7 +10,7 @@ This log pairs with the [Project History](../project-history.md): the history is
 
 ## Format
 
-Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it concise (aim under 60 lines), write in present tense, and link related ADRs when decisions interact. Update status when a decision changes; supersede rather than delete.
+Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it concise (aim under 60 lines), write in present tense, and link related ADRs when decisions interact. A published decision is one on the remote's default branch; when it changes, update the status and supersede rather than delete. An ADR not yet there is a draft and is edited in place; the `prepare-ship` skill folds a feature's drafts at feature close ([the publication-boundary ADR](2026-10-24-history-is-rewritable-until-published.md)).
 
 New ADRs follow this skeleton:
 
@@ -147,6 +147,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-10-06 | [An Open-Weight Peer Is Reached Through a Reverse Port the Proxy Can Read](2026-10-06-open-weight-reverse-port.md) | Accepted |
 | 2026-10-08 | [An Agent Reaches a Skill by Preload or by Path, Never by Search](2026-10-08-skill-reach-without-a-skill-tool.md) | Accepted |
 | 2026-10-19 | [A Vendored Suite Asserts Harness-Owned Facts, Never a Project's Own](2026-10-19-vendored-suites-assert-harness-owned-facts.md) | Accepted |
-| 2026-10-20 | [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) | Accepted (acceptance arm re-run per [2026-10-24 the-checkpoint-runs-the-gate](2026-10-24-the-checkpoint-runs-the-gate.md)) |
+| 2026-10-20 | [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) | Accepted |
+| 2026-10-24 | [History Is Rewritable Until Published](2026-10-24-history-is-rewritable-until-published.md) | Accepted |
 | 2026-10-24 | [A Data-Driven Test Holds One Sentence Per Table](2026-10-24-one-sentence-per-table.md) | Accepted |
 | 2026-10-24 | [The Planned Checkpoint Runs the Quality Gate](2026-10-24-the-checkpoint-runs-the-gate.md) | Accepted |

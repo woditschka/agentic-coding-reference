@@ -247,7 +247,7 @@ When the feature-implementer runs the quality gate and it fails (build error, te
    - The latest `design-block` record (the original design).
    - The active `prd-entry` record (the tests the slice owes).
    - The working tree (what already landed).
-   - Instruction: "Fix the build failure described in the latest `build-failure` record. This is retry N of 3."
+   - Instruction: "Fix the build failure described in the latest `build-failure` record, then run `python3 scripts/grading.py coverage-map --feature <req_id>` and finish the owed tests still absent. This is retry N of 3."
 3. If `retry == 3`, route back to system-design-expert for re-triage with this prompt context:
    - All `build-failure` records for the active `req_id` since the latest `design-block` (the failure trail).
    - The latest `design-block` record.
@@ -266,7 +266,7 @@ When the feature-implementer runs the quality gate and it fails (build error, te
 
 ## Truncation Recovery
 
-When a feature-implementer dispatch ends without appending a `build-pass` or `build-failure` record for the active `req_id`, the implementer truncated before reaching the quality gate — the dispatch ran longer than one cap-bounded turn. Truncation alone does **not** mean the slice is over-scoped. The Scoping Pre-Check re-scopes a multi-behavior slice *before* dispatch. A slice that reaches dispatch and then truncates is presumed correctly sized and simply long — one coherent behavior whose mechanical surface exceeded one turn.
+When a feature-implementer dispatch ends without appending a `build-pass` or `build-failure` record for the active `req_id`, the implementer truncated before reaching the final quality gate. The dispatch ran longer than one cap-bounded turn. Truncation alone does **not** mean the slice is over-scoped. The Scoping Pre-Check re-scopes a multi-behavior slice *before* dispatch. A slice that reaches dispatch and then truncates is presumed correctly sized and simply long — one coherent behavior whose mechanical surface exceeded one turn.
 
 **The default recovery is to continue the same slice.** A continuation re-dispatch is a fresh dispatch that reads the ledger and the working tree — portable across every runtime. Where the runtime offers in-place resume of the stopped sub-agent (a bare `continue`, admitted by an allowlist that admits only `continue` and so cannot smuggle new instructions), that is an optional fast-path for the same continuation: same slice, same ledger trail, no context re-derivation. Re-split is reserved for two cases: the Pre-Check's over-size branch (a multi-behavior slice caught before dispatch), and **non-convergence** — continuation re-dispatches that keep truncating without producing a `build-pass`.
 
@@ -291,7 +291,7 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
 3. If the consecutive-truncation count `< 3`, re-dispatch the implementer to **continue the same slice**, with this prompt context:
    - The latest `design-block` record (the original design).
    - The active `prd-entry` record (the tests the slice owes).
-   - The partial-artifact `build-failure` record if one was left, else the instruction to re-derive progress from the working tree.
+   - The instruction to re-derive progress from the working tree; an earlier dispatch's partial `build-failure`, if any, is history the tree supersedes.
    - Instruction: "Continue the slice. Run `python3 scripts/grading.py coverage-map --feature <req_id>` to see which owed tests remain, read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
    Where the runtime offers in-place `continue`, root may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
 4. If the consecutive-truncation count `== 3` (non-convergence — a run of three truncated dispatches produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a superseding `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
@@ -301,7 +301,7 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
 Two partial-record paths route through existing recovery — they do NOT trigger Truncation Recovery:
 
 - **`build-failure` with `partial: true`** (the implementer's quality-gate run at its planned checkpoint came back red). The record flows through § Build-Failure Recovery above: `retry < 3` re-dispatches the implementer with the gate output and the progress description in `error_output`; `retry == 3` re-triages via system-design-expert. The implementer's next dispatch starts from the recorded progress instead of from scratch.
-- **`review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers. The `truncation` tag is a progress marker, not an escalation — `SKILL.md` § Blocking does not apply to it.
+- **`review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding** (a reviewer reached its planned checkpoint mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers. The `truncation` tag is a progress marker, not an escalation — `SKILL.md` § Blocking does not apply to it.
 
 Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.
 

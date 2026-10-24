@@ -1,8 +1,6 @@
 # The Implementer Keeps No Plan File
 
-**Status:** Accepted (acceptance arm re-run per [2026-10-24 the-checkpoint-runs-the-gate](2026-10-24-the-checkpoint-runs-the-gate.md))
-
-> Amendment 2026-10-24: the acceptance arm's first rep set (2026-10-23, one rep per task) cleared all three readings. Three of four implementing reps handed off a planned-checkpoint partial over green tests, which [2026-10-24 the-checkpoint-runs-the-gate](2026-10-24-the-checkpoint-runs-the-gate.md) corrects. The arm re-runs with two more variables: the checkpoint rule, which moves the partial count and cost, and the test doctrine of [2026-10-24 one-sentence-per-table](2026-10-24-one-sentence-per-table.md), which moves test count and test-quality. A failed reading is attributed by its instrument before option 2 applies.
+**Status:** Accepted
 
 ## Context
 
@@ -12,7 +10,7 @@ First, the file became a handoff. The route spec handed it to the re-dispatched 
 
 Second, the template duplicated the ledger. Its file and integration sections restated `primary_paths`, `supporting_paths`, and `integration_points`; the TDD skill defined the plan's file set as that union, so the section could only drift from its source. Its Feedback Log was double entry beside every `consultation-request`. Its Status line duplicated `build-pass` and `build-failure`, which the router reads. Only the cycle list carried information that existed nowhere else.
 
-Third, the file was mutable state by re-edit. The skill asked for one write before coding and one edit per cycle: tick the boxes, fill the Refactor line. No deterministic reader consumed the ticked state. The continuation dispatch received it, but a tick lags a truncation, so the route spec already told that dispatch to trust the working tree. The [fresh-eyes decision](2026-06-21-fresh-eyes-review-changeset.md) bars reviewers from it, the grader ignores it, and the grader ignores it. The retry-trail argument for append-only did not apply either: the file was gitignored and deleted at merge.
+Third, the file was mutable state by re-edit. The skill asked for one write before coding and one edit per cycle: tick the boxes, fill the Refactor line. No deterministic reader consumed the ticked state. The continuation dispatch received it, but a tick lags a truncation, so the route spec already told that dispatch to trust the working tree. The [fresh-eyes decision](2026-06-21-fresh-eyes-review-changeset.md) bars reviewers from it, the grader ignores it. The retry-trail argument for append-only did not apply either: the file was gitignored and deleted at merge.
 
 The template also crossed the line the TDD skill draws under "Design is Discovered, Not Planned". A Domain Model section designed entities before the first test existed. Each cycle's "Implementation: what code to write" line decided Green before Red had failed. Test-first discovers detail and interface design from the caller's side. An agent writes autoregressively, so the first artifact anchors the rest. An implementation plan written first anchors the tests to the implementation. That premise is a hypothesis; the acceptance arm's design-fit facet is its test.
 
@@ -33,13 +31,13 @@ The bench's [scope coverage series](../../evals/README.md#scope-coverage), compu
 |---|---|
 | The first concrete test | `prd-entry.test_names`, a required field whose purpose is to give the first cycle its target |
 | The target file set | `design-block.primary_paths`, `supporting_paths`, `patterns[*].ref`; still exhaustive, still widened only by consultation. The rule moves from the retired Plan step to the first step of the TDD cycle, "Start from the contract" |
-| The slice-size gate | The design expert's `implementation_effort` rating at triage; the cycle estimate in the Scoping Pre-Check sentence before the first Red; post hoc, the `cycles` count each `build-pass` and `build-failure` carries, summed per slice from the ledger; a bench series over it is a follow-up |
+| The slice-size gate | The cycle estimate in the Scoping Pre-Check sentence before the first Red. Post hoc, the `cycles` count each `build-pass` and `build-failure` carries, summed per slice from the ledger. The sum is a lower bound, since a dispatch truncated without a record adds nothing; a bench series over it is a follow-up |
 | The Feedback Log | The ledger's `consultation-request` records, which were already the log |
 | Progress | The working tree, which the retry and continuation paths already read |
 | The retry and continuation prompt context | The active `prd-entry` beside the latest `design-block` and `build-failure` |
 | The Refactor outcome line | One transcript line per cycle naming what was cleaned up or why nothing needed it; a prompt instruction, not a file edit |
 
-`build-pass` gains an optional `cycles` integer. The doctor's fresh-eyes check keeps its slug: a project-owned reviewer written against an older harness may still name the retired file.
+Both build records gain an optional `cycles` integer. The doctor's fresh-eyes check keeps its slug: a project-owned reviewer written against an older harness may still name the retired file.
 
 ## Consequences
 
@@ -52,17 +50,20 @@ The bench's [scope coverage series](../../evals/README.md#scope-coverage), compu
 **Negative:**
 - The upfront enumeration was a forcing function against scope drift and missed criteria. The prd-entry's acceptance criteria and test names, the nine-clause self-review, and the reviewers cover the same ground; that is an argument, not yet evidence. The scope coverage and required-tests series are the instruments that turn it into one.
 - A continuation dispatch loses the implementer's own notes. It keeps the contract and the working tree, which the route spec already told it to trust.
+- The slice-size signal has no reader yet: the sum is recorded, not acted on, until the bench series lands.
 - The cost change is a rounding error: the implementer was 16% of spend in the v0.4.8 sweep, and this removes its plan write and one edit per cycle.
 
 ## Implementation
 
-Surfaces edited: the TDD skill and its principles; the scratch contract; the handoff-routing state table and route spec; the review-workflow fresh-eyes paragraph. Also the doctor's check description and the audit-agents, prd-authoring, and marketplace setup skills. Also the three implementer bodies and agent READMEs, the review-planner body, the managed orchestrator chapter, the root handbook with its installed copy, the `build-pass` schema and its record class. The template file is deleted and listed in `harness/retired-paths.txt`.
+Surfaces edited: the TDD skill and its principles; the scratch contract; the handoff-routing state table and route spec; the review-workflow fresh-eyes paragraph. Also the doctor's check description and the audit-agents, prd-authoring, and marketplace setup skills. Also the three implementer bodies and agent READMEs, the review-planner body, the managed orchestrator chapter, the root handbook with its installed copy, the two build-record schemas and their record classes. The template file is deleted and listed in `harness/retired-paths.txt`.
 
-**Acceptance arm.** Removing the plan is a demotion under the [resilience-first doctrine](2026-07-12-resilience-first-improvement-doctrine.md), so it ships behind a measured before-and-after. The arm gates the next `/release-version`: no tagged version carries this decision unmeasured. The arm is a `--version dev` sweep against the v0.4.9 baseline, read on the bar, the design-fit facet, the review-round count, and the scope coverage series. It fails on any of three readings. Any rep misses the bar. The design-fit median falls by 0.5 or more on any task. The reps with a file outside the triage exceed the pooled v0.4.7 and v0.4.8 share, 10 of 28, by more than two reps in twelve. Its result lands as an in-file amendment. On failure, option 2 replaces the file removal while the rest stands. Its shape: a template holding the owed test names only, written once; the route spec hands it to retries and continuations again. The retired-paths entry is removed so materialize stops pruning it; the doctor's slug is unchanged.
+**Acceptance arm.** Removing the plan is a demotion under the [resilience-first doctrine](2026-07-12-resilience-first-improvement-doctrine.md), so it ships behind a measured before-and-after. The arm gates the next `/release-version`: no tagged version carries this decision unmeasured. The arm is a `--version dev` sweep read against the latest tagged rows on the bar, the design-fit facet, the review-round count, and the scope coverage series. The first set read against v0.4.8; no v0.4.9 run is on record, so the re-run sweeps dev and v0.4.9 interleaved or names the v0.4.8 mix-in. It fails on any of three readings. Any rep misses the bar. The design-fit median falls by 0.5 or more on any task. The reps with a file outside the triage exceed the pooled v0.4.7 and v0.4.8 share, 10 of 28, by more than two reps in twelve: three reps per task. The first rep set, one rep per task on 2026-10-23 and 24, cleared the first two readings; the third needs the twelve-rep depth. Three of four implementing reps handed off a planned-checkpoint partial over green tests; [2026-10-24 the-checkpoint-runs-the-gate](2026-10-24-the-checkpoint-runs-the-gate.md) corrects that handoff. A second rep set re-runs the arm on the combined change, which adds two variables. The checkpoint rule moves the partial count and cost. The test doctrine of [2026-10-24 one-sentence-per-table](2026-10-24-one-sentence-per-table.md) moves test count and test-quality. That re-run is pending; its result is written into this ADR, and the push waits for it. A failed reading is attributed by its instrument before option 2 applies. On failure, option 2 replaces the file removal while the rest stands. Its shape: a template holding the owed test names only, written once; the route spec hands it to retries and continuations again. The retired-paths entry is removed so materialize stops pruning it; the doctor's slug is unchanged.
 
 ## References
 
 - [`2026-05-08-append-only-jsonl-handoffs.md`](2026-05-08-append-only-jsonl-handoffs.md) — the exemption this decision closes
 - [`2026-06-21-fresh-eyes-review-changeset.md`](2026-06-21-fresh-eyes-review-changeset.md) — reviewers never read the implementer's working memory; the doctor check this decision keeps
 - [`2026-07-12-resilience-first-improvement-doctrine.md`](2026-07-12-resilience-first-improvement-doctrine.md) — why a demotion carries a measured arm
+- [`2026-10-24-the-checkpoint-runs-the-gate.md`](2026-10-24-the-checkpoint-runs-the-gate.md) — corrects the planned-checkpoint partial handoffs the first rep set showed
+- [`2026-10-24-one-sentence-per-table.md`](2026-10-24-one-sentence-per-table.md) — its test doctrine is the second variable the re-run adds
 - `evals/README.md` § Scope coverage — the series the arm is read on

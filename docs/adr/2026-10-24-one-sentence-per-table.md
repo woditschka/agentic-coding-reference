@@ -6,14 +6,14 @@
 
 The test doctrine the harness ships asked for data-driven tests wherever cases repeat. The `tdd-workflow` test rules said related cases are data-driven. The Java `test-review` checklist listed `@ParameterizedTest` for repetitive cases, flagged a missing one as an `autofix` issue, and asked a `@CsvSource` to cover all edge cases. The generic checklist said related cases are data-driven rather than copy-pasted. The implementer agents allowed a merge of several owed test names into one data-driven test. The `testing-principles` template carried a parameterized-tests convention row.
 
-The doctrine measured the wrong thing. Repetition of shape is not what a table is for; repetition of the sentence is. A table whose rows share one sentence reads better than three copies, and a failing row names its input. A page value below one rendering the first page, over 0 and -1, is such a table. A table whose rows stop sharing a sentence hides behaviors. The signs: an outcome column that varies in kind, setup that differs per row, or a branch in the body. The reader then runs the table in their head to learn what the unit does. Aggregates and domain units suffer most, because their cases are scenarios that deserve a name and a body built in plain sight.
+The doctrine measured the wrong thing. Repetition of shape is not what a table is for; repetition of the sentence is. A table whose rows share one sentence reads better than three copies, and a failing row names its input. A page value below one rendering the first page, over 0 and -1, is such a table. A table whose rows stop sharing a sentence hides behaviors. The signs: an outcome column that varies in kind, setup that differs per row, or a branch in the body. The reader then runs the table in their head to learn what the unit does. Aggregates and domain units show it first: their cases are scenarios, each with a name and a body built in plain sight.
 
 The plan-file acceptance arm (arm `dev-fa42bcbf-dirty`, 2026-10-23, local) showed the direction a test-first implementer takes without the nudge. On the visit-edit task the plan arm merged two refusals into one `WhenInvalid` test; the test-first arm wrote one named test per edge case and used no parameterized form. Parameterized tests appeared at most twice per task in either arm, and the one that merged behaviors was the plan arm's. The doctrine had been pushing toward compression the implementers did not need and the reviewers had no criterion to refuse.
 
 ## Options Considered
 
 1. **Keep the repetition rule.** Rejected: it rewards compression and gives the reviewer no way to call a table that hides behaviors.
-2. **Ban data-driven tests.** Rejected: an input table over boundaries and equivalence classes is the clearest form for that case, and Go's table-driven subtests are the stack's idiom.
+2. **Ban data-driven tests.** Rejected: an input table over boundaries and equivalence classes is the form that case reads in, and Go's table-driven subtests are the stack's idiom.
 3. **One sentence per table.** Chosen. A data-driven test is one assertion over an input table, and its name states every row. A row that differs in outcome kind, in setup, or by a branch in the body is a distinct behavior and gets its own named test.
 
 ## Decision

@@ -162,6 +162,7 @@ The naming school is the brief's (§ Test Naming); the machine floor is `test_na
 
 ### [AUTOFIX] Issues
 - Several behaviors under one `@ParameterizedTest` name
+- Values repeated across cases that share one sentence and belong in its table
 - Wrong assertion style (JUnit instead of AssertJ)
 - Non-descriptive test name
 - Missing edge case (its own named test unless it shares a table's sentence)

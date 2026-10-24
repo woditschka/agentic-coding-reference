@@ -6,8 +6,9 @@ description: >-
   (harness/verify-harness.py — its header carries the step list). Layer 2 runs the
   judgment-only consistency audit — six checks, agent depth delegated to
   /audit-agents. Layer 3 dispatches an adversarial multi-agent review of the
-  working-tree diff. The default run scopes the judgment layers to the diff;
-  "/audit-harness full" runs all six consistency checks across the samples.
+  working-tree diff, or of a commit range when one is given. The default run
+  scopes the judgment layers to the diff; "/audit-harness full" runs all six
+  consistency checks across the samples.
   The root CLAUDE.md maintainer loop states when each tier runs. Root-only
   (Claude Code).
 compatibility:
@@ -27,8 +28,12 @@ disagrees with `/harness`, `/harness` wins: fix the source, re-materialize,
 never a sample's committed runtime.
 
 **Usage:** `/audit-harness` (default — judgment scoped to the working-tree
-diff) or `/audit-harness full`. Root-only — this reference is maintained with
-Claude Code, so the skill ships nowhere else.
+diff), `/audit-harness full`, or either with a commit range
+(`/audit-harness origin/main..HEAD`): the judgment layers then read
+`git diff <range>` in place of the working tree. `/prepare-ship` uses the
+range form for its feature verdict over the regrouped commits. Root-only —
+this reference is maintained with Claude Code, so the skill ships nowhere
+else.
 
 ## Tiers
 
@@ -38,7 +43,7 @@ each tier runs; this table maps only tier → invocation.
 | Tier | What runs |
 |---|---|
 | **0** | The battery alone (§ Layer 1). Not an `/audit-harness` run. |
-| **1** | `/audit-harness` — Layer 1, then layers 2 and 3 scoped to the working-tree diff |
+| **1** | `/audit-harness` — Layer 1, then layers 2 and 3 scoped to the working-tree diff, or to `<range>` when given |
 | **2** | `/audit-harness full` — Layer 1, all six Layer 2 checks (agent depth: one full sample plus stack deltas), Layer 3 |
 
 ## The three layers
@@ -192,9 +197,10 @@ examples of the shape:
 ## Layer 3 — the adversarial change review
 
 Dispatch parallel reviewers over the working-tree diff (`git diff` +
-`git status`). On a `full` run over a clean tree (the periodic drift check),
-there is no diff — record Layer 3 as "no diff" in the verdict; Layer 2 carries
-the run. Each reviewer gets a focused, adversarial mandate — *find what is
+`git status`), or over `git diff <range>` when a range was given. A `full`
+run over a clean tree with no range is the periodic drift check and has no
+diff. Record Layer 3 as "no diff" in the verdict; Layer 2 carries the run.
+Each reviewer gets a focused, adversarial mandate — *find what is
 wrong*, not confirm what is right. Excess is wrong too: a test no change
 would fail, a record that wraps a pair, and a seam nothing drives are
 findings with the same weight as a gap. A missing-test finding names the
@@ -257,7 +263,7 @@ just introduces) is still yours to close.
 ## Verdict format
 
 ```
-## audit-harness: <date> — default | full
+## audit-harness: <date> — default | full [<range>]
 
 Layer 1 — deterministic battery: PASS | FAIL (<which steps>)
 Layer 2 — consistency audit: PASS | <N issues, mapped to a /harness (or root) path> (checks run: <…>; skipped: <…>)

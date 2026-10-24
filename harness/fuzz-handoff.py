@@ -261,6 +261,7 @@ def _build_pass(g: Generator, _line_no: int) -> Raw:
     return {
         "gate_checks_run": g.pick([["fmt", "test"], [], None, "x", [1, None]]),
         "duration_seconds": g.pick([1, None, "x"]),
+        "cycles": g.pick([0, 4, None, -1, "x", True]),
     }
 
 
@@ -281,6 +282,7 @@ def _build_failure(g: Generator, _line_no: int) -> Raw:
             ]
         ),
         "partial": g.pick([True, False, None, "y"]),
+        "cycles": g.pick([0, 4, None, -1, "x", True]),
     }
 
 

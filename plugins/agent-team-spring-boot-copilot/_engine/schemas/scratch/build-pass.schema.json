@@ -41,7 +41,7 @@
       "minimum": 0
     },
     "cycles": {
-      "description": "The red-green-refactor cycles the appending dispatch ran; 0 for a fix round that changed no behavior. Optional. Every dispatch counts its own, so a slice's total is the sum over its build-pass and build-failure records. Read against the design-block's implementation_effort rating as the slice-size signal: a total past ten names a slice the intake should have split.",
+      "description": "The red-green-refactor cycles the appending dispatch ran; 0 for a fix round that changed no behavior. Optional. Every dispatch counts its own, so a slice's total is the sum over its build-pass and build-failure records. The sum is a lower bound: a dispatch truncated without a record leaves nothing to count. Read as the slice-size signal: a total past ten names a slice the intake should have split, or one that churned through retries.",
       "type": "integer",
       "minimum": 0
     }

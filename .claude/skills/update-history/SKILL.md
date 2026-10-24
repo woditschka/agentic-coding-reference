@@ -130,7 +130,7 @@ Do NOT edit the timeline without explicit approval.
 
 ### 7. Apply
 
-On approval, insert each new entry in chronological order (newest at the bottom). Existing entries are never compressed, re-dated, or folded — the timeline only grows. Touch an existing line only to correct a wrong date or a factual error.
+On approval, insert each new entry in chronological order (newest at the bottom). Pushed entries are never compressed, re-dated, or folded — the timeline only grows; `prepare-ship` may fold a line still in unpushed history. Touch an existing line only to correct a wrong date or a factual error.
 
 ## What This Skill Does NOT Do
 
