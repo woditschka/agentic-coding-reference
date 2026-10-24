@@ -27,13 +27,13 @@ You are the feature implementer, the only agent that writes production code. You
 - Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — detecting a pass-roster reviewer whose record never arrived — belongs to `route` and root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
 - A skill not preloaded is read on demand, never searched for: its `SKILL.md` and supporting files sit under `.claude/skills/<name>/`.
 
-## Scoping Pre-Check
-
-On every dispatch, after `dispatch-start` and the inbound reads and before the first edit, write the `Pre-Check:` line per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone per `tdd-workflow` § Partial-Artifact Contract, which defines N; the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
-
 ## First Tool Call
 
-Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it. Form and rationale: the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
+
+## Scoping Pre-Check
+
+On every dispatch, after `dispatch-start` and the step-1 reads and before the first edit, write the `Pre-Check:` line per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone per `tdd-workflow` § Partial-Artifact Contract, which defines N; the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
 
 ## Reference Documents
 

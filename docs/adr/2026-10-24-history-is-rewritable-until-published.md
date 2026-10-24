@@ -37,7 +37,7 @@ The maintainer answered this with two recurring prompts at feature close. The fi
 **Negative:**
 - A feature's intermediate reasoning leaves the log at the fold. The reflog and the audit verdicts of the folded commits keep it for the maintainer; the published log never had it.
 - A consumer that pushes every commit to the default branch through `/ship` has no range to fold. The skill serves the consumer that batches commits, or works on a branch, before the merge; the rule serves everyone.
-- The precondition and the oracle are prose shell, not a script with a test. A script follows once the skill has run on a few features and its checks have settled.
+- The precondition and the oracle are prose shell, not a script with a test.
 - A commit that gated on tier 1 is folded with commits that did not. The front-end names tier 1 as the owner's responsibility; the skill cannot verify it.
 
 ## Implementation

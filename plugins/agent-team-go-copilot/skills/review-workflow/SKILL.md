@@ -149,7 +149,7 @@ After the `dispatch-start` append and before the first finding, run the three-st
 
 The model cannot count its own tool calls precisely. The trigger is therefore a **planned checkpoint** named at Pre-Check time, not a running count.
 
-**Choosing the checkpoint.** For a review of K changed files, set the checkpoint at "after reviewing ⌈K/2⌉ files." For a checklist-driven review (security threat model, dynamic-analysis run), set it at "after completing the first half of the checklist steps." Write the checkpoint as one of the Pre-Check sentences before the first tool call.
+**Choosing the checkpoint.** For a review of K changed files, set the checkpoint at "after reviewing ⌈K/2⌉ files." For a checklist-driven review (security threat model, dynamic-analysis run), set it at "after completing the first half of the checklist steps." The `Pre-Check:` line carries the checkpoint, so the transcript names it before the first finding.
 
 **At the checkpoint, the decision is unconditional.** If the review is complete, write the final `review-feedback` as normal. If not, **append a partial `review-feedback` record now** with the findings collected so far, then stop. Do not assess "am I close to done" — that assessment is the introspection the contract rejects.
 

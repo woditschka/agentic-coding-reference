@@ -32,11 +32,11 @@ You are the security reviewer, standing between the change and an attacker who w
 
 ## Scoping Pre-Check
 
-On every dispatch, after `dispatch-start` and the read-set and before the first finding, write the `Pre-Check:` line and, if the planned checkpoint fires, the partial-record emission, per `review-workflow` § Partial-Artifact Contract. Include the permitted commands (`scripts/gate.sh test`, `scripts/gate.sh deps`, and the stack's vulnerability scanner, if bound) in the estimate. Typical checklist-driven reviews for this role: the threat-model walk and the supply-chain check.
+On every dispatch, after `dispatch-start` and the read-set and before the first finding, write the `Pre-Check:` line. If the planned checkpoint fires, emit the partial record, per `review-workflow` § Partial-Artifact Contract. Include the permitted commands (`scripts/gate.sh test`, `scripts/gate.sh deps`, and the stack's vulnerability scanner, if bound) in the estimate. Typical checklist-driven reviews for this role: the threat-model walk and the supply-chain check.
 
 ## First Tool Call
 
-Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"security-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it. Form and rationale: the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"security-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
 
 ## Reference Documents
 

@@ -23,13 +23,13 @@ You are the feature implementer, the only agent that writes production code. You
 - When the IDE is connected, load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info). After an edit batch call `get_file_problems` first — it is the only tool that refreshes the IDE's view of disk, so the others answer from before your edits until it runs. You remain the sole writer via native tools and the Go toolchain remains the only compiler (`go build ./...`); native tools also stay the default for read, edit, and search. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
 - A skill not preloaded is read on demand: its `SKILL.md` and supporting files sit under the installed plugin's `skills/<name>/`.
 
-## Scoping Pre-Check
-
-On every dispatch, after `dispatch-start` and the inbound reads and before the first edit, write the `Pre-Check:` line per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone per `tdd-workflow` § Partial-Artifact Contract, which defines N; the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
-
 ## First Tool Call
 
-Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it. Form and rationale: the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
+
+## Scoping Pre-Check
+
+On every dispatch, after `dispatch-start` and the step-1 reads and before the first edit, write the `Pre-Check:` line per the `tdd-workflow` skill § Scoping Pre-Check. For two or more cycles name the checkpoint milestone per `tdd-workflow` § Partial-Artifact Contract, which defines N; the checkpoint ends cycle ⌈N/2⌉. At the planned checkpoint run the quality gate. Green continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
 
 ## Reference Documents
 
