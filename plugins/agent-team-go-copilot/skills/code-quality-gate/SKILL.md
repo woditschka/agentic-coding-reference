@@ -18,7 +18,7 @@ metadata:
 
 ## Quality Gate
 
-Before invoking reviewers, all checks must pass. Run `make ci` to execute the full pipeline.
+Before invoking reviewers, all checks must pass. The same gate runs once mid-slice at the planned checkpoint (`tdd-workflow` § Partial-Artifact Contract). Green there appends no `build-pass`. A red check keeps the record shape its procedure names; any other handoff appends the partial record. Run `make ci` to execute the full pipeline.
 
 ### Required Checks
 

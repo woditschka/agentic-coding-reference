@@ -1,6 +1,8 @@
 # Append-Only JSONL Handoffs with Schema Validation Gate
 
-**Status:** Accepted
+**Status:** Accepted (the `implementation-plan.md` exemption closed by [2026-10-20 the-implementer-keeps-no-plan-file](2026-10-20-the-implementer-keeps-no-plan-file.md))
+
+> Amendment 2026-10-20: the implementer keeps no plan file, so the out-of-scope entry for `implementation-plan.md` no longer applies; the JSONL decision itself stands.
 
 ## Context
 

@@ -9,7 +9,6 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 ```
 .scratch/
 ├── handoff.jsonl             # Append-only structured handoff log (all agents)
-├── implementation-plan.md    # TDD cycle plan (from feature-implementer)
 ├── escalations.md            # Items requiring human decision
 └── tmp/                      # Intermediate computation files (auto-cleaned)
 ```
@@ -33,7 +32,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `grader-features` | change-grader (`scripts/grading.py extract`) | `schemas/scratch/grader-features.schema.json` |
 | `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
 
-Markdown is kept only for self-tracking (`implementation-plan.md`) and human-facing artifacts (`escalations.md`). One append-only JSONL file is replayable, line-addressable, and easier to validate against schema than scattered per-agent markdown files.
+Markdown is kept only for the human-facing `escalations.md`. The implementer keeps no plan file: the working tree is its progress and the ledger its decisions. One append-only JSONL file is replayable, line-addressable, and easier to validate against schema than scattered per-agent markdown files.
 
 ## File Lifecycle
 
@@ -45,7 +44,6 @@ Templates for human-read markdown files are in `.claude/templates/`:
 
 | Template | Used By | When |
 |----------|---------|------|
-| `implementation-plan.md` | feature-implementer | Before coding |
 | `escalations.md` | feature-implementer; root (prerequisite-missing aborts, reviewer stalls, escalate findings on an `approved` verdict) | When `tag: "escalate"` findings or `design-block` records with `verdict: "conflicting"` exist |
 
 JSONL records do not use markdown templates — they are validated against the JSON Schemas in `schemas/scratch/`.

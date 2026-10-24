@@ -89,7 +89,7 @@ Tests describe behavior, not implementation. The name should read as a specifica
 |------------|------|
 | Test class/file names | Describe the scenario or action being tested |
 | Test method/function names | Describe the expected outcome |
-| Parameterized tests | Same method name, data-driven via table or CSV source |
+| Data-driven tests | One assertion over an input table; the name states every row; a distinct behavior is its own test |
 
 Go imposes the `TestXxx` prefix; within it, the name still reads as a specification of the expected outcome (`TestSummaryRendersCacheMissRate`, not `TestSummary1`). The machine-checkable floor (the regex handoff validation applies to `test_names`) lives in `scripts/layout.toml` as `test_name_pattern`; this section carries the school the floor cannot express.
 

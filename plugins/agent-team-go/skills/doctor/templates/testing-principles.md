@@ -61,7 +61,7 @@ The pyramid's question, could this rule have been tested without the framework, 
 
 ## Coverage
 
-The measure of a suite is logical coverage. Every decision path and every equivalence class of a unit's inputs appears once, in the unit's own suite, with boundaries tested where the code compares. A one-line predicate earns one test; a decision table earns one table-driven test with a row per class. A second test through the same class proves nothing further.
+The measure of a suite is logical coverage. Every decision path and every equivalence class of a unit's inputs appears once, in the unit's own suite, with boundaries tested where the code compares. A one-line predicate earns one test. A decision table earns one table-driven test with a row per class when every row yields the same kind of outcome (a value, a refusal, a side effect). Rows of different kinds are separate tests. A second test through the same class proves nothing further.
 
 The client above tests only the logic it adds: which collaborators it consults in which situation, and how it composes their results. It exercises a collaborator through one representative path per decision it makes, never through the collaborator's case table. Every branch of the composition still appears once; what the layer skips is repetition, not rigor. The test to remove is a higher-level test whose only assertion is a value a collaborator computes. The case moves down to that unit, and the higher-level test keeps one assertion showing the collaborator was consulted.
 
@@ -95,7 +95,7 @@ Tests describe behavior, not implementation. The name should read as a specifica
 |------------|------|
 | Test class/file names | Describe the scenario or action being tested |
 | Test method/function names | Describe the expected outcome |
-| Parameterized tests | Same method name, data-driven via table or CSV source |
+| Data-driven tests | One assertion over an input table; the name states every row; a distinct behavior is its own test |
 
 ## Three-Tier Data Naming Convention
 

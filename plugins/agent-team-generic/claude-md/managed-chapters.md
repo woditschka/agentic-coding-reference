@@ -24,7 +24,7 @@ Orchestrator prose is cache-written once, then cache-read on every later turn â€
 - **One line per routine hop.** Name the dispatch and its reason, take it, report the result.
 - **Drop the filler.** Cut preambles ("Now let meâ€¦") and recaps of state already visible in the transcript.
 
-Trimming covers connective prose, never content a hop exists to deliver. The human-facing surface stays in full: every non-`approved` verdict with its findings, the verbatim change-grade relay, the implementation plan, decision rationale, and `AskUserQuestion` gates.
+Trimming covers connective prose, never content a hop exists to deliver. The human-facing surface stays in full: every non-`approved` verdict with its findings, the verbatim change-grade relay, decision rationale, and `AskUserQuestion` gates.
 
 ### Confirmation Discipline
 

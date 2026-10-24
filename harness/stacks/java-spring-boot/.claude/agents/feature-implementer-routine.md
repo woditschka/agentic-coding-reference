@@ -34,7 +34,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 ## Scoping Pre-Check
 
-Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. If the planned checkpoint fires without a clean `build-pass`, append the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stop.
+Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. At the planned checkpoint run the quality gate. Green within budget continues with no record; the `build-pass` waits for the final gate. Red appends the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stops; a check whose procedure prescribes its own record keeps it.
 
 ## First Tool Call
 
@@ -44,7 +44,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log. Read records by type:
 
-- **Feature scope:** latest `type: "prd-entry"` record. Use `req_id`, `acceptance_criteria`, and `test_names` directly — they pin the TDD targets. A rename, or a merge of two or more names into one data-driven test, is legitimate when the walk notes it against the coverage map. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
+- **Feature scope:** latest `type: "prd-entry"` record. Use `req_id`, `acceptance_criteria`, and `test_names` directly — they pin the TDD targets. A rename is legitimate when the walk notes it against the coverage map; so is a merge of names into one data-driven test whose name states every row. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
 - **Design guidance:** latest `type: "design-block"` record. Use `architectural_fit`, `primary_paths`, `integration_points`, `patterns`, `risks`. Schema: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json).
 - **Reviewer feedback:** all `type: "review-feedback"` records since the last `build-pass`. Each carries structured `findings` with `tag`, `location`, `description`, and (for `autofix`) `fix`. See `review-workflow` skill. Schema: [`schemas/scratch/review-feedback.schema.json`](../../schemas/scratch/review-feedback.schema.json).
 
@@ -69,7 +69,6 @@ The handoff records are your file map. Do not re-derive it. Each redundant re-re
 
 ## Output Documents
 
-- **Implementation Plan:** `.scratch/implementation-plan.md` — TDD cycle plan (markdown; self-tracking only, no handoff)
 - **Build Records:** append `build-failure` (on quality-gate failure) or `build-pass` (on success) to `.scratch/handoff.jsonl`. Schemas: [`build-failure.schema.json`](../../schemas/scratch/build-failure.schema.json), [`build-pass.schema.json`](../../schemas/scratch/build-pass.schema.json).
 - **Escalations:** `.scratch/escalations.md` — items requiring human decision (markdown; human-read).
 - **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. On resume from a requirements answer that changed `docs/prd.md`, the carry request to `system-design-expert` is a fourth trigger. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
@@ -80,14 +79,13 @@ You may ONLY write to these locations:
 - the production source roots declared in `scripts/layout.toml` — production code, entry points, and resources
 - the test sources per the test classification in `scripts/layout.toml` — the tests you write first
 - `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records, via `python3 scripts/handoff.py append` only (`handoff-append` skill). Never modify or delete prior records.
-- `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
 
 Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
 
 ## Build-Failure Handling
 
-If the quality gate fails, append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit; the retry and re-triage that follow are `route`'s. On success, append a `build-pass` record naming the gate verbs that ran (`gate_checks_run`) and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
+If the final quality gate fails, append a `build-failure` record to `.scratch/handoff.jsonl` with the error output, the retry count, and the cycles this dispatch ran (`cycles`), then exit. The retry and re-triage that follow are `route`'s. On the final gate's success, append a `build-pass` record naming the gate verbs that ran (`gate_checks_run`) and the red-green-refactor cycles this dispatch ran (`cycles`), then proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
 **Computing `retry`:** run `python3 scripts/handoff.py next-retry --req-id <id>` — it implements the counting rule (`handoff-routing` § Build-Failure Recovery; pinned in that skill's `route-spec.md` § Retry rules).
 

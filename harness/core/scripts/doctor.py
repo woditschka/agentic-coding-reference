@@ -196,8 +196,9 @@ RUNTIME_PATHS = [
 # is blind to it.
 _REQUIRED_REVIEWER_TOKENS = ("dispatch-start", "review-workflow")
 
-# The working-memory artifact a reviewer body must never instruct reading. The
-# bare slug matches with or without the .md suffix. design-block is not
+# The retired working-memory file a reviewer body must never instruct reading;
+# a project-owned reviewer written against an older harness may still name it.
+# The bare slug matches with or without the .md suffix. design-block is not
 # forbidden: every reviewer reads the ledger that holds it.
 _FORBIDDEN_REVIEWER_REFS = ("implementation-plan",)
 
@@ -967,7 +968,7 @@ def reviewer_bodies(
 
 
 def check_reviewer_fresh_eyes(manifest: Manifest, root: Path) -> list[Result]:
-    """Fail each reviewer body that instructs reading the implementer's plan."""
+    """Fail each reviewer body that instructs reading the retired implementer plan file."""
     # An in-tree body is project-owned on every channel: on marketplace the
     # floor ships in the plugin, so only extras appear in the tree.
     spec = manifest.reviewers
@@ -999,7 +1000,7 @@ def _fresh_eyes_result(root: Path, body: Path) -> Result:
             "reviewer-fresh-eyes",
             f"{rel!r} references working memory ({', '.join(hits)}) "
             "— a reviewer reads the change set, not the "
-            "implementer's plan (fresh-eyes invariant)",
+            "implementer's working memory (fresh-eyes invariant)",
         )
     return passed("reviewer-fresh-eyes", f"{rel!r} reads no working memory")
 

@@ -51,7 +51,7 @@ ENGINE_SLIVER = (
     "scripts/doctor.py",
     "scripts/doctor-expectations.toml",
     "schemas/scratch/prd-entry.schema.json",
-    ".claude/templates/implementation-plan.md",
+    ".claude/templates/escalations.md",
 )
 A_PASSING_SUITE = (
     "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_ok(self):\n"

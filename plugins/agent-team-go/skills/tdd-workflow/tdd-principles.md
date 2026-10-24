@@ -12,7 +12,7 @@ Every feature is built through strict Red-Green-Refactor cycles. Agents never wr
 
 | Step | Action | Rule |
 |------|--------|------|
-| **Plan** | Break the feature into TDD cycles | Write plan to `.scratch/implementation-plan.md` |
+| **Start** | Read the slice's required tests and triaged files | First Red comes from `prd-entry.test_names`; no plan file |
 | **Design check** | Verify the current design supports the behavior | Gate before every cycle (see below) |
 | **Red** | Write a failing test | Test must fail for the right reason |
 | **Green** | Write minimum code to pass | No more code than the test demands |
@@ -51,7 +51,7 @@ The Green Phase rule "write the minimum code to make the failing test pass" comb
 | Rule | Slug | What it means |
 |---|---|---|
 | **Fit-for-purpose** | `fit-for-purpose` | Solves the stated problem, nothing more. No speculative generality. **No abstractions without two real call sites** — wait for the second use before introducing the abstraction. No defensive code for impossible cases — boundary validation belongs at boundaries; internal code trusts its contracts. |
-| **Spec-grounded** | `spec-grounded` | Work starts from a clear outcome and stays within stated scope. If the spec is ambiguous, ask before coding (route through `product-requirements-expert` per the Design Check Gate). Drift outside scope is surfaced via the Feedback Log, not silently absorbed. A fix round holds the same line: a fix that changes behavior outside the slice's bullets goes to `product-requirements-expert` as a consultation before the quality gate, never silently. |
+| **Spec-grounded** | `spec-grounded` | Work starts from a clear outcome and stays within stated scope. If the spec is ambiguous, ask before coding (route through `product-requirements-expert` per the Design Check Gate). Drift outside scope is surfaced via a `consultation-request`, not silently absorbed. A fix round holds the same line: a fix that changes behavior outside the slice's bullets goes to `product-requirements-expert` as a consultation before the quality gate, never silently. |
 | **Consistent with the codebase** | `consistent-with-codebase` | Matches existing patterns, naming, and conventions before introducing new ones. Read neighboring code before writing. Deviations are justified inline. Consistency never satisfies a security law a neighbor breaks: extending a neighbor's weakness to a new path is a defect, not a convention. A neighbor's placement never overrides the brief: logic lands where `docs/architecture-principles.md` places it. |
 
 The slugs feed the `bar_clause` field on `review-feedback` records — they are not decorative.
@@ -129,7 +129,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 - No new behavior during refactor. If the refactoring introduces a new code path, it needs its own Red-Green cycle.
 - Apply the testing vocabulary patterns from [`testing-principles.md`](../../../docs/testing-principles.md): extract named defaults, promote constants, compose higher-level named defaults.
 - Run all tests after each refactoring step.
-- Record the outcome on the plan's `Refactor` line: what was cleaned up, or why none was needed. The plan is self-tracking; no reviewer reads it.
+- State the outcome in one transcript line per cycle: what was cleaned up, or why nothing needed it (`tdd-workflow` § TDD Cycle, step 5). No file records it; no reviewer reads it.
 
 ## Quality Gate
 

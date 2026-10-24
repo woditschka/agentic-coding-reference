@@ -49,7 +49,7 @@ The principles below are language-agnostic. Each **Stack-specific rules** slot i
 
 ### Test Structure
 - [ ] Each test reads as Arrange / Act / Assert with one behavior under test
-- [ ] Related cases are data-driven rather than copy-pasted
+- [ ] A data-driven test is one assertion over an input table, and its name states every row; a distinct behavior is its own named test (`tested-as-spec`)
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases are included alongside the nominal case — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
@@ -143,8 +143,9 @@ Run the test verb through the gate (`scripts/gate.sh test`); static analysis rid
 ### [AUTOFIX] Issues
 - Helper not marked, so failures point at the helper instead of the test
 - Sleep-based synchronization instead of a deterministic wait
-- Hardcoded values that belong in a data-driven case
-- Missing error case in a data-driven test
+- Values repeated across cases that share one sentence and belong in its table
+- Several behaviors under one data-driven test name
+- Missing error case (its own named test unless it shares the table's sentence)
 
 ### [ESCALATE] Issues
 - No concurrent-access testing for shared state

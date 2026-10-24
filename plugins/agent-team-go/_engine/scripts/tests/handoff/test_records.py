@@ -336,6 +336,11 @@ class ParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.partial)
         self.assertIsNone(parsed.abort_reason)
 
+    def test_a_build_failure_lifts_its_cycles(self):
+        parsed = handoff.parse_record({**STACK_RECORDS["build-failure"], "cycles": 9})
+
+        self.assertEqual(parsed.cycles, 9)
+
     def test_a_build_failure_lifts_its_abort_fields(self):
         parsed = handoff.parse_record(
             {
@@ -353,6 +358,7 @@ class ParseRecordRoundTrip(unittest.TestCase):
 
         self.assertEqual(parsed.gate_checks_run, tuple(SOME_GATE_CHECKS))
         self.assertIsNone(parsed.duration_seconds)
+        self.assertIsNone(parsed.cycles)
 
     def test_a_build_pass_lifts_its_duration(self):
         parsed = handoff.parse_record(
@@ -360,6 +366,11 @@ class ParseRecordRoundTrip(unittest.TestCase):
         )
 
         self.assertEqual(parsed.duration_seconds, SOME_DURATION_SECONDS)
+
+    def test_a_build_pass_lifts_its_cycles(self):
+        parsed = handoff.parse_record({**STACK_RECORDS["build-pass"], "cycles": 4})
+
+        self.assertEqual(parsed.cycles, 4)
 
     def test_a_prd_entry_lifts_arrays_and_defaults(self):
         raw = STACK_RECORDS["prd-entry"]

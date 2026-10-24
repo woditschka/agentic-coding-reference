@@ -159,6 +159,7 @@ Schema: [`schemas/scratch/build-pass.schema.json`](../../../schemas/scratch/buil
 - The latest `build-*` record for `req_id` is `type == "build-pass"`.
 - `author == "feature-implementer"`, valid `req_id` and `ts`.
 - `gate_checks_run` names the check verbs that ran (schema-required, min one item — enforced at append).
+- `cycles`, when present, is the appending dispatch's red-green-refactor count (optional; `build-failure` carries the same field).
 - `append build-pass` refuses under the design-sync gate (§ Gate 2b) while a requirements answer that changed `docs/prd.md` has no design answer after it.
 
 If the latest is a `build-failure`, apply § Build-Failure Recovery instead.
@@ -244,7 +245,8 @@ When the feature-implementer runs the quality gate and it fails (build error, te
 2. If `retry < 3`, route back to feature-implementer with this prompt context:
    - The latest `build-failure` record (the error output).
    - The latest `design-block` record (the original design).
-   - `.scratch/implementation-plan.md` (what was planned).
+   - The active `prd-entry` record (the tests the slice owes).
+   - The working tree (what already landed).
    - Instruction: "Fix the build failure described in the latest `build-failure` record. This is retry N of 3."
 3. If `retry == 3`, route back to system-design-expert for re-triage with this prompt context:
    - All `build-failure` records for the active `req_id` since the latest `design-block` (the failure trail).
@@ -288,9 +290,9 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
 2. Count **consecutive truncations**: the run of `feature-implementer` `dispatch-start` records since the latest `design-block`, ending at this one, with **no intervening `feature-implementer` record of any kind** (no `build-pass`, `build-failure`, or `consultation-request`) between them. Any implementer record resets the run to zero. This counter is independent of the `build-failure` `retry` counter and is immune to review-feedback-processing and consultation-resume dispatches (those leave records) — it measures only a genuine continue-truncate loop.
 3. If the consecutive-truncation count `< 3`, re-dispatch the implementer to **continue the same slice**, with this prompt context:
    - The latest `design-block` record (the original design).
-   - `.scratch/implementation-plan.md` (what was planned).
+   - The active `prd-entry` record (the tests the slice owes).
    - The partial-artifact `build-failure` record if one was left, else the instruction to re-derive progress from the working tree.
-   - Instruction: "Continue the slice. Read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
+   - Instruction: "Continue the slice. Run `python3 scripts/grading.py coverage-map --feature <req_id>` to see which owed tests remain, read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
    Where the runtime offers in-place `continue`, root may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
 4. If the consecutive-truncation count `== 3` (non-convergence — a run of three truncated dispatches produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a superseding `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
 
@@ -298,7 +300,7 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
 
 Two partial-record paths route through existing recovery — they do NOT trigger Truncation Recovery:
 
-- **`build-failure` with `partial: true`** (feature-implementer reached `toolCallBudget` before the quality gate ran). The record flows through § Build-Failure Recovery above: `retry < 3` re-dispatches the implementer with the partial-progress description in `error_output`; `retry == 3` re-triages via system-design-expert. The implementer's next dispatch starts from the recorded progress instead of from scratch.
+- **`build-failure` with `partial: true`** (the implementer's quality-gate run at its planned checkpoint came back red). The record flows through § Build-Failure Recovery above: `retry < 3` re-dispatches the implementer with the gate output and the progress description in `error_output`; `retry == 3` re-triages via system-design-expert. The implementer's next dispatch starts from the recorded progress instead of from scratch.
 - **`review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers. The `truncation` tag is a progress marker, not an escalation — `SKILL.md` § Blocking does not apply to it.
 
 Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.

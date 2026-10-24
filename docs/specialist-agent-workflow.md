@@ -121,8 +121,7 @@ your-project/
 │   └── settings.json    # [CC] Hooks, env vars, permissions
 ├── .github/agents/      # [CP] Same eleven agents, `.agent.md` suffix
 ├── .opencode/agents/    # [OC] Same eleven agents
-├── .scratch/            # [ALL] Pipeline state, gitignored — handoff.jsonl, implementation-plan.md,
-│                        #   escalations.md, tmp/
+├── .scratch/            # [ALL] Pipeline state, gitignored — handoff.jsonl, escalations.md, tmp/
 ├── schemas/scratch/     # [ALL] One <type>.schema.json per handoff record — committed;
 │                        #   the roster lives in the handoff-routing skill § State Files
 ├── scripts/             # [ALL] Deterministic engines — handoff.py, grading.py, changeset.py,

@@ -147,7 +147,6 @@ The eligibility rules live in the `document-writing` skill's `autofix-protocol.m
 |---|---|---|
 | `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, review-planner, the roster reviewers, change-grader, root (all append-only) | the router — `route` and, on `escalate`, the coordinator (validation gates); all consumer agents |
 | `.scratch/tmp/` | every dispatched agent — the only sanctioned surface for an intermediate file, system `/tmp` barred | the writing agent alone; `new-feature` recreates it empty |
-| `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
 | `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the router's `blocked` decision (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check; escalate findings on an `approved` verdict per § Blocking) — never the coordinator itself | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:

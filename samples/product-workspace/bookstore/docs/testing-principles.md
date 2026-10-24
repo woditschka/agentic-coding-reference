@@ -96,7 +96,7 @@ Tests describe behavior, not implementation. The name should read as a specifica
 |------------|------|
 | Test class/file names | Describe the scenario or action being tested |
 | Test method/function names | Describe the expected outcome |
-| Parameterized tests | Same method name, data-driven via table or CSV source |
+| Data-driven tests | One assertion over an input table; the name states every row; a distinct behavior is its own test |
 
 This project names tests in BDD style — class names the scenario, method names the outcome, so a failure report reads as a broken specification:
 

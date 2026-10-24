@@ -1,6 +1,8 @@
 # Fresh-Eyes Review Over a Canonical Change Set
 
-**Status:** Accepted (the `scripts/changeset.sh` verb retired by the [2026-07-17 amendment](2026-07-17-runtime-package-layout.md#amendment-2026-09-13-the-changesetsh-wrapper-is-retired); callers invoke `python3 scripts/changeset.py`, and the one-definition rule stands)
+**Status:** Accepted (the `scripts/changeset.sh` verb retired by the [2026-07-17 amendment](2026-07-17-runtime-package-layout.md#amendment-2026-09-13-the-changesetsh-wrapper-is-retired); callers invoke `python3 scripts/changeset.py`, and the one-definition rule stands; plan file retired by [2026-10-20](2026-10-20-the-implementer-keeps-no-plan-file.md))
+
+> Amendment 2026-10-20: the implementer keeps no plan file. The read-set rule and the doctor's fresh-eyes check stand; the check now guards against a project-owned reviewer written against an older harness.
 
 ## Context
 

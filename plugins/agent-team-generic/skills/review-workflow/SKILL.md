@@ -59,9 +59,9 @@ A truncation-only record never advances the round counter — a budget checkpoin
 
 ## Reviewer Read-Set (Fresh Eyes)
 
-A reviewer judges the **change set** under review against **long-term memory** (`docs/` — PRD, system-design, ubiquitous-language, ADRs, and the principles briefs), reading the wider project on demand. It does not take the implementer's plan (`.scratch/implementation-plan.md`) as review input. It reads `.scratch/handoff.jsonl` only to anchor its dispatch — the `build-pass` line it responds to — not to mine the design triage or the implementer's reasoning.
+A reviewer judges the **change set** under review against **long-term memory** (`docs/` — PRD, system-design, ubiquitous-language, ADRs, and the principles briefs), reading the wider project on demand. It takes no implementer working memory as review input; the harness keeps none on disk, and the implementer's transcript is never a reviewer's source. It reads `.scratch/handoff.jsonl` only to anchor its dispatch — the `build-pass` line it responds to — not to mine the design triage or the implementer's reasoning.
 
-The reviewer is the first proxy for every future reader who will see this code with only the durable docs and the diff — never the author's plan. Reading the implementer's narrative forfeits exactly the cold read that review exists to perform.
+The reviewer is the first proxy for every future reader who will see this code with only the durable docs and the diff — never the author's narrative. Reading it forfeits exactly the cold read that review exists to perform.
 
 ## The Bar Is a Floor
 

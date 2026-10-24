@@ -335,6 +335,7 @@ class BuildFailure:
     attempted: str | None = None
     partial: bool | None = None
     abort_reason: str | None = None
+    cycles: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,6 +348,7 @@ class BuildPass:
     author: str | None = None
     gate_checks_run: tuple[str, ...] = ()
     duration_seconds: float | None = None
+    cycles: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -582,6 +584,7 @@ def _build_failure(raw: dict[str, Any]) -> BuildFailure:
         attempted=raw.get("attempted"),
         partial=raw.get("partial"),
         abort_reason=raw.get("abort_reason"),
+        cycles=raw.get("cycles"),
     )
 
 
@@ -593,6 +596,7 @@ def _build_pass(raw: dict[str, Any]) -> BuildPass:
         author=raw.get("author"),
         gate_checks_run=_scalar_tuple(raw.get("gate_checks_run")),
         duration_seconds=raw.get("duration_seconds"),
+        cycles=raw.get("cycles"),
     )
 
 

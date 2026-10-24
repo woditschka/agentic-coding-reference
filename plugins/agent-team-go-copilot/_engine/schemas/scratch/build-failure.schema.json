@@ -51,7 +51,7 @@
       "minLength": 1
     },
     "partial": {
-      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the dispatch reached its toolCallBudget before the quality gate ran). When true, the error_output field carries a progress description (which tests pass, which files have been edited, which acceptance criteria remain) rather than a failure description. The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the default meaning (quality-gate failure).",
+      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the quality-gate run at the dispatch's planned checkpoint came back red). When true, the error_output field carries the gate output and a progress description (which tests pass, which files have been edited, which acceptance criteria remain). The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the default meaning (quality-gate failure).",
       "type": "boolean"
     },
     "abort_reason": {
@@ -62,6 +62,11 @@
         "prd-mismatch",
         "prerequisite-missing"
       ]
+    },
+    "cycles": {
+      "description": "The red-green-refactor cycles this dispatch ran before it failed the gate or checkpointed. Optional. A slice's total is the sum over its build-pass and build-failure records, so a troubled slice's early dispatches still count toward the slice-size signal.",
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

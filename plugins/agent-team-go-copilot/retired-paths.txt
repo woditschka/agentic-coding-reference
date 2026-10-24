@@ -56,3 +56,6 @@ scripts/test_handoff_view.py
 
 # retired after v0.4.1 (retire-the-changeset-wrapper)
 scripts/changeset.sh
+
+# retired after v0.4.9 (the-implementer-keeps-no-plan-file)
+.claude/templates/implementation-plan.md

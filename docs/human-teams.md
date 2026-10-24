@@ -10,7 +10,7 @@ The harness keeps two memory tiers ([`agentic-harness.md` § Disciplines as Memo
 
 | Surface | Scope | Shared through |
 |---|---|---|
-| `.scratch/` — the handoff log, the implementation plan, escalations | One checkout, one active slice; gitignored on every channel | Nothing. A second person never reads it. |
+| `.scratch/` — the handoff log and the escalations file | One checkout, one active slice; gitignored on every channel | Nothing. A second person never reads it. |
 | The agent session and its intake conversation | One person | Nothing. Decisions leave the session as records and docs. |
 | `docs/prd.md`, `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` | The project | Git: a slice's doc writes merge with the code. |
 | Git history | The project | Git: `/next` treats a REQ id in a commit message as done. |

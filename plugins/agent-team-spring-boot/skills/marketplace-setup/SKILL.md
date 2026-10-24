@@ -31,7 +31,7 @@ Find `<plugin-install-dir>` in your tool's plugin cache — Claude exposes it as
 
 - `scripts/` — the engines (`handoff.py`, `doctor.py`, `grading.py`), their tests, and the doctor manifest.
 - `schemas/scratch/` — the handoff record schemas.
-- `.claude/templates/` — the plan and escalation templates.
+- `.claude/templates/` — the escalation template.
 
 All gitignored, so they stay untracked like every harness runtime file.
 

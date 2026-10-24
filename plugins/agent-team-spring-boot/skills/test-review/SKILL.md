@@ -79,7 +79,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] All documented edge cases from prd.md have dedicated test cases — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Edge case tests use actual examples (not invented data)
-- [ ] `@ParameterizedTest` with `@CsvSource` covers all edge cases
+- [ ] Every edge case is a named test, or a row of a `@ParameterizedTest` whose name states every row
 - [ ] Integration test exercises all inputs without exceptions
 
 ### Test Coverage
@@ -88,9 +88,8 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Boundaries are tested where the code compares, and the error handling scenarios from system-design.md once each
 
 ### Parameterized Tests
-- [ ] `@ParameterizedTest` used for repetitive test cases (not copy-paste tests)
+- [ ] A `@ParameterizedTest` holds one assertion over an input table (boundaries, equivalence classes), and its name states every row. A row that differs in outcome kind, in setup, or by a branch in the body is a distinct behavior and gets its own named test (`tested-as-spec`)
 - [ ] `@CsvSource` entries carry a comment only where the covered case is not evident from the values — comments explain WHY, not WHAT (`legible-cold`)
-- [ ] Test method name describes the behavior being verified
 - [ ] Each parameter combination is independently meaningful
 
 ### State and Idempotency Testing
@@ -162,10 +161,10 @@ The naming school is the brief's (§ Test Naming); the machine floor is `test_na
 ## Common Issues to Flag
 
 ### [AUTOFIX] Issues
-- Missing `@ParameterizedTest` for repetitive cases
+- Several behaviors under one `@ParameterizedTest` name
 - Wrong assertion style (JUnit instead of AssertJ)
 - Non-descriptive test name
-- Missing edge case in table-driven test
+- Missing edge case (its own named test unless it shares a table's sentence)
 
 ### [ESCALATE] Issues
 - No integration test for external service

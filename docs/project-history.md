@@ -173,3 +173,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-06** — Add opencode-dev beside claude-dev on one confinement engine: a profile per tool, per-project state, `--ow` on both.
 - **2026-10-08** — Hold agents to reaching skills by preload or by path: must-execute checks restated in the experts, on-demand reads rewritten to the plugin cache, gated by the battery.
 - **2026-10-19** — Keep a reshaped project layout installable: no vendored suite asserts the project's own `layout.toml`.
+- **2026-10-20** — Trend scope coverage: every recorded run's diff against its triage, and the required tests it carries, computed from the committed folders.
+- **2026-10-20** — Retire the implementer's plan file: the first test comes from the requirement's test list, progress is the working tree, and `build-pass` counts the cycles.
+- **2026-10-24** — Run the quality gate at the planned checkpoint: a green tree continues, a red one hands off the partial record.
+- **2026-10-24** — Hold a data-driven test to one sentence per table; a distinct behavior is its own named test.
