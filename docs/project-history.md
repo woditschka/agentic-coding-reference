@@ -178,3 +178,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-24** — Run the quality gate at the planned checkpoint: a green tree continues, a red one hands off the partial record.
 - **2026-10-24** — Hold a data-driven test to one sentence per table, with a distinct behavior as its own named test.
 - **2026-10-24** — Treat the default branch as the publication boundary: `/prepare-ship` folds a feature's drafts and commits, then reads its bar.
+- **2026-10-25** — Record the v0.4.9 sweep, 14 of 15 reps on the bar at a rep-set 6% below v0.4.8, and accept the plan-file retirement on its measured arm.
