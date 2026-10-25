@@ -513,3 +513,30 @@ reps read test-quality 3: owners-page-param r1 on a raw `new Owner()`
 fixture and a `verify(argThat)` interaction assertion, shapes two v0.4.8
 reps carried at 4; vets-specialty-filter r1 on interaction assertions and
 raw-HTML asserts."""
+
+[[note]]
+date = 2026-10-25
+text = """
+The v0.4.10 row is the tagged measurement of the code the plan-file
+acceptance arm ran on 2026-10-24 and 25
+([plan-file ADR](../../docs/adr/2026-10-20-the-implementer-keeps-no-plan-file.md)).
+It is also the first row priced at Sonnet 5.5's listed cache-read rate,
+$0.10 per million tokens; every earlier row carries $0.20 (the accounting
+fix of 2026-10-25). On one basis a rep-set reads $18.90 against $18.29 for
+v0.4.9 and $19.41 for v0.4.8, so the recorded $18.90 against $18.88 is a
+level figure hiding a 3% rise, review variance on identical code: 46
+findings against the arm's 42, a fix round on every owners-page-param rep.
+The bar holds 15 of 15 with no critical finding, the first such row since
+v0.4.7. Cost per pass against v0.4.9 as recorded: owners-page-param $2.67
+to $2.69, specialty-directory $5.89 to $4.48 over v0.4.9's two passes,
+vets-specialty-filter $6.02 to $5.85, visit-edit $5.63 to $5.23. The first
+triage rated 4 of 12 slices involved against 7. Wall: 8, 13, 18, and 18 minutes against
+8, 15, 20, and 17 minutes. Two reps end on the managed chapter's
+second-consecutive-failure rule with the bar held, against three. The
+judge, on its unchanged pin, holds every facet median inside the v0.4.9
+spread; design-fit reads 5, 4, 4, and 4 by task, with one 3 on
+specialty-directory r3, where the routine implementer grouped inside the
+controller and three reviewers approved the placement. Owners-page-param
+test-quality reads 3 on every rep on the raw `new Owner()` fixture and
+`verify(argThat)` shapes the test reviewer passed, as on both arms of the
+acceptance sweep."""

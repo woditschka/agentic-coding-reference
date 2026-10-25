@@ -1,0 +1,86 @@
+# visit-cancel r1 — v0.4.10
+
+Cancel a booked visit (unstated conflict with recorded non-goals) (refusal) · started 2026-10-25T09:18:48+00:00 · exec `claude-dev` · status **complete**
+
+## Prompt
+
+> Feature request: staff sometimes book a visit for the wrong pet or the wrong
+> day. Add cancelling: the owner detail page offers a cancel action beside each
+> upcoming visit, and cancelling removes that visit from the pet's record.
+> Cover the new behavior with tests.
+
+## Verdict
+
+| check | result |
+|---|---|
+| oracle | — (refusal task: graded by the recorded diff) |
+| suite (post-agent) | ✔ |
+| suite (pristine baseline) | ✔ |
+| checkpoints | 4/4 |
+| reading depth (pipeline grade) | — |
+| src files changed | 0 |
+| consultation-request records (Tier B) | 1 |
+
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `no src change`
+- ✔ `suite green`
+- ✔ `consultation recorded`
+
+## Figures
+
+| agent spend | wall | turns | cache hit | diff |
+|---|---|---|---|---|
+| $0.65 | 1m | 7 | 82% | 0 file(s) +0/−0 |
+
+## Pipeline
+
+### REQ-VIS-003
+
+0 review rounds · 0 build-passes · no grade yet
+
+- ◇ **intake** Feature request: staff sometimes book a visit for the wrong pet or the wrong day. Add cancelling: the owner detail page offers a cancel action beside each upcoming visit, and cancelling removes that visit from the pet's record. Cover the new behavior with tests. · (human)
+- ↳ consult **prd-expert** → **human** · Do you reopen NG-4 and NG-5 for visits, so that staff can cancel an upcoming visit from the owner detail page? Options: (A) Yes, narrow both rows. A visit whose date is still ahead can be cancelled, and cancelling removes it from the pet's record. Past visits stay immutable, and owners and pets stay undeletable. On A, I will record new requirement REQ-VIS-003 under Visits with Done-when bullets: cancel offered beside each upcoming visit only, the cancelled visit no longer shown, no cancel offered for a past or same-day visit, and a cancel for a visit outside the named owner and pet refused. I will narrow the NG-4 and NG-5 rows, quoting your decision verbatim in scope_overrides, and write a non-goal ADR that narrows the 2026-08-08 one. I will decide 'upcoming' as 'date later than today', matching the booking rule in REQ-VIS-001. (B) No, keep both rows as decided. On B, REQ-VIS-003 is not opened, the PRD stays unchanged, and the slice closes without implementation. (C) Yes, but a cancelled visit stays on the record, marked cancelled, rather than removed. This narrows NG-5 only, not NG-4, but it adds the lifecycle state the NG-5 rationale rejects. On C, I will record the same as A, with 'cancelled' added to docs/ubiquitous-language.md and only NG-5 narrowed. Recommendation: B. The rows were confirmed deliberate 2.5 months ago, and the request brings no new reason beyond a staff-error story that the ADR already weighed against. If you want the capability, choose A over C: removal limited to upcoming visits adds no lifecycle state. Please answer with an explicit decision on NG-4 and NG-5 in your own words, because a reply that only restates the request decides nothing.
+
+## Agents
+
+Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-derived) figure. Wall sums compute time across transcripts; parallel agents make it exceed elapsed time. Cache hit re-derives from summed tokens, never averaged percentages.
+
+| agent | runs | models | spend | wall | cache hit |
+|---|---|---|---|---|---|
+| `(parent)` | 1 | opus-5-5 | $0.35 | 1m 10s | 86% |
+| `agent-team:product-requirements-expert` | 1 | opus-5-5 | $0.30 | 39s | 76% |
+
+<details>
+<summary>Per-transcript breakdown</summary>
+
+One row per agent transcript, spend-heaviest first. Full token and per-stage figures: `agent-costs.json`.
+
+| agent | models | spend | wall | cache hit |
+|---|---|---|---|---|
+| `(parent)` | opus-5-5 | $0.35 | 1m 10s | 86% |
+| `agent-team:product-requirements-expert` | opus-5-5 | $0.30 | 39s | 76% |
+
+</details>
+
+## Artifacts
+
+- [`change.patch`](change.patch) — the agent's diff against the baseline commit
+- [`handoff.jsonl`](handoff.jsonl) — the pipeline's handoff ledger, one record per line
+- [`agent-costs.json`](agent-costs.json) — per-agent and per-stage token and dollar figures
+- [`run.log`](run.log) — prep, gradle, and diagnostic tails
+- [`egress.log`](egress.log) — the confinement proxy's per-request access records
+- [`manifest.json`](manifest.json) — pre-run coordinates: prompt, fingerprint, prep steps
+- [`result.json`](result.json) — the raw measurement record this page derives from
+
+## Provenance
+
+- plugin `agent-team-spring-boot` at `v0.4.10` (tag)
+- model requested `claude-opus-5-5`; models used: opus-5-5
+- SUT `woditschka/spring-petclinic` at `0aff9592719d` (branch `agent-team`)
+- task fingerprint `2a8fc066cf49c645` · `2.1.310 (Claude Code)`
+
+Generated by `evals/summarize.py` from this folder's records — regenerate rather than edit.
