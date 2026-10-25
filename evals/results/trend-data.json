@@ -2407,6 +2407,105 @@
    "wall_seconds": 511.2
   },
   {
+   "agent_spend_usd": 2.2249,
+   "cleared": true,
+   "delivery_wall_seconds": 386.6,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.9/2026-10-24-owners-page-param-r1",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 1,
+    "tests_required": 1
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.9",
+   "wall_seconds": 431.6
+  },
+  {
+   "agent_spend_usd": 3.0902,
+   "cleared": true,
+   "delivery_wall_seconds": 625.6,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 5.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.9/2026-10-25-owners-page-param-r2",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 1,
+    "tests_required": 1
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.9",
+   "wall_seconds": 663.9
+  },
+  {
+   "agent_spend_usd": 2.7077,
+   "cleared": true,
+   "delivery_wall_seconds": 457.2,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 5.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.9/2026-10-25-owners-page-param-r3",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 1,
+    "tests_required": 1
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.9",
+   "wall_seconds": 500.6
+  },
+  {
    "agent_spend_usd": 10.0302,
    "cleared": true,
    "delivery_wall_seconds": 1658.8,
@@ -4733,6 +4832,101 @@
    "task_kind": "feature",
    "version": "v0.4.8",
    "wall_seconds": 788.5
+  },
+  {
+   "agent_spend_usd": 4.0474,
+   "cleared": true,
+   "delivery_wall_seconds": 844.8,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 5.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.9/2026-10-24-specialty-directory-r1",
+   "scope": {
+    "files": 16,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 0,
+    "tests_required": 4
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 911.1
+  },
+  {
+   "agent_spend_usd": 3.7313,
+   "cleared": false,
+   "delivery_wall_seconds": 747.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.9/2026-10-25-specialty-directory-r2",
+   "scope": {
+    "files": 17,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/vet/SpecialtyDirectoryPageTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 8,
+    "tests_required": 8
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 747.2
+  },
+  {
+   "agent_spend_usd": 3.9936,
+   "cleared": true,
+   "delivery_wall_seconds": 907.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.9/2026-10-25-specialty-directory-r3",
+   "scope": {
+    "files": 16,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 6,
+    "tests_required": 6
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 959.9
   },
   {
    "agent_spend_usd": 10.0356,
@@ -7071,6 +7265,99 @@
    "wall_seconds": 906.2
   },
   {
+   "agent_spend_usd": 4.8726,
+   "cleared": true,
+   "delivery_wall_seconds": 923.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.9/2026-10-24-vets-specialty-filter-r1",
+   "scope": {
+    "files": 5,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 6,
+    "tests_required": 7
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 923.2
+  },
+  {
+   "agent_spend_usd": 7.966,
+   "cleared": true,
+   "delivery_wall_seconds": 1370.0,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.9/2026-10-25-vets-specialty-filter-r2",
+   "scope": {
+    "files": 5,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 8,
+    "tests_required": 8
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 1434.2
+  },
+  {
+   "agent_spend_usd": 5.2334,
+   "cleared": true,
+   "delivery_wall_seconds": 1177.6,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.9/2026-10-25-vets-specialty-filter-r3",
+   "scope": {
+    "files": 5,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 7,
+    "tests_required": 7
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 1177.6
+  },
+  {
    "agent_spend_usd": 0.9583,
    "cleared": true,
    "delivery_wall_seconds": 115.3,
@@ -8524,6 +8811,63 @@
    "task_kind": "refusal",
    "version": "v0.4.8",
    "wall_seconds": 64.9
+  },
+  {
+   "agent_spend_usd": 0.6666,
+   "cleared": true,
+   "delivery_wall_seconds": 81.3,
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.9/2026-10-24-visit-cancel-r1",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.9",
+   "wall_seconds": 81.3
+  },
+  {
+   "agent_spend_usd": 0.6053,
+   "cleared": true,
+   "delivery_wall_seconds": 78.1,
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.9/2026-10-25-visit-cancel-r2",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.9",
+   "wall_seconds": 78.1
+  },
+  {
+   "agent_spend_usd": 0.6175,
+   "cleared": true,
+   "delivery_wall_seconds": 72.4,
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.9/2026-10-25-visit-cancel-r3",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.9",
+   "wall_seconds": 72.4
   },
   {
    "agent_spend_usd": 9.0283,
@@ -11007,6 +11351,111 @@
    "task_kind": "feature",
    "version": "v0.4.8",
    "wall_seconds": 971.8
+  },
+  {
+   "agent_spend_usd": 6.353,
+   "cleared": true,
+   "delivery_wall_seconds": 1219.8,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.9/2026-10-24-visit-edit-r1",
+   "scope": {
+    "files": 4,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 5,
+    "tests_required": 5
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 1299.9
+  },
+  {
+   "agent_spend_usd": 4.9518,
+   "cleared": true,
+   "delivery_wall_seconds": 1002.6,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.9/2026-10-25-visit-edit-r2",
+   "scope": {
+    "files": 4,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 4,
+    "tests_required": 4
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 1065.2
+  },
+  {
+   "agent_spend_usd": 5.5837,
+   "cleared": true,
+   "delivery_wall_seconds": 980.4,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 5.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.9/2026-10-25-visit-edit-r3",
+   "scope": {
+    "files": 4,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 6,
+    "tests_required": 6
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.9",
+   "wall_seconds": 1055.2
   }
  ],
  "spec_version": "0.3.0",
@@ -11034,6 +11483,7 @@
   "v0.4.3",
   "v0.4.4",
   "v0.4.7",
-  "v0.4.8"
+  "v0.4.8",
+  "v0.4.9"
  ]
 }

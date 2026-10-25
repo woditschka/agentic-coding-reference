@@ -489,3 +489,27 @@ as every v0.4.7 rep did. Its fix round ran the Opus pin at medium and
 applied a security autofix that added a date rule to the controller, which
 the judge marked. Sonnet took an implement window on all 12 feature reps;
 every window's recorded tier is on its run page."""
+
+[[note]]
+date = 2026-10-25
+text = """
+The v0.4.9 row is the tagged arm of the plan-file acceptance sweep
+([plan-file ADR](../../docs/adr/2026-10-20-the-implementer-keeps-no-plan-file.md)),
+interleaved with the dev arm on 2026-10-24 and 25. The bar reads 14 of 15
+reps. specialty-directory r2 stalled: round two's code-quality review
+blocked on an entity-equality defect behind the cached vets, the managed
+chapter's second-consecutive-failure rule stopped for the owner an
+unattended sweep lacks, and the held-out test fails on that defect. Two
+more reps, vets-specialty-filter r1 and r3, end on the same rule with the
+bar held; no v0.4.8 rep tripped it. Cost per pass against v0.4.8:
+owners-page-param $2.85 to $2.67, specialty-directory $5.57 to $5.89 over
+two passes, vets-specialty-filter $5.23 to $6.02, visit-edit $5.79 to
+$5.63; a rep-set $20.08 to $18.88. The first triage rated 7 of 12 slices
+involved against 2, so the Opus implementer took most initial passes. Wall:
+8, 15, 20, and 17 minutes against 8, 15, 15, and 14. The judge, on its
+unchanged pin, moves two design-fit medians by one point in opposite
+directions: vets-specialty-filter 4 against 5, visit-edit 5 against 4. Two
+reps read test-quality 3: owners-page-param r1 on a raw `new Owner()`
+fixture and a `verify(argThat)` interaction assertion, shapes two v0.4.8
+reps carried at 4; vets-specialty-filter r1 on interaction assertions and
+raw-HTML asserts."""
