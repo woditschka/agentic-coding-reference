@@ -1,6 +1,8 @@
 # The Coverage Map Joins the Test-Conventions Walk
 
-**Status:** Accepted
+**Status:** Accepted (the conventions map joined the gate, [2026-10-25 convention-checks-carry-their-evidence](2026-10-25-convention-checks-carry-their-evidence.md))
+
+> The conventions map now runs as a gate check and records a `[gate]` verb; the coverage map still gates nothing, and neither carries a verdict on its rows.
 
 ## Context
 

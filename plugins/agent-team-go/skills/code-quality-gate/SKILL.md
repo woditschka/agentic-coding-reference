@@ -34,6 +34,7 @@ Before invoking reviewers, all checks must pass. The same gate runs once per dis
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
 | Autofix audit | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` and `prd-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 | Design-doc sync | `python3 scripts/grading.py contracts-sync --feature <req_id>` | The slice's requirement id appears in `docs/prd.md` and `docs/system-design.md` — the Contracts table names its implementer. Vacuous without the design brief. |
+| Conventions map | `python3 scripts/grading.py conventions-map` | Lists the change's added comment blocks, raw constructions, and literal-bearing lines per changed file. The listing carries no verdict on its rows: the self-review's Test-Conventions Walk (`tdd-workflow` § Test-Conventions Walk) works from them. The final gate runs it first; the checkpoint gate omits it. Exit 0 is green; record `conventions-map` in `gate_checks_run`, a verb of `scripts/layout.toml` `[gate].verbs`. A non-zero exit is an environment fault, an unresolved base or head, a malformed `[conventions]` table, or a git failure: append the `build-failure` with `failed_check: "conventions-map"` and `abort_reason: "prerequisite-missing"`. |
 
 ### Autofix Audit Procedure
 
@@ -81,6 +82,7 @@ A feature is complete when:
 - [ ] Review plan emitted after `build-pass` — automatic: the append runs the engine; verify its `review-plan: appended …` line, and on an engine warning run `python3 scripts/grading.py review-plan --feature <req_id>` by hand. See `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Design-doc sync passes (`contracts-sync`; presence is the floor — the right Contracts rows stay reviewer judgment)
+- [ ] Conventions map listed (`conventions-map`) and its rows walked; a walk fix re-runs the gate before `build-pass` (`tdd-workflow` § Self-Review Pass)
 - [ ] Config example reflects any new/changed config fields (if applicable)
 - [ ] Every reviewer in the active pass's roster holds a latest `approved` (`route-spec` § Gate 5); the plan names that roster, and the full floor plus declared extras is the fail-closed default
 - [ ] No pending escalations (or human approved)

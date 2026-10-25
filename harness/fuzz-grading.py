@@ -163,15 +163,31 @@ GATE = {
             "check",
             "autofix-audit",
             "contracts-sync",
+            "conventions-map",
         ],
     ),
     "go": (
         "make ci",
-        ["handoff-log", "build", "test", "lint", "autofix-audit", "contracts-sync"],
+        [
+            "handoff-log",
+            "build",
+            "test",
+            "lint",
+            "autofix-audit",
+            "contracts-sync",
+            "conventions-map",
+        ],
     ),
     "generic": (
         "scripts/gate.sh verify",
-        ["handoff-log", "test", "build", "autofix-audit", "contracts-sync"],
+        [
+            "handoff-log",
+            "test",
+            "build",
+            "autofix-audit",
+            "contracts-sync",
+            "conventions-map",
+        ],
     ),
 }
 CLASSIFICATION = {

@@ -40,7 +40,7 @@ The Python lives in five trees with one direction of flow. The shipped runtime u
 | `grading/handoff_facts.py` | gateway | The grading context's read of the ledger; degrades to null facts |
 | `grading/planner.py` | pure policy | The risk ladder: plan context, surface roster, first-pass and fix-cycle derivation, git reads injected |
 | `grading/contracts.py` | leaf | The design-doc sync check for one requirement id |
-| `grading/conventions.py`, `grading/coverage.py` | leaf | Write-time maps over the diff and the test tree; maps, never gates |
+| `grading/conventions.py`, `grading/coverage.py` | leaf | Write-time maps over the diff and the test tree; the conventions map runs inside the gate and the coverage map never does; neither carries a verdict on its rows |
 | `changeset.py` | composition root | The change set under review, one definition shared by reviewers and grader |
 | `changeset/config.py` | anti-corruption layer | The exclude-glob section of the layout, only |
 | `changeset/workspace.py` | anti-corruption layer | The `[workspace]` section of the layout: the members, their sibling paths, stacks, contract globs, and dependencies; empty for a single repository |
@@ -146,7 +146,7 @@ Run folders are ground truth and every view is derived; a development version's 
 | Review plan | An engine-authored record per build pass naming risk, scope, basis, and roster; a gray plan defers to the planner; absent or invalid plans fail closed to the full roster | `grading.py`, `grading/planner.py` | [ADR](adr/2026-07-09-risk-proportional-review.md), [ADR](adr/2026-09-01-evidence-gated-dynamic-tiering.md) |
 | Change set | One definition of the diff under review, shared by every reviewer and the grader; the snapshot never touches the real index. A product workspace yields one set per present member beside the project's, every path spelled from the project | `changeset/emit.py`, `changeset/git_facts.py` | [ADR](adr/2026-06-21-fresh-eyes-review-changeset.md) |
 | Grading facts | Six facts read from the ledger, every one null on an absent or unreadable log | `grading/handoff_facts.py` | [ADR](adr/2026-06-05-change-grader.md) |
-| Conventions and coverage maps | Lists for the implementer's walk and the reviewers' checklists; no exit code carries a verdict | `grading/conventions.py`, `grading/coverage.py` | [ADR](adr/2026-09-03-coverage-map-joins-the-walk.md) |
+| Conventions and coverage maps | Lists for the implementer's walk and the reviewers' checklists; neither carries a verdict on its rows. The conventions map is a gate check whose exit code reports only resolution; the gate skill records it in `gate_checks_run` | `grading/conventions.py`, `grading/coverage.py` | [ADR](adr/2026-09-03-coverage-map-joins-the-walk.md), [ADR](adr/2026-10-25-convention-checks-carry-their-evidence.md) |
 | Contracts sync | A requirement id present in the PRD and the design doc, or a named failure | `grading/contracts.py` | [ADR](adr/2026-08-15-contracts-sync-joins-the-gate.md) |
 | Backlog connector | Candidates are PRD ids minus delivered, non-goal, and superseded; the team's board enters through a project-owned shell connector with a fixed row format | `backlog.py`, `scripts/backlog.sh` | [ADR](adr/2026-09-12-backlog-connector.md) |
 | Doctor manifest | The blocking checks of a project's briefs, driven by one expectations file | `doctor.py`, `doctor-expectations.toml` | [ADR](adr/2026-06-12-docs-as-harness-project-api.md), [ADR](adr/2026-06-14-doctor-engine-in-scripts.md) |

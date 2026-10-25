@@ -110,7 +110,7 @@
       }
     },
     "approved_aspects": {
-      "description": "What passed review cleanly. Optional. Useful diagnostic when only one reviewer rejects.",
+      "description": "What passed review cleanly, each entry naming what it was checked against. Optional for most aspects; the construction clearance and the placement walk live here (review-workflow § Claims Carry Their Evidence).",
       "type": "array",
       "items": {
         "type": "string",

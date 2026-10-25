@@ -180,3 +180,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-24** — Treat the default branch as the publication boundary: `/prepare-ship` folds a feature's drafts and commits, then reads its bar.
 - **2026-10-25** — Record the v0.4.9 sweep, 14 of 15 reps on the bar at a rep-set 6% below v0.4.8, and accept the plan-file retirement on its measured arm.
 - **2026-10-25** — Record the v0.4.10 sweep: 15/15 on the bar with no critical finding, the first row on the listed Sonnet 5.5 cache-read rate.
+- **2026-10-25** — Make the convention checks carry their evidence: the conventions listing joins the gate, and reviewer clearances cite the rows they walked.

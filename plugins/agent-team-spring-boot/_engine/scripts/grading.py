@@ -157,8 +157,11 @@ def cmd_conventions_map(args: argparse.Namespace) -> int:
     layout = load_layout(SCRIPTS_DIR)
     exclude_globs = load_exclude_globs(SCRIPTS_DIR)
     changesets = changesets_for(args, exclude_globs, load_members(SCRIPTS_DIR))
-    if not all(c.resolved for c in changesets):
-        report("conventions-map", "base or head unresolved — nothing to map")
+    unresolved = [c for c in changesets if not c.resolved]
+    if unresolved:
+        where = unresolved[0].member_path
+        location = "" if where is None else f" in {where!r}"
+        report("conventions-map", f"base or head unresolved{location} — nothing to map")
         return 1
     try:
         conventions = layout.conventions_config()
@@ -389,7 +392,8 @@ def main(argv: list[str] | None = None) -> int:
         "conventions-map",
         help="walk aid: every added comment block per changed code file, and every "
         "raw construction and literal-bearing line per changed test file, for the "
-        "Test-Conventions Walk and the reviewer checklists (a map, never a gate)",
+        "Test-Conventions Walk and the reviewer checklists; a gate check whose exit "
+        "code reports only resolution",
     )
     conventions.add_argument("--base", default=None, help=base_help)
     conventions.add_argument("--head", default=WORKTREE, help=head_help)

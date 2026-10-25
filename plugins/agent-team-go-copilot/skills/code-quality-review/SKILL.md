@@ -32,6 +32,7 @@ The style guide is the floor; the project's recorded design is the wall. For eve
 - [ ] A helper widened for test access (package-private, exported-for-tests) is a placement smell: the sanctioned seam usually makes the behavior testable without widening.
 - [ ] Normalization, formatting, and value logic sit where the catalog places their kind; the same rule applies when such logic lands inline in a handler.
 - [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing. The same routing applies when two briefs read against each other on it. A placement finding that asks for a design decision is a `clarify` by its own words, never `blocked`. `blocked` is for a home the catalog assigns unambiguously.
+- [ ] The record walks the rules: one `approved_aspects` entry per new or moved rule, naming its landing component and the catalog row or `docs/architecture-principles.md` principle that assigns it. A diff that adds or moves no rule says so in one entry (`review-workflow` § Claims Carry Their Evidence). A grouping, sort, or lookup written for the slice is a rule for this walk.
 - [ ] The check reaches fix rounds. A rule a fix delta added gets the same check on a `fix-delta` pass, whichever reviewer's finding asked for it. Approving the rule's shape never approves its home.
 
 Judge placement against the recorded briefs, never personal architecture taste. Every placement finding cites the catalog row or principle it enforces.

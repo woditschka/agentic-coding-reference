@@ -209,7 +209,7 @@ See the `handoff-append` skill's `scratch-contract.md` for structure, file lifec
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy-check, fmt-check, vet, lint, deps-check, test, build) plus the design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If the project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy-check, fmt-check, vet, lint, deps-check, test, build) plus the design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the conventions map (`python3 scripts/grading.py conventions-map`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If the project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 
