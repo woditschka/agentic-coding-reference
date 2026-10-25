@@ -34,6 +34,8 @@ SONNET_5_DISPLAY_NAME = "Sonnet 5"
 SONNET_5_5 = "claude-sonnet-5-5"
 SONNET_5_5_DISPLAY_NAME = "Sonnet 5.5"
 HAIKU = "claude-haiku-4-5"
+HAIKU_5_5 = "claude-haiku-5-5"
+HAIKU_5_5_DISPLAY_NAME = "Haiku 5.5"
 FABLE = "claude-fable-5"
 FABLE_5_1 = "claude-fable-5-1"
 FABLE_5_1_DISPLAY_NAME = "Fable 5.1"
@@ -48,12 +50,14 @@ HAIKU_RATE = (1.00, 5.00)
 FABLE_RATE = (10.00, 50.00)
 SONNET_5_RATE = (2.00, 10.00)
 OPUS_5_5_RATE = (4.00, 20.00)
+HAIKU_5_5_RATE = (0.10, 0.50)
 NO_RATE = (0.0, 0.0)
 CACHE_READ_MULT = 0.10
 CACHE_WRITE_5M_MULT = 1.25
 CACHE_WRITE_1H_MULT = 2.00
 FABLE_5_1_READ_MULT = 0.025
 OPUS_5_5_READ_MULT = 0.05
+SONNET_5_5_READ_MULT = 0.05
 MTOK = 1_000_000
 PERCENT = 100
 COST_PLACES = 9
@@ -155,6 +159,8 @@ class Pricing(unittest.TestCase):
                 "sonnet 5": SONNET_5_RATE,
                 "opus-5-5": OPUS_5_5_RATE,
                 "opus 5.5": OPUS_5_5_RATE,
+                "haiku-5-5": HAIKU_5_5_RATE,
+                "haiku 5.5": HAIKU_5_5_RATE,
             },
         )
         self.assertEqual(cc.CACHE_READ_MULT, CACHE_READ_MULT)
@@ -173,6 +179,8 @@ class Pricing(unittest.TestCase):
                 "mythos 5.1": FABLE_5_1_READ_MULT,
                 "opus-5-5": OPUS_5_5_READ_MULT,
                 "opus 5.5": OPUS_5_5_READ_MULT,
+                "sonnet-5-5": SONNET_5_5_READ_MULT,
+                "sonnet 5.5": SONNET_5_5_READ_MULT,
             },
         )
         self.assertEqual(cc.TOKENS_PER_MILLION, MTOK)
@@ -202,6 +210,11 @@ class Pricing(unittest.TestCase):
         self.assertEqual(cc._rate(OPUS_5_5_DISPLAY_NAME), OPUS_5_5_RATE)
         self.assertEqual(cc._rate(OPUS_5), OPUS_RATE)
 
+    def test_haiku_5_5_override_beats_family(self):
+        self.assertEqual(cc._rate(HAIKU_5_5), HAIKU_5_5_RATE)
+        self.assertEqual(cc._rate(HAIKU_5_5_DISPLAY_NAME), HAIKU_5_5_RATE)
+        self.assertEqual(cc._rate(HAIKU), HAIKU_RATE)
+
     def test_unknown_model_prices_zero(self):
         self.assertEqual(cc._rate(AN_UNKNOWN_MODEL), NO_RATE)
         self.assertEqual(cc._rate(None), NO_RATE)
@@ -221,6 +234,12 @@ class CacheReadMultiplier(unittest.TestCase):
     def test_opus_5_5_reads_at_its_override_by_id_and_display_name(self):
         self.assertEqual(cc._read_mult(OPUS_5_5), OPUS_5_5_READ_MULT)
         self.assertEqual(cc._read_mult(OPUS_5_5_DISPLAY_NAME), OPUS_5_5_READ_MULT)
+
+    def test_sonnet_5_5_reads_at_its_override_while_sonnet_5_reads_flat(self):
+        self.assertEqual(cc._read_mult(SONNET_5_5), SONNET_5_5_READ_MULT)
+        self.assertEqual(cc._read_mult(SONNET_5_5_DISPLAY_NAME), SONNET_5_5_READ_MULT)
+        self.assertEqual(cc._read_mult(SONNET_5), CACHE_READ_MULT)
+        self.assertEqual(cc._read_mult(SONNET_5_DISPLAY_NAME), CACHE_READ_MULT)
 
 
 class UsageFields(unittest.TestCase):

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
-# Source: platform.claude.com pricing, current as of 2026-09-28. This block is
+# Source: platform.claude.com pricing, current as of 2026-10-25. This block is
 # the single edit point when Anthropic changes prices; no consumer copies a
 # rate into shell, skill, or doc prose.
 #
@@ -27,7 +27,9 @@ from typing import Any, NamedTuple
 # family rate is exact today and survives a new same-price tier. A tier priced
 # apart from its family on a durable basis takes a PRICE_OVERRIDE entry. These
 # are list API prices: for a subscription user the figure is notional, not a
-# bill.
+# bill. Haiku 5.5 is the one tier priced by prompt length ($0.10/$0.50 up to
+# 100K input tokens, $0.50/$2.50 above); the override carries the lower
+# band, the one an agent dispatch reaches, and the long band is unpriced.
 PRICE = {
     #          ($ / Mtok input, $ / Mtok output)
     "fable": (10.00, 50.00),
@@ -41,13 +43,15 @@ PRICE = {
 # introductory pricing through 2026-08-31 and made the standard price on
 # 2026-08-22 (platform.claude.com pricing: "the previously scheduled increase
 # to $3/$15 ... will not occur"). Sonnet 5.5 (released 2026-09-28) lists at
-# the same $2/$10 with the standard 0.10x cache reads. The `sonnet-5` needles
-# are prefixes of its id and display name, so one entry prices both tiers.
-# Opus 5.5 lists at $4/$20, below the Opus family. Each needle set is tested
-# ahead of its family.
+# the same $2/$10; its cache reads differ (CACHE_READ_MULT_OVERRIDE). The
+# `sonnet-5` needles are prefixes of its id and display name, so one entry
+# prices both tiers. Opus 5.5 lists at $4/$20, below the Opus family. Haiku
+# 5.5 lists at $0.10/$0.50, a tenth of the Haiku family. Each needle set is
+# tested ahead of its family.
 PRICE_OVERRIDE = (
     (("sonnet-5", "sonnet 5"), (2.00, 10.00)),
     (("opus-5-5", "opus 5.5"), (4.00, 20.00)),
+    (("haiku-5-5", "haiku 5.5"), (0.10, 0.50)),
 )
 
 # A tier variant's transcript carries its own agentType (<type>-routine)
@@ -63,13 +67,15 @@ CACHE_WRITE_1H_MULT = 2.00
 
 # Per-model cache-read overrides, matched as a lowercase substring (id or
 # display-name form) before the flat multiplier: Fable 5.1 and Mythos 5.1
-# price cache reads at 0.025x base input ($0.25/MTok) and Opus 5.5 at 0.05x
-# ($0.20/MTok), both per platform.claude.com pricing. The write multipliers
+# price cache reads at 0.025x base input ($0.25/MTok), Opus 5.5 at 0.05x
+# ($0.20/MTok), and Sonnet 5.5 at 0.05x ($0.10/MTok, where Sonnet 5 reads at
+# the flat 0.10x), all per platform.claude.com pricing. The write multipliers
 # carry no per-model split.
 CACHE_READ_MULT_OVERRIDE = (
     (("fable-5-1", "fable 5.1"), 0.025),
     (("mythos-5-1", "mythos 5.1"), 0.025),
     (("opus-5-5", "opus 5.5"), 0.05),
+    (("sonnet-5-5", "sonnet 5.5"), 0.05),
 )
 
 TOKENS_PER_MILLION = 1_000_000

@@ -2108,3 +2108,45 @@ class PipelineIncomplete(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ListPrices(unittest.TestCase):
+    """The accounting module's rates against platform.claude.com pricing, 2026-10-25."""
+
+    acc: ModuleType
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.acc = load_accounting()
+
+    def test_each_current_tier_prices_at_its_listed_rate(self) -> None:
+        # (model, $/Mtok input, $/Mtok output, cache-read multiplier of input)
+        listed = [
+            ("claude-fable-5-1", 10.00, 50.00, 0.025),
+            ("claude-opus-5-5", 4.00, 20.00, 0.05),
+            ("claude-opus-5", 5.00, 25.00, 0.10),
+            ("claude-sonnet-5-5", 2.00, 10.00, 0.05),
+            ("claude-sonnet-5", 2.00, 10.00, 0.10),
+            ("claude-sonnet-4-6", 3.00, 15.00, 0.10),
+            ("claude-haiku-5-5", 0.10, 0.50, 0.10),
+            ("claude-haiku-4-5", 1.00, 5.00, 0.10),
+        ]
+        for model, input_rate, output_rate, read_mult in listed:
+            with self.subTest(model=model):
+                self.assertEqual(self.acc._rate(model), (input_rate, output_rate))
+                self.assertEqual(self.acc._read_mult(model), read_mult)
+
+    def test_the_display_name_form_prices_like_the_id(self) -> None:
+        for display, model in [
+            ("Claude Sonnet 5.5", "claude-sonnet-5-5"),
+            ("Claude Opus 5.5", "claude-opus-5-5"),
+            ("Claude Haiku 5.5", "claude-haiku-5-5"),
+        ]:
+            with self.subTest(display=display):
+                self.assertEqual(self.acc._rate(display), self.acc._rate(model))
+                self.assertEqual(
+                    self.acc._read_mult(display), self.acc._read_mult(model)
+                )
+
+    def test_an_unknown_model_prices_at_zero(self) -> None:
+        self.assertEqual(self.acc._rate("claude-unknown-9"), (0.0, 0.0))

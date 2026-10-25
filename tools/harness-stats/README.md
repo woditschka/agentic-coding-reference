@@ -153,7 +153,7 @@ The output is structured as two measurement sections; the skill adds a third on 
 |---|---|---|
 | **Warm-start %** | Avg of `cache_read / total_input` on each fire's first turn, across all fires of an agent type | Are fires clustered within the cache TTL (1 hour for Claude Code's writes) so the system prompt + instructions get reused across invocations? |
 | **In-run reuse %** | `sum(cache_read on turns 2+) / sum(total_input on turns 2+)`, per agent type | Is the prefix stable across turns within a single fire? |
-| **Net savings %** | `1 − actual_cost / no_cache_baseline_cost`, where `actual = uncached×1.00 + write_5m×1.25 + write_1h×2.0 + read×0.10` and `baseline = (uncached + writes + read) × 1.00` | Did the cache save money for this agent, or did the TTL-split write premium exceed the read savings? Negative = waste. The report prices reads at the flat 0.10×, so Fable 5.1 and Opus 5.5 rows understate savings slightly; the statusline and board price per model. |
+| **Net savings %** | `1 − actual_cost / no_cache_baseline_cost`, where `actual = uncached×1.00 + write_5m×1.25 + write_1h×2.0 + read×0.10` and `baseline = (uncached + writes + read) × 1.00` | Did the cache save money for this agent, or did the TTL-split write premium exceed the read savings? Negative = waste. The report prices reads at the flat 0.10×, so Fable 5.1, Opus 5.5, and Sonnet 5.5 rows understate savings slightly; the statusline and board price per model. |
 
 ### When to act
 
@@ -195,10 +195,10 @@ Both the statusline `$` savings cell and the cache-report Net savings % use thes
 
 - Cache write, 5-minute TTL: **1.25×**
 - Cache write, 1-hour TTL: **2.00×**
-- Cache read: **0.10×** (0.025× on Fable 5.1 and Mythos 5.1, 0.05× on Opus 5.5)
+- Cache read: **0.10×** (0.025× on Fable 5.1 and Mythos 5.1, 0.05× on Opus 5.5 and Sonnet 5.5)
 - Uncached input: **1.00×**
 
-These are Anthropic's published multipliers as of 2026-09. The absolute base price is not needed because only the ratio against the no-cache baseline matters. But the **write multiplier depends on TTL**, and Claude Code writes its prefix cache at 1-hour TTL (verified from transcripts: 100% of cache writes carry `ephemeral_1h_input_tokens`, zero 5-minute). Both tools read the real per-turn 5m/1h split from `usage.cache_creation` and price each accordingly. Collapsing all writes to 1.25× overstated savings and, on write-heavy turns, could show a positive savings figure while the cache was actually costing money. The statusline, the handoff board, and `cache-report.sh` all read these multipliers from `accounting.py` (the single pricing source). The report's `CREATE_MULT_5M` / `CREATE_MULT_1H` / `READ_MULT` literals are only its fallback for a python3-less host.
+These are Anthropic's published multipliers as of 2026-10-25. The absolute base price is not needed because only the ratio against the no-cache baseline matters. But the **write multiplier depends on TTL**, and Claude Code writes its prefix cache at 1-hour TTL (verified from transcripts: 100% of cache writes carry `ephemeral_1h_input_tokens`, zero 5-minute). Both tools read the real per-turn 5m/1h split from `usage.cache_creation` and price each accordingly. Collapsing all writes to 1.25× overstated savings and, on write-heavy turns, could show a positive savings figure while the cache was actually costing money. The statusline, the handoff board, and `cache-report.sh` all read these multipliers from `accounting.py` (the single pricing source). The report's `CREATE_MULT_5M` / `CREATE_MULT_1H` / `READ_MULT` literals are only its fallback for a python3-less host.
 
 ## Related
 
