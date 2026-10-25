@@ -98,9 +98,11 @@ consumer makes that edit by hand.
 
 **Scope.** The evidence forms cover the two gaps the sweeps measured. The
 design stage, the doc-reviewer, and the security-reviewer carry none yet.
-A `design-block` names patterns and integrations but not the landing
-component of a slice's new rule; that is the next gap if the placement walk
-finds rows missing.
+The specialty-directory ledger shows the design stage did its part: the
+triage placed the grouping in the controller as a read projection, wrote
+that into the design doc's Contracts invariants, and both reviewers cited
+the row. The judge scored the recorded design, not an unplaced rule; that
+is a doctrine question for the briefs and the rubric, not a missing field.
 
 **Readings on the next tagged sweep**, none an acceptance arm: the listing
 in `gate_checks_run` on every `build-pass`, and a cited construction

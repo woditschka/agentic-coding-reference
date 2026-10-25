@@ -147,8 +147,9 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-10-06 | [An Open-Weight Peer Is Reached Through a Reverse Port the Proxy Can Read](2026-10-06-open-weight-reverse-port.md) | Accepted |
 | 2026-10-08 | [An Agent Reaches a Skill by Preload or by Path, Never by Search](2026-10-08-skill-reach-without-a-skill-tool.md) | Accepted |
 | 2026-10-19 | [A Vendored Suite Asserts Harness-Owned Facts, Never a Project's Own](2026-10-19-vendored-suites-assert-harness-owned-facts.md) | Accepted |
-| 2026-10-20 | [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) | Accepted |
+| 2026-10-20 | [The Implementer Keeps No Plan File](2026-10-20-the-implementer-keeps-no-plan-file.md) | Accepted (the `Pre-Check:` line in the replacement table retired by [2026-10-25 the-pre-check-line-is-retired](2026-10-25-the-pre-check-line-is-retired.md)) |
 | 2026-10-24 | [History Is Rewritable Until Published](2026-10-24-history-is-rewritable-until-published.md) | Accepted |
 | 2026-10-24 | [A Data-Driven Test Holds One Sentence Per Table](2026-10-24-one-sentence-per-table.md) | Accepted |
-| 2026-10-24 | [The Planned Checkpoint Runs the Quality Gate](2026-10-24-the-checkpoint-runs-the-gate.md) | Accepted |
+| 2026-10-24 | [The Planned Checkpoint Runs the Quality Gate](2026-10-24-the-checkpoint-runs-the-gate.md) | Accepted (the `Pre-Check:` transcript line retired by [2026-10-25 the-pre-check-line-is-retired](2026-10-25-the-pre-check-line-is-retired.md)) |
 | 2026-10-25 | [Convention Checks Carry Their Evidence](2026-10-25-convention-checks-carry-their-evidence.md) | Accepted |
+| 2026-10-25 | [The Pre-Check Line Is Retired](2026-10-25-the-pre-check-line-is-retired.md) | Accepted |

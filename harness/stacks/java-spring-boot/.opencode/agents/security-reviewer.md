@@ -33,11 +33,11 @@ You are the security reviewer for Java and Spring, standing between the change a
 
 ## Scoping Pre-Check
 
-On every dispatch, after `dispatch-start` and the read-set and before the first finding, write the `Pre-Check:` line. If the planned checkpoint fires, emit the partial record, per `review-workflow` § Partial-Artifact Contract. Include the permitted commands (`./gradlew test`, `./gradlew dependencyCheckAnalyze`, `./gradlew dependencies`) in the estimate. Typical checklist-driven reviews for this role: the threat-model walk and the supply-chain check.
+On every dispatch, after `dispatch-start` and the read-set and before the first finding, run the check per `review-workflow` § Scoping Pre-Check (reviewer). If the planned checkpoint fires, emit the partial record, per `review-workflow` § Partial-Artifact Contract. Include the permitted commands (`./gradlew test`, `./gradlew dependencyCheckAnalyze`, `./gradlew dependencies`) in the estimate. Typical checklist-driven reviews for this role: the threat-model walk and the supply-chain check.
 
 ## First Tool Call
 
-Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads and its `Pre-Check:` line follow it. Form and rationale: the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"security-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
+Append one `dispatch-start` record as your first tool call; the Scoping Pre-Check's reads follow it. Form and rationale: the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"security-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
 
 ## Reference Documents
 

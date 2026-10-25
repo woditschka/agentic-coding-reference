@@ -1,6 +1,8 @@
 # The Implementer Keeps No Plan File
 
-**Status:** Accepted
+**Status:** Accepted (the `Pre-Check:` line in the replacement table retired by [2026-10-25 the-pre-check-line-is-retired](2026-10-25-the-pre-check-line-is-retired.md))
+
+> The cycle estimate is held, not written; the post-hoc `cycles` count and the wrong-shape abort stand as the gate's observables.
 
 ## Context
 

@@ -1,6 +1,8 @@
 # The Planned Checkpoint Runs the Quality Gate
 
-**Status:** Accepted
+**Status:** Accepted (the `Pre-Check:` transcript line retired by [2026-10-25 the-pre-check-line-is-retired](2026-10-25-the-pre-check-line-is-retired.md))
+
+> The checkpoint, its gate run, and the one-order rule stand. The estimate and the checkpoint are held, not written; the gate run is the trace.
 
 ## Context
 

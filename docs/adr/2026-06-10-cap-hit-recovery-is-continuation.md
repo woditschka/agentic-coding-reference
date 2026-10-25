@@ -2,7 +2,7 @@
 
 **Status:** Accepted (the checkpoint action and the Pre-Check order amended by [2026-10-24 the-checkpoint-runs-the-gate](2026-10-24-the-checkpoint-runs-the-gate.md))
 
-> Amendment 2026-10-24: at the planned checkpoint the implementer runs the quality gate and continues on green; the partial-artifact handoff is the red path. A cap hit after a green checkpoint is recovered as a truncation. The Pre-Check follows the `dispatch-start` append and its reads, as one `Pre-Check:` line before the first edit, finding, or record draft. The two-axes rule stands.
+> Amendment 2026-10-24: at the planned checkpoint the implementer runs the quality gate and continues on green; the partial-artifact handoff is the red path. A cap hit after a green checkpoint is recovered as a truncation. The Pre-Check follows the `dispatch-start` append and its reads, as one `Pre-Check:` line before the first edit, finding, or record draft. The two-axes rule stands. Amendment 2026-10-25: the line is retired; the check is held and the checkpoint gate run is its trace.
 
 ## Context
 

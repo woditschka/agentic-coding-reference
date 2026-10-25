@@ -141,7 +141,7 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 
 ### Scoping Pre-Check (reviewer)
 
-After the `dispatch-start` append and before the first finding, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Write the estimate as one transcript line that begins `Pre-Check:`:
+After the `dispatch-start` append and before the first finding, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. The estimate is held, not written:
 
 1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `python3 scripts/changeset.py --name-only` for the changed files, `python3 scripts/changeset.py` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
 2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Add the class sweeps findings will trigger (§ Class-Exhaustive Findings). Each checklist is bounded; single-digit precision suffices.
@@ -151,7 +151,7 @@ After the `dispatch-start` append and before the first finding, run the three-st
 
 The model cannot count its own tool calls precisely. The trigger is therefore a **planned checkpoint** named at Pre-Check time, not a running count.
 
-**Choosing the checkpoint.** For a review of K changed files, set the checkpoint at "after reviewing ⌈K/2⌉ files." For a checklist-driven review (security threat model, dynamic-analysis run), set it at "after completing the first half of the checklist steps." The `Pre-Check:` line carries the checkpoint, so the transcript names it before the first finding.
+**Choosing the checkpoint.** For a review of K changed files, set the checkpoint at "after reviewing ⌈K/2⌉ files." For a checklist-driven review (security threat model, dynamic-analysis run), set it at "after completing the first half of the checklist steps." The checkpoint is fixed at Pre-Check time, before the first finding; the partial record, when it fires, is its trace.
 
 **At the checkpoint, the decision is unconditional.** If the review is complete, write the final `review-feedback` as normal. If not, **append a partial `review-feedback` record now** with the findings collected so far, then stop. Do not assess "am I close to done" — that assessment is the introspection the contract rejects.
 
