@@ -70,7 +70,7 @@ harness/
 ├── write_guard.py   Confined-write choke-point for the producer tree-rewriters
 │                    (materialize, init, package-marketplace, render-agent-mirrors):
 │                    each declares its write roots via write_scope(); battery step 1i
-│                    bans raw writes everywhere else (ADR 2026-07-19).
+│                    bans raw writes everywhere else (ADR 2026-07-19, now in 2026-07-02-tiered-maintainer-workflow).
 ├── confinement-policy.toml  The one explicit manifest of every sanctioned exception
 │                    to the confinement gates (steps 1h/1i): writers, spawners,
 │                    egress, network files — each entry with its why.
@@ -78,9 +78,9 @@ harness/
 │                    and the installed copy; verify-harness step 3e fails on any other delta.
 ├── enforcer-tactics.expected  The judged set of stack-enforcer checklist lines naming a
 │                    building block or annotation without citing the brief; step 3p fails
-│                    on any other line (ADR 2026-09-21).
+│                    on any other line (ADR 2026-09-21, now in 2026-06-13-documentation-standards).
 ├── tests/           The producer-side suites, mirroring this toolbox tree
-│   │                (ADR 2026-07-18 producer-side-tests-subdir).
+│   │                (ADR 2026-07-18, now in 2026-07-06-the-python-core).
 │   ├── _loader.py   Shared path-loader: resolves the toolbox root and loads a
 │   │                source script by path (the hyphenated names stay).
 │   ├── test_*.py    Unit suites for every Python tool here (materialize, init,
@@ -91,7 +91,7 @@ harness/
 │   └── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
 │                    Battery sub-suites: marketplace acceptance, real install,
 │                    generic stack.
-├── verify_harness/      The battery's domain package (ADR 2026-07-18 check-sync-decomposition):
+├── verify_harness/      The battery's domain package (ADR 2026-07-18, now in 2026-07-06-the-python-core):
 │                    text.py (pure helpers), battery.py (aggregator + run harness), and
 │                    checks/ (the step functions grouped by the evidence they read —
 │                    lint, sync, suites). Import graph launcher → checks → battery
@@ -125,4 +125,4 @@ A tool is one `TOOLS` row in `registry.py`: every producer-side mapping from too
 
 ## The stdlib-only invariant
 
-The shipped runtime imports only the standard library, or a module in the importing file's own directory, and ships no dependency manifest. It runs on a consumer's machine, so a dependency here is one they never chose. The contract is [logic-in-python](../docs/adr/2026-07-06-logic-in-python-orchestration-in-bash.md) ("Stdlib only, Python 3.11+ for everything"). The battery's stdlib-only step enforces it across every tree that reaches a consumer on any channel. `docs/adoption-guide.md` states it to consumers.
+The shipped runtime imports only the standard library, or a module in the importing file's own directory, and ships no dependency manifest. It runs on a consumer's machine, so a dependency here is one they never chose. The contract is [logic-in-python](../docs/adr/2026-07-06-the-python-core.md) (standard library only, Python 3.11+, no dependency manifest in any shipped tree). The battery's stdlib-only step enforces it across every tree that reaches a consumer on any channel. `docs/adoption-guide.md` states it to consumers.

@@ -104,7 +104,7 @@ echo "harness engines installed: $copied file(s) into $target (gitignored, untra
 # verify_runtime (ADR 2026-07-13 in the reference: project builds run no
 # harness suites; the install verifies what it copied). The scripts suites run
 # as one `unittest` invocation naming exactly the sliver's own modules (ADR
-# 2026-08-16 exact-module-install-verification), so a project-authored test
+# 2026-08-16, now in 2026-06-11-materialize), so a project-authored test
 # module under scripts/tests/ is never run as a suite; the suites still import
 # from the target tree, so the trust boundary on the target stands. A failure
 # means the installed runtime is broken on this host (broken copy, python
@@ -133,7 +133,7 @@ while IFS= read -r -d '' f; do
   esac
 done < <(cd "$src" && find . -type f -print0)
 # Run from the scripts dir so `import handoff` and `import tests.*` resolve
-# (ADR 2026-07-17 runtime-package-layout). A missing suite file is an import
+# (ADR 2026-07-17, now in 2026-07-06-the-python-core). A missing suite file is an import
 # error the run reports; a package missing its __init__.py resolves as a
 # namespace package and its suites still run — the doctor's runtime roster
 # pins every shipped __init__.py. The zero-tests check catches a truncated

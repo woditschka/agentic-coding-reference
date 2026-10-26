@@ -48,8 +48,8 @@ The design is stated in [`../product-workspace.md`](../product-workspace.md), wh
 ## References
 
 - [`../product-workspace.md`](../product-workspace.md): the design this decision produced, stated for reference from every other surface.
-- [2026-06-17-generic-stack-verb-contract](2026-06-17-generic-stack-verb-contract.md): the verb surface the umbrella's `stack.sh` binds per member.
+- [2026-06-14-layout-declares-the-project](2026-06-14-layout-declares-the-project.md): the verb surface the umbrella's `stack.sh` binds per member.
 - [2026-06-12-docs-as-harness-project-api](2026-06-12-docs-as-harness-project-api.md): the single roster this decision splits into a product role and a module role.
-- [2026-06-18-additive-reviewer-roster](2026-06-18-additive-reviewer-roster.md): the roster floor that stays fixed while the probes become a union.
+- [2026-06-18-the-reviewer-roster](2026-06-18-the-reviewer-roster.md): the roster floor that stays fixed while the probes become a union.
 - [`../ddd-principles.md`](../ddd-principles.md): the context map is the product tier; a bounded context's design is the module tier.
 - [`../adoption-guide.md`](../adoption-guide.md): the consumer surface that gains the workspace section once the implementation lands.

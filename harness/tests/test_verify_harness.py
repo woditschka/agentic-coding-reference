@@ -1425,7 +1425,7 @@ class ShippedProseGates(unittest.TestCase):
     def test_a_dated_decision_record_citation_fails(self):
         failed, err = self._run(
             sync.check_prose_self_containment,
-            "See docs/adr/2026-07-19-network-write-confinement-gate.md.\n",
+            "See docs/adr/2026-07-02-tiered-maintainer-workflow.md.\n",
         )
         self.assertTrue(failed)
         self.assertIn("decision record", err)

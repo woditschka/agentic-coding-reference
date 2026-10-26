@@ -8,7 +8,7 @@
 # Maintainer override for a known-good push:
 #   git push --no-verify
 #
-# See docs/adr/2026-07-13-server-side-battery-enforcement.md.
+# See docs/adr/2026-07-02-tiered-maintainer-workflow.md.
 #
 # --strict makes a missing linter (shellcheck, bandit, ruff, mypy) a hard
 # failure, so a push cannot skip those steps silently. Install the linters, or

@@ -60,7 +60,7 @@ The bookstore members (`samples/product-workspace/bookstore-api`, `-backend`, `-
 
 ### Root CI workflow
 
-The CI workflow pins each GitHub Action to a full commit SHA with a `# vX.Y.Z` comment — supply-chain hardening (ADR [2026-07-13-server-side-battery-enforcement](../../../docs/adr/2026-07-13-server-side-battery-enforcement.md)). The SHA and the comment must always name the same release; bump them together.
+The CI workflow pins each GitHub Action to a full commit SHA with a `# vX.Y.Z` comment — supply-chain hardening (ADR [2026-07-02-tiered-maintainer-workflow](../../../docs/adr/2026-07-02-tiered-maintainer-workflow.md)). The SHA and the comment must always name the same release; bump them together.
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
@@ -70,7 +70,7 @@ Note: track the pinned major line (v5 → latest v5.x) by default; a new major (
 
 ### Agent model pins
 
-The two model tiers are pinned per tool in the harness agent frontmatter ([ADR 2026-06-11](../../../docs/adr/2026-06-11-model-tier-assignment.md)). A same-tier release is drift this skill reports. A move is a deliberate edit with an in-file ADR amendment, never a local pin change.
+The two model tiers are pinned per tool in the harness agent frontmatter ([ADR 2026-06-11](../../../docs/adr/2026-06-11-model-tiering.md)). A same-tier release is drift this skill reports. A move is a deliberate edit with an in-file ADR amendment, never a local pin change.
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|

@@ -27,7 +27,7 @@ precondition, inventory, fold, group, confirm once, rewrite, verify, verdict. Th
 front-end states the root's values for the six bindings the core skill names,
 four further names the procedure uses at the root, and the additions the
 root's own docs need
-([the publication-boundary ADR](../../../docs/adr/2026-10-24-history-is-rewritable-until-published.md)).
+([the publication-boundary ADR](../../../docs/adr/2026-06-07-the-decision-log.md)).
 
 ## Root Bindings
 

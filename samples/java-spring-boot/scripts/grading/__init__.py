@@ -1,7 +1,7 @@
 """grading — the change-grading engine's domain package.
 
 The entry point grading.py composes these modules over the change-set layer
-(the changeset package) (ADR 2026-07-17 runtime-package-layout). The layer map
+(the changeset package) (ADR 2026-07-17, now in 2026-07-06-the-python-core). The layer map
 is the tree — config is the grading layout-config ACL, features the feature
 model, handoff_facts the handoff-log gateway, planner the pure risk ladder. The
 git gateway and the change set's definition live in the changeset package,

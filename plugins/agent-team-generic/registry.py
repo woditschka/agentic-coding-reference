@@ -73,7 +73,7 @@ PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 # marketplace ENTRY name (`agent-team-<stack>` for Claude, the primary target;
 # `agent-team-<stack>-<tool>` for the others — unique per manifest) that keys
 # installs and enabledPlugins. A consumer enables one plugin per project, so
-# the shared prefix never collides. See ADR 2026-08-01-shared-plugin-namespace.
+# the shared prefix never collides. See ADR 2026-08-01, now in 2026-06-14-distribution-channels.
 PLUGIN_NAMESPACE = "agent-team"
 
 # Documentation files sanctioned inside .claude/agents/ — and only there.

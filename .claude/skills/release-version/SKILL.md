@@ -23,7 +23,7 @@ below), then hand the mechanical rest to `harness/release-version.sh`. The
 version stamps every `plugin.json` and the marketplace; its release date
 (`harness/VERSION-DATE`) stamps every consumer's `CLAUDE.md`; the `v<VERSION>`
 tag is the reproducible snapshot and rollback point
-([the marketplace ADR](../../../docs/adr/2026-06-14-marketplace-plugin-channel.md)).
+([the marketplace ADR](../../../docs/adr/2026-06-14-distribution-channels.md)).
 
 ## Precondition
 

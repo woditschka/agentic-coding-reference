@@ -10,7 +10,7 @@
 #
 #   harness/propagate-harness.sh
 #
-# Named per ADR 2026-07-18 producer-script-naming: -harness marks whole-reference scope.
+# Named per ADR 2026-07-18, now in 2026-07-06-the-python-core: -harness marks whole-reference scope.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"

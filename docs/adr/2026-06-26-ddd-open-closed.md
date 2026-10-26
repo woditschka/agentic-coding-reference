@@ -44,5 +44,5 @@ De-duplicate tactics out of `design-validation` (and reviewer skills) into the b
 
 - [`2026-06-03-principles-over-rigid-rules.md`](2026-06-03-principles-over-rigid-rules.md) — the closed-contract / open-judgment layering this extends to DDD guidance
 - [`2026-06-12-docs-as-harness-project-api.md`](2026-06-12-docs-as-harness-project-api.md) — project-owned briefs as the adaptation API
-- [`2026-06-17-generic-stack-verb-contract.md`](2026-06-17-generic-stack-verb-contract.md) — precedent for a single binding/adaptation surface
+- [2026-06-14-layout-declares-the-project](2026-06-14-layout-declares-the-project.md) — precedent for a single binding/adaptation surface
 - [`ddd-principles.md`](../ddd-principles.md) — the kernel/tactical taxonomy this decision sharpens

@@ -10,10 +10,10 @@ Sections follow: the baseline the code targets, then names, function shape, type
 
 | Aspect | Rule | Source of the rule |
 |---|---|---|
-| Language level | Python 3.11 | [ADR: logic in Python, orchestration in bash](adr/2026-07-06-logic-in-python-orchestration-in-bash.md) |
+| Language level | Python 3.11 | [ADR: logic in Python, orchestration in bash](adr/2026-07-06-the-python-core.md) |
 | Dependencies | Standard library only in every tree; the shipped trees are gated, the producer trees follow by convention | [`harness/README.md` § The stdlib-only invariant](../harness/README.md#the-stdlib-only-invariant) |
 | Test framework | `unittest`, discovered by the battery; no third-party runner | same ADR |
-| Type checking | `mypy --strict` over the typed scope in `pyproject.toml` | [ADR: typed Python core](adr/2026-07-17-typed-python-core.md) |
+| Type checking | `mypy --strict` over the typed scope in `pyproject.toml` | [ADR: typed Python core](adr/2026-07-06-the-python-core.md) |
 | Formatting | `ruff format`, defaults | same ADR |
 | Shell | bash 3.2 compatible, orchestration only | same ADR; the macOS floor is stated in [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) |
 
@@ -45,7 +45,7 @@ A function body reads at one level of abstraction. It calls functions one level 
 
 ## Records and Types
 
-The typed standard is [ADR: typed Python core](adr/2026-07-17-typed-python-core.md) with its producer-side amendment; this section states the shape it produces.
+The typed standard is [ADR: typed Python core](adr/2026-07-06-the-python-core.md) with its producer-side amendment; this section states the shape it produces.
 
 - Data crossing a function boundary is a frozen dataclass with `slots=True`, or a `NamedTuple` when it is two or three fields with no behavior. A dataclass earns its class with a method, a default, or an invariant its docstring states. A raw `dict` survives only at the parse boundary (JSON, TOML, subprocess output) and at the routing core's sanctioned raw sites the ADR names.
 - Every `match` over a record union ends in `typing.assert_never`.
@@ -89,7 +89,7 @@ The code targets Python 3.11 and uses its idiom where the idiom is clearer than 
 
 ## Shell
 
-Shell scripts orchestrate; they hold no roster and no logic that Python can hold ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-logic-in-python-orchestration-in-bash.md)). Every script is shellcheck-clean at the warning level and runs on bash 3.2: no associative arrays, no `mapfile`, no `${var,,}`. A shell script that needs a roster asks Python for it.
+Shell scripts orchestrate; they hold no roster and no logic that Python can hold ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-the-python-core.md)). Every script is shellcheck-clean at the warning level and runs on bash 3.2: no associative arrays, no `mapfile`, no `${var,,}`. A shell script that needs a roster asks Python for it.
 
 ## The Gate
 

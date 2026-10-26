@@ -737,7 +737,7 @@ def _frontmatter_problems(file: Path, agents_dir: str) -> list[str]:
     return problems
 
 
-# ADR 2026-10-08 skill-reach-without-a-skill-tool: agents hold no Skill tool,
+# ADR 2026-10-08, now in 2026-07-02-tiered-maintainer-workflow: agents hold no Skill tool,
 # so a skill not preloaded is an on-demand read by path, never a search. A base
 # body states the backticked project form; the packager rewrites it per plugin
 # tool, so no plugin may carry the project form and only Claude's may carry
@@ -1764,7 +1764,7 @@ def _enforcer_pin_problems() -> list[str]:
 
 
 # The Scoping Pre-Check doctrine has one canonical statement and five role
-# restatements (ADR 2026-10-08 skill-reach-without-a-skill-tool). The pin holds
+# restatements (ADR 2026-10-08, now in 2026-07-02-tiered-maintainer-workflow). The pin holds
 # all six: a change to any one fails the battery until every restatement has
 # been reviewed and the file regenerated, so the copies cannot drift unseen.
 PRE_CHECK_SOURCES: tuple[tuple[str, str, str], ...] = (

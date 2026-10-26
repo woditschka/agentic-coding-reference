@@ -3,8 +3,8 @@
 # (review-workflow's reviewer statement, the product expert's step, the design
 # expert's step in each stack). verify-harness's scoping-pre-check-pin step
 # compares the live set against this file. A change to any source fails the
-# battery until every restatement has been reviewed against it (ADR 2026-10-08
-# skill-reach-without-a-skill-tool). Then regenerate the body below these
+# battery until every restatement has been reviewed against it (ADR 2026-10-08,
+# now in 2026-07-02-tiered-maintainer-workflow). Then regenerate the body below these
 # comments, from the repository root:
 #   cd harness && python3 -c 'from verify_harness.checks import sync; print("\n".join(sorted(sync._pre_check_lines().elements())))'
 generic/system-design-expert: 1. **Estimate, then decide.** Read the active `prd-entry`, `docs/system-design.md`, and the ADRs cited by the lines the slice touches; estimate the tool calls the triage and any required `docs/system-design.md` or ADR writes will need. Then two checks, the design statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Scope: a slice spanning more than one behavior or bounded context, judged from the `prd-entry` and never from the estimate, stops here with a `consultation-request` targeting `product-requirements-expert` for re-split. The response names the behaviors and the one to scope first; the returned dispatch records that split as a `conflicting` verdict's escalation, and the pipeline halts for the human's fresh scoping. A response that finds one behavior lets the triage proceed. Length: an estimate over `toolCallBudget` still proceeds, under the checkpoint of step 2, which fixes the estimate and the checkpoint. Breadth of design surface *within* a single behavior is what the `refactor-first` and `foundational` verdicts handle — that is triage output, not a re-scope.

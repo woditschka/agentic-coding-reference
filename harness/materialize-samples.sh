@@ -3,7 +3,7 @@
 #
 #   harness/materialize-samples.sh [target-dir ...]
 #
-# Named per ADR 2026-07-18 producer-script-naming: a tree-builder names its tree.
+# Named per ADR 2026-07-18, now in 2026-07-06-the-python-core: a tree-builder names its tree.
 #
 # With no arguments, materializes every monorepo sample in the STACKS roster
 # (harness/registry.py).

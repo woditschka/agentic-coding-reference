@@ -8,7 +8,7 @@
 # rebuilds only the claude stage (seconds); everything above stays cached.
 # The auto-updater is disabled: the baked version is authoritative.
 #
-# Supply chain (ADR 2026-07-20-pod-image-supply-chain): Claude Code installs
+# Supply chain (ADR 2026-07-20, now in 2026-07-16-confined-agent-tools): Claude Code installs
 # from Anthropic's GPG-signed apt repo, key fingerprint pinned below — no
 # piped-to-shell installer, and a battery tripwire fails the idiom returning.
 # Debian and Corretto packages are apt-signature-verified. Node and Go ride
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
 # ── confinement runtime — security controls, NOT dev tools ──
-# squid is the session's only path to the internet (ADR 2026-07-29); socat
+# squid is the session's only path to the internet (ADR 2026-07-29, now in 2026-07-16-confined-agent-tools); socat
 # carries the --ide loopback tunnel through squid's CONNECT. The battery's
 # toolchain-pins step asserts both stay — never remove in a dev-tool cleanup.
 # bubblewrap ships but is NOT used by default: under Docker's default seccomp
@@ -51,7 +51,7 @@ ENV HOME=/home/dev
 # ══ dev toolchains ══
 
 # ── python maintainer toolchain (pinned) ──
-# Egress is default-denied at runtime (ADR 2026-07-29), so the strict
+# Egress is default-denied at runtime (ADR 2026-07-29, now in 2026-07-16-confined-agent-tools), so the strict
 # battery's python tools bake in at build time. ruff must equal pyproject's
 # required-version; verify-harness's toolchain-pins step gates all three pins.
 RUN python3 -m venv /opt/pytools \

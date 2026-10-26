@@ -1,6 +1,6 @@
 # Fresh-Eyes Review Over a Canonical Change Set
 
-**Status:** Accepted (the `scripts/changeset.sh` verb retired by the [2026-07-17 amendment](2026-07-17-runtime-package-layout.md#amendment-2026-09-13-the-changesetsh-wrapper-is-retired); callers invoke `python3 scripts/changeset.py`, and the one-definition rule stands; plan file retired by [2026-10-20](2026-10-20-the-implementer-keeps-no-plan-file.md))
+**Status:** Accepted (the `scripts/changeset.sh` verb retired by the [2026-07-17 amendment](2026-07-06-the-python-core.md); callers invoke `python3 scripts/changeset.py`, and the one-definition rule stands; plan file retired by [2026-10-20](2026-10-20-slice-sizing-and-the-checkpoint.md))
 
 > Amendment 2026-10-20: the implementer keeps no plan file. The read-set rule and the doctor's fresh-eyes check stand; the check now guards against a project-owned reviewer written against an older harness.
 
@@ -28,7 +28,7 @@ The reviewers and the change-grader must judge the same change. Today the grader
 - **Read-set.** A reviewer judges the change set against long-term memory (`docs/`), reading the project on demand. It does not take the implementer's plan (`implementation-plan.md`) as review input. It reads the handoff log only to anchor its dispatch — the `build-pass` line — not to mine the design triage; `design-block` lives in that same log, so the discipline there is the reviewer's mandate, not a file it is denied.
 - **Change set.** The uncommitted working tree against `HEAD`: tracked-modified, staged, and untracked-but-not-`.gitignore`d, with project `exclude_globs` layered on top. `base = HEAD` is branch-agnostic and needs no trunk configuration.
 - **One engine, two consumers.** Reviewers and the change-grader resolve the change set through `scripts/changeset.sh` over the shared engine, so both review byte-identical sets. The grader's default base moves `main` → `HEAD` for the live worktree flow; the `--head`/`--base` override for post-hoc grading is unchanged.
-- **The doctor enforces it.** A regression invariant fails any reviewer body that instructs reading the implementer's plan — the one concrete case a deterministic body-grep can catch — and the engine validates `exclude_globs` as bounded project data. Authority lives in the engine and the doctor, mirroring the engine/data split of [layout-sourced schema patterns](2026-06-14-layout-sourced-schema-patterns.md).
+- **The doctor enforces it.** A regression invariant fails any reviewer body that instructs reading the implementer's plan — the one concrete case a deterministic body-grep can catch — and the engine validates `exclude_globs` as bounded project data. Authority lives in the engine and the doctor, mirroring the engine/data split of [layout-sourced schema patterns](2026-06-14-layout-declares-the-project.md).
 
 ## Consequences
 
@@ -49,8 +49,8 @@ The reviewers and the change-grader must judge the same change. Today the grader
 
 ## References
 
-- [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-change-grade-extractor-worktree.md) — the worktree-snapshot definition this primitive shares
-- [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) — the second consumer of the change set
-- [Additive Reviewer Roster](2026-06-18-additive-reviewer-roster.md) — the roster whose members this read-set governs
+- [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-the-change-grader.md) — the worktree-snapshot definition this primitive shares
+- [Change Grader: Always-On Advisory Risk Read](2026-06-05-the-change-grader.md) — the second consumer of the change set
+- [Additive Reviewer Roster](2026-06-18-the-reviewer-roster.md) — the roster whose members this read-set governs
 - [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) — the read-set is a hard contract; bare imperative, not softened
-- [Generic Stack: a Lifecycle-Verb Contract](2026-06-17-generic-stack-verb-contract.md) — the `gate.sh` precedent for a named, project-resolved command surface
+- [Generic Stack: a Lifecycle-Verb Contract](2026-06-14-layout-declares-the-project.md) — the `gate.sh` precedent for a named, project-resolved command surface

@@ -51,12 +51,12 @@ The Python lives in five trees with one direction of flow. The shipped runtime u
 | `accounting.py` | vendored module | Transcript usage to tokens and list-price cost; the byte-identical copy of the tools module |
 | `.claude/hooks/*.py` | hooks | Four Claude Code backstops: the sanctioned append form, the ledger write guard, the intake stop guard, the continue-only resume |
 
-The stack slices under `harness/stacks/<stack>/scripts/` ship no Python: each carries a `layout-defaults.toml` and the stack-default tests ([ADR: vendored suites assert harness-owned facts](adr/2026-10-19-vendored-suites-assert-harness-owned-facts.md)); the generic stack adds the verb dispatcher `gate.sh`.
+The stack slices under `harness/stacks/<stack>/scripts/` ship no Python: each carries a `layout-defaults.toml` and the stack-default tests ([ADR: vendored suites assert harness-owned facts](adr/2026-07-06-the-python-core.md)); the generic stack adds the verb dispatcher `gate.sh`.
 
 Execution model, as it exists:
 
 - A script runs from the consumer's project root; the ledger, schema, and layout paths default relative to it.
-- The three entries `handoff.py`, `grading.py`, `changeset.py` share their name with a package. An entry imports its package in submodule form, never as a bare module ([ADR: runtime package layout](adr/2026-07-17-runtime-package-layout.md)).
+- The three entries `handoff.py`, `grading.py`, `changeset.py` share their name with a package. An entry imports its package in submodule form, never as a bare module ([ADR: runtime package layout](adr/2026-07-06-the-python-core.md)).
 - Each entry places its own directory on `sys.path`, so a load by path from another working directory resolves the packages.
 - The Python floor is enforced at import: a missing `tomllib` exits with the usage code.
 
@@ -75,7 +75,7 @@ Execution model, as it exists:
 | Gateways and models | `changeset/git_facts.py`, `changeset/emit.py`, `grading/features.py`, `grading/handoff_facts.py`, `grading/planner.py` | their own package's leaves, the layout layer, and the change-set gateway |
 | Composition roots | `handoff.py`, `grading.py`, `changeset.py`, `doctor.py` | the packages they compose |
 
-Every import edge under `core/scripts` is declared in the battery's allow table ([ADR: runtime package layout](adr/2026-07-17-runtime-package-layout.md)). An undeclared edge, a declared edge with no file, or a bare entry import fails step 1g. One dynamic edge exists outside the static gate: the grading gateway imports `handoff` through `importlib`, both on the read that parses each ledger line and on the plan-record append. Because that edge is dynamic, the grading context re-derives over raw records the one ledger rule it shares with the router: which design-block validly supersedes another. The typed original is `handoff/ledger.py`'s; `grading/planner.py` and `grading/handoff_facts.py` each carry the same rule, and their suites pin it. Sanitization lives in the lowest layer, `handoff/schema.py`, so agent bytes never reach a terminal from any layer above it.
+Every import edge under `core/scripts` is declared in the battery's allow table ([ADR: runtime package layout](adr/2026-07-06-the-python-core.md)). An undeclared edge, a declared edge with no file, or a bare entry import fails step 1g. One dynamic edge exists outside the static gate: the grading gateway imports `handoff` through `importlib`, both on the read that parses each ledger line and on the plan-record append. Because that edge is dynamic, the grading context re-derives over raw records the one ledger rule it shares with the router: which design-block validly supersedes another. The typed original is `handoff/ledger.py`'s; `grading/planner.py` and `grading/handoff_facts.py` each carry the same rule, and their suites pin it. Sanitization lives in the lowest layer, `handoff/schema.py`, so agent bytes never reach a terminal from any layer above it.
 
 ### Producer Tooling
 
@@ -102,21 +102,21 @@ Every import edge under `core/scripts` is declared in the battery's allow table 
 
 Guardrails:
 
-- Python holds the logic; bash sequences Python and holds no roster ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-logic-in-python-orchestration-in-bash.md)).
-- A tree-rewriting script writes only through `write_guard` inside a declared scope, and the battery bans raw write primitives elsewhere ([ADR: network and write confinement gate](adr/2026-07-19-network-write-confinement-gate.md)).
-- The stack layer copies after core and wins on overlap; a materialization replaces the harness-owned runtime whole ([ADR: materialize is a complete replacement](adr/2026-06-13-materialize-complete-replacement.md)).
-- One layout reader serves init and materialize; a malformed layout raises, never defaults ([ADR: one layout reader](adr/2026-07-18-materialize-previewable-plan.md)).
-- Generated surfaces are rendered from source and gated for drift, never hand-edited: the agent mirrors ([ADR](adr/2026-07-03-rendered-agent-mirror-bodies.md)), the route-rule inventory ([ADR](adr/2026-08-16-generated-route-rule-inventory.md)), the ADR index, the plugins, the retired-paths manifest ([ADR](adr/2026-08-20-retired-paths-manifest.md)).
+- Python holds the logic; bash sequences Python and holds no roster ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-the-python-core.md)).
+- A tree-rewriting script writes only through `write_guard` inside a declared scope, and the battery bans raw write primitives elsewhere ([ADR: network and write confinement gate](adr/2026-07-02-tiered-maintainer-workflow.md)).
+- The stack layer copies after core and wins on overlap; a materialization replaces the harness-owned runtime whole ([ADR: materialize is a complete replacement](adr/2026-06-11-materialize.md)).
+- One layout reader serves init and materialize; a malformed layout raises, never defaults ([ADR: one layout reader](adr/2026-06-11-materialize.md)).
+- Generated surfaces are rendered from source and gated for drift, never hand-edited: the agent mirrors ([ADR](adr/2026-07-02-tiered-maintainer-workflow.md)), the route-rule inventory ([ADR](adr/2026-07-02-deterministic-routing-engines.md)), the ADR index, the plugins, the retired-paths manifest ([ADR](adr/2026-06-11-materialize.md)).
 
 ### The Battery
 
-`verify-harness.py` is a launcher whose header carries the authoritative step list and whose body dispatches in order. The steps live in `verify_harness/`: `text.py` holds pure helpers, `battery.py` the aggregator, and `checks/` the step functions grouped by the evidence they read ([ADR: check-sync decomposition](adr/2026-07-18-check-sync-decomposition.md)). The groups are `lint` for the static tools, `sync` for rendered-tree parity and content invariants, `suites` for subprocess suites, and `confinement` with `confinement_ast` for the egress and write gates. The `lint` group also runs `probe_annotations.py`, which imports the shipped runtime and evaluates every annotation, since Python 3.14 defers that evaluation and an older consumer interpreter does not. The doctor is probed in both of its load contexts. Beside the grading package it runs as a script; loaded by path from `materialize.py` or `render-gitignore-block.py`, that package is absent and its engine import falls back.
+`verify-harness.py` is a launcher whose header carries the authoritative step list and whose body dispatches in order. The steps live in `verify_harness/`: `text.py` holds pure helpers, `battery.py` the aggregator, and `checks/` the step functions grouped by the evidence they read ([ADR: check-sync decomposition](adr/2026-07-06-the-python-core.md)). The groups are `lint` for the static tools, `sync` for rendered-tree parity and content invariants, `suites` for subprocess suites, and `confinement` with `confinement_ast` for the egress and write gates. The `lint` group also runs `probe_annotations.py`, which imports the shipped runtime and evaluates every annotation, since Python 3.14 defers that evaluation and an older consumer interpreter does not. The doctor is probed in both of its load contexts. Beside the grading package it runs as a script; loaded by path from `materialize.py` or `render-gitignore-block.py`, that package is absent and its engine import falls back.
 
 The aggregator's contract: a step calls `note` with its title, then closes with `report(problems, pass_line)` or with `record_pass`, `skip`, or `fail` directly. The run aggregates and exits once. `battery.py` also holds what steps share. `RenderCheck` and `check_render_faithful` are the render-and-compare core behind `check_faithfulness` and `check_marketplace_faithfulness`; `shell_scripts` is the script finder the shellcheck step and the confinement gate both walk.
 
 The confinement gate scans two tiers, the shipped runtime and the producer tooling with every tool under `tools/`. Four trees under `harness/` stay off the producer list: `core/` and `stacks/` scan as the shipped tier, `verify_harness/` is the checker itself, and `init/` holds project-owned skeletons. `evals/` belongs to neither tier and is out of scope. The gate's bash scanner reads statically: a quoted command word reaching execution through `eval` or `bash -c` is invisible. The network CLIs it searches for are a named denylist.
 
-`--quick` refuses while any derived tree is dirty and otherwise skips the re-render and sub-suite steps whose inputs the guard proves untouched. `--strict` turns a missing external tool from a skip into a failure; both push gates run strict ([ADR: the battery gates every push](adr/2026-07-13-server-side-battery-enforcement.md)). The same import-boundary check that gates the runtime gates the battery's own package: launcher, checks, aggregator, helpers, one direction.
+`--quick` refuses while any derived tree is dirty and otherwise skips the re-render and sub-suite steps whose inputs the guard proves untouched. `--strict` turns a missing external tool from a skip into a failure; both push gates run strict ([ADR: the battery gates every push](adr/2026-07-02-tiered-maintainer-workflow.md)). The same import-boundary check that gates the runtime gates the battery's own package: launcher, checks, aggregator, helpers, one direction.
 
 ### Eval Bench and Tools
 
@@ -128,39 +128,39 @@ The confinement gate scans two tiers, the shipped runtime and the producer tooli
 | `tools/harness-stats/accounting.py` | The canonical usage-accounting module and pricing table |
 | `tools/agent-dev/agent_dev.py`, `agent_dev_config.py`, `agent_dev_profiles.py`, `claude_dev_scrub.py`, `ide_preflight.py`, `open_weight_preflight.py` | Proxy policy from configuration, one profile per agent tool and the session's settings document it names, the container-private settings replica, the IDE tool-set check, the open-weight model-map check; the engine launcher is bash |
 
-Run folders are ground truth and every view is derived; a development version's folders and trend page are never committed ([ADR: cost per pass against a fixed SUT](adr/2026-08-02-eval-bench-cost-per-pass.md)). The accounting module has one canonical home in `tools/` and one vendored copy in the runtime ([ADR: single pricing source as a gated vendored copy](adr/2026-07-13-single-pricing-source-vendored-copy.md)). Battery step 2d compares the two byte for byte. Methodology, tiers, and the run-folder layout are in [`evals/README.md`](../evals/README.md).
+Run folders are ground truth and every view is derived; a development version's folders and trend page are never committed ([ADR: cost per pass against a fixed SUT](adr/2026-07-15-the-eval-bench.md)). The accounting module has one canonical home in `tools/` and one vendored copy in the runtime ([ADR: single pricing source as a gated vendored copy](adr/2026-07-06-the-python-core.md)). Battery step 2d compares the two byte for byte. Methodology, tiers, and the run-folder layout are in [`evals/README.md`](../evals/README.md).
 
 ## Contracts
 
 | Contract | Purpose | Source | Decision |
 |---|---|---|---|
-| The ledger | Append-only JSONL, one canonical record per newline-terminated line; ordering is file position, timestamps are stamped at append and never a routing input | `handoff.py`, `handoff/schema.py` | [ADR](adr/2026-05-08-append-only-jsonl-handoffs.md), [ADR](adr/2026-07-13-append-stamped-record-timestamps.md) |
-| Lock-free append | One positional `os.write` on an append-only descriptor; the receipt line number is exact; a glued tail warns on append and blocks on validate and route | `handoff.py` | [ADR](adr/2026-08-16-lock-free-ledger-appends.md) |
-| Record union | One frozen dataclass per record type; the lift is total and never raises; the schema alone owns requiredness; field parity between schema and dataclass is a tested gate | `handoff/records.py` | [ADR](adr/2026-07-17-typed-python-core.md) |
-| Schema subset | A closed keyword vocabulary; an unknown keyword is an error; patterns and enums may resolve from the layout | `handoff/schema.py`, `schemas/scratch/` | [ADR](adr/2026-06-14-layout-sourced-schema-patterns.md), [ADR](adr/2026-08-02-gate-facts-in-layout-schemas-defer.md) |
-| Decision payload | Three kinds, dispatch, blocked, escalate, each naming its rule and reason; a bounce dispatches the producing agent; route exits zero with any decision and never repairs the log | `handoff/routing.py`, `handoff.py` | [ADR](adr/2026-07-06-deterministic-mid-slice-routing.md) |
-| Route-rule inventory | Generated from the four decision constructors; drift fails battery step 3j; two rules raised by the CLI before routing, the dirty-log and unreadable-layout blocks, live outside the inventory | `render-route-rules.py`, `route-rules.md` | [ADR](adr/2026-08-16-generated-route-rule-inventory.md) |
-| Cost attribution | A subagent transcript is one dispatch. A step's window selects the transcripts it overlaps and sums each whole, exact while no two dispatches of one agent type overlap. The slice roll-up windows messages instead. A tier variant joins its base type; a transcript with no agent type or no placeable stamp is dropped; the mtime bound prunes on the last write | `accounting.py`, `handoff/cost.py` | [ADR](adr/2026-07-15-transcript-file-cost-attribution.md), [ADR](adr/2026-07-13-single-pricing-source-vendored-copy.md) |
-| Layout table | Each package reads only its own sections through its own reader; the schema resolves named keys; the routing core reads the extra reviewers and the grading switch | `scripts/layout.toml`, the three config modules | [ADR](adr/2026-06-13-extensions-and-tool-surfaces.md), [ADR](adr/2026-07-17-module-derivation-named-layouts.md) |
-| Stack defaults | Two tables only, merged key by key under the project's layout; a foreign key fails the load | `scripts/layout-defaults.toml`, `grading/config.py` | [ADR](adr/2026-09-07-security-review-follows-the-surface.md) |
-| Review plan | An engine-authored record per build pass naming risk, scope, basis, and roster; a gray plan defers to the planner; absent or invalid plans fail closed to the full roster | `grading.py`, `grading/planner.py` | [ADR](adr/2026-07-09-risk-proportional-review.md), [ADR](adr/2026-09-01-evidence-gated-dynamic-tiering.md) |
+| The ledger | Append-only JSONL, one canonical record per newline-terminated line; ordering is file position, timestamps are stamped at append and never a routing input | `handoff.py`, `handoff/schema.py` | [ADR](adr/2026-05-08-the-handoff-ledger.md) |
+| Lock-free append | One positional `os.write` on an append-only descriptor; the receipt line number is exact; a glued tail warns on append and blocks on validate and route | `handoff.py` | [ADR](adr/2026-05-08-the-handoff-ledger.md) |
+| Record union | One frozen dataclass per record type; the lift is total and never raises; the schema alone owns requiredness; field parity between schema and dataclass is a tested gate | `handoff/records.py` | [ADR](adr/2026-07-06-the-python-core.md) |
+| Schema subset | A closed keyword vocabulary; an unknown keyword is an error; patterns and enums may resolve from the layout | `handoff/schema.py`, `schemas/scratch/` | [ADR](adr/2026-06-14-layout-declares-the-project.md) |
+| Decision payload | Three kinds, dispatch, blocked, escalate, each naming its rule and reason; a bounce dispatches the producing agent; route exits zero with any decision and never repairs the log | `handoff/routing.py`, `handoff.py` | [ADR](adr/2026-07-02-deterministic-routing-engines.md) |
+| Route-rule inventory | Generated from the four decision constructors; drift fails battery step 3j; two rules raised by the CLI before routing, the dirty-log and unreadable-layout blocks, live outside the inventory | `render-route-rules.py`, `route-rules.md` | [ADR](adr/2026-07-02-deterministic-routing-engines.md) |
+| Cost attribution | A subagent transcript is one dispatch. A step's window selects the transcripts it overlaps and sums each whole, exact while no two dispatches of one agent type overlap. The slice roll-up windows messages instead. A tier variant joins its base type; a transcript with no agent type or no placeable stamp is dropped; the mtime bound prunes on the last write | `accounting.py`, `handoff/cost.py` | [ADR](adr/2026-07-15-the-eval-bench.md), [ADR](adr/2026-07-06-the-python-core.md) |
+| Layout table | Each package reads only its own sections through its own reader; the schema resolves named keys; the routing core reads the extra reviewers and the grading switch | `scripts/layout.toml`, the three config modules | [ADR](adr/2026-06-12-docs-as-harness-project-api.md), [ADR](adr/2026-07-17-module-derivation.md) |
+| Stack defaults | Two tables only, merged key by key under the project's layout; a foreign key fails the load | `scripts/layout-defaults.toml`, `grading/config.py` | [ADR](adr/2026-06-18-the-reviewer-roster.md) |
+| Review plan | An engine-authored record per build pass naming risk, scope, basis, and roster; a gray plan defers to the planner; absent or invalid plans fail closed to the full roster | `grading.py`, `grading/planner.py` | [ADR](adr/2026-06-18-the-reviewer-roster.md), [ADR](adr/2026-06-11-model-tiering.md) |
 | Change set | One definition of the diff under review, shared by every reviewer and the grader; the snapshot never touches the real index. A product workspace yields one set per present member beside the project's, every path spelled from the project | `changeset/emit.py`, `changeset/git_facts.py` | [ADR](adr/2026-06-21-fresh-eyes-review-changeset.md) |
-| Grading facts | Six facts read from the ledger, every one null on an absent or unreadable log | `grading/handoff_facts.py` | [ADR](adr/2026-06-05-change-grader.md) |
-| Conventions and coverage maps | Lists for the implementer's walk and the reviewers' checklists; neither carries a verdict on its rows. The conventions map is a gate check whose exit code reports only resolution; the gate skill records it in `gate_checks_run` | `grading/conventions.py`, `grading/coverage.py` | [ADR](adr/2026-09-03-coverage-map-joins-the-walk.md), [ADR](adr/2026-10-25-convention-checks-carry-their-evidence.md) |
-| Contracts sync | A requirement id present in the PRD and the design doc, or a named failure | `grading/contracts.py` | [ADR](adr/2026-08-15-contracts-sync-joins-the-gate.md) |
+| Grading facts | Six facts read from the ledger, every one null on an absent or unreadable log | `grading/handoff_facts.py` | [ADR](adr/2026-06-05-the-change-grader.md) |
+| Conventions and coverage maps | Lists for the implementer's walk and the reviewers' checklists; neither carries a verdict on its rows. The conventions map is a gate check whose exit code reports only resolution; the gate skill records it in `gate_checks_run` | `grading/conventions.py`, `grading/coverage.py` | [ADR](adr/2026-09-03-test-conventions-at-write-time.md) |
+| Contracts sync | A requirement id present in the PRD and the design doc, or a named failure | `grading/contracts.py` | [ADR](adr/2026-07-18-design-truth-mid-slice.md) |
 | Backlog connector | Candidates are PRD ids minus delivered, non-goal, and superseded; the team's board enters through a project-owned shell connector with a fixed row format | `backlog.py`, `scripts/backlog.sh` | [ADR](adr/2026-09-12-backlog-connector.md) |
-| Doctor manifest | The blocking checks of a project's briefs, driven by one expectations file | `doctor.py`, `doctor-expectations.toml` | [ADR](adr/2026-06-12-docs-as-harness-project-api.md), [ADR](adr/2026-06-14-doctor-engine-in-scripts.md) |
-| Hooks | Four backstops with declared fail directions; the deterministic control is `handoff.py validate` in the quality gate | `.claude/hooks/` | [ADR](adr/2026-06-20-handoff-append-pre-approval.md), [ADR](adr/2026-06-10-continue-only-resume.md), [ADR](adr/2026-08-08-unattended-refusals-are-resumable-pauses.md) |
-| Registry rosters | One definition of stacks, tools, channels, and the engine sliver, imported by every producer script and bundled into every plugin | `registry.py` | [ADR](adr/2026-06-14-marketplace-plugin-channel.md), [ADR](adr/2026-08-02-plugin-shipped-init.md) |
-| Write guard | A context-scoped allowlist of roots; a write outside it fails closed; delete verbs never follow symlinks | `write_guard.py` | [ADR](adr/2026-07-19-network-write-confinement-gate.md) |
+| Doctor manifest | The blocking checks of a project's briefs, driven by one expectations file | `doctor.py`, `doctor-expectations.toml` | [ADR](adr/2026-06-12-docs-as-harness-project-api.md), [ADR](adr/2026-06-14-the-doctor.md) |
+| Hooks | Four backstops with declared fail directions; the deterministic control is `handoff.py validate` in the quality gate | `.claude/hooks/` | [ADR](adr/2026-05-08-the-handoff-ledger.md), [ADR](adr/2026-06-04-dispatch-lifecycle.md) |
+| Registry rosters | One definition of stacks, tools, channels, and the engine sliver, imported by every producer script and bundled into every plugin | `registry.py` | [ADR](adr/2026-06-14-distribution-channels.md) |
+| Write guard | A context-scoped allowlist of roots; a write outside it fails closed; delete verbs never follow symlinks | `write_guard.py` | [ADR](adr/2026-07-02-tiered-maintainer-workflow.md) |
 | Confinement policy | One manifest of sanctioned writers, spawners, egress, and network; a stale sanction fails | `confinement-policy.toml`, `verify_harness/checks/confinement.py` | same ADR |
-| Retired-paths manifest | Cumulative and append-only; the release script appends the set difference between the last tag and the working tree | `retired-paths.txt`, `retired_paths.py` | [ADR](adr/2026-08-20-retired-paths-manifest.md) |
-| Managed chapters | The harness-owned chapters of a consumer's rules file, replaced heading to heading; the stamp line is the reserved token | `claude-md/refresh-chapters.py` | [ADR](adr/2026-06-24-claude-md-managed-chapters.md), [ADR](adr/2026-06-27-harness-version-stamp.md) |
-| Handbook delta | The pinned line-set difference between the root handbook and the shipped copy | `handbook-delta.expected` | [ADR](adr/2026-07-12-parity-gates-for-hand-owned-parallels.md) |
-| Enforcer tactic pin | The judged set of stack-enforcer checklist lines naming a building block or annotation without citing the brief; a new line fails until judged | `enforcer-tactics.expected` | [ADR](adr/2026-09-21-stack-brief-fragments.md) |
-| Install verification | The exact installed module list is run, never discovery; the battery's own steps use discovery | `materialize.py`, `marketplace/setup.sh` | [ADR](adr/2026-08-16-exact-module-install-verification.md) |
-| Run folder | One folder per cell with manifest, result, ledger, costs, patch, egress log; derived pages regenerate from it | `evals/run_eval.py`, `evals/summarize.py` | [ADR](adr/2026-08-02-eval-bench-cost-per-pass.md) |
-| Pricing table | One family table, dated overrides, cache multipliers; the single edit point for cost | `tools/harness-stats/accounting.py` | [ADR](adr/2026-07-13-single-pricing-source-vendored-copy.md) |
+| Retired-paths manifest | Cumulative and append-only; the release script appends the set difference between the last tag and the working tree | `retired-paths.txt`, `retired_paths.py` | [ADR](adr/2026-06-11-materialize.md) |
+| Managed chapters | The harness-owned chapters of a consumer's rules file, replaced heading to heading; the stamp line is the reserved token | `claude-md/refresh-chapters.py` | [ADR](adr/2026-06-12-docs-as-harness-project-api.md) |
+| Handbook delta | The pinned line-set difference between the root handbook and the shipped copy | `handbook-delta.expected` | [ADR](adr/2026-07-02-tiered-maintainer-workflow.md) |
+| Enforcer tactic pin | The judged set of stack-enforcer checklist lines naming a building block or annotation without citing the brief; a new line fails until judged | `enforcer-tactics.expected` | [ADR](adr/2026-06-13-documentation-standards.md) |
+| Install verification | The exact installed module list is run, never discovery; the battery's own steps use discovery | `materialize.py`, `marketplace/setup.sh` | [ADR](adr/2026-06-11-materialize.md) |
+| Run folder | One folder per cell with manifest, result, ledger, costs, patch, egress log; derived pages regenerate from it | `evals/run_eval.py`, `evals/summarize.py` | [ADR](adr/2026-07-15-the-eval-bench.md) |
+| Pricing table | One family table, dated overrides, cache multipliers; the single edit point for cost | `tools/harness-stats/accounting.py` | [ADR](adr/2026-07-06-the-python-core.md) |
 
 ## Constants
 
@@ -208,9 +208,9 @@ Every input the harness's Python reads is bounded, and no path is hot: the cost 
 
 ## Dependency Policy
 
-- The shipped runtime imports the standard library or a sibling module in its own scripts tree, ships no dependency manifest, and targets Python 3.11 ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-logic-in-python-orchestration-in-bash.md)). Battery step 1c enforces this across every tree that reaches a consumer. The invariant is stated once in [`harness/README.md`](../harness/README.md#the-stdlib-only-invariant).
+- The shipped runtime imports the standard library or a sibling module in its own scripts tree, ships no dependency manifest, and targets Python 3.11 ([ADR: logic in Python, orchestration in bash](adr/2026-07-06-the-python-core.md)). Battery step 1c enforces this across every tree that reaches a consumer. The invariant is stated once in [`harness/README.md`](../harness/README.md#the-stdlib-only-invariant).
 - The producer tooling, the battery, the eval bench, and the tools follow the same rule by convention. The one manifest in the repository is the root `pyproject.toml`, which configures ruff and mypy and ships nowhere.
-- External developer tools, ruff, mypy, bandit, shellcheck, are optional on a maintainer host and required under `--strict` ([ADR: typed Python core](adr/2026-07-17-typed-python-core.md)). A missing tool is a loud skip, never a silent pass. Their versions are pinned in three places, the root `pyproject.toml`, the container image, and the CI workflow, and battery step 6bb holds the three equal.
+- External developer tools, ruff, mypy, bandit, shellcheck, are optional on a maintainer host and required under `--strict` ([ADR: typed Python core](adr/2026-07-06-the-python-core.md)). A missing tool is a loud skip, never a silent pass. Their versions are pinned in three places, the root `pyproject.toml`, the container image, and the CI workflow, and battery step 6bb holds the three equal.
 - A new runtime dependency is not added. A new producer-side tool joins only through the skip-if-missing contract with its pin in all three places.
 
 ## Security Context
@@ -245,11 +245,11 @@ Boundaries validate; internal code trusts its contracts. Every input in the tabl
 
 Guardrails with their decisions:
 
-- The route never repairs, guesses, or writes; a dirty log blocks and an ambiguous state escalates ([ADR: single deterministic tool](adr/2026-06-11-handoff-log-access-tool.md)).
-- The hooks are backstops per tool; `handoff.py validate` in the quality gate is the deterministic control on every tool ([ADR: pre-approved append via hook](adr/2026-06-20-handoff-append-pre-approval.md)).
-- The board reads and never gates; a bad roster, a dirty log, or a missing overlay degrade the view and never block the pipeline ([ADR: deterministic mid-slice routing](adr/2026-07-06-deterministic-mid-slice-routing.md)).
-- The producer glue makes no network call and writes only to declared roots, both proven by AST scan ([ADR: network and write confinement gate](adr/2026-07-19-network-write-confinement-gate.md)).
-- Appends are atomic in placement on a local POSIX filesystem; materialization refuses a filesystem that fails the shipped stress test ([ADR: lock-free ledger appends](adr/2026-08-16-lock-free-ledger-appends.md)).
+- The route never repairs, guesses, or writes; a dirty log blocks and an ambiguous state escalates ([ADR: single deterministic tool](adr/2026-05-08-the-handoff-ledger.md)).
+- The hooks are backstops per tool; `handoff.py validate` in the quality gate is the deterministic control on every tool ([ADR: pre-approved append via hook](adr/2026-05-08-the-handoff-ledger.md)).
+- The board reads and never gates; a bad roster, a dirty log, or a missing overlay degrade the view and never block the pipeline ([ADR: deterministic mid-slice routing](adr/2026-07-02-deterministic-routing-engines.md)).
+- The producer glue makes no network call and writes only to declared roots, both proven by AST scan ([ADR: network and write confinement gate](adr/2026-07-02-tiered-maintainer-workflow.md)).
+- Appends are atomic in placement on a local POSIX filesystem; materialization refuses a filesystem that fails the shipped stress test ([ADR: lock-free ledger appends](adr/2026-05-08-the-handoff-ledger.md)).
 
 ## State Machine
 
@@ -285,11 +285,11 @@ The routing core is a state machine over the ledger, deterministic from file pos
 
 Invariants the machine holds:
 
-- Feedback older than its reviewer's latest dispatch-start is stale; one silent dispatch-start earns the single retry, a second blocks ([ADR: deterministic truncation detection](adr/2026-06-04-deterministic-truncation-detection.md)).
-- The round counts passes with substantive dissent; from the cap on the bar is critical-only, past it dissent blocks; truncation-only dissent never advances the round ([ADR: bounded review convergence](adr/2026-08-11-bounded-review-convergence.md)).
-- The review cycle starts at the latest superseding design block whose pointer resolves; a forged pointer is ignored ([ADR: the review cycle survives mid-slice design records](adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md)).
-- An approved verdict carries no fix-routable finding ([ADR](adr/2026-08-02-approved-carries-no-fix-routable-finding.md)).
-- A changed non-goal needs a scope override quoting a human line; the request itself is never the override ([ADR: scope-lock](adr/2026-08-08-scope-lock-the-request-is-never-the-override.md)).
-- A `routine`-rated initial and an all-autofix fix round run the routine implementer; one miss retires it for the slice; recovery paths run the base pin ([ADR: evidence-gated dynamic tiering](adr/2026-09-01-evidence-gated-dynamic-tiering.md)).
-- A build pass is refused while a PRD-changing consultation has no design response ([ADR: design-sync gate](adr/2026-09-12-design-sync-gate.md)).
-- Route totality over every record type is checker-enforced through `assert_never` ([ADR: typed Python core](adr/2026-07-17-typed-python-core.md)).
+- Feedback older than its reviewer's latest dispatch-start is stale; one silent dispatch-start earns the single retry, a second blocks ([ADR: deterministic truncation detection](adr/2026-06-04-dispatch-lifecycle.md)).
+- The round counts passes with substantive dissent; from the cap on the bar is critical-only, past it dissent blocks; truncation-only dissent never advances the round ([ADR: bounded review convergence](adr/2026-07-14-review-convergence.md)).
+- The review cycle starts at the latest superseding design block whose pointer resolves; a forged pointer is ignored ([ADR: the review cycle survives mid-slice design records](adr/2026-07-18-design-truth-mid-slice.md)).
+- An approved verdict carries no fix-routable finding ([ADR](adr/2026-07-14-review-convergence.md)).
+- A changed non-goal needs a scope override quoting a human line; the request itself is never the override ([ADR: scope-lock](adr/2026-07-14-review-convergence.md)).
+- A `routine`-rated initial and an all-autofix fix round run the routine implementer; one miss retires it for the slice; recovery paths run the base pin ([ADR: evidence-gated dynamic tiering](adr/2026-06-11-model-tiering.md)).
+- A build pass is refused while a PRD-changing consultation has no design response ([ADR: design-sync gate](adr/2026-07-18-design-truth-mid-slice.md)).
+- Route totality over every record type is checker-enforced through `assert_never` ([ADR: typed Python core](adr/2026-07-06-the-python-core.md)).

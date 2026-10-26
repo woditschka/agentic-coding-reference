@@ -6,7 +6,7 @@ The vocabulary a reader needs before the rest of this reference makes sense. It 
 
 An **agent tool** (Claude Code, GitHub Copilot CLI, OpenCode) is a program that runs a language model in a loop against a repository. The model reads files, runs commands, edits code, and decides its own next step until the task is done or it needs a person. The person types goals; the tool does the legwork. This reference supports all three; the [cross-tool strategy](cross-tool-strategy.md) compares them.
 
-A **model** is the language model behind the tool. Models differ in capability and in price per token, and a tool can run different models for different roles. The harness pins two tiers. The judgment tier carries requirements, design, involved implementation, security review, and grading; the standard tier carries routine implementation, checklist review, and routing. [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md) holds the split and the cost math; [`open-weight-models.md`](open-weight-models.md) maps the tiers to a provider that serves open-weight models.
+A **model** is the language model behind the tool. Models differ in capability and in price per token, and a tool can run different models for different roles. The harness pins two tiers. The judgment tier carries requirements, design, involved implementation, security review, and grading; the standard tier carries routine implementation, checklist review, and routing. [ADR 2026-06-11](adr/2026-06-11-model-tiering.md) holds the split and the cost math; [`open-weight-models.md`](open-weight-models.md) maps the tiers to a provider that serves open-weight models.
 
 ## Two Limits
 
@@ -36,7 +36,7 @@ A **plugin** bundles skills, agents, and hooks for installation from a **marketp
 
 A **ubiquitous language** is the one vocabulary the domain experts, the code, and the docs share, with the terms to avoid listed beside the terms to use. Agents drift on vocabulary between sessions faster than people do, so the harness records it in `docs/ubiquitous-language.md` and challenges misuse inline.
 
-An **ADR**, architecture decision record, is a short dated document stating one decision, the options considered, and why one won. It is history, never edited after the fact; a later decision supersedes it with a new record. The harness keeps them in `docs/adr/`, and its own decision log is [`docs/adr/`](adr/) in this repository.
+An **ADR**, architecture decision record, is a short dated document stating one decision, the options considered, and why one won. A draft is edited in place until it is published; a published decision is superseded by a new record. The reference compacts its own log at a publication boundary ([the decision-log ADR](adr/2026-06-07-the-decision-log.md)). The harness keeps them in `docs/adr/`, and its own decision log is [`docs/adr/`](adr/) in this repository.
 
 A **slice** is the harness's unit of work: one vertical, independently usable behavior cutting through every layer it touches ([`agentic-harness.md` § What a Slice Is](agentic-harness.md#what-a-slice-is)).
 

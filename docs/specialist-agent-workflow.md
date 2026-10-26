@@ -34,7 +34,7 @@ Arch question   → system-design-expert (standalone)
 Review only     → any single reviewer (standalone)
 ```
 
-**Why JSONL over per-stage markdown.** A single append-only log with typed records makes schema validation uniform: one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail, where mutable per-stage markdown lost history on overwrite. Full rationale: [the JSONL-handoffs ADR](adr/2026-05-08-append-only-jsonl-handoffs.md).
+**Why JSONL over per-stage markdown.** A single append-only log with typed records makes schema validation uniform: one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail, where mutable per-stage markdown lost history on overwrite. Full rationale: [the JSONL-handoffs ADR](adr/2026-05-08-the-handoff-ledger.md).
 
 ### Why File-Based Coordination
 

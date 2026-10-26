@@ -8,7 +8,7 @@ Sources, read 2026-09-13: the Claude Code [model configuration](https://code.cla
 
 ## The Mapping
 
-Three values map: the endpoint URL, the credential, and one provider model per pinned name. [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md#decision) fixes the tier split: judgment roles on the opus pin, checklist roles on the sonnet pin. The current IDs per tool are in [cross-tool-strategy.md § Agents / Subagents](cross-tool-strategy.md#agents--subagents).
+Three values map: the endpoint URL, the credential, and one provider model per pinned name. [ADR 2026-06-11](adr/2026-06-11-model-tiering.md) fixes the tier split: judgment roles on the opus pin, checklist roles on the sonnet pin. The current IDs per tool are in [cross-tool-strategy.md § Agents / Subagents](cross-tool-strategy.md#agents--subagents).
 
 | Tool | URL and credential | Pinned name to provider model | Tier split |
 |---|---|---|---|
@@ -195,7 +195,7 @@ The admitted request shape, the credential handling and the settings channel are
 
 ### Limits
 
-A maintainer run on 2026-10-06 served an `--ow` session from the host's Ollama daemon; no test repeats it. The suites pin the mechanism against a stub peer, and OpenCode's behavior was measured against opencode-ai 1.18.34 on 2026-10-06. The [reverse-port ADR](adr/2026-10-06-open-weight-reverse-port.md) records the claude-dev mechanism, and the [one-engine ADR](adr/2026-10-06-one-engine-for-agent-dev-tools.md) records the shared engine and the OpenCode profile. A model without the `tools` capability fails every request. The operating notes below apply unchanged.
+A maintainer run on 2026-10-06 served an `--ow` session from the host's Ollama daemon; no test repeats it. The suites pin the mechanism against a stub peer, and OpenCode's behavior was measured against opencode-ai 1.18.34 on 2026-10-06. The [reverse-port ADR](adr/2026-07-16-confined-agent-tools.md) records the claude-dev mechanism, and the [one-engine ADR](adr/2026-07-16-confined-agent-tools.md) records the shared engine and the OpenCode profile. A model without the `tools` capability fails every request. The operating notes below apply unchanged.
 
 ## Operating Notes
 

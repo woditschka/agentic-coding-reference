@@ -12,12 +12,13 @@ from _loader import load
 
 rai = load("render_adr_index", "render-adr-index.py")
 
-DECISION_FLOOR = 94
+DECISION_FLOOR = 31
 
 
 class RowDerivation(unittest.TestCase):
     def test_live_rows_have_the_derived_shape(self):
-        # The decision log only grows, so its count never drops below the floor.
+        # One ADR per standing decision since the 2026-10-26 compaction; the
+        # count never drops below that floor.
         rows = rai.adr_rows()
         self.assertGreaterEqual(len(rows), DECISION_FLOOR)
         for row in rows:

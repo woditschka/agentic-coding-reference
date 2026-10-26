@@ -23,7 +23,7 @@
 #
 # What it does NOT cover: a live agent model-invoking a namespaced plugin skill
 # inside a subagent. That needs a running tool and a restart, so it is a manual
-# release-checklist step — see docs/adr/2026-06-14-marketplace-plugin-channel.md.
+# release-checklist step — see docs/adr/2026-06-14-distribution-channels.md.
 # The namespace-safety check (2) is its deterministic stand-in.
 #
 #   harness/tests/test-marketplace.sh        # needs bash, git, python3

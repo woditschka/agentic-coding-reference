@@ -5,7 +5,7 @@
 # the visible record, and it gates a merge only where branch protection requires
 # this check. Both run --strict, so a missing linter (shellcheck, bandit, ruff,
 # mypy) fails the gate rather than skipping it.
-# See docs/adr/2026-07-13-server-side-battery-enforcement.md.
+# See docs/adr/2026-07-02-tiered-maintainer-workflow.md.
 # This workflow is "checks" — file, display name, and badge label all match, the
 # public-facing word for the gate. It runs the deterministic battery
 # (harness/verify-harness.py); "battery" stays the internal term for that suite.

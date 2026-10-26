@@ -1,5 +1,5 @@
 # Confinement policy — the single, explicit record of every sanctioned exception
-# to the harness confinement gates (ADR 2026-07-19 network-write-confinement-gate;
+# to the harness confinement gates (ADR 2026-07-19, now in 2026-07-02-tiered-maintainer-workflow;
 # battery steps 1h/1i in verify_harness/checks/confinement.py).
 #
 # The gates read ONLY this file for exceptions. The mechanism — the gate in
@@ -29,7 +29,7 @@
 # network file with no network-module import, an egress pair no call exercises —
 # so this file records the exact sanctioned surface, never an accumulating one.
 # A change that moves the trust surface (a new network destination, a new tier)
-# also amends ADR 2026-07-19. Paths are relative to the repo root.
+# also amends ADR 2026-07-19, now in 2026-07-02-tiered-maintainer-workflow. Paths are relative to the repo root.
 
 # === Shipped runtime (harness/core) ===========================================
 
@@ -159,7 +159,7 @@ why  = "maintainer-only deck generator: writes docs/deck/casts/casts.js, plus th
 # network
 [[sanctioned_network]]
 path = "tools/agent-dev/ide_preflight.py"
-why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-29 proxy-enforced-egress)"
+why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-29, now in 2026-07-16-confined-agent-tools)"
 [[sanctioned_network]]
 path = "tools/agent-dev/open_weight_preflight.py"
-why  = "the [open-weight] peer preflight — asking the model server for its listing before a --ow launch is its function (ADR 2026-10-06 open-weight-reverse-port)"
+why  = "the [open-weight] peer preflight — asking the model server for its listing before a --ow launch is its function (ADR 2026-10-06, now in 2026-07-16-confined-agent-tools)"

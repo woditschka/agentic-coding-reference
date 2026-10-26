@@ -39,7 +39,7 @@ Two shapes were on the table for closing that gap. A registry inside the reposit
 
 ## References
 
-- [2026-06-17 generic-stack-verb-contract](2026-06-17-generic-stack-verb-contract.md): the `stack.sh` shape the connector reuses, and the fail-honest rule it deliberately inverts.
-- [2026-07-06 logic-in-python-orchestration-in-bash](2026-07-06-logic-in-python-orchestration-in-bash.md): why the set is a Python engine and the binding is a shell file.
+- [2026-06-14 layout-declares-the-project](2026-06-14-layout-declares-the-project.md): the `stack.sh` shape the connector reuses, and the fail-honest rule it deliberately inverts.
+- [2026-07-06 the-python-core](2026-07-06-the-python-core.md): why the set is a Python engine and the binding is a shell file.
 - [2026-06-12 docs-as-harness-project-api](2026-06-12-docs-as-harness-project-api.md): the project-owned boundary the connector sits on.
-- [2026-08-14 the-root-is-a-channel-not-an-author](2026-08-14-the-root-is-a-channel-not-an-author.md): the pick stays the human's; the board's rank is input, never the decision.
+- [2026-06-19 the-product-expert-and-the-root-conversation](2026-06-19-the-product-expert-and-the-root-conversation.md): the pick stays the human's; the board's rank is input, never the decision.
