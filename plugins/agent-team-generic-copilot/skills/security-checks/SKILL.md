@@ -58,7 +58,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] File descriptors and handles closed deterministically
 
 ### Container / Deployment Security
-- [ ] Container image builds successfully (via the stack's container build, if any)
+- [ ] Container image builds successfully: a container build, where the stack binds one, rides the gate; trust the `build-pass`, never re-run it
 - [ ] Runs as a non-root user
 - [ ] No unnecessary capabilities
 - [ ] Read-only filesystem where possible

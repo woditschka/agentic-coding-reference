@@ -77,7 +77,7 @@ The free tier is the default on every path: where the better form costs nothing 
 - [ ] No `get`/`set` prefixes on record accessors (records generate `name()` not `getName()`)
 - [ ] No abbreviations unless universally understood
 - [ ] Package names: lowercase, single word where possible
-- [ ] No `util`/`common`/`misc` package names; a `Helper` class only as Bloch's utility class: pure static functions over one type the project does not own, statically imported
+- [ ] No `util`/`common`/`misc` package names; a `Helper` class only in the one shape `docs/architecture-principles.md` § Naming allows
 - [ ] No type name repetition in method names (`parser.parse()` not `parser.parseInput()`)
 
 ### Comments and Javadoc

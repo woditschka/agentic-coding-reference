@@ -56,7 +56,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] File descriptors properly closed (defer close patterns)
 
 ### Container/Deployment Security
-- [ ] Container image builds successfully (`make podman-build`)
+- [ ] Container image builds successfully: `make podman-build` runs with the gate where the project uses containers; trust the `build-pass`, never re-run it
 - [ ] Runs as non-root user
 - [ ] No unnecessary capabilities
 - [ ] Read-only filesystem
@@ -180,11 +180,7 @@ Checks for known CVEs, reports if vulnerable code is actually called. Without it
 
 After automated checks pass:
 
-1. **Dependency inventory**:
-   ```bash
-   go list -m all
-   ```
-   Review for unexpected packages, typosquatting, unknown sources.
+1. **Dependency inventory**: read `go.mod` and `go.sum` directly. Review for unexpected packages, typosquatting, unknown sources.
 
 ### govulncheck Output Interpretation
 

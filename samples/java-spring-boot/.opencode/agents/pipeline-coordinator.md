@@ -15,6 +15,7 @@ permission:
   bash: allow
   webfetch: deny
   websearch: deny
+  question: deny
   task: deny
 ---
 

@@ -129,10 +129,7 @@ go test -race ./...
 Detects data races at runtime. Should run on all tests in CI.
 
 ### Vet and Static Analysis
-```bash
-go vet ./...
-```
-Catches common mistakes. Should block merge on failure.
+`go vet` and golangci-lint ride the gate's `vet` and `lint` checks, which the reviewer never re-runs; a red one never reaches review.
 
 ### Fuzz Testing (Go 1.18+)
 For input parsing code, verify fuzz tests exist:

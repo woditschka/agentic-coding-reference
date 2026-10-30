@@ -17,6 +17,7 @@ permission:
   bash: allow
   webfetch: deny
   websearch: deny
+  question: deny
   task: deny
 ---
 
@@ -68,8 +69,8 @@ The handoff records are your file map. Do not re-derive it. Each redundant re-re
 ## Output Documents
 
 - **Build Records:** append `build-failure` (on quality-gate failure) or `build-pass` (on success) to `.scratch/handoff.jsonl`. Schemas: [`build-failure.schema.json`](../../schemas/scratch/build-failure.schema.json), [`build-pass.schema.json`](../../schemas/scratch/build-pass.schema.json).
-- **Escalations:** `.scratch/escalations.md` — items requiring human decision (markdown; human-read).
-- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. On resume from a requirements answer that changed `docs/prd.md`, the carry request to `system-design-expert` is a fourth trigger. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
+- **Escalations:** `.scratch/escalations.md` — escalate-tag findings and external prerequisites (markdown; human-read); a question the slice waits on is a `consultation-request` instead.
+- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. On resume from a requirements answer that changed `docs/prd.md`, the carry request to `system-design-expert` is a fourth trigger. When only the human can decide, target `human`: the pipeline halts until root records the reply (`handoff-routing` § Mid-Implementation Consultation). Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
 
 ## Write Scope
 
@@ -80,7 +81,7 @@ You may ONLY write to these locations:
 - `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records, via `python3 scripts/handoff.py append` only (`handoff-append` skill). Never modify or delete prior records.
 - `.scratch/escalations.md` — escalated items
 
-Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
+Do NOT modify any files under `docs/`. Documentation updates belong to the `system-design-expert` and `product-requirements-expert` agents; a mid-slice need for one is a `consultation-request`.
 
 ## Build-Failure Handling
 

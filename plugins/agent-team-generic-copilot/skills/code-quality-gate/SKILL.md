@@ -22,19 +22,21 @@ Before invoking reviewers, all checks must pass. The same gate runs once per dis
 
 ### Required Checks
 
-| Verb | Invocation | What It Verifies |
-|---|---|---|
-| Deps | `scripts/gate.sh deps` | Dependencies are tidy; no prohibited or unused entries (check mode, never rewrites) |
-| Format | `scripts/gate.sh format` | Code is formatted (check mode, not rewrite) |
-| Lint | `scripts/gate.sh lint` | Linters and static analysis pass |
-| Test | `scripts/gate.sh test` | All tests pass |
-| Build | `scripts/gate.sh build` | The artifact compiles or assembles |
-| Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
-| Autofix audit | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` and `prd-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
-| Design-doc sync | `python3 scripts/grading.py contracts-sync --feature <req_id>` | The slice's requirement id appears in `docs/prd.md` and `docs/system-design.md` — the Contracts table names its implementer. Vacuous without the design brief. |
-| Conventions map | `python3 scripts/grading.py conventions-map` | Lists the change's added comment blocks, raw constructions, and literal-bearing lines per changed file. The listing carries no verdict on its rows: the self-review's Test-Conventions Walk (`tdd-workflow` § Test-Conventions Walk) works from them. The final gate runs it first; the checkpoint gate omits it. Exit 0 is green; record `conventions-map` in `gate_checks_run`, a verb of `scripts/layout.toml` `[gate].verbs`. A non-zero exit is an environment fault, an unresolved base or head, a malformed `[conventions]` table, or a git failure: append the `build-failure` with `failed_check: "conventions-map"` and `abort_reason: "prerequisite-missing"`. |
+| Check | Verb | Invocation | What It Verifies |
+|---|---|---|---|
+| Deps | `deps` | `scripts/gate.sh deps` | Dependencies are tidy; no prohibited or unused entries (check mode, never rewrites) |
+| Format | `format` | `scripts/gate.sh format` | Code is formatted (check mode, not rewrite) |
+| Lint | `lint` | `scripts/gate.sh lint` | Linters and static analysis pass |
+| Test | `test` | `scripts/gate.sh test` | All tests pass |
+| Build | `build` | `scripts/gate.sh build` | The artifact compiles or assembles |
+| Handoff log | `handoff-log` | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
+| Autofix audit | `autofix-audit` | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` and `prd-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
+| Design-doc sync | `contracts-sync` | `python3 scripts/grading.py contracts-sync --feature <req_id>` | The slice's requirement id appears in `docs/prd.md` and `docs/system-design.md` — the Contracts table names its implementer. Vacuous without the design brief. |
+| Conventions map | `conventions-map` | `python3 scripts/grading.py conventions-map` | Lists the change's added comment blocks, raw constructions, and literal-bearing lines per changed file. The listing carries no verdict on its rows: the self-review's Test-Conventions Walk (`tdd-workflow` § Test-Conventions Walk) works from them. The final gate runs it first; the checkpoint gate omits it. Exit 0 is green; record `conventions-map` in `gate_checks_run`, a verb of `scripts/layout.toml` `[gate].verbs`. A non-zero exit is an environment fault, an unresolved base or head, a malformed `[conventions]` table, or a git failure: append the `build-failure` with `failed_check: "conventions-map"` and `abort_reason: "prerequisite-missing"`. |
 
 A verb with no binding in `scripts/stack.sh` fails by design — it is not implemented yet, and a half-bound stack must not pass a gate it has not satisfied. Bind each verb to this stack's real commands in `scripts/stack.sh`; a verb that genuinely does not apply is an explicit `return 0` no-op there, never a silent skip.
+
+The Verb column is the name a check carries in `gate_checks_run`: the `[gate].verbs` vocabulary of `scripts/layout.toml`.
 
 ### Autofix Audit Procedure
 

@@ -1,7 +1,8 @@
 ---
 name: next
 description: >-
-  Reset feature context and recommend what to work on next based on PRD coverage.
+  Reset feature context and recommend what to work on next from PRD coverage,
+  git history, and the tracker connector.
   Load when the user asks "what's next" or invokes /next.
 compatibility:
   - claude-code
