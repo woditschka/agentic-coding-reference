@@ -242,6 +242,9 @@ OPENCODE_PERMISSION_KEYS = frozenset(
     }
 )
 OPENCODE_PERMISSION_VALUES = frozenset({"allow", "ask", "deny"})
+# Denials every shipped OpenCode agent states: a dispatched agent never
+# converses, and a subagent does not inherit the parent session's denials.
+OPENCODE_REQUIRED_DENIALS = frozenset({"question"})
 
 ADOPTION_TRIO = ("init", "materialize", "harvest")
 ADOPTION_CHAPTER = "## Adopt in a Project"
@@ -704,7 +707,10 @@ def _opencode_permission_problems(file: Path, content: str) -> list[str]:
             f"flow-style or scalar `permission` in {rel(file)} — "
             "the gate reads only the block form"
         )
+    denied: set[str] = set()
     for key, value in frontmatter_block(content, "permission"):
+        if value == "deny":
+            denied.add(key)
         if key not in OPENCODE_PERMISSION_KEYS and "*" not in key:
             problems.append(
                 f"unknown OpenCode permission key `{key}` in {rel(file)} — "
@@ -716,6 +722,11 @@ def _opencode_permission_problems(file: Path, content: str) -> list[str]:
                 f"OpenCode permission `{key}: {value!r}` in {rel(file)} — "
                 "value must be allow/ask/deny"
             )
+    problems.extend(
+        f"`{key}` not denied in {rel(file)} — a dispatched agent never "
+        "converses; state `question: deny` per agent, subagents inherit none"
+        for key in sorted(OPENCODE_REQUIRED_DENIALS - denied)
+    )
     return problems
 
 

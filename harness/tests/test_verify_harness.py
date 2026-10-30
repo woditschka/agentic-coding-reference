@@ -243,6 +243,33 @@ class FrontmatterSkills(unittest.TestCase):
         self.assertEqual(sync._frontmatter_skills(fm), ["a"])
 
 
+class OpencodePermissionProblems(unittest.TestCase):
+    FILE = ROOT / "core/.opencode/agents/x.md"
+
+    def _fm(self, block):
+        return "---\nmode: subagent\npermission:\n" + block + "---\nbody"
+
+    def test_a_mirror_that_omits_the_question_denial_is_a_problem(self):
+        problems = sync._opencode_permission_problems(
+            self.FILE, self._fm("  read: allow\n  task: deny\n")
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("`question` not denied", problems[0])
+
+    def test_question_deny_satisfies_the_required_denials(self):
+        problems = sync._opencode_permission_problems(
+            self.FILE, self._fm("  read: allow\n  question: deny\n  task: deny\n")
+        )
+        self.assertEqual(problems, [])
+
+    def test_question_allow_is_a_valid_value_but_not_a_denial(self):
+        problems = sync._opencode_permission_problems(
+            self.FILE, self._fm("  question: allow\n")
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("`question` not denied", problems[0])
+
+
 class SkillReach(unittest.TestCase):
     RULE = sync.ON_DEMAND_RULE + "\n"
     COPILOT = (
