@@ -302,6 +302,7 @@ class Manifest:
     design_doc: str
     prd: str
     handbook_denylist: tuple[str, ...]
+    required_gate_verbs: tuple[str, ...]
     files: tuple[FileSpec, ...]
 
 
@@ -340,6 +341,7 @@ def read_manifest(path: Path) -> Manifest:
         design_doc=cross_doc["source"],
         prd=cross_doc["defined_in"],
         handbook_denylist=tuple(raw["handbook"]["denylist"]),
+        required_gate_verbs=_required_gate_verbs(raw.get("gate")),
         files=tuple(_file_spec(entry) for entry in raw["file"]),
     )
 
@@ -357,6 +359,22 @@ def _reviewer_spec(raw: Raw) -> ReviewerSpec:
         name_pattern=re.compile(raw["name_pattern"]),
         surfaces=surfaces,
     )
+
+
+def _required_gate_verbs(gate: object) -> tuple[str, ...]:
+    """Return the manifest's required gate verbs; absent means none, a wrong shape is a manifest defect."""
+    if gate is None:
+        return ()
+    if not isinstance(gate, dict):
+        raise TypeError(f"[gate] must be a table (got {gate!r})")
+    verbs = gate.get("required_verbs", [])
+    if not isinstance(verbs, list) or not all(
+        isinstance(verb, str) and verb for verb in verbs
+    ):
+        raise TypeError(
+            f"[gate] required_verbs must be a list of non-empty strings (got {verbs!r})"
+        )
+    return tuple(verbs)
 
 
 def _file_spec(entry: Raw) -> FileSpec:
@@ -1327,6 +1345,41 @@ def check_layout_gate(project: Project) -> list[Result]:
     return [passed("layout-gate", "[gate] command and verbs validate")]
 
 
+def check_layout_gate_verbs(manifest: Manifest, project: Project) -> list[Result]:
+    """Fail when a present [gate] vocabulary lacks a verb the gate skill requires."""
+    # The build-pass schema enumerates its verbs from this list, so a required
+    # check the project never declared cannot be recorded: the implementer
+    # drops the verb to get the record accepted, and the check is gone from
+    # the ledger with nothing failing. This is the one place the gap shows.
+    if not manifest.required_gate_verbs:
+        return [skipped("layout-gate-verbs", "manifest requires no gate verbs")]
+    if not project.layout:
+        return [skipped("layout-gate-verbs", "no parseable scripts/layout.toml")]
+    gate = project.layout.get("gate")
+    if not isinstance(gate, dict):
+        return [skipped("layout-gate-verbs", "no [gate] table (optional)")]
+    verbs = gate.get("verbs")
+    if not isinstance(verbs, list):
+        return [skipped("layout-gate-verbs", "[gate] verbs malformed; see layout-gate")]
+    declared = {verb for verb in verbs if isinstance(verb, str)}
+    missing = [verb for verb in manifest.required_gate_verbs if verb not in declared]
+    if missing:
+        return [
+            failed(
+                "layout-gate-verbs",
+                f"[gate] verbs lacks {', '.join(missing)} — the gate skill runs the "
+                "check but a build-pass cannot record an undeclared verb, so it "
+                "drops out unseen; add the verb(s) to scripts/layout.toml [gate]",
+            )
+        ]
+    return [
+        passed(
+            "layout-gate-verbs",
+            f"[gate] verbs carries every required verb ({len(manifest.required_gate_verbs)})",
+        )
+    ]
+
+
 def check_doc_budgets(manifest: Manifest, project: Project) -> list[Result]:
     """Fail each budgeted doc that exceeds its word ceiling."""
     return [
@@ -1535,6 +1588,7 @@ def run(
     results.extend(check_layout_review(project))
     results.extend(check_layout_defaults(project))
     results.extend(check_layout_gate(project))
+    results.extend(check_layout_gate_verbs(manifest, project))
     results.extend(check_backlog_connector(root))
     results.extend(check_doc_budgets(manifest, project))
     results.extend(check_field_tables(manifest, root))

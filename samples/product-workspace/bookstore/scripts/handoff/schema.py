@@ -368,8 +368,12 @@ def _validate_value(value: object, schema: object, path: str, run: _Validation) 
         )
         return
     if "enum" in schema and not any(schema_equal(value, m) for m in schema["enum"]):
+        # A layout-sourced enum is the project's own vocabulary: the remedy is
+        # to declare the value there, never to drop it from the record.
+        source = schema.get("enumFrom")
+        hint = f"; the vocabulary is scripts/layout.toml {source}" if source else ""
         errors.append(
-            f"{path}: {json.dumps(value)} not in enum {json.dumps(schema['enum'])}"
+            f"{path}: {json.dumps(value)} not in enum {json.dumps(schema['enum'])}{hint}"
         )
         return
     if not _type_matches(value, schema, path, errors):

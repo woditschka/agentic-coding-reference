@@ -41,7 +41,8 @@
      "known_defects",
      "scope",
      "run_folder",
-     "models"
+     "models",
+     "gate_verbs"
     ],
     "additionalProperties": false,
     "properties": {
@@ -166,6 +167,13 @@
        "type": "string"
       },
       "description": "The API models the rep resolved, the ledger's synthetic entry excluded; the requested pin binds only the root agent."
+     },
+     "gate_verbs": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "Every gate verb the rep's build-pass records name, sorted; the ledger's proof of which quality-gate checks ran. Empty when no build-pass is on record."
      }
     }
    }

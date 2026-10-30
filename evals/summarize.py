@@ -608,6 +608,11 @@ class Run:
     # Triage-versus-delivery facts over the recorded ledger and patch; None
     # when the run kept no patch or recorded no design-block.
     scope: ScopeFacts | None = None
+    # Every gate verb the run's build-pass records name, sorted: what the
+    # ledger proves the quality gate ran. It feeds trend-data.json only, so a
+    # reading of which checks a version ran stays answerable from the series
+    # without a page column.
+    gate_verbs: tuple[str, ...] = ()
 
     @property
     def agent_spend(self) -> float:
@@ -846,6 +851,7 @@ def _run_from_folder(
         known_defects=_known_defects(folder, task_id, probes_by_task),
         scope=_scope(folder),
         stalled=run_stalled(outcome, folder),
+        gate_verbs=gate_verbs_run(ledger_records(folder)),
     )
 
 
@@ -2398,6 +2404,23 @@ SECONDS_PER_MINUTE = 60
 MAX_LEDGER_BYTES = 5 * 1024 * 1024
 
 
+# The ledger is agent-authored, so the verb set it yields is bounded like the
+# other ledger-derived lists; a build-pass names a handful of checks.
+MAX_GATE_VERBS = 100
+
+
+def gate_verbs_run(records: list[dict[str, object]]) -> tuple[str, ...]:
+    """Return every gate verb the ledger's build-pass records name, sorted, deduplicated, and capped."""
+    verbs: set[str] = set()
+    for record in records:
+        if record.get("type") != "build-pass":
+            continue
+        run = record.get("gate_checks_run")
+        if isinstance(run, list):
+            verbs.update(v for v in run if isinstance(v, str))
+    return tuple(sorted(verbs)[:MAX_GATE_VERBS])
+
+
 def ledger_records(out_dir: Path) -> list[dict[str, object]]:
     """Parse the folder's handoff ledger, reading a missing or oversized file as empty."""
     # A malformed or non-object line is skipped, and the size cap holds
@@ -3364,6 +3387,7 @@ def trend_data_json(tagged: list[Run]) -> str:
                 "version": r.version,
                 "model_pin": r.model_requested,
                 "models": sorted(m for m in r.models if m != SYNTHETIC_MODEL),
+                "gate_verbs": list(r.gate_verbs),
                 "rep": r.rep,
                 "cleared": r.cleared,
                 "agent_spend_usd": round(r.agent_spend, 4),

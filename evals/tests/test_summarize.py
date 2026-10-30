@@ -1250,6 +1250,41 @@ class JudgeSpendColumn(unittest.TestCase):
         self.assertTrue(row.endswith("| $1.25 |"))
 
 
+class GateVerbsInTrendData(unittest.TestCase):
+    """The ledger's gate verbs reach the machine-readable series only; the
+    page tables stay as they are."""
+
+    def test_trend_data_carries_the_rep_s_verbs(self) -> None:
+        payload = json.loads(
+            summarize.trend_data_json([a_run(gate_verbs=("build", "test"))])
+        )
+        self.assertEqual(payload["reps"][0]["gate_verbs"], ["build", "test"])
+
+    def test_gate_verbs_are_read_from_build_pass_records_only(self) -> None:
+        records: list[dict[str, object]] = [
+            {"type": "build-failure", "gate_checks_run": ["format"]},
+            {"type": "build-pass", "gate_checks_run": ["test", "build", 7]},
+            {"type": "build-pass", "gate_checks_run": ["build", "conventions-map"]},
+            {"type": "build-pass"},
+        ]
+        self.assertEqual(
+            summarize.gate_verbs_run(records), ("build", "conventions-map", "test")
+        )
+
+    def test_the_verb_set_is_capped_like_the_other_ledger_lists(self) -> None:
+        records: list[dict[str, object]] = [
+            {
+                "type": "build-pass",
+                "gate_checks_run": [
+                    f"verb-{i:04d}" for i in range(summarize.MAX_GATE_VERBS + 5)
+                ],
+            }
+        ]
+        self.assertEqual(
+            len(summarize.gate_verbs_run(records)), summarize.MAX_GATE_VERBS
+        )
+
+
 class SweepSpendColumn(unittest.TestCase):
     """The spend columns price one sweep — each task cell contributes its
     per-rep mean — so rows with unequal rep depth stay comparable."""

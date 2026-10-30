@@ -563,6 +563,39 @@ class LayoutTables(DoctorCase):
         self.append_layout('\n[gate]\nverbs = ["build"]\n')
         self.assert_failure_mentions("command must be a non-empty string")
 
+    def test_a_gate_vocabulary_carrying_every_required_verb_passes(self):
+        required = ", ".join(f'"{v}"' for v in manifest_value("gate", "required_verbs"))
+        self.append_layout(
+            f'\n[gate]\ncommand = "make ci"\nverbs = ["build", {required}]\n'
+        )
+        self.assertEqual(self.statuses("layout-gate-verbs"), [doctor.PASS])
+
+    def test_a_gate_vocabulary_missing_a_required_verb_fails_naming_it(self):
+        self.append_layout(
+            '\n[gate]\ncommand = "make ci"\n'
+            'verbs = ["build", "handoff-log", "autofix-audit", "contracts-sync"]\n'
+        )
+        self.assert_failure_mentions("[gate] verbs lacks conventions-map")
+
+    def test_an_absent_gate_table_skips_the_vocabulary_check(self):
+        self.assertEqual(self.statuses("layout-gate-verbs"), [doctor.SKIP])
+
+    def test_a_malformed_vocabulary_defers_to_the_shape_check(self):
+        self.append_layout('\n[gate]\ncommand = "make ci"\nverbs = "build"\n')
+        self.assertEqual(self.statuses("layout-gate-verbs"), [doctor.SKIP])
+        self.assert_failure_mentions("verbs must be a non-empty list of strings")
+
+    def test_a_manifest_with_a_malformed_required_list_is_a_manifest_defect(self):
+        manifest = MANIFEST.read_text(encoding="utf-8").replace(
+            'required_verbs = ["handoff-log", "autofix-audit", "contracts-sync", "conventions-map"]',
+            'required_verbs = "handoff-log"',
+        )
+        bad = self.root / "bad-manifest.toml"
+        bad.write_text(manifest, encoding="utf-8")
+        with self.assertRaises(TypeError) as caught:
+            doctor.run(self.root, bad)
+        self.assertIn("required_verbs must be a list", str(caught.exception))
+
 
 class ManagedChapters(DoctorCase):
     def test_a_missing_claude_md_fails(self):

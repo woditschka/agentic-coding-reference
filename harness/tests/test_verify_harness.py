@@ -82,6 +82,34 @@ ESCAPE_SEQUENCE = "\x1b[31m"
 NESTING_DEPTH = 100_000
 
 
+class GateVocabularyPins(unittest.TestCase):
+    """The manifest's required gate verbs are the one home: every skeleton
+    carries them and every gate table names exactly them as engine rows."""
+
+    def test_engine_rows_are_the_verbs_whose_command_is_an_engine_script(self) -> None:
+        table = (
+            "| Check | Verb | Command | What |\n"
+            "| Build | `build` | `make build` | compiles |\n"
+            "| Log | `handoff-log` | `python3 scripts/handoff.py validate` | records |\n"
+            "| Audit | `autofix-audit` | `python3 scripts/handoff.py audit-autofix` (procedure below) | fixes |\n"
+        )
+        self.assertEqual(
+            sync.engine_verbs_in_gate_table(table), {"handoff-log", "autofix-audit"}
+        )
+
+    def test_the_manifest_requires_the_four_engine_checks(self) -> None:
+        self.assertEqual(
+            sync.required_gate_verbs(),
+            {"handoff-log", "autofix-audit", "contracts-sync", "conventions-map"},
+        )
+
+    def test_every_stack_skeleton_and_gate_table_agree_with_the_manifest(self) -> None:
+        for stack in registry.STACKS:
+            with self.subTest(stack=stack):
+                self.assertEqual(sync._gate_skeleton_problems(stack), [])
+                self.assertEqual(sync._gate_table_problems(stack), [])
+
+
 class StripFrontmatter(unittest.TestCase):
     def test_only_the_first_fence_pair_is_stripped(self):
         content = "---\nname: x\n---\nbody\n\n---\n\nrule stays\n"

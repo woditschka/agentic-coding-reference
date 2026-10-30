@@ -1,6 +1,8 @@
 # Test Conventions Are Decided at Write Time and Carry Their Evidence
 
-**Status:** Accepted
+**Status:** Accepted (listing reading gated 2026-10-30; see note)
+
+> **Note.** The 2026-10-25 amendment made the map a gate verb without a check that a consumer's `[gate].verbs` can record it. The eval fixture's layout predated the verb, so the first v0.4.11 cells ran the gate with the map unrecordable. No `gate_checks_run` could have shown the listing this decision reads for. [The gate vocabulary decision](2026-10-30-the-gate-vocabulary-is-checked.md) makes the requirement a doctor failure and an eval prep failure. The reading stands on the first sweep after it; the rest of this decision holds.
 
 ## Context
 

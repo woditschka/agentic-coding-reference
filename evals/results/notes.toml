@@ -540,3 +540,24 @@ controller and three reviewers approved the placement. Owners-page-param
 test-quality reads 3 on every rep on the raw `new Owner()` fixture and
 `verify(argThat)` shapes the test reviewer passed, as on both arms of the
 acceptance sweep."""
+
+[[note]]
+date = 2026-10-30
+text = """
+The v0.4.11 release made the conventions map a gate verb; the SUT's
+`scripts/layout.toml` `[gate].verbs` predated it and never gained
+`conventions-map`. The build-pass schema enumerates its verbs from that
+list, so the check could not be recorded. The two completed reps of the
+first v0.4.11 sweep listed seven verbs on their build-pass and not the map.
+That sweep was discarded before recording, so no v0.4.11 row exists. The
+listing the conventions ADR reads for on its next tagged sweep has not been
+taken ([gate vocabulary ADR](../../docs/adr/2026-10-30-the-gate-vocabulary-is-checked.md)).
+The rows from v0.3.10 to v0.4.10 ran the map as the self-review walk aid
+their version shipped. On 2026-10-30 the SUT's eval branch gained the verb
+and the regenerated testing brief (one construction API, named defaults).
+The same day added an `anOwner()` named default in the owner controller
+tests, Spring Boot 4.1.2 and Gradle 9.8.2. The first sweep on that base reads the judge against the
+new brief and the harness against the gate-recorded map, so an
+owners-page-param test-quality move across it carries both conditions. The
+per-rep `gate_verbs` field in trend-data.json records what each ledger
+proves ran."""

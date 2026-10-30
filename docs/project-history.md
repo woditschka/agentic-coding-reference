@@ -183,3 +183,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-25** — Make the convention checks carry their evidence: the conventions listing joins the gate, and reviewer clearances cite the rows they walked.
 - **2026-10-26** — Compact the decision log: 118 ADRs fold into 31, one per standing decision; the folded ADRs stay in git under their old paths.
 - **2026-10-30** — Deny the OpenCode `question` tool on every shipped agent, gated by the battery: a dispatched agent never converses outside the log.
+- **2026-10-30** — Fail the doctor, the eval prep, and the battery on a required gate verb a layout lacks; v0.4.11 had shipped one unchecked.

@@ -658,6 +658,84 @@ class TaskLoader(unittest.TestCase):
         self.assertIn("specialty-directory", tasks)
 
 
+class GateVocabularyCheck(unittest.TestCase):
+    """The prep gate that refuses to measure a version whose required gate
+    check the SUT's layout cannot record, and names every way it skips."""
+
+    REQUIRED = '[gate]\nrequired_verbs = ["handoff-log", "conventions-map"]\n'
+
+    def workdir_with(self, layout: str | bytes | None, manifest: str | None) -> Path:
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        workdir = Path(holder.name)
+        (workdir / "scripts").mkdir()
+        if isinstance(layout, bytes):
+            (workdir / "scripts" / "layout.toml").write_bytes(layout)
+        elif layout is not None:
+            (workdir / "scripts" / "layout.toml").write_text(layout, encoding="utf-8")
+        if manifest is not None:
+            (workdir / "scripts" / "doctor-expectations.toml").write_text(
+                manifest, encoding="utf-8"
+            )
+        return workdir
+
+    def test_a_layout_declaring_every_required_verb_is_checked_and_complete(
+        self,
+    ) -> None:
+        workdir = self.workdir_with(
+            '[gate]\ncommand = "x"\nverbs = ["build", "handoff-log", "conventions-map"]\n',
+            self.REQUIRED,
+        )
+        self.assertEqual(run_eval.gate_vocabulary(workdir), ((), None))
+
+    def test_a_layout_lacking_a_required_verb_names_it(self) -> None:
+        workdir = self.workdir_with(
+            '[gate]\ncommand = "x"\nverbs = ["build", "handoff-log"]\n', self.REQUIRED
+        )
+        self.assertEqual(
+            run_eval.gate_vocabulary(workdir).missing, ("conventions-map",)
+        )
+
+    def test_a_version_requiring_no_verbs_says_so(self) -> None:
+        workdir = self.workdir_with(
+            '[gate]\ncommand = "x"\nverbs = ["build"]\n', '[cross_doc]\nsource = "d"\n'
+        )
+        self.assertEqual(
+            run_eval.gate_vocabulary(workdir).unchecked,
+            "the version requires no gate verbs",
+        )
+
+    def test_a_layout_without_a_gate_table_says_so(self) -> None:
+        workdir = self.workdir_with(
+            '[harness]\nchannel = "marketplace"\n', self.REQUIRED
+        )
+        self.assertEqual(
+            run_eval.gate_vocabulary(workdir).unchecked,
+            "the SUT declares no [gate] table",
+        )
+
+    def test_a_malformed_verbs_value_defers_to_the_doctor(self) -> None:
+        workdir = self.workdir_with(
+            '[gate]\ncommand = "x"\nverbs = "build"\n', self.REQUIRED
+        )
+        found = run_eval.gate_vocabulary(workdir)
+        self.assertEqual(found.missing, ())
+        self.assertIn("malformed", found.unchecked or "")
+
+    def test_an_unparseable_layout_defers_to_the_doctor(self) -> None:
+        for layout in (b"[gate\nverbs = [", b"a = \xff\xfe", b"a = " + b"[" * 100_000):
+            workdir = self.workdir_with(layout, self.REQUIRED)
+            found = run_eval.gate_vocabulary(workdir)
+            self.assertEqual(found.missing, ())
+            self.assertIn("did not parse", found.unchecked or "")
+
+    def test_a_missing_manifest_says_so(self) -> None:
+        workdir = self.workdir_with('[gate]\ncommand = "x"\nverbs = ["build"]\n', None)
+        self.assertEqual(
+            run_eval.gate_vocabulary(workdir).unchecked, "no installed manifest"
+        )
+
+
 class ProjectSettingsRewrite(unittest.TestCase):
     """The settings scrub that pins the workspace to the eval marketplace."""
 

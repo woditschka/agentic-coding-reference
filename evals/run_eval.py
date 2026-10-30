@@ -34,7 +34,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, ParamSpec, Protocol, TypeVar
+from typing import Any, NamedTuple, ParamSpec, Protocol, TypeVar
 from xml.parsers import expat
 
 import summarize
@@ -917,6 +917,67 @@ def _install_engine_sliver(cell: CellRun, executed: list[str]) -> None:
             "engine-sliver setup left no scripts/handoff.py in the workspace — "
             "the cell would run engine-less"
         )
+
+
+class GateVocabulary(NamedTuple):
+    """What the gate-vocabulary check found: the undeclared required verbs, or why nothing was checked."""
+
+    missing: tuple[str, ...]
+    unchecked: str | None
+
+
+def gate_vocabulary(workdir: Path) -> GateVocabulary:
+    """Compare the installed manifest's required gate verbs with the SUT's [gate].verbs."""
+    # The installed engine's manifest names the verbs the version's gate skill
+    # runs; the build-pass schema enumerates its verbs from the SUT's own
+    # [gate].verbs, so a verb absent there cannot be recorded. Each way nothing
+    # gets checked is named, so the prep note never claims a check it skipped.
+    manifest_path = workdir / "scripts" / "doctor-expectations.toml"
+    layout_path = workdir / "scripts" / "layout.toml"
+    absent = [
+        reason
+        for reason, path in (
+            ("no installed manifest", manifest_path),
+            ("the SUT has no scripts/layout.toml", layout_path),
+        )
+        if not path.is_file()
+    ]
+    if absent:
+        return GateVocabulary((), absent[0])
+    try:
+        manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+        layout = tomllib.loads(layout_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, RecursionError):  # deeply nested TOML recurses
+        return GateVocabulary((), "a TOML file did not parse; the doctor reports it")
+    required = manifest.get("gate", {}).get("required_verbs")
+    if not isinstance(required, list) or not required:
+        return GateVocabulary((), "the version requires no gate verbs")
+    gate = layout.get("gate")
+    if not isinstance(gate, dict):
+        return GateVocabulary((), "the SUT declares no [gate] table")
+    verbs = gate.get("verbs")
+    if not isinstance(verbs, list):
+        return GateVocabulary(
+            (), "the SUT's [gate].verbs is malformed; the doctor reports it"
+        )
+    declared = {v for v in verbs if isinstance(v, str)}
+    return GateVocabulary(tuple(str(v) for v in required if v not in declared), None)
+
+
+def _check_gate_vocabulary(cell: CellRun, prep: list[str]) -> None:
+    """Fail the cell when the SUT's layout cannot record a check the installed version requires."""
+    found = gate_vocabulary(cell.workdir)
+    if found.missing:
+        raise RuntimeError(
+            f"the SUT's scripts/layout.toml [gate].verbs lacks {', '.join(found.missing)} — "
+            "the version's gate skill runs the check but a build-pass cannot record "
+            "an undeclared verb, so the cell would measure the harness with the "
+            "check inert"
+        )
+    if found.unchecked:
+        prep.append(f"gate vocabulary: unchecked, {found.unchecked}")
+    else:
+        prep.append("gate vocabulary: every required gate verb declared")
 
 
 def prep_harness(cell: CellRun) -> list[str]:
@@ -2499,6 +2560,8 @@ def _install(cell: CellRun, manifest: dict[str, Any]) -> str:
         manifest["prep"].append(
             "era contract: pipeline-entry instruction in the system prompt"
         )
+    # After the era swap: the layout the cell runs under is the one checked.
+    _check_gate_vocabulary(cell, manifest["prep"])
     intake_note = seed_intake(cell.task, cell.workdir, cell.log)
     if intake_note:
         manifest["prep"].append(intake_note)

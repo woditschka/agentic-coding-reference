@@ -51,6 +51,41 @@ if [ -f "$layout" ]; then
   fi
 fi
 
+# A gate verb the manifest requires but the project's [gate].verbs lacks: the
+# build-pass schema enumerates its verbs from that list, so the implementer
+# cannot record the check and it drops out of the ledger unseen. The doctor
+# fails on it; this warning reaches the consumer at install time, before the
+# first slice runs without it. layout.toml is project-owned, so setup never
+# edits it. The check is advisory: a layout the parser rejects, or a python3
+# without tomllib, reports why and the install goes on; the doctor owns the
+# failure. python3 is already required by the chapter refresh below.
+if [ -f "$layout" ] && [ -f "$src/scripts/doctor-expectations.toml" ]; then
+  if missing="$(python3 -I - "$layout" "$src/scripts/doctor-expectations.toml" 2>&1 <<'PY'
+import sys, warnings
+warnings.simplefilter("ignore")
+try:
+    import tomllib
+    layout, manifest = (tomllib.load(open(p, "rb")) for p in sys.argv[1:3])
+    gate = layout.get("gate")
+    required = manifest.get("gate", {}).get("required_verbs", [])
+    if isinstance(gate, dict) and isinstance(gate.get("verbs"), list):
+        declared = {v for v in gate["verbs"] if isinstance(v, str)}
+        print(" ".join(str(v) for v in required if v not in declared))
+except Exception as exc:  # noqa: BLE001 — one line reaches the consumer, the doctor owns the verdict
+    print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+    sys.exit(1)
+PY
+)"; then
+    if [ -n "${missing:-}" ]; then
+      echo "WARNING: $layout [gate].verbs lacks: $missing" >&2
+      echo "         The gate skill runs these checks, but a build-pass cannot record an undeclared verb, so they drop out of the ledger unseen." >&2
+      echo "         Add the verb(s) to [gate].verbs; the doctor fails until they are present." >&2
+    fi
+  else
+    echo "WARNING: gate-vocabulary check skipped — the doctor reports the layout: ${missing:-no detail}" >&2
+  fi
+fi
+
 # Pre-v0.2.0 registration keys: the agent-team rename made any settings entry
 # keyed on the old agentic-harness marketplace dead config — updates silently
 # stop matching. Advisory; the doctor's legacy-keys check repeats it.

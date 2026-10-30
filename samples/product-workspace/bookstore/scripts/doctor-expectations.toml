@@ -30,6 +30,14 @@ claude = ".claude/agents/{name}.md"
 copilot = ".github/agents/{name}.agent.md"
 opencode = ".opencode/agents/{name}.md"
 
+[gate]
+# The engine-provided checks every stack's code-quality-gate skill runs. The
+# build-pass schema takes its verb enumeration from the project's [gate].verbs
+# (enumFrom), so a verb the project never declared cannot be recorded and the
+# check drops out of the ledger unseen. The doctor fails a [gate] table that
+# lacks one of these; the stack's build verbs stay the project's to name.
+required_verbs = ["handoff-log", "autofix-audit", "contracts-sync", "conventions-map"]
+
 [cross_doc]
 # Every REQ-ID cited in `source` must be defined in `defined_in`. These two roles
 # also identify the two format-gated docs, so the doctor needs no per-file flag:

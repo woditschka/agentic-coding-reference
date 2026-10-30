@@ -1898,8 +1898,27 @@ def _build_record_problems() -> list[str]:
     ]
 
 
+def required_gate_verbs() -> frozenset[str]:
+    """Return the manifest's `[gate] required_verbs`: the engine checks every stack's gate skill runs."""
+    manifest = HERE / "core" / "scripts" / "doctor-expectations.toml"
+    verbs = tomllib.loads(read_text(manifest)).get("gate", {}).get("required_verbs", [])
+    return frozenset(v for v in verbs if isinstance(v, str))
+
+
+_GATE_ROW = re.compile(
+    r"^\|[^|]*\|\s*`([a-z][a-z0-9-]*)`\s*\|\s*`python3 scripts/[^`]*`"
+)
+
+
+def engine_verbs_in_gate_table(text: str) -> frozenset[str]:
+    """Return the verbs of a gate skill's table rows whose command is an engine script."""
+    return frozenset(
+        m.group(1) for m in (_GATE_ROW.match(line) for line in text.splitlines()) if m
+    )
+
+
 def _gate_skeleton_problems(stack: str) -> list[str]:
-    """Check that a stack's layout skeleton declares non-empty gate verbs and a command."""
+    """Check that a stack's layout skeleton declares a command and every required gate verb."""
     skeleton = HERE / "init" / "stacks" / stack / "scripts" / "layout.toml"
     try:
         gate = tomllib.loads(read_text(skeleton)).get("gate", {})
@@ -1917,8 +1936,48 @@ def _gate_skeleton_problems(stack: str) -> list[str]:
             f"{stack}: skeleton layout.toml [gate] verbs missing or empty — "
             "the build-record vocabulary check would be vacuous"
         )
+    else:
+        # A fresh consumer must be able to record every required check from
+        # day one; the doctor fails an existing one that cannot.
+        missing = sorted(required_gate_verbs() - set(verbs))
+        if missing:
+            problems.append(
+                f"{stack}: skeleton layout.toml [gate] verbs lacks required "
+                f"{', '.join(missing)} — a fresh consumer could not record the check"
+            )
     if not isinstance(command, str) or not command.strip():
         problems.append(f"{stack}: skeleton layout.toml [gate] command missing")
+    return problems
+
+
+def _gate_table_problems(stack: str) -> list[str]:
+    """Check that a stack's gate skill names exactly the manifest's required verbs as engine rows."""
+    # The manifest is the one home. A verb added to a gate table without
+    # joining the manifest is the shape that shipped v0.4.11 unchecked.
+    skill = (
+        HERE
+        / "stacks"
+        / stack
+        / ".claude"
+        / "skills"
+        / "code-quality-gate"
+        / "SKILL.md"
+    )
+    try:
+        engine = engine_verbs_in_gate_table(read_text(skill))
+    except OSError as exc:
+        return [f"{stack}: could not read the gate skill: {exc}"]
+    required = required_gate_verbs()
+    problems = []
+    if extra := sorted(engine - required):
+        problems.append(
+            f"{stack}: gate skill names engine verb(s) {', '.join(extra)} the manifest's "
+            "[gate] required_verbs does not — declare them there or drop the row"
+        )
+    if absent := sorted(required - engine):
+        problems.append(
+            f"{stack}: gate skill lacks required verb(s) {', '.join(absent)} as engine rows"
+        )
     return problems
 
 
@@ -1928,7 +1987,11 @@ def check_verdict_enums(b: Battery) -> None:
     problems = [*_verdict_enum_problems(), *_build_record_problems()]
     for stack in STACKS:
         problems.extend(_gate_skeleton_problems(stack))
-    b.report(problems, "verdict and gate-stage enums in sync")
+        problems.extend(_gate_table_problems(stack))
+    b.report(
+        problems,
+        "verdict and gate-stage enums in sync; skeletons and gate tables carry the required verbs",
+    )
 
 
 def check_stack_agnostic_core(b: Battery) -> None:
