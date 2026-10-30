@@ -269,6 +269,20 @@ class OpencodePermissionProblems(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("`question` not denied", problems[0])
 
+    def test_a_mirror_with_no_permission_block_lacks_the_denial(self):
+        problems = sync._opencode_permission_problems(
+            self.FILE, "---\nmode: subagent\n---\nbody"
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("`question` not denied", problems[0])
+
+    def test_a_nested_question_map_is_not_a_denial(self):
+        problems = sync._opencode_permission_problems(
+            self.FILE, self._fm("  question:\n    foo: deny\n")
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("`question` not denied", problems[0])
+
 
 class SkillReach(unittest.TestCase):
     RULE = sync.ON_DEMAND_RULE + "\n"

@@ -700,7 +700,7 @@ def _compatibility_problems(layer: Path) -> list[str]:
 
 
 def _opencode_permission_problems(file: Path, content: str) -> list[str]:
-    """Check an OpenCode agent's block-form `permission` map."""
+    """Check an OpenCode agent's block-form `permission` map and its required denials."""
     problems = []
     if frontmatter_scalar(content, "permission"):
         problems.append(
@@ -724,7 +724,7 @@ def _opencode_permission_problems(file: Path, content: str) -> list[str]:
             )
     problems.extend(
         f"`{key}` not denied in {rel(file)} — a dispatched agent never "
-        "converses; state `question: deny` per agent, subagents inherit none"
+        f"converses; state `{key}: deny` per agent, subagents inherit none"
         for key in sorted(OPENCODE_REQUIRED_DENIALS - denied)
     )
     return problems

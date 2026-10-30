@@ -305,7 +305,7 @@ Two partial-record paths route through existing recovery — they do NOT trigger
 
 Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.
 
-The elicitation pause ([`agentic-harness.md`](agentic-harness.md) § Conversations Stay in Root) never reaches this section. A `product-requirements-expert` raising artifact-level pushback, a `system-design-expert` raising `foundational` interview questions, or either expert at a checkpoint overrun, appends a `consultation-request` with `target: "human"`. Gate 2b halts for the conversation (`human-consultation`); the `consultation-response` resumes the requester. The record exists because a bare pause would be log-indistinguishable from a genuine truncation, and the questions would die with the session; recovery would re-pay the dispatch to re-derive them.
+The elicitation pause ([`agentic-harness.md`](agentic-harness.md) § Conversations Stay in Root) never reaches this section. A specialist appends a `consultation-request` with `target: "human"` when only the human can answer: product pushback, the `foundational` interview, a checkpoint overrun, the implementer's design check. Gate 2b halts for the conversation (`human-consultation`); the `consultation-response` resumes the requester. The record exists because a bare pause would be log-indistinguishable from a genuine truncation, and the questions would die with the session; recovery would re-pay the dispatch to re-derive them.
 
 ## Pipeline Flow
 

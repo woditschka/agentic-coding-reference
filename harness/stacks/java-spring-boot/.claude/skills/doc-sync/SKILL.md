@@ -31,7 +31,7 @@ Synchronize `docs/prd.md` and `docs/system-design.md` with the current codebase.
 
 Build a complete picture of what is implemented — via a read-only exploration subagent where the tool offers one (Claude Code: Explore), else by reading directly:
 
-1. Read all Java source files under the production roots declared in `scripts/layout.toml` -- note every class, record, field, method
+1. Read all Java source files under the `prod_roots` declared in `scripts/layout.toml` -- note every class, record, field, method
 2. Read `src/main/resources/application.yml` for configuration properties
 3. Read any other `src/main/resources/` assets the project uses (templates, static files, migrations, profile configs)
 4. Read all test files to understand tested behavior

@@ -31,7 +31,7 @@ Synchronize `docs/prd.md` and `docs/system-design.md` with the current codebase.
 
 Build a complete picture of what is implemented — via a read-only exploration subagent where the tool offers one (Claude Code: Explore), else by reading directly:
 
-1. Read all Go source files under the production roots declared in `scripts/layout.toml` -- note every type, interface, function, field
+1. Read all Go source files under the `prod_roots` declared in `scripts/layout.toml` -- note every type, interface, function, field
 2. Read the project's configuration files where they exist (e.g. `cmd/config.example.yaml`, `internal/config/`)
 3. Read all test files to understand tested behavior
 4. Read all ADR files under `docs/adr/`

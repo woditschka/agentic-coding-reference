@@ -56,7 +56,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] File descriptors properly closed (defer close patterns)
 
 ### Container/Deployment Security
-- [ ] Container image builds successfully: `make podman-build` runs with the gate where the project uses containers; trust the `build-pass`, never re-run it
+- [ ] Container image builds successfully where the project uses containers (`make podman-build`, an optional check outside `make ci`); the reviewer reads the Dockerfile and never runs the build
 - [ ] Runs as non-root user
 - [ ] No unnecessary capabilities
 - [ ] Read-only filesystem

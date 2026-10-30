@@ -48,7 +48,7 @@ Each client exposes the same server tools under its own prefix. The agent skills
 | Copilot CLI | `goland/<tool>` | Wired in `.github/agents/*`; gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630) until the sub-agent MCP bug is fixed (see above). |
 | OpenCode | `goland_<tool>` | Not wired — next target. |
 
-**OpenCode (next target).** Create `opencode.json` at the project root; no sample ships one yet. Add the `goland` server under its top-level `mcp` key (`type: "remote"`, `url:` the same SSE endpoint as above). Then grant `goland_*` per role under each agent's singular `permission` block (`allow`/`ask`/`deny` by tool-name glob — OpenCode has no `mcp` permission key). The server config commits to the repo and the partition maps directly onto per-agent permission globs.
+**OpenCode (next target).** Create `opencode.json` at the project root; the harness ships none. Add the `goland` server under its top-level `mcp` key (`type: "remote"`, `url:` the same SSE endpoint as above). Then grant `goland_*` per role under each agent's singular `permission` block (`allow`/`ask`/`deny` by tool-name glob — OpenCode has no `mcp` permission key). The server config commits to the repo and the partition maps directly onto per-agent permission globs.
 
 Enablement stays localized to a client's agent files plus its client-side server config. The workflow skills are untouched — they gate on oracle availability, not on tool names.
 
