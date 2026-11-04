@@ -65,6 +65,6 @@ Between compactions an accepted ADR is immutable apart from its status line: a n
 | 2026-09-03 | [Test Conventions Are Decided at Write Time and Carry Their Evidence](2026-09-03-test-conventions-at-write-time.md) | Accepted (listing reading gated 2026-10-30; see note) |
 | 2026-09-12 | [The Outer Loop Reads the Team's Board Through a Project-Owned Connector](2026-09-12-backlog-connector.md) | Accepted |
 | 2026-09-13 | [A Product Workspace Holds the Product Truth; Module Repositories Are Members Checked Out on Demand](2026-09-13-product-workspace-with-member-modules.md) | Accepted (member placement decided 2026-09-18; spike half run 2026-09-18; change 1 of 3 landed 2026-09-19; see Implementation) |
-| 2026-10-20 | [The Implementer Keeps No Plan File and the Checkpoint Runs the Gate](2026-10-20-slice-sizing-and-the-checkpoint.md) | Accepted |
+| 2026-10-20 | [The Implementer Keeps No Plan File and the Checkpoint Runs the Gate](2026-10-20-slice-sizing-and-the-checkpoint.md) | Accepted (the size cap re-measured 2026-11-02; see note) |
 | 2026-10-30 | [A Required Gate Check Is Checked Where the Project Declares It](2026-10-30-the-gate-vocabulary-is-checked.md) | Accepted |
 | 2026-11-02 | [The Owner's Reach Is a Recorded Fact, and a Split Slice Routes Its Own Continuation](2026-11-02-the-owner-is-a-recorded-fact.md) | Accepted |

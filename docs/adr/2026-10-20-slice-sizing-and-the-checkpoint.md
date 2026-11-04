@@ -1,6 +1,8 @@
 # The Implementer Keeps No Plan File and the Checkpoint Runs the Gate
 
-**Status:** Accepted
+**Status:** Accepted (the size cap re-measured 2026-11-02; see note)
+
+> **Note.** The ten-cycle cap this decision set at the implementer's Pre-Check is applied at PRD authoring from 2026-11-02, counted in owed `test_names` entries with a limit of twelve and the batching test outranking it; the implementer's abort uses the same measure ([the owner-reach decision](2026-11-02-the-owner-is-a-recorded-fact.md)). The checkpoint and the plan file's retirement stand as decided here.
 
 ## Context
 
