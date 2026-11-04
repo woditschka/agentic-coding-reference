@@ -4,6 +4,7 @@ A middle layer over the ledger and the routing leaves (findings, tiers, roster, 
 scope_lock); never imports handoff.view.
 """
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, TypeAlias, TypeVar, assert_never
@@ -34,7 +35,8 @@ from .ledger import (
     entry_at,
     failures_since,
     latest_of,
-    pending_human_request,
+    owner_present_for,
+    pending_human_requests,
     superseded_design_block,
     truncation_run,
     typed_log,
@@ -301,7 +303,17 @@ def route_slice(ctx: RouteContext) -> Decision:
 
 def _human_pause(ctx: RouteContext) -> Decision | None:
     """Hold the sticky pause of an unanswered human consultation anywhere on the log."""
-    pending = pending_human_request(ctx.log)
+    # An owner-absent request holds no pause and never masks another's; a
+    # request raised under a present owner holds until the human replies.
+    pending = next(
+        (
+            entry
+            for entry in pending_human_requests(ctx.log)
+            if isinstance(entry.req_id, str)
+            and owner_present_for(ctx.log, entry.req_id, entry.no)
+        ),
+        None,
+    )
     if pending is None or pending is ctx.records[-1]:
         return None
     request = pending.record
@@ -363,11 +375,171 @@ def _graded_row(ctx: RouteContext, verdict: str | None) -> Decision:
             original_req_id=ctx.unresolved_refactor[0],
             verdict=verdict,
         )
-    return ctx.blocked(
-        "feature-complete",
-        "change-grader recorded its advisory verdict; human merge decision",
-        verdict=verdict,
+    reason = "change-grader recorded its advisory verdict; human merge decision"
+    if not _built_since_latest_entry(ctx):
+        # A verdict with no build-pass behind it grades nothing; it never
+        # continues a split.
+        return ctx.blocked("feature-complete", reason, verdict=verdict)
+    return _slice_closed(ctx, reason, verdict=verdict)
+
+
+def _built_since_latest_entry(ctx: RouteContext) -> bool:
+    """Return whether a build-pass follows the slice's latest prd-entry."""
+    latest = ctx.latest(PrdEntry)
+    since = latest[0].no if latest is not None else 0
+    return any(
+        entry.no > since and isinstance(entry.record, BuildPass)
+        for entry in ctx.records
     )
+
+
+def _slice_closed(
+    ctx: RouteContext, reason: str, verdict: str | None = None
+) -> Decision:
+    """Dispatch the planned next slice of a re-split, or close the feature for the human."""
+    plan = _slice_plan(ctx)
+    context: dict[str, Any] = {}
+    if verdict is not None:
+        context["verdict"] = verdict
+    if plan is not None:
+        index, count = plan
+        return ctx.dispatch(
+            [PRODUCT],
+            "next-slice",
+            f"slice {index} of {count} is graded; the product expert authors slice "
+            f"{index + 1} on the working tree, same req_id",
+            slice_index=index,
+            slice_count=count,
+            **context,
+        )
+    return ctx.blocked("feature-complete", reason, **context)
+
+
+# The most slices one requirement may be split into; the prd-entry schema
+# caps the field the same way, and the walk re-checks it so a raw write
+# cannot plan past it.
+SLICE_CAP = 9
+
+# The rules under which a truncated ledger reads as a closed slice: the
+# roster approved (grading on, awaiting or holding the verdict), or the
+# router already moved past the slice.
+_CLOSED_RULES = frozenset({"grade", "grade-continue", "feature-complete", "next-slice"})
+
+
+def _slice_plan(ctx: RouteContext) -> tuple[int, int] | None:
+    """Return (index, count) when the slice's accepted entries plan a next slice, else None."""
+    accepted = _accepted_entries(ctx, ctx.records[-1].no + 1)
+    latest = ctx.latest(PrdEntry)
+    if not accepted or latest is None or latest[0] is not accepted[-1][0]:
+        return None
+    last = accepted[-1][1].slice_of
+    assert last is not None and isinstance(last.index, int) and isinstance(last.of, int)
+    return (last.index, last.of) if last.index < last.of else None
+
+
+def _accepted_entries(ctx: RouteContext, before: int) -> list[tuple[Entry, PrdEntry]]:
+    """Return the slice's split entries Gate 1 accepted, in order, before a line.
+
+    An entry the gate bounced never binds a later one: the walk re-derives
+    the accepted sequence, so a correction after a bounce is judged against
+    the entries that stood, not against the mistake.
+    """
+    accepted: list[tuple[Entry, PrdEntry]] = []
+    for entry in ctx.records:
+        if entry.no >= before:
+            break
+        record = entry.record
+        if not isinstance(record, PrdEntry) or record.slice_of is None:
+            continue
+        if _slice_sequence_defect(ctx, [*accepted, (entry, record)]) is None:
+            accepted.append((entry, record))
+    return accepted
+
+
+def _slice_sequence_defect(
+    ctx: RouteContext, planned: Sequence[tuple[Entry, PrdEntry]]
+) -> str | None:
+    """Name the defect the last entry of a split sequence introduces, or None.
+
+    The product expert authors every planned entry, the indexes climb by
+    exactly one from 1, and the count never grows: a split can end early
+    by shrinking `of` to the current index, never widen. An entry may
+    repeat the current index while that slice is still open, the PRD fix
+    round, never once the slice has closed.
+    """
+    if not planned:
+        return None
+    entry, record = planned[-1]
+    shape = _slice_shape_defect(entry, record)
+    if shape is not None or len(planned) == 1:
+        return shape or _index_defect(entry, _index_of(record), 1)
+    previous_entry, previous = planned[-2]
+    previous_index, count = _index_of(previous), _count_of(previous)
+    index, of = _index_of(record), _count_of(record)
+    if of > count:
+        return (
+            f"prd-entry at line {entry.no} widens the slice count from {count} to {of}"
+        )
+    if index != previous_index:
+        return _index_defect(entry, index, previous_index + 1)
+    closed = _slice_closed_between(ctx, previous_entry.no, entry.no)
+    return (
+        f"prd-entry at line {entry.no} declares slice {index} again after it closed"
+        if closed
+        else None
+    )
+
+
+def _index_defect(entry: Entry, index: int, expected: int) -> str | None:
+    """Name an index that is not the one the sequence expects, or None."""
+    if index != expected:
+        return f"prd-entry at line {entry.no} declares slice {index}; slice {expected} was expected"
+    return None
+
+
+def _index_of(record: PrdEntry) -> int:
+    """Return a well-formed planned entry's slice index."""
+    assert record.slice_of is not None and isinstance(record.slice_of.index, int)
+    return record.slice_of.index
+
+
+def _count_of(record: PrdEntry) -> int:
+    """Return a well-formed planned entry's slice count."""
+    assert record.slice_of is not None and isinstance(record.slice_of.of, int)
+    return record.slice_of.of
+
+
+def _slice_shape_defect(entry: Entry, record: PrdEntry) -> str | None:
+    """Name a planned entry's author or field defect, or None when its slice_of is well formed."""
+    slice_of = record.slice_of
+    assert slice_of is not None
+    index, of = slice_of.index, slice_of.of
+    if record.author != PRODUCT:
+        return f"prd-entry at line {entry.no} carries slice_of but is not product-expert authored"
+    if (
+        not isinstance(index, int)
+        or not isinstance(of, int)
+        or of < 1
+        or index > of
+        or of > SLICE_CAP
+    ):
+        return f"prd-entry at line {entry.no} carries a malformed slice_of"
+    return None
+
+
+def _slice_closed_between(ctx: RouteContext, start: int, end: int) -> bool:
+    """Return whether the slice closed strictly between two lines, by the router's own completion rule."""
+    window = [entry for entry in ctx.records if start < entry.no < end]
+    if any(isinstance(entry.record, GraderVerdict) for entry in window):
+        return True
+    if not any(isinstance(entry.record, BuildPass) for entry in window):
+        return False
+    truncated = dataclasses.replace(
+        ctx,
+        log=tuple(entry for entry in ctx.log if entry.no < end),
+        records=tuple(entry for entry in ctx.records if entry.no < end),
+    )
+    return _review_state(truncated).rule in _CLOSED_RULES
 
 
 def _truncation_row(ctx: RouteContext) -> Decision | None:
@@ -809,8 +981,8 @@ def _completion(ctx: RouteContext, review: ReviewPass) -> Decision:
                 original_req_id=unresolved[0],
                 verdict=graded[1].verdict,
             )
-        return ctx.blocked(
-            "feature-complete",
+        return _slice_closed(
+            ctx,
             "all roster reviewers approved and the change-grader recorded its advisory verdict; human merge decision",
             verdict=graded[1].verdict,
         )
@@ -822,8 +994,8 @@ def _completion(ctx: RouteContext, review: ReviewPass) -> Decision:
                 "refactor slice complete (grading disabled); re-triage the original slice with supersedes_record_at",
                 original_req_id=unresolved[0],
             )
-        return ctx.blocked(
-            "feature-complete",
+        return _slice_closed(
+            ctx,
             "all roster reviewers approved; change grading disabled (auto_grade = false) — "
             "run the change-grading skill by hand if wanted; human merge decision",
         )
@@ -889,6 +1061,8 @@ def _human_consultation(
             f'consultation-request at line {entry.no} target must be exactly "human"'
         )
         return _request_invalid(ctx, request, [message], message)
+    if not owner_present_for(ctx.log, ctx.req_id, entry.no):
+        return _owner_absent(ctx, entry, request)
     return ctx.blocked(
         "human-consultation",
         f"consultation-request at line {entry.no} targets the human; converse, then append "
@@ -896,6 +1070,48 @@ def _human_consultation(
         "absent a reply the halt stands — root never answers on the human's behalf",
         requester=request.author,
         question=request.question,
+    )
+
+
+def _owner_absent(
+    ctx: RouteContext, entry: Entry, request: ConsultationRequest
+) -> Decision:
+    """Resume the requester on the recorded decisions when the intake says the owner is absent."""
+    author = request.author
+    if not isinstance(author, str) or not author:
+        message = f"consultation-request at line {entry.no} names no author to resume"
+        return _request_invalid(ctx, request, [message], message)
+    intake = latest_of(
+        tuple(record for record in ctx.records if record.no < entry.no), IntakeDecision
+    )
+    assert intake is not None
+    earlier = [
+        pending
+        for pending in pending_human_requests(ctx.records)
+        if pending.no < entry.no
+    ]
+    if earlier:
+        return ctx.blocked(
+            "owner-absent-repeat",
+            f"consultation-request at line {entry.no} targets the human again after the "
+            f"owner-absent resume of line {earlier[-1].no}; the recorded decisions did not "
+            "settle it, and no further resume can — the run ends here for the human",
+            requester=author,
+            question=request.question,
+            first_request_line=earlier[0].no,
+        )
+    return ctx.dispatch(
+        [author],
+        "owner-absent",
+        f"consultation-request at line {entry.no} targets the human, but the "
+        f"intake-decision at line {intake[0].no} records the owner absent; resume the "
+        "requester on the recorded decisions: the narrowest reading consistent with them, "
+        "the open question recorded where the requester's contract puts it, no pause",
+        requester=author,
+        question=request.question,
+        intake_line=intake[0].no,
+        standing_decisions=list(intake[1].decisions),
+        resume=True,
     )
 
 
@@ -939,10 +1155,15 @@ def _consultation_return(
 def _response_invalid(
     ctx: RouteContext, entry: Entry, request_entry: Entry | None, errors: list[str]
 ) -> Decision:
-    """Bounce the responder the pointed-at line names, or block when it names none."""
+    """Bounce the responder the pointed-at line names, else the response's own author, else block."""
     # The pointed-at record need not be a request, yet its raw target still
-    # names the responder to re-dispatch.
+    # names the responder to re-dispatch. A response that points at no
+    # request at all, a review record say, still names its author, and a
+    # bounce lets that agent append the record its contract wanted.
     responder = request_entry.raw.get("target") if request_entry is not None else None
+    if not (isinstance(responder, str) and responder):
+        author = entry.raw.get("author")
+        responder = author if isinstance(author, str) and author != HUMAN else None
     reason = f"consultation-response at line {entry.no} failed its gate"
     if isinstance(responder, str) and responder:
         return ctx.bounce(
@@ -1140,7 +1361,11 @@ def _prd_entry_row(ctx: RouteContext, entry: Entry, prd_entry: PrdEntry) -> Deci
             "refactor-first",
             "designer-authored sibling prd-entry: the coordinator orders the refactor slice ahead of the original",
         )
-    errors = ctx.gate_errors(entry, "prd-entry") or _scope_lock_errors(ctx, entry)
+    errors = (
+        ctx.gate_errors(entry, "prd-entry")
+        or _scope_lock_errors(ctx, entry)
+        or _slice_continuity_errors(ctx, entry, prd_entry)
+    )
     if errors:
         return ctx.bounce(
             PRODUCT,
@@ -1153,6 +1378,27 @@ def _prd_entry_row(ctx: RouteContext, entry: Entry, prd_entry: PrdEntry) -> Deci
         "prd-approved",
         "prd-entry passed its gate; dispatch the system-design-expert for triage",
     )
+
+
+def _slice_continuity_errors(
+    ctx: RouteContext, entry: Entry, prd_entry: PrdEntry
+) -> list[str]:
+    """Check a prd-entry continues the slice's accepted split, when one is open."""
+    accepted = _accepted_entries(ctx, entry.no)
+    if prd_entry.slice_of is None:
+        if not accepted:
+            return []
+        previous = accepted[-1][1].slice_of
+        assert previous is not None
+        assert isinstance(previous.index, int) and isinstance(previous.of, int)
+        if previous.index < previous.of:
+            return [
+                f"prd-entry at line {entry.no} follows slice {previous.index} of {previous.of} "
+                f"but carries no slice_of; the next entry declares slice {previous.index + 1}"
+            ]
+        return []
+    defect = _slice_sequence_defect(ctx, [*accepted, (entry, prd_entry)])
+    return [defect] if defect is not None else []
 
 
 def _scope_lock_errors(ctx: RouteContext, entry: Entry) -> list[str]:

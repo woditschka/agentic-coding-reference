@@ -32,7 +32,7 @@ When recommending a candidate, also recommend how it should be sliced. A `prd-en
 | Tag | Meaning | Next action |
 |---|---|---|
 | `[one-shot]` | REQ is small; one `prd-entry` can cover all acceptance criteria. | Dispatch product-requirements-expert to author one `prd-entry` covering the full REQ. |
-| `[needs-slicing: N]` | REQ is too big for one inner-loop cycle; estimated **N** slices needed. | Dispatch product-requirements-expert to author the first `prd-entry` covering one slice; further slices follow on later sessions, all sharing the same `req_id`. |
+| `[needs-slicing: N]` | REQ is too big for one inner-loop cycle; estimated **N** slices needed. | Dispatch product-requirements-expert to author the first `prd-entry` covering one slice, with `slice_of` `index` 1 and `of` **N** (at most 9); `route` dispatches the later slices in turn (`next-slice`), all sharing the same `req_id`. |
 | `[batch-with: REQ-XX-NNN]` | REQ is too small alone; only makes sense alongside the named sibling. | Dispatch product-requirements-expert to author one `prd-entry` covering the combined work. |
 | `[depends-on: REQ-XX-NNN]` | REQ has unmet dependencies. | Recommend the dependency first. |
 | `[bounce: <reason>]` | REQ itself is malformed (e.g., shaped around code rather than behavior, ambiguous criteria). | Route to product-requirements-expert to revise the REQ in `docs/prd.md` before dispatching the pipeline. |

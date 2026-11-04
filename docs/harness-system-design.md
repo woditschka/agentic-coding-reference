@@ -258,7 +258,7 @@ The routing core is a state machine over the ledger, deterministic from file pos
 | # | From | Event | To |
 |---|---|---|---|
 | 1 | (start) | Empty log: `no-active-slice` | escalated |
-| 2 | Any | Unanswered human consultation anywhere on the log: `human-consultation` | blocked until the human responds |
+| 2 | Any | Unanswered human consultation under a present owner: `human-consultation`. Under an absent owner the requester resumes (`owner-absent`); a second request blocks (`owner-absent-repeat`) | blocked until the human responds, or the requester's phase |
 | 3 | Any | Latest record is a consultation request: `consultation-dispatch` | Consultation |
 | 4 | Consultation | Response recorded: `consultation-return` with resume | the requester's prior phase |
 | 5 | Intake | Intake decision passes its gate: `intake-ready` | PRD gate |
@@ -279,15 +279,15 @@ The routing core is a state machine over the ledger, deterministic from file pos
 | 20 | Review | Escalate finding: `escalate-finding-halt`, `escalate-on-approved`; autofix-only round: `autofix-only-round` | blocked; blocked; escalated |
 | 21 | Review | A non-convergence ceiling: `review-non-convergence` with its cause | blocked |
 | 22 | Review | Dissent outside the pass roster: `outstanding-dissent` | Review |
-| 23 | Review | All approved, grading on: `grade`; grading off or already graded: `feature-complete` | Grade; terminal |
-| 24 | Grade | Features without verdict: `grade-continue`; verdict: `feature-complete` or `refactor-resume` | Grade; terminal or Design gate |
+| 23 | Review | All approved, grading on: `grade`; grading off or already graded: `feature-complete`, or `next-slice` when the entry plans a later slice | Grade; terminal or PRD gate |
+| 24 | Grade | Features without verdict: `grade-continue`; verdict: `feature-complete`, `next-slice`, or `refactor-resume` | Grade; terminal, PRD gate, or Design gate |
 | 25 | Any | No substantive record, unknown state, or truncation of an unlisted author: `no-substantive-record`, `unroutable-state`, `truncation-undefined` | escalated |
 
 Invariants the machine holds:
 
 - Feedback older than its reviewer's latest dispatch-start is stale; one silent dispatch-start earns the single retry, a second blocks ([ADR: deterministic truncation detection](adr/2026-06-04-dispatch-lifecycle.md)).
 - The round counts passes with substantive dissent; from the cap on the bar is critical-only, past it dissent blocks; truncation-only dissent never advances the round ([ADR: bounded review convergence](adr/2026-07-14-review-convergence.md)).
-- The review cycle starts at the latest superseding design block whose pointer resolves; a forged pointer is ignored ([ADR: the review cycle survives mid-slice design records](adr/2026-07-18-design-truth-mid-slice.md)).
+- The review cycle starts at the latest superseding design block whose pointer resolves, or at the entry opening a later slice; a forged pointer is ignored ([ADR: the review cycle survives mid-slice design records](adr/2026-07-18-design-truth-mid-slice.md)).
 - An approved verdict carries no fix-routable finding ([ADR](adr/2026-07-14-review-convergence.md)).
 - A changed non-goal needs a scope override quoting a human line; the request itself is never the override ([ADR: scope-lock](adr/2026-07-14-review-convergence.md)).
 - A `routine`-rated initial and an all-autofix fix round run the routine implementer; one miss retires it for the slice; recovery paths run the base pin ([ADR: evidence-gated dynamic tiering](adr/2026-06-11-model-tiering.md)).

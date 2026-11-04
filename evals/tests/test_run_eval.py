@@ -1809,8 +1809,26 @@ class SeedIntake(unittest.TestCase):
             self.assertEqual(record["source"], "task-prompt")
             self.assertEqual(record["request"], task.prompt)
             self.assertEqual(tuple(record["decisions"]), task.decisions)
+            # The unattended run records the owner absent, so the version's
+            # router resumes a human-targeted question on these decisions.
+            self.assertIs(record["owner_present"], False)
             # No PRD in the workspace: the mint is the prefix plus 001.
             self.assertEqual(record["req_id"], f"REQ-{task.req_prefix}-001")
+
+    def test_a_schema_without_the_owner_field_seeds_without_it(self) -> None:
+        log = Path(tempfile.mkdtemp(prefix="seed-log-")) / "run.log"
+        self.addCleanup(shutil.rmtree, log.parent, ignore_errors=True)
+        task = next(iter(run_eval.load_tasks().values()))
+        ws = self._workspace()
+        schema = ws / "schemas" / "scratch" / "intake-decision.schema.json"
+        declared = json.loads(schema.read_text())
+        del declared["properties"]["owner_present"]
+        schema.write_text(json.dumps(declared))
+
+        run_eval.seed_intake(task, ws, log)
+
+        record = json.loads((ws / ".scratch" / "handoff.jsonl").read_text().strip())
+        self.assertNotIn("owner_present", record)
 
     def test_the_seed_mints_one_past_the_highest_id_under_the_prefix(self) -> None:
         # The mint follows the PRD's vocabulary: prefix plus one past its

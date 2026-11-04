@@ -54,6 +54,10 @@
     "notes": {
       "description": "Optional. Open points the owner deliberately left unsettled; the product-requirements-expert resolves them by consultation, never by assumption.",
       "type": "string"
+    },
+    "owner_present": {
+      "description": "Whether the owner can be reached while the slice runs. Absent or true: a human-targeted consultation-request halts the pipeline for the conversation (rule human-consultation). False records the owner's standing instruction that no further answer will come: the router resumes the requester on the recorded decisions instead (rule owner-absent), once per slice, and the open question lands in the requester's own record. Interactive: recorded when the owner says so at intake. Headless: false, the unattended run.",
+      "type": "boolean"
     }
   }
 }

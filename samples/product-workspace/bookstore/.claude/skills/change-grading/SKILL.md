@@ -25,7 +25,7 @@ Two boundaries are load-bearing and must never erode:
 
 The grader is a terminal, advisory node. Nothing routes on its verdict; the router does not consume it. The routing table dispatches it as the terminal hop and the human acts on it.
 
-Because nothing routes on it, the automatic dispatch is optional: `layout.toml [harness] auto_grade = false` tells `route` to reach feature-complete on roster approval without dispatching the grader. That gates only the pipeline hop — this skill stays runnable by hand at any time, and a hand-run `grader-verdict` still routes to feature-complete like an automatic one. Default is `true`; a project opts out when the per-change grade is not worth its cost.
+Because nothing routes on it, the automatic dispatch is optional: `layout.toml [harness] auto_grade = false` tells `route` to reach feature-complete on roster approval without dispatching the grader. That gates only the pipeline hop — this skill stays runnable by hand at any time. A hand-run `grader-verdict` routes like an automatic one: to feature-complete, or to `next-slice` when the entry plans a later slice. Default is `true`; a project opts out when the per-change grade is not worth its cost.
 
 ## The protocol, and the skill drives it
 

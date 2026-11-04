@@ -83,7 +83,7 @@ On a fresh project (no substantial code yet), the vocabulary seed is whatever th
 
 ### Foundational resume
 
-The `consultation-response` (author `human`) re-dispatches this agent with the decisions. Write them as durable memory, then run the slice's own triage in the populated context. Judge the returned decisions like any triage input: one that conflicts with durable memory surfaces as `conflicting`, never records silently. One that only restates the request text decides nothing: re-raise the questions as a fresh `consultation-request` instead of proceeding.
+The `consultation-response` (author `human`) re-dispatches this agent with the decisions. Write them as durable memory, then run the slice's own triage in the populated context. Judge the returned decisions like any triage input: one that conflicts with durable memory surfaces as `conflicting`, never records silently. One that only restates the request text decides nothing: re-raise the questions as a fresh `consultation-request` instead of proceeding. With the owner recorded absent at intake, `route` re-dispatches this agent instead (`owner-absent`) carrying the intake's `decisions`. Triage then proceeds on durable memory and the narrowest reading of those decisions, and records the unanswered questions in the `design-block`'s `notes`. A brief wording only the owner may approve is such a question, recorded as the proposed sentence. A question the decisions cannot answer is re-raised at most once: the second human-targeted request ends the run (`owner-absent-repeat`), the correct end when only the owner can decide.
 
 ## Consultation Mode
 

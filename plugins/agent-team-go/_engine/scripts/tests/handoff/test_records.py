@@ -529,5 +529,44 @@ class RecordsAreFrozen(unittest.TestCase):
             parsed.raw = {}
 
 
+class OwnerPresence(unittest.TestCase):
+    def test_a_boolean_owner_present_is_lifted(self):
+        parsed = handoff.parse_record(
+            {"type": "intake-decision", "req_id": SOME_REQ_ID, "owner_present": False}
+        )
+
+        self.assertIs(parsed.owner_present, False)
+
+    def test_a_missing_or_malformed_owner_present_reads_as_unset(self):
+        for raw in ({}, {"owner_present": "no"}, {"owner_present": 0}):
+            with self.subTest(raw=raw):
+                parsed = handoff.parse_record({"type": "intake-decision", **raw})
+
+                self.assertIsNone(parsed.owner_present)
+
+
+class SliceOfField(unittest.TestCase):
+    def test_a_split_position_is_lifted(self):
+        parsed = handoff.parse_record(
+            {"type": "prd-entry", "slice_of": {"index": 2, "of": 3}}
+        )
+
+        self.assertEqual(parsed.slice_of, handoff.SliceOf(index=2, of=3))
+
+    def test_a_malformed_split_reads_as_unset_fields(self):
+        parsed = handoff.parse_record(
+            {"type": "prd-entry", "slice_of": {"index": True, "of": "3"}}
+        )
+
+        self.assertEqual(parsed.slice_of, handoff.SliceOf(index=None, of=None))
+
+    def test_a_non_object_split_reads_as_unset(self):
+        for value in (None, "1/2", [1, 2]):
+            with self.subTest(value=value):
+                parsed = handoff.parse_record({"type": "prd-entry", "slice_of": value})
+
+                self.assertIsNone(parsed.slice_of)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

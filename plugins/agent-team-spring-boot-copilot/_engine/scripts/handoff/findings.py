@@ -36,6 +36,12 @@ def finding_owner(finding: Finding) -> str | None:
         return None if finding.tag == AUTOFIX_TAG else PRODUCT
     if path.startswith(("docs/system-design.md", "docs/adr/")):
         return None if finding.tag == AUTOFIX_TAG else DESIGNER
+    # The briefs a pipeline agent stewards: it proposes the wording to the
+    # owner, or records it as an open point when the owner is absent.
+    if path.startswith("docs/architecture-principles.md"):
+        return DESIGNER
+    if path.startswith("docs/ubiquitous-language.md"):
+        return PRODUCT
     return IMPLEMENTER
 
 

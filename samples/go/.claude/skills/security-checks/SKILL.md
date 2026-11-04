@@ -174,7 +174,7 @@ If govulncheck is available:
 govulncheck ./...
 ```
 
-Checks for known CVEs, reports if vulnerable code is actually called. Without it, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change. Report only checks that actually ran — an un-run check is "not run", never clean.
+Checks for known CVEs, reports if vulnerable code is actually called. Without it, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change. A gap the brief does not list is named once. It is a `blocked` finding when the change fails a row of the brief because of it; otherwise one `approved_aspects` clause calls it an unlisted gap and names the control. Listing it under the brief's § Standing Gaps is the owner's edit after the run, proposed by `doc-sync`; the reviewer edits no brief and never targets the human. Report only checks that actually ran — an un-run check is "not run", never clean.
 
 ### Manual Checks
 

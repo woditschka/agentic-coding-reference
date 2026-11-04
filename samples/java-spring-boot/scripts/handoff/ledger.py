@@ -21,6 +21,8 @@ from .records import (
     DesignBlock,
     DispatchStart,
     HandoffRecord,
+    IntakeDecision,
+    PrdEntry,
     ReviewFeedback,
     UnknownRecord,
     parse_record,
@@ -113,13 +115,33 @@ def _roster_feedback_between(
 
 
 def cycle_start(records: Sequence[Entry]) -> int:
-    """Return the line of the latest design-block that supersedes an earlier one, or 0."""
+    """Return the line the slice's current review cycle counts from, or 0.
+
+    A design-block that supersedes an earlier one starts a cycle; so does a
+    prd-entry that opens a later slice of a split, whose review rounds are
+    its own and never inherit the earlier slice's dissent.
+    """
     by_line = {entry.no: entry for entry in records}
-    start = 0
+    start, seen_index = 0, 1
     for entry in records:
         if superseded_design_block(entry, by_line) is not None:
             start = entry.no
+            continue
+        index = _slice_index(entry.record)
+        if index is not None and index > seen_index:
+            # A new later slice opens; its fix-round repeat does not.
+            start, seen_index = entry.no, index
     return start
+
+
+def _slice_index(record: HandoffRecord) -> int | None:
+    """Return a prd-entry's slice_of index, or None when it carries none."""
+    if not isinstance(record, PrdEntry) or record.slice_of is None:
+        return None
+    index = record.slice_of.index
+    if isinstance(index, bool) or not isinstance(index, int):
+        return None
+    return index
 
 
 def superseded_design_block(entry: Entry, by_line: Mapping[int, Entry]) -> Entry | None:
@@ -199,27 +221,58 @@ def entry_at(by_no: Mapping[int, Entry], pointer: object) -> Entry | None:
     return next((entry for entry in by_no.values() if entry.no == pointer), None)
 
 
+def owner_present_for(log: Sequence[Entry], req_id: str, before: int) -> bool:
+    """Return whether the slice's latest intake-decision before line `before` records a reachable owner.
+
+    No such record, or no field, reads present. An intake appended after the
+    request it would release is never consulted: a re-seeded intake cannot
+    dissolve a pause the way a human reply does.
+    """
+    present = True
+    for entry in log:
+        if entry.no >= before:
+            break
+        if entry.req_id == req_id and isinstance(entry.record, IntakeDecision):
+            present = entry.record.owner_present is not False
+    return present
+
+
 def pending_human_request(log: Sequence[Entry]) -> Entry | None:
     """Return the earliest human-targeted consultation-request left unanswered, or None."""
-    latest_request: dict[str, Entry] = {}
-    latest_response: dict[str, int] = {}
+    return next(iter(pending_human_requests(log)), None)
+
+
+def pending_human_requests(log: Sequence[Entry]) -> list[Entry]:
+    """Return every unanswered human-targeted consultation-request, earliest first.
+
+    A request is answered by a later consultation-response on its slice. It
+    is superseded by a later request from the same author that targets a
+    specialist: that author moved on. Another agent's request supersedes
+    nothing, and a later human-targeted request supersedes nothing, since
+    both wait on the same human.
+    """
+    pending: dict[str, list[Entry]] = {}
     for entry in log:
         req_id = entry.req_id
         if not isinstance(req_id, str):
             continue
-        if isinstance(entry.record, ConsultationRequest):
-            latest_request[req_id] = entry
-        elif isinstance(entry.record, ConsultationResponse):
-            latest_response[req_id] = entry.no
-    pending = [
-        entry
-        for req_id, entry in latest_request.items()
-        if isinstance(entry.record, ConsultationRequest)
-        and isinstance(entry.record.target, str)
-        and entry.record.target.strip().casefold() == HUMAN
-        and latest_response.get(req_id, 0) < entry.no
-    ]
-    return min(pending, key=lambda entry: entry.no, default=None)
+        record = entry.record
+        if isinstance(record, ConsultationRequest):
+            target = record.target
+            if isinstance(target, str) and target.strip().casefold() == HUMAN:
+                pending.setdefault(req_id, []).append(entry)
+            else:
+                pending[req_id] = [
+                    held
+                    for held in pending.get(req_id, [])
+                    if held.record.author != record.author  # type: ignore[union-attr]
+                ]
+        elif isinstance(record, ConsultationResponse):
+            pending[req_id] = []
+    return sorted(
+        (entry for entries in pending.values() for entry in entries),
+        key=lambda entry: entry.no,
+    )
 
 
 def unstarted_substantive(log: Sequence[Entry]) -> list[Entry]:

@@ -1651,10 +1651,22 @@ class Consultations(unittest.TestCase):
         self.assertEqual(decision.req_id, THIS_REQ_ID)
 
     def test_a_superseded_human_request_releases_the_pause(self):
-        decision = route(a_request(PRODUCT, HUMAN), a_request())
+        decision = route(a_request(IMPLEMENTER, HUMAN), a_request())
 
         self.assertEqual(decision.kind, "dispatch")
         self.assertEqual(decision.next, (DESIGNER,))
+
+    def test_another_agents_request_does_not_release_the_pause(self):
+        # The design expert's question to the human survives the
+        # implementer asking the design expert something else.
+        decision = route(
+            a_request(DESIGNER, HUMAN, question=SOME_QUESTION),
+            a_request(IMPLEMENTER, DESIGNER),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "human-consultation")
+        self.assertEqual(decision.context["question"], SOME_QUESTION)
 
     def test_an_answered_human_request_does_not_hold_the_pause(self):
         request = a_request(DESIGNER, HUMAN)
@@ -1705,21 +1717,61 @@ class Consultations(unittest.TestCase):
         self.assertEqual(decision.rule, "consultation-invalid")
         self.assertTrue(decision.context["errors"])
 
-    def test_a_response_with_a_dangling_pointer_blocks(self):
+    def test_a_response_with_a_dangling_pointer_bounces_its_author(self):
         decision = route(
             a_slice_record("design-block", verdict="covered"),
             a_response(DESIGNER, NO_SUCH_LINE),
         )
 
-        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (DESIGNER,))
         self.assertEqual(decision.rule, "consultation-invalid")
 
-    def test_a_response_with_a_boolean_pointer_blocks(self):
+    def test_a_response_with_a_boolean_pointer_bounces_its_author(self):
         decision = route(a_request(), a_response(DESIGNER, True))
 
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (DESIGNER,))
+        self.assertEqual(decision.rule, "consultation-invalid")
+        self.assertIn("in_response_to (True)", decision.context["errors"][0])
+
+    def test_a_response_pointing_at_a_review_record_bounces_its_author(self):
+        # The product expert answering a clarify finding with a response
+        # instead of a prd-entry: a known agent slip the bounce corrects.
+        decision = route(
+            a_slice_record("build-pass"),
+            dissent(
+                A_REVIEWER,
+                (
+                    {
+                        "tag": "clarify",
+                        "location": "docs/prd.md:1",
+                        "description": "d",
+                        "clarify_target": PRODUCT,
+                    },
+                ),
+            ),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_response(PRODUCT, in_response_to=2),
+        )
+
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (PRODUCT,))
+        self.assertEqual(decision.rule, "consultation-invalid")
+        self.assertIn(
+            "does not point at a consultation-request", decision.context["errors"][0]
+        )
+
+    def test_a_response_without_an_author_still_blocks(self):
+        decision = route(
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record(
+                "consultation-response", author=None, in_response_to=NO_SUCH_LINE
+            ),
+        )
+
         self.assertEqual(decision.kind, "blocked")
         self.assertEqual(decision.rule, "consultation-invalid")
-        self.assertIn("in_response_to (True)", decision.errors[0])
 
     def test_a_pending_request_survives_a_trailing_design_doc_autofix(self):
         decision = route(
@@ -1856,6 +1908,521 @@ class RoutingInvariants(unittest.TestCase):
                 self.assertIsInstance(decision, Decision)
                 self.assertIn(decision.kind, {"dispatch", "blocked", "escalate"})
                 self.assertTrue(decision.rule)
+
+
+class OwnerAbsence(unittest.TestCase):
+    """A human-targeted request on a slice whose intake records the owner absent resumes the requester."""
+
+    def test_an_absent_owner_resumes_the_requester_on_the_recorded_decisions(self):
+        decision = route(
+            an_intake(owner_present=False, decisions=["narrowest reading", "no bound"]),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN, question=SOME_QUESTION),
+        )
+
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (IMPLEMENTER,))
+        self.assertEqual(decision.rule, "owner-absent")
+        self.assertEqual(decision.context["requester"], IMPLEMENTER)
+        self.assertEqual(decision.context["question"], SOME_QUESTION)
+        self.assertEqual(decision.context["intake_line"], 1)
+        self.assertEqual(
+            decision.context["standing_decisions"], ["narrowest reading", "no bound"]
+        )
+        self.assertTrue(decision.context["resume"])
+
+    def test_a_present_owner_still_blocks_for_the_conversation(self):
+        decision = route(
+            an_intake(owner_present=True),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "human-consultation")
+
+    def test_an_intake_without_the_field_reads_as_present(self):
+        decision = route(
+            an_intake(),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN),
+        )
+
+        self.assertEqual(decision.rule, "human-consultation")
+
+    def test_the_latest_intake_before_the_request_decides(self):
+        decision = route(
+            an_intake(owner_present=False),
+            an_intake(owner_present=True),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN),
+        )
+
+        self.assertEqual(decision.rule, "human-consultation")
+
+    def test_an_intake_appended_after_the_request_never_releases_the_pause(self):
+        # The sticky pause's contract: a re-seeded intake never supersedes it,
+        # whatever it says about the owner.
+        asked = [
+            an_intake(owner_present=True),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN, question=SOME_QUESTION),
+        ]
+        for later in (
+            [an_intake(owner_present=False)],
+            [an_intake(owner_present=False), a_slice_record("prd-entry")],
+            [an_intake(owner_present=False), a_slice_record("build-pass")],
+        ):
+            with self.subTest(later=[r["type"] for r in later]):
+                decision = route(*asked, *later)
+
+                self.assertEqual(decision.kind, "blocked")
+                self.assertEqual(decision.rule, "human-consultation")
+                self.assertEqual(decision.context["question"], SOME_QUESTION)
+
+    def test_an_absent_owner_releases_the_sticky_pause(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN),
+            a_slice_record("prd-entry"),
+        )
+
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (DESIGNER,))
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_an_absent_owner_on_one_slice_does_not_release_another_slices_pause(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_request(PRODUCT, HUMAN, req_id=OTHER_REQ_ID),
+            a_slice_record("prd-entry"),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "human-consultation")
+        self.assertEqual(decision.req_id, OTHER_REQ_ID)
+
+    def test_a_variant_spelled_target_still_bounces_when_the_owner_is_absent(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, " Human "),
+        )
+
+        self.assertEqual(decision.rule, "consultation-invalid")
+        self.assertEqual(decision.next, (PRODUCT,))
+
+
+def a_planned_entry(index, of, author=PRODUCT, **fields):
+    return a_slice_record(
+        "prd-entry", author=author, slice_of={"index": index, "of": of}, **fields
+    )
+
+
+class SliceContinuation(unittest.TestCase):
+    """A graded slice that plans a sibling hands the product expert the next one; a plan that does not climb closes for the human."""
+
+    def graded(self, *entries, layout=None, with_verdict=True):
+        records = [
+            *entries,
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            *approvals(),
+        ]
+        if with_verdict:
+            records.append(
+                a_slice_record("grader-verdict", author=GRADER, verdict="skim")
+            )
+        return route(*records, layout=layout)
+
+    def test_a_graded_first_slice_dispatches_the_product_expert_for_the_next(self):
+        decision = self.graded(a_planned_entry(1, 2))
+
+        self.assertEqual(decision.kind, "dispatch")
+        self.assertEqual(decision.next, (PRODUCT,))
+        self.assertEqual(decision.rule, "next-slice")
+        self.assertEqual(decision.context["slice_index"], 1)
+        self.assertEqual(decision.context["slice_count"], 2)
+        self.assertEqual(decision.context["verdict"], "skim")
+
+    def test_the_second_of_three_continues_when_the_indexes_climb(self):
+        decision = self.graded(a_planned_entry(1, 3), a_planned_entry(2, 3))
+
+        self.assertEqual(decision.rule, "next-slice")
+        self.assertEqual(decision.context["slice_index"], 2)
+
+    def test_the_last_slice_completes_the_feature(self):
+        decision = self.graded(a_planned_entry(1, 2), a_planned_entry(2, 2))
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "feature-complete")
+        self.assertNotIn("slice_plan_ignored", decision.context)
+
+    def test_grading_off_still_continues_to_the_next_slice(self):
+        decision = self.graded(
+            a_planned_entry(1, 3), layout=GRADING_OFF, with_verdict=False
+        )
+
+        self.assertEqual(decision.next, (PRODUCT,))
+        self.assertEqual(decision.rule, "next-slice")
+        self.assertNotIn("verdict", decision.context)
+
+    def test_an_entry_without_a_split_completes_as_before(self):
+        decision = self.graded(a_slice_record("prd-entry"))
+
+        self.assertEqual(decision.rule, "feature-complete")
+        self.assertNotIn("slice_plan_ignored", decision.context)
+
+    def test_a_revision_of_the_open_slice_keeps_the_plan(self):
+        # A PRD fix round re-appends the slice's entry before the slice closes.
+        decision = self.graded(a_planned_entry(1, 2), a_planned_entry(1, 2))
+
+        self.assertEqual(decision.rule, "next-slice")
+        self.assertEqual(decision.context["slice_index"], 1)
+
+    def test_a_widened_count_is_not_accepted_and_the_feature_closes(self):
+        decision = self.graded(a_planned_entry(1, 2), a_planned_entry(2, 9))
+
+        self.assertEqual(decision.rule, "feature-complete")
+
+    def test_a_plan_not_starting_at_one_is_not_accepted(self):
+        decision = self.graded(a_planned_entry(2, 3))
+
+        self.assertEqual(decision.rule, "feature-complete")
+
+    def test_a_plan_from_another_author_is_not_accepted(self):
+        decision = self.graded(a_planned_entry(1, 2, author=DESIGNER))
+
+        self.assertEqual(decision.rule, "feature-complete")
+
+    def test_a_malformed_split_is_not_accepted(self):
+        for slice_of in (
+            {"index": 0, "of": 2},
+            {"index": "1", "of": 2},
+            {"index": 1, "of": 0},
+            {"index": 1, "of": 10},
+        ):
+            with self.subTest(slice_of=slice_of):
+                decision = self.graded(
+                    a_slice_record("prd-entry", author=PRODUCT, slice_of=slice_of)
+                )
+
+                self.assertEqual(decision.rule, "feature-complete")
+
+    def test_a_verdict_with_no_build_pass_behind_it_never_continues(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("grader-verdict", author=GRADER, verdict="skim"),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "feature-complete")
+
+
+class OwnerAbsenceBounds(unittest.TestCase):
+    """The owner-absent carve-out neither masks another slice's pause nor resumes without end."""
+
+    def test_an_absent_slices_request_never_masks_a_later_present_slices_pause(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_request(PRODUCT, HUMAN),
+            an_intake(req_id=OTHER_REQ_ID),
+            a_request(PRODUCT, HUMAN, req_id=OTHER_REQ_ID, question=SOME_QUESTION),
+            a_slice_record("prd-entry", req_id=OTHER_REQ_ID),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "human-consultation")
+        self.assertEqual(decision.req_id, OTHER_REQ_ID)
+        self.assertEqual(decision.context["question"], SOME_QUESTION)
+
+    def test_a_second_human_request_after_the_resume_blocks(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN, question=SOME_QUESTION),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "owner-absent-repeat")
+        self.assertEqual(decision.context["requester"], IMPLEMENTER)
+        self.assertEqual(decision.context["question"], SOME_QUESTION)
+        self.assertEqual(decision.context["first_request_line"], 3)
+
+    def test_a_request_the_human_answered_does_not_count(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN),
+            a_response(HUMAN, in_response_to=3),
+            a_request(IMPLEMENTER, HUMAN, question=SOME_QUESTION),
+        )
+
+        self.assertEqual(decision.rule, "owner-absent")
+
+    def test_a_re_seeded_intake_and_a_new_request_never_release_a_held_pause(self):
+        decision = route(
+            an_intake(owner_present=True),
+            a_slice_record("dispatch-start", author=PRODUCT),
+            a_request(PRODUCT, HUMAN, question=SOME_QUESTION),
+            an_intake(owner_present=False),
+            a_request(PRODUCT, HUMAN, question="again"),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "human-consultation")
+        self.assertEqual(decision.context["question"], SOME_QUESTION)
+
+    def test_a_second_request_after_a_re_seeded_intake_still_blocks(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN),
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, HUMAN),
+        )
+
+        self.assertEqual(decision.rule, "owner-absent-repeat")
+
+    def test_a_request_to_a_specialist_between_them_does_not_count(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("dispatch-start", author=IMPLEMENTER),
+            a_request(IMPLEMENTER, DESIGNER),
+            a_response(DESIGNER, in_response_to=3),
+            a_request(IMPLEMENTER, HUMAN),
+        )
+
+        self.assertEqual(decision.rule, "owner-absent")
+
+    def test_a_request_without_an_author_blocks_as_invalid(self):
+        decision = route(
+            an_intake(owner_present=False),
+            a_slice_record("consultation-request", author=None, target=HUMAN),
+        )
+
+        self.assertEqual(decision.kind, "blocked")
+        self.assertEqual(decision.rule, "consultation-invalid")
+
+
+class SliceContinuity(unittest.TestCase):
+    """A split's later entries continue the plan or bounce; a later slice's review cycle is its own."""
+
+    def test_an_entry_after_a_planned_slice_without_a_split_bounces(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("grader-verdict", author=GRADER, verdict="skim"),
+            a_slice_record("prd-entry", author=PRODUCT),
+        )
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertEqual(decision.next, (PRODUCT,))
+        self.assertIn("declares slice 2", decision.context["errors"][0])
+
+    def test_an_earlier_index_declared_again_bounces_at_the_gate(self):
+        decision = route(
+            a_planned_entry(1, 3), a_planned_entry(2, 3), a_planned_entry(1, 3)
+        )
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertIn("slice 3 was expected", decision.context["errors"][0])
+
+    def test_a_shrunk_count_ends_the_split_early(self):
+        decision = route(
+            a_planned_entry(1, 3),
+            a_planned_entry(2, 2),
+            a_slice_record("grader-verdict", author=GRADER, verdict="skim"),
+        )
+
+        self.assertEqual(decision.rule, "feature-complete")
+        self.assertNotIn("slice_plan_ignored", decision.context)
+
+    def test_a_climbing_entry_passes_the_gate(self):
+        decision = route(a_planned_entry(1, 2), a_planned_entry(2, 2))
+
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_an_index_above_the_count_bounces(self):
+        decision = route(a_planned_entry(3, 2))
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertIn("malformed", decision.context["errors"][0])
+
+    def test_a_later_slices_first_review_round_is_round_one(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="covered"),
+            *review_passes(BELOW_THE_CAP),
+            a_slice_record("build-pass"),
+            *approvals(),
+            a_slice_record("grader-verdict", author=GRADER, verdict="skim"),
+            a_planned_entry(2, 2),
+            a_slice_record("design-block", verdict="covered"),
+            *review_pass(),
+        )
+
+        self.assertEqual(decision.rule, "process-findings")
+        self.assertEqual(decision.context["round"], FIRST_ROUND)
+
+    def test_refactor_resume_beats_next_slice(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="refactor-first"),
+            a_slice_record("prd-entry", req_id=OTHER_REQ_ID, author=DESIGNER),
+            a_slice_record("design-block", req_id=OTHER_REQ_ID, verdict="covered"),
+            a_slice_record("build-pass", req_id=OTHER_REQ_ID),
+            *[
+                a_slice_record(
+                    "review-feedback",
+                    req_id=OTHER_REQ_ID,
+                    author=r,
+                    verdict="approved",
+                    findings=[],
+                )
+                for r in FULL_ROSTER
+            ],
+            a_slice_record(
+                "grader-verdict", req_id=OTHER_REQ_ID, author=GRADER, verdict="skim"
+            ),
+        )
+
+        self.assertEqual(decision.rule, "refactor-resume")
+
+
+class SliceRevision(unittest.TestCase):
+    """An index may repeat while its slice is open, never once the slice has closed."""
+
+    def closed_slice(self, *entries, with_verdict=True):
+        records = [
+            *entries,
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            a_slice_record("review-plan", author=PLAN_ENGINE, roster=list(FULL_ROSTER)),
+            *approvals(),
+        ]
+        if with_verdict:
+            records.append(
+                a_slice_record("grader-verdict", author=GRADER, verdict="skim")
+            )
+        return records
+
+    def test_a_repeat_after_the_grader_verdict_bounces_at_the_gate(self):
+        decision = route(
+            *self.closed_slice(a_planned_entry(1, 2)), a_planned_entry(1, 2)
+        )
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertIn("again after it closed", decision.context["errors"][0])
+
+    def test_a_rejected_repeat_does_not_bind_the_correction(self):
+        # Gate 1 recovers: after the bounced repeat, the next index passes.
+        decision = route(
+            *self.closed_slice(a_planned_entry(1, 2)),
+            a_planned_entry(1, 2),
+            a_planned_entry(2, 2),
+        )
+
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_a_rejected_first_index_does_not_bind_the_correction(self):
+        decision = route(a_planned_entry(2, 3), a_planned_entry(1, 3))
+
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_a_repeat_after_roster_approval_without_a_plan_record_bounces(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            *approvals(),
+            a_planned_entry(1, 2),
+            layout=GRADING_OFF,
+        )
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertIn("again after it closed", decision.context["errors"][0])
+
+    def test_a_malformed_plan_roster_does_not_crash_the_closure_read(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            a_slice_record("review-plan", author=PLAN_ENGINE, roster=[{"x": 1}]),
+            *approvals(),
+            a_planned_entry(1, 2),
+            layout=GRADING_OFF,
+        )
+
+        self.assertIn(decision.rule, {"prd-gate-failed", "prd-approved"})
+
+    def test_a_subset_plan_with_outstanding_dissent_keeps_the_slice_open(self):
+        first, last = FULL_ROSTER[0], FULL_ROSTER[-1]
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            a_slice_record("review-plan", author=PLAN_ENGINE, roster=list(FULL_ROSTER)),
+            *approvals(FULL_ROSTER[:-1]),
+            dissent(last),
+            a_slice_record("build-pass"),
+            a_slice_record(
+                "review-plan", author="review-planner", risk="low", roster=[first]
+            ),
+            approved(first),
+            a_planned_entry(1, 2),
+            layout=GRADING_OFF,
+        )
+
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_a_fix_round_repeat_of_a_later_slice_keeps_its_cycle(self):
+        decision = route(
+            *self.closed_slice(a_planned_entry(1, 2)),
+            a_planned_entry(2, 2),
+            a_slice_record("design-block", verdict="covered"),
+            *review_passes(BELOW_THE_CAP),
+            a_planned_entry(2, 2),
+            a_slice_record("design-block", verdict="covered"),
+            *review_pass(),
+        )
+
+        self.assertEqual(decision.rule, "review-record-invalid")
+        self.assertIn("critical-only", " ".join(decision.context["errors"]))
+
+    def test_a_repeat_after_roster_approval_with_grading_off_bounces(self):
+        decision = route(
+            *self.closed_slice(a_planned_entry(1, 2), with_verdict=False),
+            a_planned_entry(1, 2),
+            layout=GRADING_OFF,
+        )
+
+        self.assertEqual(decision.rule, "prd-gate-failed")
+        self.assertIn("again after it closed", decision.context["errors"][0])
+
+    def test_a_repeat_before_approval_with_grading_off_is_a_revision(self):
+        decision = route(
+            a_planned_entry(1, 2),
+            a_slice_record("design-block", verdict="covered"),
+            a_slice_record("build-pass"),
+            a_slice_record("review-plan", author=PLAN_ENGINE, roster=list(FULL_ROSTER)),
+            *approvals(FULL_ROSTER[:-1]),
+            dissent(FULL_ROSTER[-1]),
+            a_planned_entry(1, 2),
+            layout=GRADING_OFF,
+        )
+
+        self.assertEqual(decision.rule, "prd-approved")
+
+    def test_the_next_index_after_closure_passes(self):
+        decision = route(
+            *self.closed_slice(a_planned_entry(1, 2)), a_planned_entry(2, 2)
+        )
+
+        self.assertEqual(decision.rule, "prd-approved")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ metadata:
 
 The intake discussion runs in the current root session under the product expert's judgment contract — no clearing, no fresh session, no dispatch while the discussion is live. The exit appends one `intake-decision` record: the owner's request and decisions, quoted verbatim. Root records the discussion's outcome; it never authors a product statement — the `product-requirements-expert` dispatch that follows grounds the slice in the record's quotes, not in root's memory of the chat.
 
-Headless runs skip the discussion and seed the same record from the task prompt's decision clauses (`source: "task-prompt"`). Both front doors produce one contract; everything downstream is identical.
+Headless runs skip the discussion and seed the same record from the task prompt's decision clauses (`source: "task-prompt"`, and `owner_present: false`, since no owner answers an unattended run). Both front doors produce one contract; everything downstream is identical.
 
 ## Instructions
 
@@ -28,7 +28,7 @@ Headless runs skip the discussion and seed the same record from the task prompt'
 2. **Run the discussion** under the elicitation doctrine in [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Conversations Stay in Root: push back asymmetrically, hold once, surface every contradiction, own the stop.
 3. **Name the exit** and let the owner confirm it. *Resolved* proceeds to steps 4–6. *Out of scope for this slice* leaves the question open — it resurfaces as a `consultation-request` if implementation needs it.
 4. **Mint the `req_id`.** A `next`-triaged pick carries its REQ; otherwise take the next free `REQ-XX-NNN` per the `docs/prd.md` conventions (`prd-authoring` skill).
-5. **Record the intake.** Append one `intake-decision` record via `python3 scripts/handoff.py append` (`handoff-append` skill). Fields: `author: "human"`; `request` — the owner's request, quoted verbatim; `decisions` — each decision the owner stated, quoted verbatim; `source: "intake-discussion"`; `notes` — points the owner deliberately left unsettled. Only `decisions` text can authorize a scope override at Gate 1; the request is context, never authority. Schema: `schemas/scratch/intake-decision.schema.json`.
+5. **Record the intake.** Append one `intake-decision` record via `python3 scripts/handoff.py append` (`handoff-append` skill). Fields: `author: "human"`; `request` — the owner's request, quoted verbatim; `decisions` — each decision the owner stated, quoted verbatim; `source: "intake-discussion"`; `notes` — points the owner deliberately left unsettled. Add `owner_present: false` only when the owner states that no further answer will come during the work. The first later human-targeted question then resumes as a recorded open point instead of a pause; a second halts the run. Only `decisions` text can authorize a scope override at Gate 1; the request is context, never authority. Schema: `schemas/scratch/intake-decision.schema.json`.
 6. **Route.** Run `python3 scripts/handoff.py route`. The `intake-ready` decision dispatches `product-requirements-expert`; its prompt names the record, never restates it.
 
 ## Rules

@@ -18,8 +18,10 @@ from handoff import (
     has_substantive_dissent,
     is_substantive_dissent,
     latest_of,
+    owner_present_for,
     pass_windows,
     pending_human_request,
+    pending_human_requests,
     silent_starts,
     superseded_design_block,
     truncation_run,
@@ -28,7 +30,7 @@ from handoff import (
     unstarted_substantive,
 )
 
-from tests.support import a_record, entries
+from tests.support import SOME_REQ_ID, a_record, entries
 
 REVIEWER = ROSTER_FLOOR[0]
 OTHER_REVIEWER = ROSTER_FLOOR[1]
@@ -455,6 +457,119 @@ class UnresolvedRefactor(unittest.TestCase):
 
     def test_no_refactor_verdicts_list_nothing(self):
         self.assertEqual(unresolved_refactor(entries(a_design_block())), [])
+
+
+class OwnerPresentFor(unittest.TestCase):
+    """Presence reads the slice's latest intake before a line; an intake after it never counts."""
+
+    def test_no_intake_reads_as_present(self):
+        self.assertTrue(owner_present_for(entries(a_build_pass()), SOME_REQ_ID, 2))
+
+    def test_an_intake_without_the_field_reads_as_present(self):
+        log = entries(a_record("intake-decision"))
+
+        self.assertTrue(owner_present_for(log, SOME_REQ_ID, 2))
+
+    def test_a_false_field_reads_as_absent(self):
+        log = entries(a_record("intake-decision", owner_present=False))
+
+        self.assertFalse(owner_present_for(log, SOME_REQ_ID, 2))
+
+    def test_the_latest_intake_before_the_line_wins(self):
+        log = entries(
+            a_record("intake-decision", owner_present=False),
+            a_record("intake-decision", owner_present=True),
+        )
+
+        self.assertTrue(owner_present_for(log, SOME_REQ_ID, 3))
+
+    def test_an_intake_at_or_after_the_line_is_not_consulted(self):
+        log = entries(
+            a_record("intake-decision", owner_present=True),
+            a_build_pass(),
+            a_record("intake-decision", owner_present=False),
+        )
+
+        self.assertTrue(owner_present_for(log, SOME_REQ_ID, 3))
+        self.assertTrue(owner_present_for(log, SOME_REQ_ID, 2))
+
+    def test_another_slices_intake_does_not_count(self):
+        log = entries(
+            a_record("intake-decision", owner_present=False, req_id=ANOTHER_SLICE)
+        )
+
+        self.assertTrue(owner_present_for(log, SOME_REQ_ID, 2))
+
+
+class PendingHumanRequests(unittest.TestCase):
+    def human(self, req_id=SOME_REQ_ID, **fields):
+        return a_record("consultation-request", req_id=req_id, target=HUMAN, **fields)
+
+    def test_every_unanswered_human_request_is_listed_earliest_first(self):
+        log = entries(self.human(ANOTHER_SLICE), self.human(), self.human())
+
+        self.assertEqual([entry.no for entry in pending_human_requests(log)], [1, 2, 3])
+
+    def test_a_response_on_the_slice_answers_every_earlier_request(self):
+        log = entries(
+            self.human(),
+            self.human(),
+            a_record("consultation-response", in_response_to=2),
+        )
+
+        self.assertEqual(pending_human_requests(log), [])
+
+    def test_a_later_specialist_request_supersedes_its_authors_pending_ones(self):
+        log = entries(
+            self.human(), a_record("consultation-request", target=AN_AGENT_TARGET)
+        )
+
+        self.assertEqual(pending_human_requests(log), [])
+
+    def test_another_authors_specialist_request_supersedes_nothing(self):
+        log = entries(
+            self.human(),
+            a_record(
+                "consultation-request", author="someone-else", target=AN_AGENT_TARGET
+            ),
+        )
+
+        self.assertEqual([entry.no for entry in pending_human_requests(log)], [1])
+
+    def test_another_slices_records_do_not_answer_this_one(self):
+        log = entries(
+            self.human(), a_record("consultation-response", req_id=ANOTHER_SLICE)
+        )
+
+        self.assertEqual([entry.no for entry in pending_human_requests(log)], [1])
+
+
+class CycleStartAtALaterSlice(unittest.TestCase):
+    def planned(self, index, of=2):
+        return a_record(
+            "prd-entry",
+            author="product-requirements-expert",
+            slice_of={"index": index, "of": of},
+        )
+
+    def test_a_later_slices_entry_starts_the_cycle(self):
+        log = entries(self.planned(1), a_build_pass(), self.planned(2), a_build_pass())
+
+        self.assertEqual(cycle_start(log), 3)
+
+    def test_a_fix_round_repeat_of_that_slice_does_not_restart_it(self):
+        log = entries(self.planned(1), self.planned(2), a_build_pass(), self.planned(2))
+
+        self.assertEqual(cycle_start(log), 2)
+
+    def test_the_first_slice_and_a_malformed_index_start_nothing(self):
+        log = entries(
+            self.planned(1),
+            a_record("prd-entry", slice_of={"index": True, "of": 2}),
+            a_record("prd-entry", slice_of={"index": "2", "of": 2}),
+        )
+
+        self.assertEqual(cycle_start(log), 0)
 
 
 if __name__ == "__main__":

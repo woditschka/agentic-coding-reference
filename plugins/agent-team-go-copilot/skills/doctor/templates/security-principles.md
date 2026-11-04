@@ -23,4 +23,4 @@ Specialize this section to the stack with state-of-the-art, high-bar defaults, d
 
 ## Standing Gaps
 
-Checks the project does not run, and why: an unconfigured dependency scanner, a scan the runtime cannot reach. A reviewer states a listed gap in one clause and raises nothing for it. A gap not listed here is raised once, as a `clarify` finding to the owner, and then listed.
+Checks the project does not run, and why: an unconfigured dependency scanner, a scan the runtime cannot reach. A reviewer states a listed gap in one clause and raises nothing for it. A gap not listed here is a finding; the `security-checks` skill says how it is raised and how it reaches this list.

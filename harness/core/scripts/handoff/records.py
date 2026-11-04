@@ -352,6 +352,14 @@ class BuildPass:
 
 
 @dataclass(frozen=True, slots=True)
+class SliceOf:
+    """A prd-entry's place in a requirement split across slices: 1-based index and planned count."""
+
+    index: int | None = None
+    of: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ScopeOverride:
     """One prd-entry scope override: the changed non-goal and the owner decision it quotes."""
 
@@ -376,6 +384,7 @@ class PrdEntry:
     non_goals: tuple[str, ...] = ()
     dependencies: tuple[str, ...] = ()
     notes: str | None = None
+    slice_of: SliceOf | None = None
     scope_overrides: tuple[ScopeOverride, ...] = ()
 
 
@@ -391,6 +400,7 @@ class IntakeDecision:
     decisions: tuple[str, ...] = ()
     source: str | None = None
     notes: str | None = None
+    owner_present: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -610,7 +620,27 @@ def _intake_decision(raw: dict[str, Any]) -> IntakeDecision:
         decisions=_scalar_tuple(raw.get("decisions")),
         source=raw.get("source"),
         notes=raw.get("notes"),
+        owner_present=_bool_or_none(raw.get("owner_present")),
     )
+
+
+def _bool_or_none(value: object) -> bool | None:
+    """Lift a boolean field; any other shape reads as unset."""
+    return value if isinstance(value, bool) else None
+
+
+def _slice_of(value: object) -> SliceOf | None:
+    """Lift a `slice_of` object; any other shape reads as unset."""
+    if not isinstance(value, dict):
+        return None
+    return SliceOf(
+        index=_int_or_none(value.get("index")), of=_int_or_none(value.get("of"))
+    )
+
+
+def _int_or_none(value: object) -> int | None:
+    """Lift an integer field; a boolean or any other shape reads as unset."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def _prd_entry(raw: dict[str, Any]) -> PrdEntry:
@@ -628,6 +658,7 @@ def _prd_entry(raw: dict[str, Any]) -> PrdEntry:
         dependencies=_scalar_tuple(raw.get("dependencies")),
         notes=raw.get("notes"),
         scope_overrides=_object_tuple(raw.get("scope_overrides"), _scope_override),
+        slice_of=_slice_of(raw.get("slice_of")),
     )
 
 

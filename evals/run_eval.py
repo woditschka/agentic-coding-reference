@@ -1048,7 +1048,7 @@ def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
     if not schema.is_file():
         return None
     req_id = mint_req_id(task.req_prefix, workdir / "docs" / "prd.md")
-    record = {
+    record: dict[str, object] = {
         "type": "intake-decision",
         "req_id": req_id,
         "author": "human",
@@ -1056,6 +1056,13 @@ def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
         "decisions": list(task.decisions),
         "source": "task-prompt",
     }
+    # An unattended run has no owner to answer a human-targeted question. A
+    # version whose schema declares the field records that at intake, so its
+    # router resumes the requester on the decisions above instead of pausing;
+    # an older version routes exactly as before.
+    properties = json.loads(schema.read_text()).get("properties", {})
+    if "owner_present" in properties:
+        record["owner_present"] = False
     proc = subprocess.run(
         [sys.executable, "scripts/handoff.py", "append", "intake-decision"],
         cwd=workdir,

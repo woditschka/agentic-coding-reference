@@ -58,6 +58,27 @@ class FindingOwner(unittest.TestCase):
     def test_an_adr_belongs_to_the_designer(self):
         self.assertEqual(finding_owner(lifted(location=AN_ADR)), DESIGNER)
 
+    def test_the_architecture_brief_goes_to_its_steward(self):
+        self.assertEqual(
+            finding_owner(lifted(location="docs/architecture-principles.md:91")),
+            DESIGNER,
+        )
+        self.assertEqual(
+            finding_owner(
+                lifted(location="docs/architecture-principles.md:91", tag="autofix")
+            ),
+            DESIGNER,
+        )
+
+    def test_the_vocabulary_brief_goes_to_the_product_expert(self):
+        self.assertEqual(
+            finding_owner(lifted(location="docs/ubiquitous-language.md:12")), PRODUCT
+        )
+
+    def test_the_reviewer_owned_briefs_fall_to_the_implementer(self):
+        for path in ("docs/testing-principles.md:5", "docs/security-principles.md:30"):
+            self.assertEqual(finding_owner(lifted(location=path)), IMPLEMENTER)
+
     def test_a_doc_autofix_has_no_agent_owner(self):
         self.assertIsNone(finding_owner(lifted(location=A_PRD_ROW, tag="autofix")))
         self.assertIsNone(finding_owner(lifted(location=A_DESIGN_ROW, tag="autofix")))

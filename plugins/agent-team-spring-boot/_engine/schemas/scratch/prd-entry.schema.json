@@ -31,7 +31,10 @@
       "format": "date-time"
     },
     "author": {
-      "enum": ["product-requirements-expert", "system-design-expert"],
+      "enum": [
+        "product-requirements-expert",
+        "system-design-expert"
+      ],
       "description": "product-requirements-expert; system-design-expert only for the refactor-first sibling entry it appends alongside its design-block."
     },
     "title": {
@@ -98,7 +101,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["non_goal_id", "owner_decision", "source"],
+        "required": [
+          "non_goal_id",
+          "owner_decision",
+          "source"
+        ],
         "properties": {
           "non_goal_id": {
             "description": "The changed Non-Goals row's id.",
@@ -118,6 +125,29 @@
             "pattern": "^(dispatch|consultation:[1-9][0-9]{0,8}|intake:[1-9][0-9]{0,8})$",
             "maxLength": 32
           }
+        }
+      }
+    },
+    "slice_of": {
+      "description": "Optional. Set on every entry of a requirement split across slices under one req_id: this entry's 1-based position and the planned count, at most 9. After the slice is graded, or approved with grading off, the router dispatches the product expert for the next one (rule next-slice) until index equals of; the last slice closes the feature. Gate 1 holds the sequence against the entries it accepted: product-expert authored, index climbing by one from 1, repeated only while that slice is still open (a fix-round entry), of never growing (shrinking it to the current index ends the split early), and every entry after a planned slice carrying the field. A later slice builds on the working tree the earlier ones left, and its review cycle counts from its own entry.",
+      "type": "object",
+      "required": [
+        "index",
+        "of"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "description": "This slice's 1-based position in the split.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9
+        },
+        "of": {
+          "description": "The planned number of slices in the split.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9
         }
       }
     }

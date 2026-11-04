@@ -34,7 +34,7 @@
       "minLength": 1
     },
     "target": {
-      "description": "The specialist being asked. The router dispatches this agent in consultation mode. The value \"human\" addresses the human instead: the router halts (human-consultation) while root runs the conversation and appends the response.",
+      "description": "The specialist being asked. The router dispatches this agent in consultation mode. The value \"human\" addresses the human instead: the router halts (human-consultation) while root runs the conversation and appends the response, unless the slice's intake-decision carries owner_present false, when the router dispatches the requester back once (owner-absent).",
       "type": "string",
       "minLength": 1
     },

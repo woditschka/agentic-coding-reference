@@ -184,3 +184,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-26** — Compact the decision log: 118 ADRs fold into 31, one per standing decision; the folded ADRs stay in git under their old paths.
 - **2026-10-30** — Deny the OpenCode `question` tool on every shipped agent, gated by the battery: a dispatched agent never converses outside the log.
 - **2026-10-30** — Fail the doctor, the eval prep, and the battery on a required gate verb a layout lacks; v0.4.11 had shipped one unchecked.
+- **2026-11-02** — Record the owner's reach and a split's position in the ledger: an unattended run resumes on the decisions, and a re-split routes its next slice.

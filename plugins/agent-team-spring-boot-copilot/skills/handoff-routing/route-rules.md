@@ -37,9 +37,12 @@ at decision time (the roster, the requester, the recorded upstream).
 | `intake-record-invalid` | blocked | — |
 | `layout-invalid` | blocked | — |
 | `missing-req-id` | blocked | — |
+| `next-slice` | dispatch | `product-requirements-expert` |
 | `no-active-slice` | escalate | — |
 | `no-substantive-record` | escalate | — |
 | `outstanding-dissent` | dispatch | (computed) |
+| `owner-absent` | dispatch | (computed) |
+| `owner-absent-repeat` | blocked | — |
 | `plan-gray` | dispatch | `review-planner` |
 | `plan-gray-invalid` | dispatch (bounce) | `review-planner` |
 | `plan-roster-invalid` | dispatch (bounce) | `review-planner` |
@@ -64,4 +67,4 @@ at decision time (the roster, the requester, the recorded upstream).
 | `unknown-req-id` | blocked | — |
 | `unroutable-state` | escalate | — |
 
-52 rules.
+55 rules.
