@@ -3313,6 +3313,176 @@
    "wall_seconds": 518.0
   },
   {
+   "agent_spend_usd": 3.9239,
+   "cleared": true,
+   "delivery_wall_seconds": 646.2,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.12/2026-10-30-owners-page-param-r1",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 2,
+    "tests_required": 4
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.12",
+   "wall_seconds": 722.0
+  },
+  {
+   "agent_spend_usd": 3.698,
+   "cleared": true,
+   "delivery_wall_seconds": 706.3,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.12/2026-10-30-owners-page-param-r2",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 2,
+    "tests_required": 3
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.12",
+   "wall_seconds": 783.7
+  },
+  {
+   "agent_spend_usd": 2.9168,
+   "cleared": true,
+   "delivery_wall_seconds": 558.2,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.12/2026-10-30-owners-page-param-r3",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 6,
+    "tests_required": 6
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.12",
+   "wall_seconds": 634.2
+  },
+  {
+   "agent_spend_usd": 4.21,
+   "cleared": true,
+   "delivery_wall_seconds": 1001.9,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 4,
+   "run_folder": "runs/v0.4.12/2026-10-31-owners-page-param-r4",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 2,
+    "tests_required": 4
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.12",
+   "wall_seconds": 1105.7
+  },
+  {
    "agent_spend_usd": 10.0302,
    "cleared": true,
    "delivery_wall_seconds": 1658.8,
@@ -6513,6 +6683,65 @@
    "task_kind": "feature",
    "version": "v0.4.10",
    "wall_seconds": 855.1
+  },
+  {
+   "agent_spend_usd": 7.0082,
+   "cleared": true,
+   "delivery_wall_seconds": 1315.2,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.12/2026-10-30-specialty-directory-r1",
+   "scope": {
+    "files": 10,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 9,
+    "tests_required": 11
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 1467.5
+  },
+  {
+   "agent_spend_usd": 0.0,
+   "cleared": false,
+   "delivery_wall_seconds": null,
+   "gate_verbs": [],
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [],
+   "rep": 2,
+   "run_folder": "runs/v0.4.12/2026-10-30-specialty-directory-r2",
+   "scope": null,
+   "spend_known": false,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": null
   },
   {
    "agent_spend_usd": 10.0356,
@@ -9727,6 +9956,129 @@
    "wall_seconds": 1059.9
   },
   {
+   "agent_spend_usd": 14.3349,
+   "cleared": true,
+   "delivery_wall_seconds": 2739.0,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.12/2026-10-30-vets-specialty-filter-r1",
+   "scope": {
+    "files": 7,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 10,
+    "tests_required": 10
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 2938.2
+  },
+  {
+   "agent_spend_usd": 9.6744,
+   "cleared": true,
+   "delivery_wall_seconds": 1870.1,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.12/2026-10-30-vets-specialty-filter-r2",
+   "scope": {
+    "files": 7,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 10,
+    "tests_required": 10
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 2017.4
+  },
+  {
+   "agent_spend_usd": 16.8788,
+   "cleared": true,
+   "delivery_wall_seconds": 3086.0,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.12/2026-10-31-vets-specialty-filter-r3",
+   "scope": {
+    "files": 6,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 15,
+    "tests_required": 15
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 3325.8
+  },
+  {
    "agent_spend_usd": 0.9583,
    "cleared": true,
    "delivery_wall_seconds": 115.3,
@@ -11375,6 +11727,26 @@
    "task_kind": "refusal",
    "version": "v0.4.10",
    "wall_seconds": 97.7
+  },
+  {
+   "agent_spend_usd": 0.6729,
+   "cleared": true,
+   "delivery_wall_seconds": 65.2,
+   "gate_verbs": [],
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.12/2026-10-30-visit-cancel-r1",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.12",
+   "wall_seconds": 65.2
   },
   {
    "agent_spend_usd": 9.0283,
@@ -14758,6 +15130,138 @@
    "task_kind": "feature",
    "version": "v0.4.10",
    "wall_seconds": 1165.8
+  },
+  {
+   "agent_spend_usd": 8.9783,
+   "cleared": true,
+   "delivery_wall_seconds": 1656.5,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.12/2026-10-30-visit-edit-r1",
+   "scope": {
+    "files": 9,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/VisitDefaults.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 8,
+    "tests_required": 9
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 1656.5
+  },
+  {
+   "agent_spend_usd": 6.5456,
+   "cleared": true,
+   "delivery_wall_seconds": 1172.3,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.12/2026-10-30-visit-edit-r2",
+   "scope": {
+    "files": 6,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 8,
+    "tests_required": 8
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 1317.0
+  },
+  {
+   "agent_spend_usd": 12.6009,
+   "cleared": true,
+   "delivery_wall_seconds": 2310.0,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.12/2026-10-31-visit-edit-r3",
+   "scope": {
+    "files": 8,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 11,
+    "tests_required": 11
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.12",
+   "wall_seconds": 2310.0
   }
  ],
  "spec_version": "0.3.0",
@@ -14787,6 +15291,7 @@
   "v0.4.7",
   "v0.4.8",
   "v0.4.9",
-  "v0.4.10"
+  "v0.4.10",
+  "v0.4.12"
  ]
 }

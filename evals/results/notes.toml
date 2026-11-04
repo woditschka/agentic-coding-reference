@@ -561,3 +561,26 @@ new brief and the harness against the gate-recorded map, so an
 owners-page-param test-quality move across it carries both conditions. The
 per-rep `gate_verbs` field in trend-data.json records what each ledger
 proves ran."""
+
+[[note]]
+date = 2026-11-02
+text = """
+The v0.4.12 row is a stopped sweep on the 2026-10-30 base: 13 reps, two
+to four per task, taken 2026-10-30 and 31 and ended by the operator; the
+specialty-directory r2 folder is the rep the stop interrupted and renders
+as a lower bound. The bar held on every completed rep. Cost per pass rose
+against v0.4.10's old-base row on every feature task, a rep-set near $35
+against $18.90, with four ledger-visible mechanisms: a human-targeted
+consultation that halted visit-edit, a wrong-shape-slice re-split on
+vets-specialty-filter whose second slice the root dispatched on its own
+judgment, a dispatch spent discovering an over-ten-cycle entry, and
+doc-reviewer autofix findings spanning two files. An A/B on the same base,
+v0.4.10 at two reps on owners-page-param, vets-specialty-filter and
+visit-edit, read $3.84, $13.18 and $7.12 against the v0.4.12 cells' $3.69,
+$13.63 and $9.37: the runtimes were level and the base change carried the
+move. Those v0.4.10 reps were held out of the published row, which stays on
+its 2026-10-25 base. The base change was the fixture's harness upgrade from
+v0.3.8 to v0.4.11, eleven versions of brief templates at once. The
+mechanisms and their fixes are the owner-reach decision
+([ADR](../../docs/adr/2026-11-02-the-owner-is-a-recorded-fact.md)), whose
+acceptance arm ran as dev sweeps on this base."""

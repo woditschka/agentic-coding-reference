@@ -1,0 +1,281 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 5f18ad9..b765a78 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -5,9 +5,9 @@
+ <!-- AGENT: Annotate each requirement inline with its [REQ-XX-NNN] tag where the prose expresses it, and give it one "Done when" acceptance bullet carrying the same tag. The prose is the intent; the tagged bullet is the bounded, testable contract. Drop an <a id="req-xx-nnn"></a> anchor at first mention so other docs deep-link to it. -->
+ <!-- AGENT: A requirement is active by being in the narrative — there is no per-requirement Status field. Retire one by moving it to the Superseded list; never renumber an ID. -->
+ 
+-> **Provenance: derived from observed behavior, largely unconfirmed.** Every requirement in this document was reconstructed from the running system's boundary surface during a bootstrap survey — not from any statement of intent. **Observed behavior is not an intended requirement.** Each item may be a deliberate requirement, an accident of implementation, or a shipped bug, and the code cannot tell which.
++> **Provenance: derived from observed behavior, largely unconfirmed.** Every requirement in this document not marked confirmed was reconstructed from the running system's boundary surface during a bootstrap survey — not from any statement of intent. **Observed behavior is not an intended requirement.** Each item may be a deliberate requirement, an accident of implementation, or a shipped bug, and the code cannot tell which.
+ >
+-> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the Context and Non-Goals framing. Every individual requirement remains provisional, and the unanswered questions are listed under [Open Questions](#open-questions).
++> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the Context and Non-Goals framing. Every requirement not marked confirmed remains provisional, and the unanswered questions are listed under [Open Questions](#open-questions).
+ 
+ ## Context
+ 
+@@ -50,9 +50,9 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ ### Owner records
+ 
+-<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
++<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a><a id="req-own-005"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`. A page value below 1 on the owner listing counts as the first page, so the reader gets the normal listing (confirmed 2026-10-30) `[REQ-OWN-005]`.
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -67,6 +67,8 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-003]` given an existing owner, when their record is opened, then their contact details are shown.
+ - `[REQ-OWN-003]` given an owner with pets, when their record is opened, then each pet is shown with its type and birth date, and each pet's visits with date and description.
+ - `[REQ-OWN-004]` given an existing owner, when a detail is changed and validation passes, then the record is updated and the change is confirmed.
++- `[REQ-OWN-005]` given a page value of 0 or a negative number of any size, when the owner listing opens, then the first page of owners is listed and shown as the current page.
++- `[REQ-OWN-005]` given a last-name search with a page value below 1, when it runs, then the outcome matches the same search on the first page.
+ 
+ **Edge cases:**
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+@@ -176,6 +178,8 @@ The system opens on a landing page, and every page carries navigation to the own
+ - ~~**Is `REQ-VET-002` a real requirement?**~~ **Answered 2026-07-31: no.** Withdrawn to the Superseded list as an implementation artifact.
+ - ~~**Should the error page show technical failure detail to readers?**~~ **Answered 2026-07-31: no.** Stated in `REQ-SYS-002`; the current behavior is recorded as a defect.
+ - ~~**Are two message keys dead vocabulary?**~~ **Answered 2026-07-31: yes.** The keys for a duplicate form submission and for a non-numeric value are produced by no code and are translated into all eleven languages. They are dead vocabulary pending removal.
++- **Should the veterinarian directory treat a page value below 1 as its first page?** It shows the error page today. `REQ-OWN-005` covers the owner listing only.
++- **What should the owner listing do with a non-numeric page value, or one past the last page?** `REQ-OWN-005` covers values below 1 only.
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index fa4c44a..d90efba 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -92,7 +92,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `Visit` | Persisted appointment record against a pet; defaults its date forward on construction | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001 |
+ | `OwnerRepository` | Spring Data JPA repository for owners; the sole write path for the owner–pet–visit graph. Supports prefix search by last name with paging | `src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-PET-001, REQ-VIS-001 |
+ | `PetTypeRepository` | Spring Data JPA repository for pet types, returning them in name order | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeRepository.java` | REQ-PET-001 |
+-| `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004 |
++| `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail. Normalizes a page value below 1 to the first page during request binding | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-OWN-005 |
+ | `PetController` | Server-rendered pet workflows nested under an owner: create and edit, including duplicate-name and future-birth-date rejection | `src/main/java/org/springframework/samples/petclinic/owner/PetController.java` | REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004 |
+ | `VisitController` | Server-rendered visit booking for a pet, rejecting non-future dates | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002 |
+ | `PetTypeFormatter` | Spring MVC formatter translating between a pet type and its display name during form binding | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java` | REQ-PET-001 |
+@@ -117,6 +117,17 @@ Detection of that violation is where they diverge. `PetController` recognizes it
+ 
+ Open sessions are not held across view rendering (`spring.jpa.open-in-view` is disabled), so associations that a view needs are fetched eagerly at the mapping level.
+ 
++## Scale and Load
++
++<!-- PROJECT: The workload the code is sized for. The design owner writes each row at triage; the implementer selects against it and the code-quality reviewer judges against the same row. A figure nobody knows is written as "unrecorded, treated as bounded" and corrected here when the real figure arrives. "Bounded" is a complete row. -->
++
++| Data set or path | Realistic size | Growth | Access pattern | Form |
++|------------------|----------------|--------|----------------|------|
++| Owner listing and last-name search | Unrecorded, treated as bounded | Unrecorded | Request-private page over shared read-mostly rows | Database-paged prefix query at a fixed page size; simplest readable form |
++
++- **Hot paths:** none recorded.
++- **Limits:** none recorded.
++
+ ## Dependency Policy
+ 
+ Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..d2dca20 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.owner;
+ 
++import java.math.BigInteger;
+ import java.util.List;
+ import java.util.Objects;
+ import java.util.Optional;
+@@ -22,6 +23,7 @@ import java.util.Optional;
+ import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Pageable;
++import org.springframework.http.HttpStatus;
+ import org.springframework.stereotype.Controller;
+ import org.springframework.ui.Model;
+ import org.springframework.validation.BindingResult;
+@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
+ import org.springframework.web.bind.annotation.PathVariable;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestParam;
++import org.springframework.web.server.ResponseStatusException;
+ import org.springframework.web.servlet.ModelAndView;
+ 
+ import jakarta.validation.Valid;
+@@ -50,6 +53,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final BigInteger LARGEST_PAGE = BigInteger.valueOf(Integer.MAX_VALUE);
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -92,8 +97,10 @@ class OwnerController {
+ 	}
+ 
+ 	@GetMapping("/owners")
+-	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
++	public String processFindForm(@RequestParam(defaultValue = "1") BigInteger page, Owner owner, BindingResult result,
+ 			Model model) {
++		int normalizedPage = normalizePage(page);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +111,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(normalizedPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +125,17 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(normalizedPage, model, ownersResults);
++	}
++
++	private int normalizePage(BigInteger page) {
++		if (page.compareTo(BigInteger.ONE) < 0) {
++			return 1;
++		}
++		if (page.compareTo(LARGEST_PAGE) > 0) {
++			throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
++		}
++		return page.intValue();
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index cc34bb8..c1162d1 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -42,6 +44,7 @@ import static org.hamcrest.Matchers.is;
+ import static org.hamcrest.Matchers.not;
+ import static org.mockito.ArgumentMatchers.any;
+ import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.argThat;
+ import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.BDDMockito.given;
+ import static org.mockito.Mockito.times;
+@@ -64,6 +67,26 @@ class OwnerControllerTests {
+ 
+ 	private static final int TEST_OWNER_ID = 1;
+ 
++	private static final int FIRST_PAGE = 1;
++
++	private static final String ZERO_PAGE = "0";
++
++	private static final String NEGATIVE_PAGE = "-1";
++
++	private static final String MINIMUM_INTEGER_PAGE = "" + Integer.MIN_VALUE;
++
++	private static final String BELOW_MINIMUM_INTEGER_PAGE = "-99999999999";
++
++	private static final String BELOW_MINIMUM_LONG_PAGE = "-9223372036854775809";
++
++	private static final int SECOND_PAGE = 2;
++
++	private static final String NON_NUMERIC_PAGE = "abc";
++
++	private static final String ABOVE_MAXIMUM_INTEGER_PAGE = "2147483648";
++
++	private static final String SOME_LAST_NAME = "Davis";
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+@@ -74,6 +97,10 @@ class OwnerControllerTests {
+ 		return new Owner();
+ 	}
+ 
++	private static Pageable pageNumbered(int page) {
++		return argThat(pageable -> pageable.getPageNumber() == page - 1);
++	}
++
+ 	private Owner george() {
+ 		Owner george = anOwner();
+ 		george.setId(TEST_OWNER_ID);
+@@ -280,4 +307,67 @@ class OwnerControllerTests {
+ 			.andExpect(flash().attributeExists("error"));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(strings = { ZERO_PAGE, NEGATIVE_PAGE, MINIMUM_INTEGER_PAGE, BELOW_MINIMUM_INTEGER_PAGE,
++			BELOW_MINIMUM_LONG_PAGE })
++	void theOwnerListingShouldShowTheFirstPageForZeroNegativeMinimumIntegerAndOversizedNegativePageValues(
++			String pageValue) throws Exception {
++		List<Owner> firstPageOwners = List.of(anOwner(), anOwner());
++		given(this.owners.findByLastNameStartingWith(anyString(), pageNumbered(FIRST_PAGE)))
++			.willReturn(new PageImpl<>(firstPageOwners));
++
++		mockMvc.perform(get("/owners").param("page", pageValue))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE))
++			.andExpect(model().attribute("listOwners", firstPageOwners));
++	}
++
++	@Test
++	void theOwnerSearchShouldListTheFirstPageOfMatchesWhenThePageValueIsBelowOne() throws Exception {
++		List<Owner> firstPageMatches = List.of(anOwner(), anOwner());
++		given(this.owners.findByLastNameStartingWith(eq(SOME_LAST_NAME), pageNumbered(FIRST_PAGE)))
++			.willReturn(new PageImpl<>(firstPageMatches));
++
++		mockMvc.perform(get("/owners").param("page", NEGATIVE_PAGE).param("lastName", SOME_LAST_NAME))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE))
++			.andExpect(model().attribute("listOwners", firstPageMatches));
++	}
++
++	@ParameterizedTest
++	@ValueSource(ints = { FIRST_PAGE, SECOND_PAGE, Integer.MAX_VALUE })
++	void theOwnerListingShouldShowTheRequestedPageForTheFirstSecondAndMaximumIntegerPageValues(int pageValue)
++			throws Exception {
++		List<Owner> requestedPageOwners = List.of(anOwner(), anOwner());
++		given(this.owners.findByLastNameStartingWith(anyString(), pageNumbered(pageValue)))
++			.willReturn(new PageImpl<>(requestedPageOwners));
++
++		mockMvc.perform(get("/owners").param("page", String.valueOf(pageValue)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", pageValue))
++			.andExpect(model().attribute("listOwners", requestedPageOwners));
++	}
++
++	@Test
++	void theOwnerListingShouldShowTheFirstPageWhenNoPageValueIsGiven() throws Exception {
++		List<Owner> firstPageOwners = List.of(anOwner(), anOwner());
++		given(this.owners.findByLastNameStartingWith(anyString(), pageNumbered(FIRST_PAGE)))
++			.willReturn(new PageImpl<>(firstPageOwners));
++
++		mockMvc.perform(get("/owners"))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE))
++			.andExpect(model().attribute("listOwners", firstPageOwners));
++	}
++
++	@ParameterizedTest
++	@ValueSource(strings = { NON_NUMERIC_PAGE, ABOVE_MAXIMUM_INTEGER_PAGE })
++	void theOwnerListingShouldRejectNonNumericAndAboveMaximumIntegerPageValues(String pageValue) throws Exception {
++		mockMvc.perform(get("/owners").param("page", pageValue)).andExpect(status().isBadRequest());
++	}
++
+ }

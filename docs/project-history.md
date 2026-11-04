@@ -185,3 +185,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-30** — Deny the OpenCode `question` tool on every shipped agent, gated by the battery: a dispatched agent never converses outside the log.
 - **2026-10-30** — Fail the doctor, the eval prep, and the battery on a required gate verb a layout lacks; v0.4.11 had shipped one unchecked.
 - **2026-11-02** — Record the owner's reach and a split's position in the ledger: an unattended run resumes on the decisions, and a re-split routes its next slice.
+- **2026-11-04** — Accept the owner-reach decision on its measured arm; record the stopped v0.4.12 row, its cost rise traced to the fixture base.
