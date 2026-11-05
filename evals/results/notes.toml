@@ -584,3 +584,55 @@ v0.3.8 to v0.4.11, eleven versions of brief templates at once. The
 mechanisms and their fixes are the owner-reach decision
 ([ADR](../../docs/adr/2026-11-02-the-owner-is-a-recorded-fact.md)), whose
 acceptance arm ran as dev sweeps on this base."""
+
+[[note]]
+date = 2026-11-05
+task = "visit-edit"
+version = "v0.4.12"
+text = """
+The v0.4.12 rise and its v0.4.13 reversal share one base (SUT `0a603a64`, Claude Code
+2.1.314), so the pair carries no base condition. Cost per pass falls $9.37
+to $5.06 and reverses the v0.4.10 to v0.4.12 rise ($5.23 to $9.37) on the
+mechanism the 2026-11-02 note named: two of the three v0.4.12 reps carried
+a human-targeted consultation that halted the run (r1 and r3, the latter at
+47 records, 12 review-feedback and 3 design-blocks). No v0.4.13 rep
+consults a human; the owner-reach decision resumes on the decision
+clauses ([ADR](../../docs/adr/2026-11-02-the-owner-is-a-recorded-fact.md)).
+The three reps read 23 to 32 records, 5 to 8 review-feedback, 1 or 2
+design-blocks, $3.75 to $6.01, 14 to 20 minutes. The bar holds 3/3 and the
+judge medians hold at 4/4/4/5."""
+
+[[note]]
+date = 2026-11-05
+task = "vets-specialty-filter"
+version = "v0.4.12"
+text = """
+The v0.4.12 rise and its v0.4.13 reversal share one base (SUT `0a603a64`, Claude Code
+2.1.314). Cost per pass falls $13.63 to $7.10 and reverses the v0.4.10 to
+v0.4.12 rise ($5.85 to $13.63). Every v0.4.12 rep recorded one
+build-failure and 3 or 4 design-blocks, 6 to 13 review-feedback, 35 to 71
+records; r3 also consulted both experts around the wrong-shape re-split the
+2026-11-02 note names. The v0.4.13 reps record no build-failure, 1 or 2
+design-blocks, 8 to 11 review-feedback, 31 to 40 records, $6.49 to $7.49
+over 22 to 25 minutes against v0.4.12's 31 to 51. The slice-sizing and
+split rules of the owner-reach decision
+([ADR](../../docs/adr/2026-11-02-the-owner-is-a-recorded-fact.md)) are the
+tagged change between the rows; the bar holds 3/3 and the judge reads
+4/4/4/5 on every rep."""
+
+[[note]]
+date = 2026-11-05
+task = "owners-page-param"
+version = "v0.4.12"
+text = """
+The v0.4.12 rise and its v0.4.13 reversal share one base (SUT `0a603a64`, Claude Code
+2.1.314). Cost per pass falls $3.69 to $2.42 and reverses the v0.4.10 to
+v0.4.12 rise ($2.69 to $3.69) with the ledger shape level: both rows record
+one design-block and 4 or 5 review-feedback per rep, 18 to 26 records.
+The move is per-rep spend on that shape, $2.92 to $4.21 over 9 to 17
+minutes on v0.4.12 against $2.30 to $2.52 over 7 to 9 minutes on v0.4.13,
+below v0.4.10's $2.69 on its older base. The one v0.4.12 rep with a
+system-design consultation (r1, $3.92) has no v0.4.13 counterpart. The bar
+holds 3/3; the judge's test-quality median reads 4, the reading the
+owner-reach acceptance arm held
+([ADR](../../docs/adr/2026-11-02-the-owner-is-a-recorded-fact.md))."""

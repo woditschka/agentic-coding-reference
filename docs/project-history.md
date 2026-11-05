@@ -186,3 +186,4 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-10-30** — Fail the doctor, the eval prep, and the battery on a required gate verb a layout lacks; v0.4.11 had shipped one unchecked.
 - **2026-11-02** — Record the owner's reach and a split's position in the ledger: an unattended run resumes on the decisions, and a re-split routes its next slice.
 - **2026-11-04** — Accept the owner-reach decision on its measured arm; record the stopped v0.4.12 row, its cost rise traced to the fixture base.
+- **2026-11-05** — Record the v0.4.13 sweep: 15 of 15 on the bar at a rep-set of $20.68, reversing the v0.4.12 rise on its own base.

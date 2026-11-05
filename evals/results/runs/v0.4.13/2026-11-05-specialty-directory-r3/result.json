@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 670377,
+      "cache_read": 5884801,
+      "cc1": 64161,
+      "cc5": 606216,
+      "cost": 5.4686509,
+      "hit_pct": 90,
+      "input": 270,
+      "output": 82523,
+      "savings_pct": 82,
+      "total_input": 6555448
+    },
+    "duration_ms": 282676,
+    "models": [
+      "claude-opus-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "num_turns": 13,
+    "subtype": "success",
+    "total_cost_usd": 5.468650900000004
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 9,
+    "insertions": 524,
+    "src_files_changed": 7
+  },
+  "finished": "2026-11-05T20:41:57+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 28,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7805,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController is package-private, binds nothing, and delegates the inversion to the immutable SpecialtyDirectory record (List.copyOf, pure static from()), so no rule lands in the controller; placement in vet/ and the Controller/Repository suffixes fit the catalog, though a Repository over the non-aggregate Specialty lookup and a value object doubling as mapper are mild stretches. Unit tests are behavior-named, framework-free, use named defaults aVet()/aSpecialty() with unique ids and whole-record comparisons; weaknesses are the parameterized test-only factory aHolderOf(surgery, \"Bob\", \"Baker\") with bare literals and the controller test asserting model().attribute against SpecialtyDirectory.from(...), an expectation the code under test computes. specialtyList.html relies on #{none} with no bundle change visible. Docs: PRD REQ-VET-003, contracts rows, package line, and open question all current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is right: the inversion lives in the pure `SpecialtyDirectory.from` factory (immutable record, `List.copyOf`), the package-private `SpecialtyController` only delegates and selects `vets/specialtyList`, and `SpecialtyRepository` follows the `PetTypeRepository` precedent in the feature package. Minor drift: `fullName(Vet)` is a representation decision about one entity that belongs on `Vet`. Unit tests read as specifications with behavior names, named defaults, unique ids, and whole-object comparison; but `aHolderOf(specialty, firstName, lastName)` is a parameterized test-only factory, the controller's `model().attribute(..., SpecialtyDirectory.from(StoredSpecialties...))` computes its expectation from the code under test, and `theSiteNavigationShouldCarryNoEntryFor...` asserts a URL absence that no plausible change meaningfully fails. The new template introduces `#{specialties}`/`#{none}` keys with no bundle hunk visible. PRD REQ-VET-003, contracts rows, package tree, scale table, and the open question are all current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 5,
+        "rationale": "SpecialtyController is package-private, binds nothing and delegates (`showSpecialtyDirectory` 3 lines), while the inversion, full-name formatting and holder ordering sit in the immutable `SpecialtyDirectory` record with a pure static `from`, unit-testable without the framework; the template reuses existing message keys (`#{specialties}`, `#{none}`). SpecialtyDirectoryTests reads as specification: behavior names, named defaults `aVet()`/`aSpecialty()` with unique ids, whole-object `isEqualTo(new SpecialtyDirectory(...))`, derived expectations, no mock framework; controller doubles are hand-written. Deductions: `aHolderOf(specialty, first, last)` is a parameterized helper, not a named default; `model().attribute(..., SpecialtyDirectory.from(...))` recomputes the expected value through production code and repeats the unit's case table; `theSiteNavigationShouldCarryNoEntryFor...` asserts absence of a literal URL. Docs track the change: PRD REQ-VET-003, package tree, contract rows, invariants, scale table, open question.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-11-05-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1253.7
+}

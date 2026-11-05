@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 772233,
+      "cache_read": 5576634,
+      "cc1": 60385,
+      "cc5": 711848,
+      "cost": 5.372029800000002,
+      "hit_pct": 88,
+      "input": 310,
+      "output": 85995,
+      "savings_pct": 80,
+      "total_input": 6349177
+    },
+    "duration_ms": 80316,
+    "models": [
+      "claude-opus-5-5",
+      "claude-sonnet-5-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 5.372029799999999
+  },
+  "diff": {
+    "deletions": 5,
+    "files_changed": 10,
+    "insertions": 561,
+    "src_files_changed": 7
+  },
+  "finished": "2026-11-04T20:56:29+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 33,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6433,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "level": "high",
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: an immutable `SpecialtyDirectory` record with a pure `of(...)` factory holds the inversion, the package-private `SpecialtyDirectoryController` only binds and delegates, and `SpecialtyRepository` follows one-repository-per-root. Two soft spots: the record pre-formats display names (\"first last\") inside the domain type, representation work the brief assigns to a mapper; and `specialtyList.html` introduces `#{none}`/`#{specialties}` with no message-bundle change, against the REQ-LANG-002 key-parity guarantee system-design.md restates. `holds` and `SPECIALTY_ORDER` dereference `getId()`, null for unpersisted entities. Tests read as specifications (`theSpecialtyDirectoryShouldListSpecialtiesByNameThenIdentifier`), use hand-written stubs and whole-object `containsExactly`, but `specialty(id, name)` and `holder(first, last, held...)` are exactly the banned test-only positional factories, and vet names stay bare literals. Docs are current throughout.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "SpecialtyDirectory is an immutable record with List.copyOf, a static pure of(), and a package-private controller that binds nothing and delegates ordering \u2014 right layer, no new controller rule; the only wrinkle is ordering living both in findAllByOrderByName and SPECIALTY_ORDER. Tests are behavior-named, four-phase, use hand-written repository stubs and VetFixtures defaults, and split unit vs. web level correctly, but SpecialtyDirectoryTests adds test-only factories specialty(id,name)/holder(...) \u2014 the forbidden second construction path \u2014 plus bare literals \"Helen\"/\"Zoe\"/\"Smith\" that drive the ordering assertions, and RADIOLOGY_ID=1 silently matches aSpecialty()'s id. specialtyList.html introduces #{specialties} and #{none} with no message-bundle entries, risking REQ-LANG-002's key-parity test. Docs (prd, system-design contracts, scale, vocabulary) are current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: an immutable record with a static pure factory in the `vet` feature package, a package-private `SpecialtyDirectoryController` that only binds, delegates and selects a view, and a `SpecialtyRepository` mirroring `VetRepository`'s `@Transactional(readOnly = true)` style. The new `specialtyList.html` introduces `#{specialties}` and `#{none}` but the patch adds no bundle entries, which the provided design's build-time key-comparison guarantee for REQ-LANG-002 would flag. `SpecialtyDirectory.of` nests a lambda building `Listing` inside the map, mixing two abstraction levels. Tests are behavior-named, phase-separated and compare whole objects, but `specialty(int, String)` and `holder(String, String, Specialty...)` are parameterized test-only factories the principles forbid, bare names like \"Zoe\"/\"Smith\" stay unnamed, `specialty(RADIOLOGY_ID, SURGERY)` misleads, and stub repositories hold mutable shared fields. Docs are thorough and current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-11-04-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 805.3
+}

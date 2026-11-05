@@ -3483,6 +3483,132 @@
    "wall_seconds": 1105.7
   },
   {
+   "agent_spend_usd": 2.5182,
+   "cleared": true,
+   "delivery_wall_seconds": 530.0,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 5.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.13/2026-11-04-owners-page-param-r1",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 1,
+    "tests_required": 1
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.13",
+   "wall_seconds": 578.0
+  },
+  {
+   "agent_spend_usd": 2.2997,
+   "cleared": true,
+   "delivery_wall_seconds": 444.1,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.13/2026-11-05-owners-page-param-r2",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 1,
+    "tests_required": 1
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.13",
+   "wall_seconds": 480.9
+  },
+  {
+   "agent_spend_usd": 2.4427,
+   "cleared": true,
+   "delivery_wall_seconds": 489.1,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "page-param-rebound": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.13/2026-11-05-owners-page-param-r3",
+   "scope": {
+    "files": 2,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 0,
+    "tests_required": 2
+   },
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.4.13",
+   "wall_seconds": 543.0
+  },
+  {
    "agent_spend_usd": 10.0302,
    "cleared": true,
    "delivery_wall_seconds": 1658.8,
@@ -6742,6 +6868,129 @@
    "task_kind": "feature",
    "version": "v0.4.12",
    "wall_seconds": null
+  },
+  {
+   "agent_spend_usd": 4.9307,
+   "cleared": true,
+   "delivery_wall_seconds": 747.4,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.13/2026-11-04-specialty-directory-r1",
+   "scope": {
+    "files": 7,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/vet/VetFixtures.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 5,
+    "tests_required": 8
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 805.3
+  },
+  {
+   "agent_spend_usd": 5.5523,
+   "cleared": true,
+   "delivery_wall_seconds": 967.4,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.13/2026-11-05-specialty-directory-r2",
+   "scope": {
+    "files": 17,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 7,
+    "tests_required": 7
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1030.9
+  },
+  {
+   "agent_spend_usd": 5.0674,
+   "cleared": true,
+   "delivery_wall_seconds": 1207.6,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.13/2026-11-05-specialty-directory-r3",
+   "scope": {
+    "files": 7,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 6,
+    "tests_required": 6
+   },
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1253.7
   },
   {
    "agent_spend_usd": 10.0356,
@@ -10079,6 +10328,132 @@
    "wall_seconds": 3325.8
   },
   {
+   "agent_spend_usd": 7.3033,
+   "cleared": true,
+   "delivery_wall_seconds": 1527.5,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.13/2026-11-04-vets-specialty-filter-r1",
+   "scope": {
+    "files": 5,
+    "outside_triage": [
+     "src/main/resources/templates/vets/pageLink.html"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 12,
+    "tests_required": 12
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1592.7
+  },
+  {
+   "agent_spend_usd": 6.4905,
+   "cleared": true,
+   "delivery_wall_seconds": 1320.0,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.13/2026-11-05-vets-specialty-filter-r2",
+   "scope": {
+    "files": 7,
+    "outside_triage": [
+     "src/main/resources/templates/vets/pageLink.html",
+     "src/test/java/org/springframework/samples/petclinic/vet/VetRepositoryIntegrationTests.java"
+    ],
+    "outside_triage_count": 2,
+    "tests_delivered": 6,
+    "tests_required": 11
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1378.1
+  },
+  {
+   "agent_spend_usd": 7.4927,
+   "cleared": true,
+   "delivery_wall_seconds": 1526.4,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.13/2026-11-05-vets-specialty-filter-r3",
+   "scope": {
+    "files": 4,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 10,
+    "tests_required": 11
+   },
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1602.9
+  },
+  {
    "agent_spend_usd": 0.9583,
    "cleared": true,
    "delivery_wall_seconds": 115.3,
@@ -11747,6 +12122,66 @@
    "task_kind": "refusal",
    "version": "v0.4.12",
    "wall_seconds": 65.2
+  },
+  {
+   "agent_spend_usd": 0.9659,
+   "cleared": true,
+   "delivery_wall_seconds": 118.1,
+   "gate_verbs": [],
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.13/2026-11-04-visit-cancel-r1",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.13",
+   "wall_seconds": 118.1
+  },
+  {
+   "agent_spend_usd": 0.8867,
+   "cleared": true,
+   "delivery_wall_seconds": 135.9,
+   "gate_verbs": [],
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.13/2026-11-05-visit-cancel-r2",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.13",
+   "wall_seconds": 135.9
+  },
+  {
+   "agent_spend_usd": 0.8906,
+   "cleared": true,
+   "delivery_wall_seconds": 133.9,
+   "gate_verbs": [],
+   "judge_facet_medians": null,
+   "known_defects": null,
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.13/2026-11-05-visit-cancel-r3",
+   "scope": null,
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.4.13",
+   "wall_seconds": 133.9
   },
   {
    "agent_spend_usd": 9.0283,
@@ -15262,6 +15697,146 @@
    "task_kind": "feature",
    "version": "v0.4.12",
    "wall_seconds": 2310.0
+  },
+  {
+   "agent_spend_usd": 6.0084,
+   "cleared": true,
+   "delivery_wall_seconds": 1172.3,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.4.13/2026-11-04-visit-edit-r1",
+   "scope": {
+    "files": 14,
+    "outside_triage": [
+     "src/main/resources/messages/messages_de.properties",
+     "src/main/resources/messages/messages_es.properties",
+     "src/main/resources/messages/messages_fa.properties",
+     "src/main/resources/messages/messages_hi.properties",
+     "src/main/resources/messages/messages_ja.properties",
+     "src/main/resources/messages/messages_ko.properties",
+     "src/main/resources/messages/messages_pt.properties",
+     "src/main/resources/messages/messages_ru.properties",
+     "src/main/resources/messages/messages_tr.properties",
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 10,
+    "tests_delivered": 7,
+    "tests_required": 7
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1250.5
+  },
+  {
+   "agent_spend_usd": 5.4308,
+   "cleared": true,
+   "delivery_wall_seconds": 1010.9,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "check",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.4.13/2026-11-05-visit-edit-r2",
+   "scope": {
+    "files": 4,
+    "outside_triage": [
+     "src/test/java/org/springframework/samples/petclinic/owner/PetTests.java"
+    ],
+    "outside_triage_count": 1,
+    "tests_delivered": 5,
+    "tests_required": 5
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 1078.0
+  },
+  {
+   "agent_spend_usd": 3.7468,
+   "cleared": true,
+   "delivery_wall_seconds": 830.5,
+   "gate_verbs": [
+    "autofix-audit",
+    "build",
+    "contracts-sync",
+    "conventions-map",
+    "format",
+    "handoff-log",
+    "test"
+   ],
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
+   "model_pin": "claude-opus-5-5",
+   "models": [
+    "claude-opus-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.4.13/2026-11-05-visit-edit-r3",
+   "scope": {
+    "files": 4,
+    "outside_triage": [],
+    "outside_triage_count": 0,
+    "tests_delivered": 6,
+    "tests_required": 6
+   },
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.4.13",
+   "wall_seconds": 890.7
   }
  ],
  "spec_version": "0.3.0",
@@ -15292,6 +15867,7 @@
   "v0.4.8",
   "v0.4.9",
   "v0.4.10",
-  "v0.4.12"
+  "v0.4.12",
+  "v0.4.13"
  ]
 }
