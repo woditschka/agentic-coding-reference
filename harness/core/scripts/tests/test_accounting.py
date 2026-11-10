@@ -40,6 +40,9 @@ FABLE = "claude-fable-5"
 FABLE_5_1 = "claude-fable-5-1"
 FABLE_5_1_DISPLAY_NAME = "Fable 5.1"
 MYTHOS_5_1 = "claude-mythos-5-1"
+FABLE_5_2 = "claude-fable-5-2"
+FABLE_5_2_DISPLAY_NAME = "Fable 5.2"
+MYTHOS_5_2 = "claude-mythos-5-2"
 AN_UNKNOWN_MODEL = "gpt-9"
 
 # The published list prices ($ per million input, output tokens) and cache
@@ -51,11 +54,13 @@ FABLE_RATE = (10.00, 50.00)
 SONNET_5_RATE = (2.00, 10.00)
 OPUS_5_5_RATE = (4.00, 20.00)
 HAIKU_5_5_RATE = (0.10, 0.50)
+FABLE_5_2_RATE = (8.00, 40.00)
 NO_RATE = (0.0, 0.0)
 CACHE_READ_MULT = 0.10
 CACHE_WRITE_5M_MULT = 1.25
 CACHE_WRITE_1H_MULT = 2.00
 FABLE_5_1_READ_MULT = 0.025
+FABLE_5_2_READ_MULT = 0.025
 OPUS_5_5_READ_MULT = 0.05
 SONNET_5_5_READ_MULT = 0.05
 MTOK = 1_000_000
@@ -161,6 +166,8 @@ class Pricing(unittest.TestCase):
                 "opus 5.5": OPUS_5_5_RATE,
                 "haiku-5-5": HAIKU_5_5_RATE,
                 "haiku 5.5": HAIKU_5_5_RATE,
+                "fable-5-2": FABLE_5_2_RATE,
+                "fable 5.2": FABLE_5_2_RATE,
             },
         )
         self.assertEqual(cc.CACHE_READ_MULT, CACHE_READ_MULT)
@@ -177,6 +184,10 @@ class Pricing(unittest.TestCase):
                 "fable 5.1": FABLE_5_1_READ_MULT,
                 "mythos-5-1": FABLE_5_1_READ_MULT,
                 "mythos 5.1": FABLE_5_1_READ_MULT,
+                "fable-5-2": FABLE_5_2_READ_MULT,
+                "fable 5.2": FABLE_5_2_READ_MULT,
+                "mythos-5-2": FABLE_5_2_READ_MULT,
+                "mythos 5.2": FABLE_5_2_READ_MULT,
                 "opus-5-5": OPUS_5_5_READ_MULT,
                 "opus 5.5": OPUS_5_5_READ_MULT,
                 "sonnet-5-5": SONNET_5_5_READ_MULT,
@@ -215,6 +226,11 @@ class Pricing(unittest.TestCase):
         self.assertEqual(cc._rate(HAIKU_5_5_DISPLAY_NAME), HAIKU_5_5_RATE)
         self.assertEqual(cc._rate(HAIKU), HAIKU_RATE)
 
+    def test_fable_5_2_override_beats_family(self):
+        self.assertEqual(cc._rate(FABLE_5_2), FABLE_5_2_RATE)
+        self.assertEqual(cc._rate(FABLE_5_2_DISPLAY_NAME), FABLE_5_2_RATE)
+        self.assertEqual(cc._rate(FABLE_5_1), FABLE_RATE)
+
     def test_unknown_model_prices_zero(self):
         self.assertEqual(cc._rate(AN_UNKNOWN_MODEL), NO_RATE)
         self.assertEqual(cc._rate(None), NO_RATE)
@@ -230,6 +246,11 @@ class CacheReadMultiplier(unittest.TestCase):
         self.assertEqual(cc._read_mult(FABLE_5_1), FABLE_5_1_READ_MULT)
         self.assertEqual(cc._read_mult(FABLE_5_1_DISPLAY_NAME), FABLE_5_1_READ_MULT)
         self.assertEqual(cc._read_mult(MYTHOS_5_1), FABLE_5_1_READ_MULT)
+
+    def test_fable_5_2_reads_at_its_override_by_id_and_display_name(self):
+        self.assertEqual(cc._read_mult(FABLE_5_2), FABLE_5_2_READ_MULT)
+        self.assertEqual(cc._read_mult(FABLE_5_2_DISPLAY_NAME), FABLE_5_2_READ_MULT)
+        self.assertEqual(cc._read_mult(MYTHOS_5_2), FABLE_5_2_READ_MULT)
 
     def test_opus_5_5_reads_at_its_override_by_id_and_display_name(self):
         self.assertEqual(cc._read_mult(OPUS_5_5), OPUS_5_5_READ_MULT)

@@ -2207,7 +2207,7 @@ if __name__ == "__main__":
 
 
 class ListPrices(unittest.TestCase):
-    """The accounting module's rates against platform.claude.com pricing, 2026-10-25."""
+    """The accounting module's rates against platform.claude.com pricing, 2026-11-10."""
 
     acc: ModuleType
 
@@ -2218,6 +2218,7 @@ class ListPrices(unittest.TestCase):
     def test_each_current_tier_prices_at_its_listed_rate(self) -> None:
         # (model, $/Mtok input, $/Mtok output, cache-read multiplier of input)
         listed = [
+            ("claude-fable-5-2", 8.00, 40.00, 0.025),
             ("claude-fable-5-1", 10.00, 50.00, 0.025),
             ("claude-opus-5-5", 4.00, 20.00, 0.05),
             ("claude-opus-5", 5.00, 25.00, 0.10),
@@ -2237,6 +2238,7 @@ class ListPrices(unittest.TestCase):
             ("Claude Sonnet 5.5", "claude-sonnet-5-5"),
             ("Claude Opus 5.5", "claude-opus-5-5"),
             ("Claude Haiku 5.5", "claude-haiku-5-5"),
+            ("Claude Fable 5.2", "claude-fable-5-2"),
         ]:
             with self.subTest(display=display):
                 self.assertEqual(self.acc._rate(display), self.acc._rate(model))

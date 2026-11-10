@@ -17,12 +17,12 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
-# Source: platform.claude.com pricing, current as of 2026-10-25. This block is
+# Source: platform.claude.com pricing, current as of 2026-11-10. This block is
 # the single edit point when Anthropic changes prices; no consumer copies a
 # rate into shell, skill, or doc prose.
 #
-# Priced by model family, not exact id: every Fable tier (5 and 5.1) is
-# $10/$50, every served Opus tier from 4.5 through Opus 5 is $5/$25, every
+# Priced by model family, not exact id: Fable 5 and 5.1 are $10/$50, every
+# served Opus tier from 4.5 through Opus 5 is $5/$25, every
 # Sonnet tier through 4.6 lists at $3/$15, and Haiku 4.5 is $1/$5, so the
 # family rate is exact today and survives a new same-price tier. A tier priced
 # apart from its family on a durable basis takes a PRICE_OVERRIDE entry. These
@@ -46,12 +46,14 @@ PRICE = {
 # the same $2/$10; its cache reads differ (CACHE_READ_MULT_OVERRIDE). The
 # `sonnet-5` needles are prefixes of its id and display name, so one entry
 # prices both tiers. Opus 5.5 lists at $4/$20, below the Opus family. Haiku
-# 5.5 lists at $0.10/$0.50, a tenth of the Haiku family. Each needle set is
-# tested ahead of its family.
+# 5.5 lists at $0.10/$0.50, a tenth of the Haiku family. Fable 5.2 lists at
+# $8/$40, below the Fable family. Each needle set is tested ahead of its
+# family.
 PRICE_OVERRIDE = (
     (("sonnet-5", "sonnet 5"), (2.00, 10.00)),
     (("opus-5-5", "opus 5.5"), (4.00, 20.00)),
     (("haiku-5-5", "haiku 5.5"), (0.10, 0.50)),
+    (("fable-5-2", "fable 5.2"), (8.00, 40.00)),
 )
 
 # A tier variant's transcript carries its own agentType (<type>-routine)
@@ -66,14 +68,16 @@ CACHE_WRITE_5M_MULT = 1.25
 CACHE_WRITE_1H_MULT = 2.00
 
 # Per-model cache-read overrides, matched as a lowercase substring (id or
-# display-name form) before the flat multiplier: Fable 5.1 and Mythos 5.1
-# price cache reads at 0.025x base input ($0.25/MTok), Opus 5.5 at 0.05x
-# ($0.20/MTok), and Sonnet 5.5 at 0.05x ($0.10/MTok, where Sonnet 5 reads at
-# the flat 0.10x), all per platform.claude.com pricing. The write multipliers
-# carry no per-model split.
+# display-name form) before the flat multiplier: Fable and Mythos 5.1 and 5.2
+# price cache reads at 0.025x base input ($0.25/MTok on 5.1, $0.20/MTok on
+# 5.2), Opus 5.5 at 0.05x ($0.20/MTok), and Sonnet 5.5 at 0.05x ($0.10/MTok,
+# where Sonnet 5 reads at the flat 0.10x), all per platform.claude.com
+# pricing. The write multipliers carry no per-model split.
 CACHE_READ_MULT_OVERRIDE = (
     (("fable-5-1", "fable 5.1"), 0.025),
     (("mythos-5-1", "mythos 5.1"), 0.025),
+    (("fable-5-2", "fable 5.2"), 0.025),
+    (("mythos-5-2", "mythos 5.2"), 0.025),
     (("opus-5-5", "opus 5.5"), 0.05),
     (("sonnet-5-5", "sonnet 5.5"), 0.05),
 )
